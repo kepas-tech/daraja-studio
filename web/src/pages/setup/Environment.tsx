@@ -7,13 +7,15 @@ import { copy } from '../../copy/en';
 import { StepFooter } from './StepFooter';
 import { Flash } from '../../components/Flash';
 import { StatusPill } from '../../components/StatusPill';
+import { useSession } from '../../app/session';
 
 type Env = 'sandbox' | 'production';
 const ENVS: Env[] = ['sandbox', 'production'];
 
 export function Environment({ onDone, onBack }: { onDone: () => void; onBack?: () => void }) {
   const toast = useToast();
-  const [env, setEnv] = useState<Env>('sandbox');
+  const { saved } = useSession();
+  const [env, setEnv] = useState<Env>(saved?.mode ?? 'sandbox');
   const [err, setErr] = useState<Error | null>(null); const [busy, setBusy] = useState(false);
   return (
     <form className="space-y-4" onSubmit={async (e) => {

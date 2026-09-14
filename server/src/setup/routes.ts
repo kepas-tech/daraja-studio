@@ -11,7 +11,7 @@ import { HttpError } from '../util/errors.js';
 import { audit } from '../audit/log.js';
 
 const ownerSchema = z.object({ displayName: z.string().trim().min(1).max(80), username: z.string().trim().regex(/^[a-z0-9_.-]{3,32}$/i), password: z.string().min(MIN_PASSWORD_LENGTH).max(512) });
-const usesSchema = z.object({ payOut: z.boolean(), collect: z.boolean() });
+const usesSchema = z.object({ payOut: z.boolean(), collect: z.boolean(), stk: z.boolean().default(false) });
 const orgSchema = z.object({ name: z.string().trim().min(1).max(120), nominatedNumber: z.string().trim().regex(/^254\d{9}$/), notificationPhone: z.string().trim().regex(/^254\d{9}$/) });
 const modeSchema = z.object({ environment: z.enum(['sandbox','production']), confirmShortcode: z.string().optional() });
 const shortcodeSchema = z.object({ shortcode: z.string().trim().regex(/^\d{5,7}$/) });
@@ -59,15 +59,30 @@ export function setupRoutes(deps: AppDeps): Router {
       const { n, s, env } = await withOrg(orgId, async () => {
         const [{ n }] = await deps.db.query<{ n: string }>('SELECT count(*)::text AS n FROM people');
         const env = await currentMode();
-        const s = await deps.settings.getMany(['setup.completedAt', 'setup.step', 'use.payOut', 'use.collect', `env.${env}.passkeyProvenAt`]);
+        const s = await deps.settings.getMany([
+          'setup.completedAt', 'setup.step', 'use.payOut', 'use.collect', 'use.stk', `env.${env}.passkeyProvenAt`,
+          'org.name', 'org.nominatedNumber', 'org.notificationPhone', `env.${env}.shortcode`, `env.${env}.credsVerifiedAt`, 'public.url', 'public.verifiedAt',
+        ]);
         return { n, s, env };
       });
       res.json({
         needsOwner: n === '0', completed: !!s['setup.completedAt'], step: s['setup.completedAt'] ? 'done' : s['setup.step'],
         // Never asked yet is not the same as answering no to both — the wizard must ask rather
         // than assume, so this stays null until `/uses` has actually been posted.
-        uses: s['use.payOut'] === null && s['use.collect'] === null ? null : { payOut: s['use.payOut'] === 'true', collect: s['use.collect'] === 'true' },
+        uses: s['use.payOut'] === null && s['use.collect'] === null ? null : { payOut: s['use.payOut'] === 'true', collect: s['use.collect'] === 'true', stk: s['use.stk'] === 'true' },
         passkeyProven: !!s[`env.${env}.passkeyProvenAt`],
+        // What earlier steps already stored, so Back lands on the answer rather than a blank field.
+        // Secrets are never echoed: the key/secret and passkey steps only learn that one is in place.
+        // Only a signed-in caller gets these; the anonymous first visit does not.
+        ...(req.person ? {
+          saved: {
+            mode: env,
+            org: { name: s['org.name'], nominatedNumber: s['org.nominatedNumber'], notificationPhone: s['org.notificationPhone'] },
+            shortcode: s[`env.${env}.shortcode`],
+            darajaVerified: !!s[`env.${env}.credsVerifiedAt`],
+            publicUrl: s['public.url'], publicVerified: !!s['public.verifiedAt'],
+          },
+        } : {}),
       });
     } catch (e) { next(e); }
   });
@@ -134,9 +149,9 @@ export function setupRoutes(deps: AppDeps): Router {
   const a = (req: { person?: { id: string } } & Parameters<typeof clientIp>[0]) => ({ personId: req.person?.id ?? null, ip: clientIp(req) });
 
   /** What the business said it needs, in its own words. Decides which later steps are required. */
-  async function readUses(): Promise<{ payOut: boolean; collect: boolean }> {
-    const s = await deps.settings.getMany(['use.payOut', 'use.collect']);
-    return { payOut: s['use.payOut'] === 'true', collect: s['use.collect'] === 'true' };
+  async function readUses(): Promise<{ payOut: boolean; collect: boolean; stk: boolean }> {
+    const s = await deps.settings.getMany(['use.payOut', 'use.collect', 'use.stk']);
+    return { payOut: s['use.payOut'] === 'true', collect: s['use.collect'] === 'true', stk: s['use.stk'] === 'true' };
   }
 
   // Asked before any credential, because the answers decide which credentials are asked for at
@@ -149,6 +164,9 @@ export function setupRoutes(deps: AppDeps): Router {
       if (!b.payOut && !b.collect) throw new HttpError(400, 'nothing_chosen', 'Choose at least one. Studio needs to know what this shortcode is for.');
       await deps.settings.set('use.payOut', String(b.payOut));
       await deps.settings.set('use.collect', String(b.collect));
+      // The phone prompt (STK Push) is the one way of receiving that needs a passkey, so it is
+      // its own answer: receiving over paybill/till alone asks for nothing extra.
+      await deps.settings.set('use.stk', String(b.stk));
       await audit(deps.db, { personId: req.person!.id, action: 'setup.uses', ip: clientIp(req), after: b });
       await step('org');
       res.status(204).end();
@@ -165,9 +183,9 @@ export function setupRoutes(deps: AppDeps): Router {
       const out = await svc.testPublicUrl();
       // The passkey can only be tested once the callback address is reachable — Safaricom's
       // acknowledgement is the proof, but the push itself needs a real address to answer.
-      // A business that said it will not take money in has no use for a passkey; a business that
-      // never pays out has no use for an operator. Skip straight past whichever it does not need.
-      if (out.ok) { const uses = await readUses(); await step(uses.collect ? 'passkey' : uses.payOut ? 'operator' : 'done'); }
+      // Only the phone prompt (STK Push) needs a passkey; only paying out needs an operator. Skip
+      // straight past whichever the business did not ask for.
+      if (out.ok) { const uses = await readUses(); await step(uses.stk ? 'passkey' : uses.payOut ? 'operator' : 'done'); }
       res.json(out);
     } catch (e) { next(e); }
   });
@@ -199,7 +217,7 @@ export function setupRoutes(deps: AppDeps): Router {
       if (!v.environments[v.mode].ready.creds) throw new HttpError(409, 'incomplete', 'Add the Daraja key and secret first.');
       if (!v.publicVerifiedAt) throw new HttpError(409, 'incomplete', 'Test your public address first.');
       if (uses.payOut && !v.environments[v.mode].ready.operator) throw new HttpError(409, 'incomplete', 'Add a working API operator first.');
-      if (uses.collect && !(await deps.settings.get(`env.${v.mode}.passkeyProvenAt`))) throw new HttpError(409, 'incomplete', 'Prove your passkey first.');
+      if (uses.stk && !(await deps.settings.get(`env.${v.mode}.passkeyProvenAt`))) throw new HttpError(409, 'incomplete', 'Prove your passkey first.');
       await deps.settings.set('setup.completedAt', new Date().toISOString());
       // Mirrors what migration 007 did once, by hand, for the live organisation: the wizard is the
       // only route that ever moves a boot-created organisation (single mode's own, or a hosted

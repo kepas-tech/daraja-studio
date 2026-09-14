@@ -24,15 +24,17 @@ export function SetupLayout() {
   // refresh, so the session's own step can lag one behind.
   const fromUrl = pathname.split('/setup/')[1]?.split('/')[0] ?? '';
   const current = ORDER.includes(fromUrl) ? fromUrl : fromSession;
-  const go = (step: string) => nav(`/setup/${step}`);
+  // Every step stores its answer on the server before moving on; refreshing here is what lets
+  // Back (and a reload) show the answer instead of a blank field.
+  const go = async (step: string) => { await s.refresh(); nav(`/setup/${step}`); };
   // The passkey can only be tested once the public address is reachable — the push needs a real
-  // callback address to answer — and a business that never collects has no use for one; a business
-  // that never pays out has no use for an operator. The step list, the counter and both
-  // destinations skip whichever the owner's own answers to "What you need" ruled out.
-  const steps = ORDER.filter((k) => (k !== 'passkey' || s.uses?.collect !== false) && (k !== 'operator' || s.uses?.payOut !== false));
+  // callback address to answer — and only the phone prompt (STK Push) needs one; only paying out
+  // needs an operator. The step list, the counter and both destinations skip whichever the
+  // owner's own answers to "What you need" ruled out.
+  const steps = ORDER.filter((k) => (k !== 'passkey' || s.uses?.stk !== false) && (k !== 'operator' || s.uses?.payOut !== false));
   const idx = Math.max(0, steps.indexOf(current));
   const titleOf = (k: string) => copy.setup.steps[ORDER.indexOf(k)];
-  const afterPublicUrl = () => go(s.uses?.collect ? 'passkey' : s.uses?.payOut ? 'operator' : 'done');
+  const afterPublicUrl = () => go(s.uses?.stk ? 'passkey' : s.uses?.payOut ? 'operator' : 'done');
   const afterPasskey = () => go(s.uses?.payOut ? 'operator' : 'done');
   return (
     <div className="min-h-screen bg-page px-4 py-8">
@@ -53,13 +55,13 @@ export function SetupLayout() {
             <Route index element={<Navigate to={`/setup/${fromSession}`} replace />} />
             <Route path="owner" element={<Owner created={s.person?.display_name ?? null} onDone={async () => { if (!s.person) await s.refresh(); go('environment'); }} />} />
             <Route path="environment" element={<Environment onDone={() => go('uses')} onBack={() => go('owner')} />} />
-            <Route path="uses" element={<Uses onDone={async () => { await s.refresh(); go('org'); }} onBack={() => go('environment')} />} />
+            <Route path="uses" element={<Uses onDone={() => go('org')} onBack={() => go('environment')} />} />
             <Route path="org" element={<Org onDone={() => go('shortcode')} onBack={() => go('uses')} />} />
             <Route path="shortcode" element={<Shortcode onDone={() => go('daraja')} onBack={() => go('org')} />} />
             <Route path="daraja" element={<Daraja onDone={() => go('public-url')} onBack={() => go('shortcode')} />} />
             <Route path="public-url" element={<PublicUrl onDone={afterPublicUrl} onBack={() => go('daraja')} />} />
-            <Route path="passkey" element={<Passkey onDone={async () => { await s.refresh(); afterPasskey(); }} onBack={() => go('public-url')} />} />
-            <Route path="operator" element={<Operator onDone={() => go('done')} onBack={() => go(s.uses?.collect ? 'passkey' : 'public-url')} />} />
+            <Route path="passkey" element={<Passkey onDone={afterPasskey} onBack={() => go('public-url')} />} />
+            <Route path="operator" element={<Operator onDone={() => go('done')} onBack={() => go(s.uses?.stk ? 'passkey' : 'public-url')} />} />
             <Route path="done" element={<Done onDone={async () => { await s.refresh(); nav('/'); }} />} />
           </Routes>
         </Card>

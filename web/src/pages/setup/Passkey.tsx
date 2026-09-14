@@ -9,6 +9,7 @@ import { Flash } from '../../components/Flash';
 import { StepFooter } from './StepFooter';
 import { Questionnaire } from '../../components/Questionnaire';
 import { normalizeKe } from '../../format';
+import { useSession } from '../../app/session';
 
 /**
  * The step that proves a passkey, which nothing else can.
@@ -23,7 +24,8 @@ export function Passkey({ onDone, onBack }: { onDone: () => void; onBack: () => 
   const [passkey, setPasskey] = useState('');
   const [phone, setPhone] = useState('');
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<'proven' | 'refused' | null>(null);
+  const { passkeyProven } = useSession();
+  const [result, setResult] = useState<'proven' | 'refused' | null>(passkeyProven ? 'proven' : null);
   const [err, setErr] = useState<Error | null>(null);
   const c = copy.setup.passkey;
 

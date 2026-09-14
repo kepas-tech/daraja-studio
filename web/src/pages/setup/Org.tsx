@@ -5,10 +5,12 @@ import { ErrorCard } from '../../components/ErrorCard';
 import { Questionnaire } from '../../components/Questionnaire';
 import { useToast } from '../../components/Toast';
 import { copy } from '../../copy/en';
+import { useSession } from '../../app/session';
 
 export function Org({ onDone, onBack }: { onDone: () => void; onBack: () => void }) {
   const toast = useToast();
-  const [f, setF] = useState({ name: '', nominatedNumber: '', notificationPhone: '' });
+  const { saved } = useSession();
+  const [f, setF] = useState({ name: saved?.org.name ?? '', nominatedNumber: saved?.org.nominatedNumber ?? '', notificationPhone: saved?.org.notificationPhone ?? '' });
   const [err, setErr] = useState<Error | null>(null); const [busy, setBusy] = useState(false);
   const submit = async () => {
     if (busy) return;

@@ -43,6 +43,14 @@ describe('setup environment', () => {
     const r = await h(request(app).post('/api/setup/environment')).send({ environment: 'production' });
     expect(r.status).toBe(200);
     expect(r.body.mode).toBe('production');
+    // Back to this step with a production shortcode already stored: still no confirmation while
+    // setup is unfinished, whether the answer is the same or changed.
+    await h(request(app).post('/api/setup/uses')).send({ payOut: true, collect: false });
+    await h(request(app).post('/api/setup/org')).send({ name: 'KEPAS', nominatedNumber: '254700000000', notificationPhone: '254700000000' });
+    await h(request(app).post('/api/setup/shortcode')).send({ shortcode: '700111' });
+    expect((await h(request(app).post('/api/setup/environment')).send({ environment: 'production' })).status).toBe(200);
+    expect((await h(request(app).post('/api/setup/environment')).send({ environment: 'sandbox' })).status).toBe(200);
+    expect((await h(request(app).post('/api/setup/environment')).send({ environment: 'production' })).status).toBe(200);
     // The owner's name can be corrected from the wizard; the username stays.
     expect((await h(request(app).put('/api/auth/display-name')).send({ displayName: 'Nelson Otieno' })).status).toBe(204);
     expect((await h(request(app).put('/api/auth/display-name')).send({ displayName: '' })).status).toBe(400);
@@ -71,9 +79,9 @@ describe('setup wizard', () => {
 
     // Both ticked, so every step below is on this walk's path — the untested one (collect-only
     // skips the operator; pay-out-only skips the passkey) is covered on its own further down.
-    expect((await h(request(app).post('/api/setup/uses')).send({ payOut: true, collect: true })).status).toBe(204);
+    expect((await h(request(app).post('/api/setup/uses')).send({ payOut: true, collect: true, stk: true })).status).toBe(204);
     st = await request(app).get('/api/setup/status');
-    expect(st.body.uses).toEqual({ payOut: true, collect: true });
+    expect(st.body.uses).toEqual({ payOut: true, collect: true, stk: true });
 
     const envResp = await h(request(app).post('/api/setup/environment')).send({ environment: 'sandbox' });
     expect(envResp.status).toBe(200);
@@ -136,12 +144,27 @@ describe('setup wizard', () => {
     expect(r.body.error.code).toBe('nothing_chosen');
   });
 
+  it('receiving over paybill or till alone needs no passkey: the wizard skips straight to done', async () => {
+    await resetTables(deps.db);
+    const owner = await request(app).post('/api/setup/owner').send({ displayName: 'Owner', username: 'owner', password: 'correct horse battery' });
+    const h = (r: request.Test) => r.set('Cookie', owner.headers['set-cookie'][0]).set('x-csrf-token', owner.body.csrf);
+    await h(request(app).post('/api/setup/uses')).send({ payOut: false, collect: true });
+    expect((await request(app).get('/api/setup/status')).body.uses).toEqual({ payOut: false, collect: true, stk: false });
+    await h(request(app).post('/api/setup/environment')).send({ environment: 'sandbox' });
+    await h(request(app).post('/api/setup/org')).send({ name: 'KEPAS', nominatedNumber: '254700000000', notificationPhone: '254700000000' });
+    await h(request(app).post('/api/setup/shortcode')).send({ shortcode: '600999' });
+    await h(request(app).post('/api/setup/daraja')).send({ consumerKey: 'k', consumerSecret: 's' });
+    await h(request(app).post('/api/setup/public-url')).send({ url: 'https://studio.example' });
+    await h(request(app).post('/api/setup/public-url/test'));
+    expect((await request(app).get('/api/setup/status')).body.step).toBe('done');
+  });
+
   it('a business that only takes money in never sees the operator step, and cannot finish without a proven passkey', async () => {
     await resetTables(deps.db);
     const owner = await request(app).post('/api/setup/owner').send({ displayName: 'Owner', username: 'owner', password: 'correct horse battery' });
     const cookie = owner.headers['set-cookie'][0]; const csrf = owner.body.csrf;
     const h = (r: request.Test) => r.set('Cookie', cookie).set('x-csrf-token', csrf);
-    await h(request(app).post('/api/setup/uses')).send({ payOut: false, collect: true });
+    await h(request(app).post('/api/setup/uses')).send({ payOut: false, collect: true, stk: true });
     await h(request(app).post('/api/setup/environment')).send({ environment: 'sandbox' });
     await h(request(app).post('/api/setup/org')).send({ name: 'KEPAS', nominatedNumber: '254700000000', notificationPhone: '254700000000' });
     await h(request(app).post('/api/setup/shortcode')).send({ shortcode: '600999' });
@@ -197,7 +220,7 @@ describe('setup wizard', () => {
       const owner = await request(failing.app).post('/api/setup/owner').send({ displayName: 'Owner', username: 'owner', password: 'correct horse battery' });
       const cookie = owner.headers['set-cookie'][0]; const csrf = owner.body.csrf;
       const h = (r: request.Test) => r.set('Cookie', cookie).set('x-csrf-token', csrf);
-      await h(request(failing.app).post('/api/setup/uses')).send({ payOut: false, collect: true });
+      await h(request(failing.app).post('/api/setup/uses')).send({ payOut: false, collect: true, stk: true });
       await h(request(failing.app).post('/api/setup/environment')).send({ environment: 'sandbox' });
       await h(request(failing.app).post('/api/setup/org')).send({ name: 'KEPAS', nominatedNumber: '254700000000', notificationPhone: '254700000000' });
       await h(request(failing.app).post('/api/setup/shortcode')).send({ shortcode: '600999' });
