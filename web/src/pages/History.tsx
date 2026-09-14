@@ -1,4 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useEvents } from '../api/events';
+import { ErrorCard, explainApiError, type Explained } from '../components/ErrorCard';
+import { Flash } from '../components/Flash';
+import { useToast } from '../components/Toast';
 import { Link } from 'react-router';
 import { api } from '../api/client';
 import type { Page, RequestView } from '../api/types';
@@ -14,11 +18,43 @@ const PAGE = 7;
 const STATUSES = ['completed', 'sent', 'failed', 'unknown', 'pending', 'cancelled'];
 
 export function History() {
+  const toast = useToast();
   const [q, setQ] = useState(''); const [from, setFrom] = useState(''); const [to, setTo] = useState(''); const [status, setStatus] = useState('');
   const [items, setItems] = useState<RequestView[]>([]); const [next, setNext] = useState<string | null>(null); const [loaded, setLoaded] = useState(false);
   // Keyset paging is forward-only on the server; Previous is the stack of cursors we came through.
   const [stack, setStack] = useState<string[]>([]);
   const cursor = stack[stack.length - 1] ?? null;
+  // Look up: a receipt that never passed through here can still be asked about. Ported from the
+  // old Look up page: start the query, then follow the answer over SSE with a slow poll behind it.
+  const receiptTyped = q.trim().toUpperCase();
+  const isReceipt = /^[A-Z0-9]{10}$/.test(receiptTyped);
+  const [pending, setPending] = useState<string | null>(null);
+  const [lookup, setLookup] = useState<RequestView | null>(null);
+  const [lookupErr, setLookupErr] = useState<Error | Explained | null>(null);
+  const [askedFor, setAskedFor] = useState('');
+  const reload = useCallback((id: string) => api.get<RequestView>(`/api/requests/${id}`).then((r) => {
+    setLookup(r);
+    if (r.status !== 'sent') {
+      setPending(null);
+      if (r.status === 'completed') toast.success(r.meaning ?? copy.lookup.says);
+      else if (r.status === 'unknown') toast.error(copy.lookup.noAnswer);
+      else if (r.status === 'failed') toast.error(r.meaning ?? r.safaricomSaid ?? copy.error.generic);
+    }
+  }).catch(() => {}), [toast]);
+  useEvents(useCallback((e) => { const p = e.payload as { id?: string }; if (e.type === 'request.updated' && pending && p.id === pending) void reload(pending); }, [pending, reload]), pending !== null, useCallback(() => { if (pending) void reload(pending); }, [pending, reload]));
+  useEffect(() => {
+    if (!pending) return;
+    const t = setInterval(() => reload(pending), 15_000);
+    return () => clearInterval(t);
+  }, [pending, reload]);
+  const ask = async () => {
+    setLookupErr(null); setLookup(null); setAskedFor(receiptTyped);
+    try { const r = await api.post<{ requestId: string }>('/api/lookup', { receipt: receiptTyped }); setPending(r.requestId); toast.info(copy.lookup.asking); }
+    catch (e) { setLookupErr(explainApiError(e)); }
+  };
+  const explained = lookup?.status === 'failed' && lookup.safaricomSaid && lookup.meaning && lookup.whatToDo ? { safaricomSaid: lookup.safaricomSaid, meaning: lookup.meaning, whatToDo: lookup.whatToDo } : null;
+  const notHere = loaded && isReceipt && !items.some((r) => r.receipt === receiptTyped);
+  const showLookup = askedFor === receiptTyped && (pending || lookup || lookupErr);
   const params = useCallback((c?: string | null) => {
     const p = new URLSearchParams();
     p.set('limit', String(PAGE));
@@ -45,7 +81,28 @@ export function History() {
             {STATUSES.map((s) => <option key={s} value={s}>{copy.request.status[s] ?? s}</option>)}
           </select>
         </div>
-        {loaded && items.length === 0 && <p className="p-4 text-base text-muted">{copy.history.empty}</p>}
+        {notHere && (
+          <div className="border-b border-line p-4">
+            <Flash tone="neutral">
+              <p>{copy.lookup.notHere}</p>
+              {!showLookup && <div className="pt-1"><Button type="button" onClick={() => void ask()}>{copy.lookup.ask}</Button></div>}
+              {showLookup && pending && !lookup && <p role="status" className="text-sm text-muted">{copy.lookup.asking}</p>}
+            </Flash>
+            {showLookup && lookupErr && <div className="mt-3"><ErrorCard error={lookupErr} /></div>}
+            {showLookup && lookup?.status === 'completed' && (
+              <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 rounded-md border border-line bg-surface p-4 text-base">
+                <dt className="text-muted">{copy.lookup.says}</dt><dd>{lookup.meaning}</dd>
+                <dt className="text-muted">{copy.request.receipt}</dt><dd><code>{lookup.receipt}</code></dd>
+                <dt className="text-muted">{copy.request.amount}</dt><dd>{money(lookup.amountCents)}</dd>
+                {lookup.recipient.name && <><dt className="text-muted">{copy.request.to}</dt><dd>{lookup.recipient.name}</dd></>}
+              </dl>
+            )}
+            {showLookup && explained && <div className="mt-3"><ErrorCard error={explained} /></div>}
+            {showLookup && lookup?.status === 'failed' && !explained && <div className="mt-3"><ErrorCard error={new Error(lookup.meaning ?? lookup.safaricomSaid ?? copy.error.generic)} /></div>}
+            {showLookup && lookup?.status === 'unknown' && <p role="alert" className="mt-3 text-base">{copy.lookup.noAnswer}</p>}
+          </div>
+        )}
+        {loaded && items.length === 0 && !notHere && <p className="p-4 text-base text-muted">{copy.history.empty}</p>}
         {items.length > 0 && (
           <div className="overflow-x-auto">
             <table className="w-full text-base">

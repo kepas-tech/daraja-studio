@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { api } from '../api/client';
 import { useEvents } from '../api/events';
 import type { RequestView } from '../api/types';
@@ -44,6 +44,14 @@ export function Reverse() {
 
   const clean = receipt.trim().toUpperCase();
   const valid = /^[A-Z0-9]{10}$/.test(clean);
+  // Opened from a payment's own page: the receipt is known, so go straight to the review.
+  const [search] = useSearchParams();
+  const fromLink = (search.get('receipt') ?? '').trim().toUpperCase();
+  useEffect(() => {
+    if (!/^[A-Z0-9]{10}$/.test(fromLink)) return;
+    setReceipt(fromLink); setErr(null); setPending(true);
+    api.get<SettledPayment>('/api/send/reversal/' + fromLink).then((f) => { setFound(f); setStep('review'); }).catch((e) => setErr(explainApiError(e))).finally(() => setPending(false));
+  }, [fromLink]);
 
   // The pre-check: a receipt that settled nowhere is refused here, before any password and before
   // Safaricom is asked anything.

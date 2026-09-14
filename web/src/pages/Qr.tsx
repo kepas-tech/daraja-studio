@@ -5,7 +5,8 @@ import { Button } from '../components/Button';
 import { ErrorCard, type Explained } from '../components/ErrorCard';
 import { Card } from '../components/Card';
 import { Flash } from '../components/Flash';
-import { TaskCard } from '../components/TaskCard';
+import { Questionnaire } from '../components/Questionnaire';
+import { Segmented } from '../components/Segmented';
 import { MoneyInput } from '../components/MoneyInput';
 import { PageHeader } from '../components/PageHeader';
 import { TextField } from '../components/TextField';
@@ -63,22 +64,14 @@ export function Qr() {
       {!details && !error && <p role="status" className="text-muted">{copy.app.loading}</p>}
       {!details && error && <div className="max-w-xl space-y-3"><ErrorCard error={error} /><Button onClick={() => setAttempt((v) => v + 1)}>{copy.app.retry}</Button></div>}
       {details && (
-        <form onSubmit={(e) => { e.preventDefault(); void generate(); }}>
-          <TaskCard intro={<>{text.payee}: <strong className="text-ink">{details.merchantName}</strong> · {text.shortcode}: {details.shortcode}</>} footer={<Button type="submit" disabled={!valid || busy}>{busy ? text.generating : text.generate}</Button>}>
-            <fieldset disabled={busy} className="space-y-4">
-              <label className="block"><span className="mb-1 block text-base font-semibold">{text.type}</span>
-                <select className="min-h-11 w-full rounded-md border border-line bg-surface px-3 text-base text-ink" value={trxCode} onChange={(e) => { changed(); setTrxCode(e.target.value as 'PB' | 'BG'); }}>
-                  <option value="PB">{text.paybill}</option><option value="BG">{text.till}</option>
-                </select>
-              </label>
-              <TextField label={text.reference} hint={text.referenceHint} value={reference} maxLength={32} onChange={(e) => { changed(); setReference(e.target.value); }} />
-              <label className="flex items-center gap-3 text-base"><input type="checkbox" className="size-5" checked={customerAmount} onChange={(e) => { changed(); setCustomerAmount(e.target.checked); }} />{text.customerAmount}</label>
-              {!customerAmount && <MoneyInput label={text.amount} valueCents={amount} onChange={(v) => { changed(); setAmount(v); }} />}
-              <ErrorCard error={error} />
-            </fieldset>
-          </TaskCard>
-        </form>
+        <Questionnaire doneLabel={busy ? text.generating : text.generate} busy={busy} intro={<>{text.payee}: <strong className="text-ink">{details.merchantName}</strong> · {text.shortcode}: {details.shortcode}</>} onDone={() => void generate()} steps={[
+          { key: 'type', question: text.type, valid: true, render: () => <Segmented name="trxCode" label={text.type} value={trxCode} options={[{ value: 'PB', label: text.paybill }, { value: 'BG', label: text.till }]} onChange={(v) => { changed(); setTrxCode(v); }} /> },
+          { key: 'reference', question: text.reference, hint: text.referenceHint, valid: reference.trim().length > 0 && reference.trim().length <= 32, render: () => <TextField label={text.reference} labelHidden value={reference} maxLength={32} onChange={(e) => { changed(); setReference(e.target.value); }} autoFocus /> },
+          { key: 'who', question: text.who, valid: true, render: () => <Segmented name="who" label={text.who} value={customerAmount ? 'customer' : 'fixed'} options={[{ value: 'fixed', label: text.fixed }, { value: 'customer', label: text.customerAmount }]} onChange={(v) => { changed(); setCustomerAmount(v === 'customer'); }} /> },
+          ...(customerAmount ? [] : [{ key: 'amount', question: text.amount, valid: amount !== null && Number.isSafeInteger(amount) && amount > 0, render: () => <MoneyInput label={text.amount} labelHidden valueCents={amount} onChange={(v) => { changed(); setAmount(v); }} autoFocus /> }]),
+        ]} />
       )}
+      {error && details && <div className="max-w-xl"><ErrorCard error={error} /></div>}
       {env && <Flash tone={env === 'sandbox' ? 'neutral' : 'success'} className="max-w-xl"><p>{env === 'sandbox' ? text.sandbox : text.production}</p><p className="text-sm text-muted">{text.unpaid}</p></Flash>}
       {result && <Card className="max-w-xl" title={result.merchantName} aria-label={text.ready} bodyClassName="space-y-3 p-4">
         <p className="text-sm text-muted">{text.shortcode}: {result.shortcode} · {result.trxCode === 'PB' ? text.paybill : text.till} · {result.amountCents === 0 ? text.customerAmount : money(result.amountCents)} · {result.accountReference}</p>

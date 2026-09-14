@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router';
 import { Qr } from '../pages/Qr';
 import { Nav } from '../app/Nav';
 import { copy } from '../copy/en';
+import { answer, next } from './questionnaire';
 
 const state = vi.hoisted(() => ({ allowed: true }));
 vi.mock('../app/session', () => ({ useSession: () => ({ person: { is_owner: false }, permissions: state.allowed ? ['qr.generate'] : [] }) }));
@@ -31,8 +32,18 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 async function fill() {
   render(<Qr />);
   await screen.findByText(details.merchantName);
-  fireEvent.change(screen.getByLabelText(text.reference, { exact: false }), { target: { value: 'ORDER-QR' } });
+  next();
+  answer(text.reference, 'ORDER-QR', { exact: false });
+  next();
   fireEvent.change(screen.getByLabelText(text.amount), { target: { value: '125.50' } });
+}
+async function fillCustomerAmount() {
+  render(<Qr />);
+  await screen.findByText(details.merchantName);
+  fireEvent.click(screen.getByLabelText(text.till));
+  next();
+  answer(text.reference, 'ORDER-QR', { exact: false });
+  fireEvent.click(screen.getByLabelText(text.customerAmount));
 }
 describe('QR counter page', () => {
   it('creates and downloads a QR for the displayed payee, then clears it when the reference changes', async () => {
@@ -43,14 +54,12 @@ describe('QR counter page', () => {
     expect(screen.getByRole('link', { name: text.download })).toHaveAttribute('download', 'mpesa-qr.png');
     expect(screen.getByText(text.unpaid)).toBeInTheDocument();
     expect(screen.getByText(text.sandbox)).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText(text.reference, { exact: false }), { target: { value: 'NEXT' } });
+    fireEvent.change(screen.getByLabelText(text.amount), { target: { value: '99' } });
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: text.download })).not.toBeInTheDocument();
   });
   it('lets the customer enter the amount for a Buy Goods code', async () => {
-    await fill();
-    fireEvent.click(screen.getByLabelText(text.customerAmount));
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'BG' } });
+    await fillCustomerAmount();
     fireEvent.click(screen.getByRole('button', { name: text.generate }));
     await screen.findByRole('img');
     expect(posts[0]).toMatchObject({ amountCents: 0, trxCode: 'BG' });
@@ -93,8 +102,9 @@ describe('QR counter page', () => {
   });
   it('keeps invalid and double submissions from sending requests', async () => {
     render(<Qr />); await screen.findByText(details.merchantName);
-    expect(screen.getByRole('button', { name: text.generate })).toBeDisabled();
-    fireEvent.change(screen.getByLabelText(text.reference, { exact: false }), { target: { value: 'ORDER-QR' } });
+    next();
+    expect(screen.getByRole('button', { name: copy.questionnaire.next })).toBeDisabled();
+    answer(text.reference, 'ORDER-QR', { exact: false });
     fireEvent.click(screen.getByLabelText(text.customerAmount));
     const button = screen.getByRole('button', { name: text.generate });
     fireEvent.click(button); fireEvent.click(button);

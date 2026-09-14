@@ -3,6 +3,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { Uses } from '../pages/setup/Uses';
 import { Passkey } from '../pages/setup/Passkey';
 import { copy } from '../copy/en';
+import { answer } from './questionnaire';
 
 afterEach(() => cleanup());
 
@@ -47,7 +48,7 @@ describe('Uses', () => {
 
 describe('Passkey', () => {
   const fill = () => {
-    fireEvent.change(screen.getByLabelText(copy.setup.passkey.field, { exact: false }), { target: { value: 'k'.repeat(64) } });
+    answer(copy.setup.passkey.field, 'k'.repeat(64), { exact: false });
     fireEvent.change(screen.getByLabelText(copy.setup.passkey.phone, { exact: false }), { target: { value: '0792471415' } });
   };
 
@@ -59,7 +60,7 @@ describe('Passkey', () => {
     const onDone = vi.fn();
     render(<Passkey onDone={onDone} onBack={vi.fn()} />);
 
-    expect(screen.getByRole('button', { name: copy.setup.passkey.test })).toBeDisabled();
+    expect(screen.getByRole('button', { name: copy.questionnaire.next })).toBeDisabled();
     fill();
     fireEvent.click(screen.getByRole('button', { name: copy.setup.passkey.test }));
 
@@ -92,6 +93,7 @@ describe('Passkey', () => {
     vi.stubGlobal('fetch', fetchFor({}));
     render(<Passkey onDone={vi.fn()} onBack={vi.fn()} />);
     expect(screen.getByText(copy.setup.passkey.testBody)).toBeInTheDocument();
+    answer(copy.setup.passkey.field, 'k'.repeat(64), { exact: false });
     expect(screen.getByText(copy.setup.passkey.phoneHelp)).toBeInTheDocument();
   });
 

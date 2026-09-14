@@ -12,6 +12,7 @@ import { RequestCard } from '../components/RequestCard';
 import { ErrorCard } from '../components/ErrorCard';
 import { Flash } from '../components/Flash';
 import { TaskCard } from '../components/TaskCard';
+import { Questionnaire } from '../components/Questionnaire';
 import { useToast } from '../components/Toast';
 import { copy } from '../copy/en';
 import { money, normalizeKe, phone, when } from '../format';
@@ -36,6 +37,7 @@ export function AskToPay() {
   const [confirmDuplicate, setConfirmDuplicate] = useState(false);
   const [request, setRequest] = useState<RequestView | null>(null);
   const [err, setErr] = useState<Error | null>(null);
+  const [round, setRound] = useState(0);
 
   const normalised = normalizeKe(to);
   const valid = !!normalised && cents !== null && cents % 100 === 0 && reference.trim().length > 0;
@@ -84,20 +86,18 @@ export function AskToPay() {
     } finally { setBusy(false); }
   };
 
-  const reset = () => { setStep('form'); setTo(''); setCents(null); setReference(''); setDescription(''); setRequest(null); setDuplicate(null); setConfirmDuplicate(false); setErr(null); };
+  const reset = () => { setRound((n) => n + 1); setStep('form'); setTo(''); setCents(null); setReference(''); setDescription(''); setRequest(null); setDuplicate(null); setConfirmDuplicate(false); setErr(null); };
 
   return (
     <>
       <PageHeader title={copy.askToPay.title} safaricom={copy.askToPay.safaricom} />
       {step === 'form' && (
-        <form onSubmit={(e) => { e.preventDefault(); if (valid) setStep('review'); }}>
-          <TaskCard intro={copy.askToPay.intro} footer={<Button type="submit" disabled={!valid}>{copy.askToPay.next}</Button>}>
-            <PhoneInput label={copy.askToPay.phone} value={to} onChange={setTo} autoFocus />
-            <MoneyInput label={copy.askToPay.amount} valueCents={cents} onChange={setCents} wholeShillings />
-            <TextField label={copy.askToPay.reference} value={reference} onChange={(e) => setReference(e.target.value)} maxLength={12} hint={copy.askToPay.referenceHint} />
-            <TextField label={copy.askToPay.description} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={13} hint={copy.askToPay.descriptionHint} />
-          </TaskCard>
-        </form>
+        <Questionnaire key={round} intro={copy.askToPay.intro} doneLabel={copy.askToPay.next} onDone={() => { if (valid) setStep('review'); }} steps={[
+          { key: 'phone', question: copy.askToPay.phone, valid: !!normalised, render: () => <PhoneInput label={copy.askToPay.phone} labelHidden value={to} onChange={setTo} autoFocus /> },
+          { key: 'amount', question: copy.askToPay.amount, valid: cents !== null && cents % 100 === 0, render: () => <MoneyInput label={copy.askToPay.amount} labelHidden valueCents={cents} onChange={setCents} wholeShillings autoFocus /> },
+          { key: 'reference', question: copy.askToPay.reference, hint: copy.askToPay.referenceHint, valid: reference.trim().length > 0, render: () => <TextField label={copy.askToPay.reference} labelHidden value={reference} onChange={(e) => setReference(e.target.value)} maxLength={12} autoFocus /> },
+          { key: 'description', question: copy.askToPay.description, hint: copy.askToPay.descriptionHint, optional: true, valid: true, empty: !description, render: () => <TextField label={copy.askToPay.description} labelHidden value={description} onChange={(e) => setDescription(e.target.value)} maxLength={13} autoFocus /> },
+        ]} />
       )}
 
       {step === 'review' && (

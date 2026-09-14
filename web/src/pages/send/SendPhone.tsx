@@ -15,6 +15,7 @@ import { ErrorCard } from '../../components/ErrorCard';
 import { Flash } from '../../components/Flash';
 import { Segmented } from '../../components/Segmented';
 import { TaskCard } from '../../components/TaskCard';
+import { Questionnaire } from '../../components/Questionnaire';
 import { useToast } from '../../components/Toast';
 import { copy } from '../../copy/en';
 import { money, normalizeKe, phone, when } from '../../format';
@@ -36,6 +37,8 @@ export function SendPhone() {
   const [againUnavailable, setAgainUnavailable] = useState(false);
   const [request, setRequest] = useState<RequestView | null>(null);
   const [err, setErr] = useState<Error | null>(null);
+  // Bumped on every reset so the questionnaire starts again at its first question.
+  const [round, setRound] = useState(0);
 
   const normalised = normalizeKe(to);
   // Until the categories arrive (or if they never do) the server's default kind applies.
@@ -95,7 +98,7 @@ export function SendPhone() {
     } finally { setBusy(false); }
   };
 
-  const reset = () => { setStep('form'); setTo(''); setCents(null); setRemarks(''); setRequest(null); setDuplicate(null); setConfirmDuplicate(false); setErr(null); };
+  const reset = () => { setRound((n) => n + 1); setStep('form'); setTo(''); setCents(null); setRemarks(''); setRequest(null); setDuplicate(null); setConfirmDuplicate(false); setErr(null); };
   const again = () => { if (request) { setTo(request.recipient.value ?? ''); setCents(request.amountCents); if (request.category) setKind(request.category); setRemarks(request.remarks ?? ''); setConfirmDuplicate(true); setRequest(null); setStep('review'); } };
 
   const utilityAfter = balance?.utilityCents != null && cents !== null ? balance.utilityCents - cents : null;
@@ -108,20 +111,22 @@ export function SendPhone() {
     <>
       <PageHeader title={copy.send.phone.title} safaricom={copy.send.phone.safaricom} />
       {step === 'form' && (
-        <form onSubmit={(e) => { e.preventDefault(); if (valid) setStep('review'); }}>
+        <>
           {againUnavailable && <Flash tone="neutral" role="alert" className="mb-4 max-w-xl">{copy.send.phone.againUnavailable}</Flash>}
-          <TaskCard intro={copy.send.phoneIntro} footer={<Button type="submit" disabled={!valid}>{copy.send.phone.next}</Button>}>
-            <PhoneInput label={copy.send.phone.recipient} value={to} onChange={setTo} autoFocus />
-            <MoneyInput label={copy.send.phone.amount} valueCents={cents} onChange={setCents} wholeShillings />
-            <div>
-              <div className="mb-1 flex items-center justify-between"><span className="text-base font-semibold">{copy.send.phone.kind}</span>{person?.is_owner && <Link to="/settings#categories" className="text-sm">{copy.send.phone.kindManage}</Link>}</div>
-              {kinds.length <= 4
-                ? <Segmented name="category" label={copy.send.phone.kind} value={kind} options={kinds} onChange={setKind} />
-                : <select aria-label={copy.send.phone.kind} className="min-h-11 w-full rounded-md border border-line bg-surface px-3 text-base text-ink" value={kind} onChange={(e) => setKind(e.target.value)}>{kinds.map((k) => <option key={k.value} value={k.value}>{k.label}</option>)}</select>}
-            </div>
-            <TextField label={copy.send.phone.remarks} value={remarks} onChange={(e) => setRemarks(e.target.value)} maxLength={100} />
-          </TaskCard>
-        </form>
+          <Questionnaire key={round} intro={copy.send.phoneIntro} doneLabel={copy.send.phone.next} onDone={() => { if (valid) setStep('review'); }} steps={[
+            { key: 'phone', question: copy.send.phone.recipient, valid: !!normalised, render: () => <PhoneInput label={copy.send.phone.recipient} labelHidden value={to} onChange={setTo} autoFocus /> },
+            { key: 'amount', question: copy.send.phone.amount, valid: cents !== null && cents % 100 === 0, render: () => <MoneyInput label={copy.send.phone.amount} labelHidden valueCents={cents} onChange={setCents} wholeShillings autoFocus /> },
+            { key: 'kind', question: copy.send.phone.kind, valid: categories.length === 0 || !!kind, render: () => (
+              <div>
+                {kinds.length <= 4
+                  ? <Segmented name="category" label={copy.send.phone.kind} value={kind} options={kinds} onChange={setKind} />
+                  : <select aria-label={copy.send.phone.kind} className="min-h-11 w-full rounded-md border border-line bg-surface px-3 text-base text-ink" value={kind} onChange={(e) => setKind(e.target.value)}>{kinds.map((k) => <option key={k.value} value={k.value}>{k.label}</option>)}</select>}
+                {person?.is_owner && <p className="mt-2 text-sm"><Link to="/settings#categories">{copy.send.phone.kindManage}</Link></p>}
+              </div>
+            ) },
+            { key: 'note', question: copy.send.phone.remarks, optional: true, valid: true, empty: !remarks, render: () => <TextField label={copy.send.phone.remarks} labelHidden value={remarks} onChange={(e) => setRemarks(e.target.value)} maxLength={100} autoFocus /> },
+          ]} />
+        </>
       )}
 
       {step === 'review' && (

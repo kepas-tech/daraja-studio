@@ -4,6 +4,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { People } from '../pages/People';
 import { ToastHost } from '../components/Toast';
 import { copy } from '../copy/en';
+import { answer, next } from './questionnaire';
 
 afterEach(() => cleanup());
 
@@ -37,11 +38,11 @@ describe('People', () => {
     expect(existing).toHaveValue('custom');
     expect(within(existing).getByRole('option', { name: /Custom/ })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: copy.people.add }));
-    const roles = screen.getByLabelText(copy.people.role);
-    expect(roles).toHaveValue('viewer');
-    expect(within(roles).getByRole('option', { name: /Custom/ })).toBeDisabled();
-    expect(within(roles).getByRole('option', { name: /Operator/ })).toBeEnabled();
-    expect(within(roles).getByRole('option', { name: /Viewer/ })).toBeEnabled();
+    answer(copy.people.displayName, 'Joe');
+    answer(copy.people.usernameSingle, 'joe');
+    expect(screen.getByLabelText(copy.people.roles.viewer!)).toBeChecked();
+    expect(screen.getByLabelText(copy.people.roles.operator!)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Custom/)).not.toBeInTheDocument();
   });
   it('lists everybody with their role and whether they are switched on', async () => {
     mount({});
@@ -62,9 +63,10 @@ describe('People', () => {
     });
     await screen.findByText('Owner One');
     fireEvent.click(screen.getByRole('button', { name: copy.people.add }));
-    fireEvent.change(screen.getByLabelText(copy.people.displayName), { target: { value: 'Joe' } });
-    fireEvent.change(screen.getByLabelText(copy.people.usernameSingle), { target: { value: 'joe@one.co.ke' } });
-    fireEvent.change(screen.getByLabelText(copy.people.role), { target: { value: 'operator' } });
+    answer(copy.people.displayName, 'Joe');
+    answer(copy.people.usernameSingle, 'joe@one.co.ke');
+    fireEvent.click(screen.getByLabelText(copy.people.roles.operator!));
+    next();
     const suggested = (screen.getByLabelText(copy.people.temporaryPassword) as HTMLInputElement).value;
     expect(suggested.length).toBeGreaterThanOrEqual(12);
     t.setList([owner, viewer, { ...viewer, id: 'p3', username: 'joe@one.co.ke', displayName: 'Joe', role: 'operator' }]);
@@ -86,8 +88,9 @@ describe('People', () => {
     });
     await screen.findByText('Owner One');
     fireEvent.click(screen.getByRole('button', { name: copy.people.add }));
-    fireEvent.change(screen.getByLabelText(copy.people.displayName), { target: { value: 'Joe' } });
-    fireEvent.change(screen.getByLabelText(copy.people.usernameSingle), { target: { value: 'aisha@one.co.ke' } });
+    answer(copy.people.displayName, 'Joe');
+    answer(copy.people.usernameSingle, 'aisha@one.co.ke');
+    next();
     fireEvent.click(screen.getByRole('button', { name: copy.people.addButton }));
     await confirmWithPassword();
     expect(await screen.findByRole('alert')).toHaveTextContent('already uses that name or address');

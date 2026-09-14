@@ -9,6 +9,8 @@ import { PasswordConfirmDialog } from '../components/PasswordConfirmDialog';
 import { ErrorCard, explainApiError, type Explained } from '../components/ErrorCard';
 import { Card, cardRow } from '../components/Card';
 import { Flash } from '../components/Flash';
+import { Questionnaire } from '../components/Questionnaire';
+import { Segmented } from '../components/Segmented';
 import { Loading } from '../components/Loading';
 import { useToast } from '../components/Toast';
 import { useStepUp } from './settings/useStepUp';
@@ -100,29 +102,19 @@ export function People() {
       )}
 
       {adding && (
-        <form className="mb-6 space-y-3 rounded-md border border-line bg-surface p-5" onSubmit={(e) => { e.preventDefault(); addPerson(); }}>
-          <h2 className="text-base font-semibold">{copy.people.addTitle}</h2>
-          <TextField label={copy.people.displayName} value={form.displayName} onChange={(e) => setForm({ ...form, displayName: e.target.value })} autoFocus />
-          <TextField
-            label={copy.people.usernameSingle}
-            type="text"
-            value={form.username}
-            onChange={(e) => setForm({ ...form, username: e.target.value })}
-            autoComplete="off"
-          />
-          <label className="block">
-            <span className="mb-1 block text-base font-semibold">{copy.people.role}</span>
-            <select className="min-h-11 w-full rounded-md border border-line bg-surface px-3 text-base text-ink" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as AssignableRole })}>
-              {ROLES.map((r) => <option key={r} value={r} disabled={r === 'custom'}>{copy.people.roles[r]}</option>)}
-            </select>
-          </label>
-          <TextField label={copy.people.temporaryPassword} value={form.temporaryPassword} onChange={(e) => setForm({ ...form, temporaryPassword: e.target.value })} autoComplete="off" />
-          <div className="flex gap-2">
-            <Button type="submit" disabled={!form.displayName.trim() || !form.username.trim() || form.temporaryPassword.length < 12}>{copy.people.addButton}</Button>
-            <Button type="button" variant="secondary" onClick={() => setForm({ ...form, temporaryPassword: suggestPassword() })}>{copy.people.regenerate}</Button>
-            <Button type="button" variant="secondary" onClick={() => setAdding(false)}>{copy.people.cancel}</Button>
-          </div>
-        </form>
+        <div className="mb-6">
+          <Questionnaire doneLabel={copy.people.addButton} onDone={addPerson} onCancel={() => setAdding(false)} intro={copy.people.addTitle} steps={[
+            { key: 'name', question: copy.people.displayName, valid: form.displayName.trim().length > 0, render: () => <TextField label={copy.people.displayName} labelHidden value={form.displayName} onChange={(e) => setForm({ ...form, displayName: e.target.value })} autoFocus /> },
+            { key: 'username', question: copy.people.usernameSingle, valid: form.username.trim().length > 0, render: () => <TextField label={copy.people.usernameSingle} labelHidden type="text" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} autoComplete="off" autoFocus /> },
+            { key: 'role', question: copy.people.role, valid: true, render: () => <Segmented name="role" label={copy.people.role} value={form.role} options={(['operator', 'viewer'] as AssignableRole[]).map((r) => ({ value: r, label: copy.people.roles[r] }))} onChange={(r) => setForm({ ...form, role: r })} /> },
+            { key: 'password', question: copy.people.temporaryPassword, hint: copy.people.tellThem, valid: form.temporaryPassword.length >= 12, render: () => (
+              <div className="space-y-2">
+                <TextField label={copy.people.temporaryPassword} labelHidden value={form.temporaryPassword} onChange={(e) => setForm({ ...form, temporaryPassword: e.target.value })} autoComplete="off" autoFocus />
+                <Button type="button" variant="secondary" onClick={() => setForm({ ...form, temporaryPassword: suggestPassword() })}>{copy.people.regenerate}</Button>
+              </div>
+            ) },
+          ]} />
+        </div>
       )}
 
       {people.length <= 1 && !adding && <p className="mb-4 text-sm text-muted">{copy.people.empty}</p>}

@@ -35,6 +35,17 @@ function fetchFor(handlers: Record<string, (init?: RequestInit) => Response>) {
 }
 
 describe('Reverse', () => {
+  it('opens on the review step when the receipt comes in the address', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input) === '/api/send/reversal/' + RECEIPT) return new Response(JSON.stringify({ requestId: 'r1', receipt: RECEIPT, amountCents: 100, at: '2026-09-06T11:00:00Z', type: 'stk' }), { status: 200 });
+      throw new Error(`unexpected fetch ${String(input)}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(<MemoryRouter initialEntries={['/reverse?receipt=' + RECEIPT]}><Reverse /></MemoryRouter>);
+    await screen.findByText(copy.reverse.found);
+    expect(screen.getByText(RECEIPT)).toBeInTheDocument();
+  });
+
   it('finds the settled payment, names it, and reverses it after the password', async () => {
     let posted: unknown = null;
     const fetchMock = fetchFor({

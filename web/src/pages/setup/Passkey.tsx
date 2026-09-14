@@ -7,6 +7,7 @@ import { ErrorCard } from '../../components/ErrorCard';
 import { copy } from '../../copy/en';
 import { Flash } from '../../components/Flash';
 import { StepFooter } from './StepFooter';
+import { Questionnaire } from '../../components/Questionnaire';
 import { normalizeKe } from '../../format';
 
 /**
@@ -52,7 +53,7 @@ export function Passkey({ onDone, onBack }: { onDone: () => void; onBack: () => 
   }
 
   return (
-    <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); if (ready) void submit(); }}>
+    <div className="space-y-4">
       {result === 'refused' && (
         // Safaricom refused it, so nothing was sent and nothing was charged. Said plainly, because
         // this is the exact moment a wrong passkey used to slip through and be called ready.
@@ -61,20 +62,15 @@ export function Passkey({ onDone, onBack }: { onDone: () => void; onBack: () => 
           <p>{c.failedBody}</p>
         </Flash>
       )}
-
-      <TextField label={c.field} type="password" value={passkey} onChange={(e) => setPasskey(e.target.value)} autoComplete="off" autoFocus />
-      <PhoneInput label={c.phone} value={phone} onChange={setPhone} />
-      <p className="text-sm text-muted">{c.phoneHelp}</p>
-
       <Flash tone="neutral">
         <p className="font-semibold">{c.testTitle}</p>
         <p>{c.testBody}</p>
       </Flash>
-
+      <Questionnaire doneLabel={busy ? c.testing : result === 'refused' ? c.retry : c.test} busy={busy} onDone={() => { if (ready) void submit(); }} onCancel={onBack} steps={[
+        { key: 'passkey', question: c.field, valid: passkey.trim().length > 0, render: () => <TextField label={c.field} labelHidden type="password" value={passkey} onChange={(e) => setPasskey(e.target.value)} autoComplete="off" autoFocus /> },
+        { key: 'phone', question: c.phone, hint: c.phoneHelp, valid: !!normalised, render: () => <PhoneInput label={c.phone} labelHidden value={phone} onChange={setPhone} autoFocus /> },
+      ]} />
       <ErrorCard error={err} />
-      <StepFooter onBack={onBack}>
-        <Button type="submit" disabled={!ready || busy}>{busy ? c.testing : result === 'refused' ? c.retry : c.test}</Button>
-      </StepFooter>
-    </form>
+    </div>
   );
 }

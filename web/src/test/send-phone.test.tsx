@@ -3,6 +3,7 @@ import { MemoryRouter, useLocation, useNavigate } from 'react-router';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { SendPhone } from '../pages/send/SendPhone';
 import { copy } from '../copy/en';
+import { answer, next } from './questionnaire';
 
 function LocationProbe() {
   const location = useLocation();
@@ -50,8 +51,10 @@ function fetchFor(handlers: Record<string, (init?: RequestInit) => Response>) {
   });
 }
 async function fillForm() {
-  fireEvent.change(screen.getByLabelText(copy.send.phone.recipient, { exact: false }), { target: { value: '0700123456' } });
-  fireEvent.change(screen.getByLabelText(copy.send.phone.amount, { exact: false }), { target: { value: '1' } });
+  await screen.findByLabelText(copy.send.phone.recipient, { exact: false });
+  answer(copy.send.phone.recipient, '0700123456', { exact: false });
+  answer(copy.send.phone.amount, '1', { exact: false });
+  next();
   fireEvent.click(screen.getByRole('button', { name: copy.send.phone.next }));
   await screen.findByText(copy.send.phone.review.title);
 }
@@ -66,7 +69,7 @@ describe('SendPhone', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
     render(<MemoryRouter><SendPhone /></MemoryRouter>);
-    expect(screen.getByRole('button', { name: copy.send.phone.next })).toBeDisabled();
+    expect(screen.getByRole('button', { name: copy.questionnaire.next })).toBeDisabled();
     await fillForm();
     await screen.findByText('KES 34,392');
     await screen.findByText('KES 34,391');
@@ -175,7 +178,9 @@ describe('SendPhone', () => {
     await screen.findByText(/You sent this already at/);
     fireEvent.click(screen.getByRole('button', { name: copy.send.phone.duplicateNo }));
     fireEvent.click(screen.getByRole('button', { name: copy.send.phone.back }));
-    fireEvent.change(screen.getByLabelText(copy.send.phone.amount, { exact: false }), { target: { value: '2' } });
+    next();
+    answer(copy.send.phone.amount, '2', { exact: false });
+    next();
     fireEvent.click(screen.getByRole('button', { name: copy.send.phone.next }));
     await screen.findByText(copy.send.phone.review.title);
     fireEvent.click(screen.getByRole('button', { name: copy.send.phone.send }));
@@ -205,7 +210,9 @@ describe('SendPhone', () => {
     fireEvent.click(screen.getByRole('button', { name: copy.send.phone.duplicateYes }));
     fireEvent.click(screen.getByRole('button', { name: copy.confirm.cancel }));
     fireEvent.click(screen.getByRole('button', { name: copy.send.phone.back }));
-    fireEvent.change(screen.getByLabelText(copy.send.phone.amount, { exact: false }), { target: { value: '2' } });
+    next();
+    answer(copy.send.phone.amount, '2', { exact: false });
+    next();
     fireEvent.click(screen.getByRole('button', { name: copy.send.phone.next }));
     await screen.findByText(copy.send.phone.review.title);
     fireEvent.click(screen.getByRole('button', { name: copy.send.phone.send }));
@@ -236,8 +243,10 @@ describe('SendPhone', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
     render(<MemoryRouter><SendPhone /></MemoryRouter>);
-    fireEvent.change(screen.getByLabelText(copy.send.phone.recipient, { exact: false }), { target: { value: '0700123456' } });
-    fireEvent.change(screen.getByLabelText(copy.send.phone.amount, { exact: false }), { target: { value: '2' } });
+    await screen.findByLabelText(copy.send.phone.recipient, { exact: false });
+    answer(copy.send.phone.recipient, '0700123456', { exact: false });
+    answer(copy.send.phone.amount, '2', { exact: false });
+    next();
     fireEvent.click(screen.getByRole('button', { name: copy.send.phone.next }));
     await screen.findByText(copy.send.phone.review.balanceMissing);
     fireEvent.click(screen.getByRole('button', { name: copy.send.phone.send }));
@@ -253,8 +262,10 @@ describe('SendPhone', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
     render(<MemoryRouter><SendPhone /></MemoryRouter>);
-    fireEvent.change(screen.getByLabelText(copy.send.phone.recipient, { exact: false }), { target: { value: '0700123456' } });
-    fireEvent.change(screen.getByLabelText(copy.send.phone.amount, { exact: false }), { target: { value: '2' } });
+    await screen.findByLabelText(copy.send.phone.recipient, { exact: false });
+    answer(copy.send.phone.recipient, '0700123456', { exact: false });
+    answer(copy.send.phone.amount, '2', { exact: false });
+    next();
     fireEvent.click(screen.getByRole('button', { name: copy.send.phone.next }));
     await screen.findByText(copy.send.phone.review.title);
     await screen.findByText(copy.send.phone.review.cap('KES 1'));

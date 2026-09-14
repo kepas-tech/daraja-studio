@@ -4,6 +4,8 @@ import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { SettingRow } from '../../components/SettingRow';
 import { TextField } from '../../components/TextField';
+import { Questionnaire } from '../../components/Questionnaire';
+import { Segmented } from '../../components/Segmented';
 import { StatusPill } from '../../components/StatusPill';
 import { toastText } from '../../components/ErrorCard';
 import { useToast } from '../../components/Toast';
@@ -16,14 +18,8 @@ type OpMode = 'modePassword' | 'modeCredential';
 const B2C_VERSIONS: B2cApiSetting[] = ['auto', 'v1', 'v3'];
 const textarea = 'min-h-24 w-full rounded-md border border-line bg-surface p-2 font-mono text-xs text-ink shadow-inner focus:outline-2 focus:-outline-offset-1 focus:outline-brand';
 
-function ModeFieldset({ name, mode, onChange }: { name: string; mode: OpMode; onChange: (m: OpMode) => void }) {
-  return (
-    <fieldset className="space-y-1">
-      <legend className="mb-1 block text-sm text-muted">{copy.setup.operator.mode}</legend>
-      <label className="flex items-center gap-3"><input type="radio" name={name} className="size-4" checked={mode === 'modeCredential'} onChange={() => onChange('modeCredential')} /> {copy.setup.operator.modeCredential}</label>
-      <label className="flex items-center gap-3"><input type="radio" name={name} className="size-4" checked={mode === 'modePassword'} onChange={() => onChange('modePassword')} /> {copy.setup.operator.modePassword}</label>
-    </fieldset>
-  );
+function ModeChoice({ name, mode, onChange }: { name: string; mode: OpMode; onChange: (m: OpMode) => void }) {
+  return <Segmented name={name} label={copy.setup.operator.mode} value={mode} onChange={onChange} options={[{ value: 'modeCredential', label: copy.setup.operator.modeCredential }, { value: 'modePassword', label: copy.setup.operator.modePassword }]} />;
 }
 
 function secretText(s: SecretState): string {
@@ -44,7 +40,6 @@ function keyStatusText(slot: EnvSlotView): string {
 export function EnvironmentTab({ env, slot, isActiveMode, reload, stepUp }: { env: Env; slot: EnvSlotView; isActiveMode: boolean; reload: () => Promise<unknown>; stepUp: StepUp }) {
   const toast = useToast();
 
-  const [shortcode, setShortcode] = useState(slot.shortcode ?? '');
   const [creds, setCreds] = useState({ consumerKey: '', consumerSecret: '' });
   const [pk, setPk] = useState('');
   const [b2cApi, setB2cApi] = useState<B2cApiSetting>(slot.b2cApi.setting);
@@ -52,7 +47,6 @@ export function EnvironmentTab({ env, slot, isActiveMode, reload, stepUp }: { en
   const [adding, setAdding] = useState(false);
   const [newOp, setNewOp] = useState({ name: '', operatorPassword: '', certPem: '', credential: '' });
   const [newOpMode, setNewOpMode] = useState<OpMode>('modeCredential');
-  const newOpValid = newOp.name.length > 0 && (newOpMode === 'modePassword' ? newOp.operatorPassword.length > 0 && newOp.certPem.length > 0 : newOp.credential.length > 0);
 
   const [rotating, setRotating] = useState<string | null>(null);
   const [rotateMode, setRotateMode] = useState<Record<string, OpMode>>({});
@@ -63,38 +57,21 @@ export function EnvironmentTab({ env, slot, isActiveMode, reload, stepUp }: { en
   return (
     <div className="space-y-6">
       <Card bodyClassName="p-0">
-        <SettingRow testId="setting-shortcode" label={copy.settings.shortcode.label} value={slot.shortcode ?? copy.settings.secret.notSet}>
-          {(close) => (
-            <>
-              <TextField label={copy.settings.shortcode.label} inputMode="numeric" value={shortcode} onChange={(e) => setShortcode(e.target.value)} />
-              <Button disabled={!shortcode} onClick={() => stepUp.ask(copy.settings.confirm.saveShortcode, async (password) => {
-                const r = await api.put<{ verifiedName: string | null; verifyError: string | null }>(`/api/settings/environments/${env}/shortcode`, { shortcode, password });
-                if (r.verifiedName) toast.success(copy.settings.shortcode.knownAs(r.verifiedName));
-                else if (r.verifyError) toast.info(`${copy.settings.saved} ${r.verifyError}`);
-                else toast.info(copy.settings.shortcode.unverified);
-                await reload();
-                close();
-              })}>{copy.settings.save}</Button>
-            </>
-          )}
-        </SettingRow>
-
         <SettingRow testId="setting-daraja" label={copy.settings.daraja} changeLabel={copy.settings.replace} value={
           <><span>{copy.setup.daraja.key}: {keyStatusText(slot)}</span><span className="block text-sm text-muted">{copy.setup.daraja.secret}: {secretText(slot.consumerSecret)}</span></>
         }>
           {(close) => (
-            <>
-              <TextField label={copy.setup.daraja.key} value={creds.consumerKey} onChange={(e) => setCreds({ ...creds, consumerKey: e.target.value })} autoComplete="off" />
-              <TextField label={copy.setup.daraja.secret} type="password" value={creds.consumerSecret} onChange={(e) => setCreds({ ...creds, consumerSecret: e.target.value })} autoComplete="off" />
-              <Button disabled={!creds.consumerKey || !creds.consumerSecret} onClick={() => stepUp.ask(copy.settings.confirm.replaceCreds, async (password) => {
-                const r = await api.post<{ ok: boolean; message: string }>(`/api/settings/environments/${env}/daraja`, { ...creds, password });
-                if (!r.ok) { toast.error(copy.settings.darajaReplaceFailed(r.message)); return; }
-                toast.success(r.message);
-                setCreds({ consumerKey: '', consumerSecret: '' });
-                await reload();
-                close();
-              })}>{copy.settings.save}</Button>
-            </>
+            <Questionnaire doneLabel={copy.settings.save} onCancel={close} onDone={() => stepUp.ask(copy.settings.confirm.replaceCreds, async (password) => {
+              const r = await api.post<{ ok: boolean; message: string }>(`/api/settings/environments/${env}/daraja`, { ...creds, password });
+              if (!r.ok) { toast.error(copy.settings.darajaReplaceFailed(r.message)); return; }
+              toast.success(r.message);
+              setCreds({ consumerKey: '', consumerSecret: '' });
+              await reload();
+              close();
+            })} steps={[
+              { key: 'key', question: copy.setup.daraja.key, valid: creds.consumerKey.length > 0, render: () => <TextField label={copy.setup.daraja.key} labelHidden value={creds.consumerKey} onChange={(e) => setCreds({ ...creds, consumerKey: e.target.value })} autoComplete="off" autoFocus /> },
+              { key: 'secret', question: copy.setup.daraja.secret, valid: creds.consumerSecret.length > 0, render: () => <TextField label={copy.setup.daraja.secret} labelHidden type="password" value={creds.consumerSecret} onChange={(e) => setCreds({ ...creds, consumerSecret: e.target.value })} autoComplete="off" autoFocus /> },
+            ]} />
           )}
         </SettingRow>
 
@@ -146,7 +123,6 @@ export function EnvironmentTab({ env, slot, isActiveMode, reload, stepUp }: { en
         <ul>{slot.operators.map((o) => {
           const rMode = rotateMode[o.id] ?? 'modeCredential';
           const rForm = rotateForm[o.id] ?? { operatorPassword: '', credential: '' };
-          const rValid = rMode === 'modePassword' ? rForm.operatorPassword.length > 0 : rForm.credential.length > 0;
           const setRForm = (patch: Partial<{ operatorPassword: string; credential: string }>) => setRotateForm({ ...rotateForm, [o.id]: { ...rForm, ...patch } });
           const open = rotating === o.id;
           return (
@@ -168,40 +144,28 @@ export function EnvironmentTab({ env, slot, isActiveMode, reload, stepUp }: { en
                 </div>
               </div>
               {open && (
-                <div className="space-y-3 px-4 pb-4">
-                  <ModeFieldset name={`rotate-mode-${o.id}`} mode={rMode} onChange={(m) => setRotateMode({ ...rotateMode, [o.id]: m })} />
-                  {rMode === 'modePassword'
-                    ? <TextField label={copy.settings.rotate} type="password" value={rForm.operatorPassword} onChange={(e) => setRForm({ operatorPassword: e.target.value })} autoComplete="off" />
-                    : <label className="block"><span className="mb-1 block text-base font-semibold">{copy.settings.rotateByCredential}</span><textarea className={textarea} value={rForm.credential} onChange={(e) => setRForm({ credential: e.target.value })} autoComplete="off" spellCheck={false} autoCorrect="off" /></label>}
-                  <Button disabled={!rValid} onClick={() => stepUp.ask(copy.settings.confirm.rotate(o.name), async (password) => {
+                <div className="px-4 pb-4">
+                  <Questionnaire doneLabel={rMode === 'modePassword' ? copy.settings.rotate : copy.settings.rotateCredential} onCancel={() => setRotating(null)} onDone={() => stepUp.ask(copy.settings.confirm.rotate(o.name), async (password) => {
                     const body = rMode === 'modePassword' ? { operatorPassword: rForm.operatorPassword, password } : { credential: rForm.credential, password };
                     await api.post(`/api/settings/operators/${o.id}/rotate`, body);
                     toast.success(copy.settings.secret.replaced);
                     setRotateForm({ ...rotateForm, [o.id]: { operatorPassword: '', credential: '' } });
                     setRotating(null);
                     await reload();
-                  })}>{rMode === 'modePassword' ? copy.settings.rotate : copy.settings.rotateCredential}</Button>
+                  })} steps={[
+                    { key: 'mode', question: copy.setup.operator.mode, valid: true, render: () => <ModeChoice name={`rotate-mode-${o.id}`} mode={rMode} onChange={(m) => setRotateMode({ ...rotateMode, [o.id]: m })} /> },
+                    rMode === 'modePassword'
+                      ? { key: 'password', question: copy.settings.rotate, valid: rForm.operatorPassword.length > 0, render: () => <TextField label={copy.settings.rotate} labelHidden type="password" value={rForm.operatorPassword} onChange={(e) => setRForm({ operatorPassword: e.target.value })} autoComplete="off" autoFocus /> }
+                      : { key: 'credential', question: copy.settings.rotateByCredential, valid: rForm.credential.length > 0, render: () => <label className="block"><span className="sr-only">{copy.settings.rotateByCredential}</span><textarea className={textarea} value={rForm.credential} onChange={(e) => setRForm({ credential: e.target.value })} autoComplete="off" spellCheck={false} autoCorrect="off" autoFocus /></label> },
+                  ]} />
                 </div>
               )}
             </li>
           );
         })}</ul>
         {adding && (
-          <div className="space-y-3 border-t border-line bg-page p-4">
-            <TextField label={copy.setup.operator.name} value={newOp.name} onChange={(e) => setNewOp({ ...newOp, name: e.target.value })} autoComplete="off" />
-            <ModeFieldset name={`new-operator-mode-${env}`} mode={newOpMode} onChange={setNewOpMode} />
-            {newOpMode === 'modePassword' ? (
-              <>
-                <TextField label={copy.setup.operator.password} type="password" value={newOp.operatorPassword} onChange={(e) => setNewOp({ ...newOp, operatorPassword: e.target.value })} autoComplete="off" />
-                <label className="block"><span className="mb-1 block text-base font-semibold">{copy.setup.operator.cert}</span><textarea className={textarea} value={newOp.certPem} onChange={(e) => setNewOp({ ...newOp, certPem: e.target.value })} autoComplete="off" spellCheck={false} autoCorrect="off" /></label>
-              </>
-            ) : (
-              <div>
-                <label className="block"><span className="mb-1 block text-base font-semibold">{copy.setup.operator.credential}</span><textarea className={textarea} value={newOp.credential} onChange={(e) => setNewOp({ ...newOp, credential: e.target.value })} autoComplete="off" spellCheck={false} autoCorrect="off" /></label>
-                <p className="mt-1 text-sm text-muted">{copy.setup.operator.whereCredential}</p>
-              </div>
-            )}
-            <Button disabled={!newOpValid} onClick={() => stepUp.ask(copy.settings.confirm.add(newOp.name), async (password) => {
+          <div className="border-t border-line bg-page p-4">
+            <Questionnaire doneLabel={copy.setup.operator.add} onCancel={() => setAdding(false)} onDone={() => stepUp.ask(copy.settings.confirm.add(newOp.name), async (password) => {
               const body = newOpMode === 'modePassword'
                 ? { name: newOp.name, operatorPassword: newOp.operatorPassword, certPem: newOp.certPem, password }
                 : { name: newOp.name, credential: newOp.credential, password };
@@ -210,7 +174,16 @@ export function EnvironmentTab({ env, slot, isActiveMode, reload, stepUp }: { en
               setNewOp({ name: '', operatorPassword: '', certPem: '', credential: '' });
               setAdding(false);
               await reload();
-            })}>{copy.setup.operator.add}</Button>
+            })} steps={[
+              { key: 'name', question: copy.setup.operator.name, valid: newOp.name.length > 0, render: () => <TextField label={copy.setup.operator.name} labelHidden value={newOp.name} onChange={(e) => setNewOp({ ...newOp, name: e.target.value })} autoComplete="off" autoFocus /> },
+              { key: 'mode', question: copy.setup.operator.mode, valid: true, render: () => <ModeChoice name={`new-operator-mode-${env}`} mode={newOpMode} onChange={setNewOpMode} /> },
+              ...(newOpMode === 'modePassword' ? [
+                { key: 'password', question: copy.setup.operator.password, valid: newOp.operatorPassword.length > 0, render: () => <TextField label={copy.setup.operator.password} labelHidden type="password" value={newOp.operatorPassword} onChange={(e) => setNewOp({ ...newOp, operatorPassword: e.target.value })} autoComplete="off" autoFocus /> },
+                { key: 'cert', question: copy.setup.operator.cert, valid: newOp.certPem.length > 0, render: () => <label className="block"><span className="sr-only">{copy.setup.operator.cert}</span><textarea className={textarea} value={newOp.certPem} onChange={(e) => setNewOp({ ...newOp, certPem: e.target.value })} autoComplete="off" spellCheck={false} autoCorrect="off" autoFocus /></label> },
+              ] : [
+                { key: 'credential', question: copy.setup.operator.credential, hint: copy.setup.operator.whereCredential, valid: newOp.credential.length > 0, render: () => <label className="block"><span className="sr-only">{copy.setup.operator.credential}</span><textarea className={textarea} value={newOp.credential} onChange={(e) => setNewOp({ ...newOp, credential: e.target.value })} autoComplete="off" spellCheck={false} autoCorrect="off" autoFocus /></label> },
+              ]),
+            ]} />
           </div>
         )}
       </Card>

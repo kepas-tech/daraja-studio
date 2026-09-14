@@ -40,7 +40,7 @@ describe('Nav', () => {
     const button = screen.getByRole('button', { name: copy.nav.menu });
     fireEvent.click(button);
     expect(button.getAttribute('aria-expanded')).toBe('true');
-    fireEvent.click(container.querySelector('a[href="/balances"]')!);
+    fireEvent.click(container.querySelector('a[href="/send"]')!);
     expect(button.getAttribute('aria-expanded')).toBe('false');
   });
   // The `available` flag is the ground truth for what is finished (docs/MENU-PLAN.md), so this
@@ -76,7 +76,7 @@ describe('Nav', () => {
       if (e.safaricom) expect(screen.getByText(e.safaricom)).toBeInTheDocument();
     }
     expect(copy.nav.map((e) => e.key)).toEqual([
-      'home','balances','send','bulk','lookup','reverse','money-in','stk','qr','invoices','standing-orders','express','bonga','approvals','history','people','settings','not-possible',
+      'home','send','bulk','reverse','money-in','stk','qr','invoices','standing-orders','express','bonga','approvals','history','people','settings','not-possible',
     ]);
   });
 });
