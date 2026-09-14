@@ -35,6 +35,7 @@ import { healthRoutes } from './health/routes.js';
 import { sendRoutes, requestRoutes, balanceRoutes, lookupRoutes } from './money_out/routes.js';
 import { reversalRoutes } from './money_out/reversal.js';
 import { qrRoutes } from './qr/routes.js';
+import { orgRoutes } from './orgs/routes.js';
 import { collectRoutes } from './collect/routes.js';
 import type { CollectService } from './collect/service.js';
 import type { Scheduler } from './scheduler/loop.js';
@@ -115,6 +116,7 @@ export function buildApp(deps: AppDeps): express.Express {
   app.use('/api/balances', balanceRoutes(deps));
   app.use('/api/lookup', lookupRoutes(deps));
   app.use('/api/qr', qrRoutes(deps));
+  app.use('/api/org', orgRoutes(deps));
   app.use('/api', notFound);
 
   const webDir = path.resolve(process.env.STUDIO_WEB_DIR ?? path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'web', 'dist'));

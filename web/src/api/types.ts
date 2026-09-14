@@ -51,17 +51,21 @@ export interface EnvSlotView {
   ready: { creds: boolean; operator: boolean };
   b2cApi: { setting: B2cApiSetting; detected: 'v1' | 'v3' | null; detectedAt: string | null };
 }
+export type CommandId = 'BusinessPayment' | 'SalaryPayment' | 'PromotionPayment';
+export interface SendCategory { id: string; name: string; commandId: CommandId }
 export interface SettingsView {
   mode: Env;
   environments: Record<Env, EnvSlotView>;
   org: { name: string; nominatedNumber: string; notificationPhone: string };
   stkEnabled: boolean; publicUrl: string | null; publicVerifiedAt: string | null; httpsSeen: boolean;
   allowlist: string[]; setupCompletedAt: string | null;
+  sendCategories: SendCategory[];
 }
 export type RequestStatus = 'pending' | 'sent' | 'completed' | 'failed' | 'unknown' | 'cancelled' | 'rejected' | 'awaiting_approval';
 export interface RequestView {
   id: string; type: string; subtype: string | null; status: RequestStatus | string; amountCents: number | null; currency: 'KES';
   recipient: { kind: string | null; value: string | null; name: string | null }; remarks: string | null; receipt: string | null;
+  category: string | null;
   createdAt: string; sentAt: string | null; resultAt: string | null; resultSource: 'callback' | 'poll' | 'ack' | null;
   safaricomSaid: string | null; meaning: string | null; whatToDo: string | null; retriable: boolean; pollAttempts: number;
   checked: { by: { id: string; displayName: string } | null; at: string; note: string } | null;

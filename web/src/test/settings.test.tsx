@@ -46,13 +46,15 @@ const view = {
   org: { name: 'KEPAS', nominatedNumber: '254700000000', notificationPhone: '254700000000' },
   stkEnabled: false, publicUrl: 'https://x', publicVerifiedAt: null, httpsSeen: false,
   allowlist: ['1.1.1.1'], setupCompletedAt: 'x',
+  sendCategories: [{ id: 'business', name: 'Business payment', commandId: 'BusinessPayment' }],
 };
+const sandboxView = { ...view, mode: 'sandbox' };
 
-function mockFetch(handle: (url: string, method: string, init?: RequestInit) => Response) {
+function mockFetch(handle: (url: string, method: string, init?: RequestInit) => Response, data: unknown = view) {
   return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     const method = init?.method ?? 'GET';
-    if (url === '/api/settings' && method === 'GET') return new Response(JSON.stringify(view), { status: 200 });
+    if (url === '/api/settings' && method === 'GET') return new Response(JSON.stringify(data), { status: 200 });
     return handle(url, method, init);
   });
 }
@@ -63,51 +65,37 @@ function renderSettings() {
 
 async function renderAndWait() {
   renderSettings();
-  await waitFor(() => expect(screen.getByRole('tablist')).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByTestId('setting-shortcode')).toBeInTheDocument());
 }
 
 describe('Settings', () => {
-  it('renders two tabs; the active mode (production) is selected and marked "In use"', async () => {
+  it('shows the active environment (production) with its saved creds and verified-at', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(view), { status: 200 })));
     await renderAndWait();
 
-    const tabs = screen.getAllByRole('tab');
-    expect(tabs.map((t) => t.textContent?.replace(copy.settings.mode.inUse, '').trim())).toEqual([copy.settings.tabs.sandbox, copy.settings.tabs.production]);
-    const productionTab = screen.getByRole('tab', { name: new RegExp(copy.settings.tabs.production) });
-    expect(productionTab).toHaveAttribute('aria-selected', 'true');
-    expect(within(productionTab).getByText(copy.settings.mode.inUse)).toBeInTheDocument();
-    const sandboxTab = screen.getByRole('tab', { name: copy.settings.tabs.sandbox });
-    expect(sandboxTab).toHaveAttribute('aria-selected', 'false');
+    expect(screen.getByText(copy.settings.envSettings('production'))).toBeInTheDocument();
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument();
+    expect(screen.getByText(copy.settings.secret.savedEndsIn('4f2a'), { exact: false })).toBeInTheDocument();
+    expect(screen.getByText(copy.settings.secret.verifiedAt('').trim(), { exact: false })).toBeInTheDocument();
   });
 
-  it('production tab shows the saved creds and verified-at from the fixture', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(view), { status: 200 })));
+  it('shows the sandbox environment, with "Not set", when sandbox is the mode', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(sandboxView), { status: 200 })));
     await renderAndWait();
 
-    const panel = screen.getByRole('tabpanel');
-    expect(within(panel).getByText(copy.settings.secret.savedEndsIn('4f2a'), { exact: false })).toBeInTheDocument();
-    expect(within(panel).getByText(copy.settings.secret.verifiedAt('').trim(), { exact: false })).toBeInTheDocument();
-  });
-
-  it('sandbox tab shows "Not set" once selected', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(view), { status: 200 })));
-    await renderAndWait();
-
-    fireEvent.click(screen.getByRole('tab', { name: copy.settings.tabs.sandbox }));
-    const panel = await screen.findByRole('tabpanel');
-    expect(within(panel).getAllByText(copy.settings.secret.notSet).length).toBeGreaterThan(0);
+    expect(screen.getByText(copy.settings.envSettings('sandbox'))).toBeInTheDocument();
+    expect(screen.getAllByText(copy.settings.secret.notSet).length).toBeGreaterThan(0);
   });
 
   it('shows the certificate badge: Saved on production, Not set on sandbox', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(view), { status: 200 })));
     await renderAndWait();
 
-    const productionPanel = screen.getByRole('tabpanel');
-    expect(within(within(productionPanel).getByTestId('setting-cert')).getByText(copy.settings.secret.saved)).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('tab', { name: copy.settings.tabs.sandbox }));
-    const sandboxPanel = await screen.findByRole('tabpanel');
-    expect(within(within(sandboxPanel).getByTestId('setting-cert')).getByText(copy.settings.secret.notSet)).toBeInTheDocument();
+    expect(within(screen.getByTestId('setting-cert')).getByText(copy.settings.secret.saved)).toBeInTheDocument();
+    cleanup();
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(sandboxView), { status: 200 })));
+    await renderAndWait();
+    expect(within(screen.getByTestId('setting-cert')).getByText(copy.settings.secret.notSet)).toBeInTheDocument();
   });
 
   it('shows "not yet accepted" when the consumer key is saved but not yet verified', async () => {
@@ -115,64 +103,17 @@ describe('Settings', () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(unverified), { status: 200 })));
     await renderAndWait();
 
-    const panel = screen.getByRole('tabpanel');
-    expect(within(panel).getByText(copy.settings.secret.notYetAccepted, { exact: false })).toBeInTheDocument();
+    expect(screen.getByText(copy.settings.secret.notYetAccepted, { exact: false })).toBeInTheDocument();
   });
 
-  it('arrow keys move focus and selection between tabs', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(view), { status: 200 })));
-    await renderAndWait();
-
-    fireEvent.keyDown(screen.getByRole('tablist'), { key: 'ArrowLeft' });
-    await waitFor(() => expect(screen.getByRole('tab', { name: copy.settings.tabs.sandbox })).toHaveAttribute('aria-selected', 'true'));
-  });
-
-  it('switching to production requires the shortcode: a mismatch toasts an error and keeps the field, a match toasts success', async () => {
-    const sandboxActive = { ...view, mode: 'sandbox' };
-    let attempt = 0;
-    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = String(input);
-      const method = init?.method ?? 'GET';
-      if (url === '/api/settings' && method === 'GET') return new Response(JSON.stringify(sandboxActive), { status: 200 });
-      if (url === '/api/settings/mode' && method === 'PUT') {
-        attempt += 1;
-        if (attempt === 1) return new Response(JSON.stringify({ error: { code: 'confirm_shortcode', message: 'Type your shortcode exactly to switch to production.' } }), { status: 400 });
-        return new Response(JSON.stringify({ mode: 'production', ready: { creds: true, operator: true } }), { status: 200 });
-      }
-      throw new Error(`unexpected fetch ${method} ${url}`);
-    });
-    vi.stubGlobal('fetch', fetchMock);
-    await renderAndWait();
-
-    fireEvent.click(screen.getByLabelText(copy.settings.mode.production, { exact: false }));
-    fireEvent.change(screen.getByLabelText(copy.settings.mode.confirmShortcode), { target: { value: 'wrong' } });
-    fireEvent.click(screen.getByRole('button', { name: copy.settings.confirm.switchMode('production') }));
-    fireEvent.change(screen.getByLabelText(copy.confirm.yourPassword), { target: { value: 'studio-pw' } });
-    fireEvent.click(screen.getByRole('button', { name: copy.confirm.confirm }));
-
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Type your shortcode exactly to switch to production.'));
-    // The dialog closed (this was not a wrong-password failure) but the inline field is still there.
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    expect(screen.getByLabelText(copy.settings.mode.confirmShortcode)).toHaveValue('wrong');
-
-    fireEvent.change(screen.getByLabelText(copy.settings.mode.confirmShortcode), { target: { value: '700111' } });
-    fireEvent.click(screen.getByRole('button', { name: copy.settings.confirm.switchMode('production') }));
-    fireEvent.change(screen.getByLabelText(copy.confirm.yourPassword), { target: { value: 'studio-pw' } });
-    fireEvent.click(screen.getByRole('button', { name: copy.confirm.confirm }));
-
-    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(copy.settings.mode.switched('production')));
-  });
-
-  it('replacing creds from the sandbox tab posts to environments/sandbox/daraja', async () => {
+  it('replacing creds while sandbox is the mode posts to environments/sandbox/daraja', async () => {
     const fetchMock = mockFetch((url, method) => {
       if (url === '/api/settings/environments/sandbox/daraja' && method === 'POST') return new Response(JSON.stringify({ ok: true, message: 'Safaricom accepted the key and secret.' }), { status: 200 });
       throw new Error(`unexpected fetch ${method} ${url}`);
-    });
+    }, sandboxView);
     vi.stubGlobal('fetch', fetchMock);
     await renderAndWait();
 
-    fireEvent.click(screen.getByRole('tab', { name: copy.settings.tabs.sandbox }));
-    await screen.findByRole('tabpanel');
     const darajaSection = screen.getByTestId('setting-daraja');
     fireEvent.click(within(darajaSection).getByRole('button', { name: copy.settings.replace }));
     fireEvent.change(within(darajaSection).getByLabelText(copy.setup.daraja.key), { target: { value: 'key123' } });
@@ -186,18 +127,6 @@ describe('Settings', () => {
     const body = JSON.parse(String(call?.[1]?.body));
     expect(body).toEqual({ consumerKey: 'key123', consumerSecret: 'secret123', password: 'studio-pw' });
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Safaricom accepted the key and secret.'));
-  });
-
-  it('Test again on an other-env operator (viewing production while sandbox is active) is disabled with the switch hint', async () => {
-    const sandboxActive = { ...view, mode: 'sandbox' };
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(sandboxActive), { status: 200 })));
-    await renderAndWait();
-
-    fireEvent.click(screen.getByRole('tab', { name: copy.settings.tabs.production }));
-    const panel = await screen.findByRole('tabpanel');
-    await within(panel).findByText('KEPAS', { selector: 'span.font-medium' });
-    expect(within(panel).getByRole('button', { name: copy.settings.probe })).toBeDisabled();
-    expect(within(panel).getByText(copy.settings.operators.switchToTest('production'))).toBeInTheDocument();
   });
 
   it('shows the shortcode verified-name toast on save', async () => {
@@ -221,12 +150,12 @@ describe('Settings', () => {
   it('every visible label comes from copy (spot check a few)', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(view), { status: 200 })));
     await renderAndWait();
-    for (const text of [copy.settings.title, copy.settings.organisation.title, copy.settings.mode.title, copy.settings.org, copy.settings.daraja, copy.settings.passkey, copy.settings.operatorsTitle, copy.settings.allowlist]) {
+    for (const text of [copy.settings.title, copy.settings.appearance.title, copy.settings.daraja, copy.settings.passkey, copy.settings.operatorsTitle, copy.settings.categories.title]) {
       expect(screen.getAllByText(text).length).toBeGreaterThan(0);
     }
   });
 
-  it('an operator.updated event refreshes the view, keeping a typed but unsaved public-url edit', async () => {
+  it('an operator.updated event refreshes the view, keeping a typed but unsaved shortcode edit', async () => {
     const updatedView = { ...view, environments: { ...view.environments, production: { ...view.environments.production, operators: [{ ...view.environments.production.operators[0], status: 'failed' as const }] } } };
     let settingsGets = 0;
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -241,14 +170,14 @@ describe('Settings', () => {
     vi.stubGlobal('fetch', fetchMock);
     await renderAndWait();
 
-    fireEvent.click(within(screen.getByTestId('setting-public-url')).getByRole('button', { name: copy.settings.change }));
-    fireEvent.change(screen.getByLabelText(copy.setup.publicUrl.field), { target: { value: 'https://not-yet-saved.example' } });
+    fireEvent.click(within(screen.getByTestId('setting-shortcode')).getByRole('button', { name: copy.settings.change }));
+    fireEvent.change(screen.getByLabelText(copy.settings.shortcode.label), { target: { value: '1234567' } });
 
     const es = FakeEventSource.instances[FakeEventSource.instances.length - 1]!;
     es.emit('operator.updated', { type: 'operator.updated', payload: {}, at: new Date().toISOString() });
 
     await waitFor(() => expect(screen.getByText(copy.settings.operatorStatus.failed)).toBeInTheDocument());
-    expect(screen.getByLabelText(copy.setup.publicUrl.field)).toHaveValue('https://not-yet-saved.example');
+    expect(screen.getByLabelText(copy.settings.shortcode.label)).toHaveValue('1234567');
   });
 
   it('keeps the confirm dialog open and shows the server message on a 403 step-up failure', async () => {
@@ -273,29 +202,4 @@ describe('Settings', () => {
     expect(screen.getByLabelText(copy.confirm.yourPassword)).toHaveValue('wrong-pw');
   });
 
-  it('reveals the install secret, then hides it again', async () => {
-    const fetchMock = mockFetch((url, method) => {
-      if (url === '/api/settings/install-secret/reveal' && method === 'POST') return new Response(JSON.stringify({ secret: 'top-secret-value' }), { status: 200 });
-      throw new Error(`unexpected fetch ${method} ${url}`);
-    });
-    vi.stubGlobal('fetch', fetchMock);
-    await renderAndWait();
-
-    fireEvent.click(screen.getByRole('button', { name: copy.settings.revealSecret }));
-    fireEvent.change(screen.getByLabelText(copy.confirm.yourPassword), { target: { value: 'studio-pw' } });
-    fireEvent.click(screen.getByRole('button', { name: copy.confirm.confirm }));
-
-    await waitFor(() => expect(screen.getByText('top-secret-value')).toBeInTheDocument());
-    fireEvent.click(screen.getByRole('button', { name: copy.settings.hideSecret }));
-    expect(screen.queryByText('top-secret-value')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: copy.settings.revealSecret })).toBeInTheDocument();
-  });
-
-  it('shows the not-ready line joined without repeating "add" for the active mode', async () => {
-    const notReady = { ...view, environments: { ...view.environments, production: { ...view.environments.production, ready: { creds: false, operator: false } } } };
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(notReady), { status: 200 })));
-    await renderAndWait();
-
-    expect(screen.getByText('Production is not ready: add the Daraja key and secret, and an API operator, in the Production tab.')).toBeInTheDocument();
-  });
 });

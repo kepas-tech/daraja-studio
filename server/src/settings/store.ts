@@ -26,6 +26,8 @@ export type SettingKey =
   // credentials are required, so nobody is asked for a passkey to run a payroll, or walked past the
   // one step their shop actually depends on. 'true'/'false'.
   | 'use.payOut' | 'use.collect'
+  // The business's own payment categories, a JSON list (see settings/categories.ts).
+  | 'send.categories'
   | EnvSettingKey;
 
 const ENCRYPTED_SLOTS = ['consumerKey', 'consumerSecret', 'passkey', 'certPem'] as const;

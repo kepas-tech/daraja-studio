@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
+import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-router';
 import { SessionProvider, useSession } from './session';
 import { Layout } from './Layout';
 import { copy } from '../copy/en';
@@ -22,6 +22,7 @@ import { ChangePassword } from '../pages/ChangePassword';
 import { Qr } from '../pages/Qr';
 import { AskToPay } from '../pages/AskToPay';
 import { Reverse } from '../pages/Reverse';
+import { Account } from '../pages/Account';
 
 function Gate() {
   const s = useSession();
@@ -46,6 +47,8 @@ function Gate() {
       <Route element={<Layout />}>
         <Route path="/" element={<Home />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/account" element={<Account />} />
+        <Route path="/account/password" element={<VoluntaryPasswordChange />} />
         <Route path="/people" element={<People />} />
         <Route path="/not-possible" element={<NotPossible />} />
         <Route path="/send" element={<SendHub />} />
@@ -63,4 +66,9 @@ function Gate() {
     </Routes>
   );
 }
+function VoluntaryPasswordChange() {
+  const nav = useNavigate();
+  return <ChangePassword voluntary onDone={() => nav('/account')} />;
+}
+
 export function AppRouter() { return <BrowserRouter><SessionProvider><Gate /></SessionProvider></BrowserRouter>; }

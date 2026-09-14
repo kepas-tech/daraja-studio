@@ -12,13 +12,14 @@ import { audit } from '../audit/log.js';
 import { callbackUrls } from '../sdk/callbackUrls.js';
 import { explain, type DarajaScope } from '../sdk/meaning.js';
 import { HttpError } from '../util/errors.js';
+import { parseCategories } from '../settings/categories.js';
 import { enqueue } from '../db/jobs.js';
 import { PUBLIC_URL_UNVERIFIED } from './ready.js';
 import { KINDS, MONEY_TYPES, type CallbackUrls, type RequestRow } from './registry.js';
 import { failOperatorOnCredentialCode } from './operatorHealth.js';
 import { getRequest, type RequestView } from './reads.js';
 
-export interface SendInput { phone: string; amountCents: number; commandId: 'BusinessPayment' | 'SalaryPayment' | 'PromotionPayment'; remarks?: string; occasion?: string; confirmDuplicate?: boolean }
+export interface SendInput { phone: string; amountCents: number; commandId: 'BusinessPayment' | 'SalaryPayment' | 'PromotionPayment'; category?: string; remarks?: string; occasion?: string; confirmDuplicate?: boolean }
 export interface Actor { personId: string; ip: string }
 export interface MoneyOutService {
   send(input: SendInput, actor: Actor): Promise<RequestView>;
@@ -192,6 +193,13 @@ export function createMoneyOutService(deps: { db: Db; settings: Settings; daraja
       try { phone = normalizePhone(input.phone); } catch { throw new HttpError(400, 'bad_phone', 'Enter a Kenyan mobile number such as 0712 345 678.'); }
       if (!Number.isInteger(input.amountCents) || input.amountCents <= 0) throw new HttpError(400, 'bad_amount', 'Enter an amount in shillings.');
       if (kind.wholeShillings && input.amountCents % 100 !== 0) throw new HttpError(400, 'whole_shillings', 'Safaricom sends whole shillings to phones. Remove the cents.');
+      // A category is the business's own label; the Safaricom command underneath it is what is sent.
+      let commandId = input.commandId; let category: string | null = null;
+      if (input.category) {
+        const found = parseCategories(await deps.settings.get('send.categories')).find((c) => c.name.toLowerCase() === input.category!.trim().toLowerCase());
+        if (!found) throw new HttpError(400, 'unknown_category', 'That payment category no longer exists. Pick one from the list.');
+        commandId = found.commandId; category = found.name;
+      }
       if (deps.config.maxSendCents !== null && input.amountCents > deps.config.maxSendCents) {
         const cap = deps.config.maxSendCents;
         throw new HttpError(409, 'over_cap', `This studio is capped at KES ${cap % 100 === 0 ? cap / 100 : (cap / 100).toFixed(2)} per send.`, { capCents: cap });
@@ -230,11 +238,11 @@ export function createMoneyOutService(deps: { db: Db; settings: Settings; daraja
         const { rows } = await c.query<RequestRow>(
           `INSERT INTO requests(type, subtype, originator_conversation_id, status, amount_cents, currency, recipient_kind, recipient_value, remarks, payload_json, created_by, operator_id)
            VALUES ($1,$2,$3,'pending',$4,'KES','phone',$5,$6,$7::jsonb,$8,$9) RETURNING *`,
-          [kind.type, input.commandId, randomUUID(), input.amountCents, phone, input.remarks ?? null, JSON.stringify({ occasion: input.occasion ?? null }), actor.personId, operatorId]);
+          [kind.type, commandId, randomUUID(), input.amountCents, phone, input.remarks ?? null, JSON.stringify({ occasion: input.occasion ?? null, category }), actor.personId, operatorId]);
         const r = rows[0];
         await c.query(
           `INSERT INTO audit_log(person_id, action, target, before_json, after_json, ip) VALUES ($1,$2,$3,$4::jsonb,$5::jsonb,$6)`,
-          [actor.personId, 'request.created', r.id, null, JSON.stringify({ type: kind.type, subtype: input.commandId, amountCents: input.amountCents }), actor.ip]);
+          [actor.personId, 'request.created', r.id, null, JSON.stringify({ type: kind.type, subtype: commandId, category, amountCents: input.amountCents }), actor.ip]);
         return r;
       });
 

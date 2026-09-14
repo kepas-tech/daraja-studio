@@ -31,13 +31,13 @@ export function Nav() {
   const live = copy.nav.filter((e) => e.available);
   const soon = copy.nav.filter((e) => !e.available);
   return (
-    <nav aria-label={copy.app.navLabel} className="w-full shrink-0 border-b border-line bg-page md:w-60 md:border-r md:border-b-0">
+    <nav aria-label={copy.app.navLabel} className="w-full shrink-0 border-b border-line bg-page md:w-60 md:overflow-y-auto md:border-r md:border-b-0">
       <button type="button" aria-expanded={open} aria-controls="nav-entries" onClick={() => setOpen((v) => !v)} className="flex min-h-11 w-full cursor-pointer items-center gap-2 px-4 text-base font-semibold md:hidden">
         <Icon name={open ? 'close' : 'menu'} className="size-5" />
         <span>{copy.nav.menu}</span>
       </button>
       <ul id="nav-entries" className={`${open ? 'block' : 'hidden'} pb-4 md:block`}>
-        {org && <li className="truncate px-3 pt-4 pb-2 text-sm font-semibold" title={org.name}>{org.name}</li>}
+        {org && <li className="px-3 pt-4 pb-2" title={org.name}><span className="block truncate text-sm font-semibold">{org.name}</span><span className="block text-xs text-muted">{copy.org.envLine[org.environment]}</span></li>}
         {live.filter((e) => e.group === 'home').map((e) => <Item key={e.key} e={e} onPick={pick} />)}
         <li className={heading}>{copy.nav.groups.money}</li>
         {live.filter((e) => e.group === 'money').map((e) => <Item key={e.key} e={e} onPick={pick} />)}
@@ -52,6 +52,7 @@ export function Nav() {
             {soon.map((e) => <Item key={e.key} e={e} onPick={pick} />)}
           </ul>
         </li>
+        <li className="mt-4 border-t border-line pt-2"><ul>{live.filter((e) => e.group === 'help').map((e) => <Item key={e.key} e={e} onPick={pick} />)}</ul></li>
       </ul>
     </nav>
   );

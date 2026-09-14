@@ -15,6 +15,7 @@ import { parseAllowlist } from '../callbacks/allowlist.js';
 import { randomSecret, sha256 } from '../crypto/secrets.js';
 import { audit } from '../audit/log.js';
 import { HttpError } from '../util/errors.js';
+import { parseCategories, validateCategories, type SendCategory } from './categories.js';
 
 export type { Env, Actor };
 
@@ -41,6 +42,7 @@ export interface SettingsView {
   org: { name: string; nominatedNumber: string; notificationPhone: string };
   stkEnabled: boolean; publicUrl: string | null; publicVerifiedAt: string | null; httpsSeen: boolean;
   allowlist: string[]; setupCompletedAt: string | null;
+  sendCategories: SendCategory[];
 }
 export interface SettingsService {
   view(): Promise<SettingsView>;
@@ -54,6 +56,8 @@ export interface SettingsService {
   setPublicUrl(url: string, actor: Actor): Promise<void>;
   testPublicUrl(): Promise<{ ok: boolean; detail: string }>;
   revealInstallSecret(actor: Actor): Promise<string>;
+  getSendCategories(): Promise<SendCategory[]>;
+  setSendCategories(items: { id?: string; name: string; commandId: string }[], actor: Actor): Promise<SendCategory[]>;
 }
 
 const ENVS: Env[] = ['sandbox', 'production'];
@@ -78,7 +82,7 @@ export function createSettingsService(deps: { db: Db; config: Config; settings: 
     async view() {
       const shared = await deps.settings.getMany([
         'org.name', 'org.nominatedNumber', 'org.notificationPhone', 'daraja.environment',
-        'public.url', 'public.verifiedAt', 'callbacks.allowlist', 'setup.completedAt',
+        'public.url', 'public.verifiedAt', 'callbacks.allowlist', 'setup.completedAt', 'send.categories',
       ]);
       // Install-wide, not per-organisation : lives in instance_settings, not settings.
       const httpsSeen = (await deps.instance.get('https.seen')) === 'true';
@@ -113,7 +117,16 @@ export function createSettingsService(deps: { db: Db; config: Config; settings: 
         publicUrl: shared['public.url'], publicVerifiedAt: shared['public.verifiedAt'], httpsSeen,
         allowlist: parseAllowlist(shared['callbacks.allowlist']),
         setupCompletedAt: shared['setup.completedAt'],
+        sendCategories: parseCategories(shared['send.categories']),
       };
+    },
+
+    async getSendCategories() { return parseCategories(await deps.settings.get('send.categories')); },
+    async setSendCategories(items, actor) {
+      const list = validateCategories(items);
+      await deps.settings.set('send.categories', JSON.stringify(list));
+      await audit(deps.db, { personId: actor.personId, action: 'settings.send_categories', after: list, ip: actor.ip });
+      return list;
     },
 
     async setOrg(input, actor) {

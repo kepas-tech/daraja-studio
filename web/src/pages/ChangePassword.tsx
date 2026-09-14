@@ -6,7 +6,7 @@ import { TextField } from '../components/TextField';
 import { ErrorCard } from '../components/ErrorCard';
 import { copy } from '../copy/en';
 
-export function ChangePassword() {
+export function ChangePassword({ voluntary = false, onDone }: { voluntary?: boolean; onDone?: () => void } = {}) {
   const session = useSession();
   const [form, setForm] = useState({ current: '', next: '', again: '' });
   const [busy, setBusy] = useState(false);
@@ -21,22 +21,24 @@ export function ChangePassword() {
         await api.post('/api/auth/change-password', { currentPassword: form.current, newPassword: form.next });
         setForm({ current: '', next: '', again: '' });
         await session.refresh();
+        onDone?.();
       } catch (e2) { setError(e2 instanceof ApiError ? e2 : new Error(copy.error.generic)); }
       finally { setBusy(false); }
     }}>
       <h1 className="text-xl font-semibold">{copy.changePassword.title}</h1>
-      <p className="text-muted">{copy.changePassword.intro}</p>
+      <p className="text-muted">{voluntary ? copy.changePassword.voluntaryIntro : copy.changePassword.intro}</p>
       <TextField label={copy.changePassword.current} type="password" value={form.current} onChange={(e) => setForm({ ...form, current: e.target.value })} autoComplete="current-password" autoFocus />
       <TextField label={copy.changePassword.next} type="password" value={form.next} onChange={(e) => setForm({ ...form, next: e.target.value })} autoComplete="new-password" />
       <TextField label={copy.changePassword.again} type="password" value={form.again} onChange={(e) => setForm({ ...form, again: e.target.value })} autoComplete="new-password" />
       <ErrorCard error={error} />
       <Button type="submit" disabled={busy || !valid}>{copy.changePassword.save}</Button>
-      <Button type="button" variant="secondary" disabled={busy} onClick={async () => {
+      {voluntary && onDone && <Button type="button" variant="secondary" disabled={busy} onClick={onDone}>{copy.changePassword.cancel}</Button>}
+      {!voluntary && <Button type="button" variant="secondary" disabled={busy} onClick={async () => {
         setBusy(true); setError(null);
         try { await api.post('/api/auth/logout'); await session.refresh(); }
         catch (e) { setError(e instanceof ApiError ? e : new Error(copy.error.generic)); }
         finally { setBusy(false); }
-      }}>{copy.nav.logout}</Button>
+      }}>{copy.nav.logout}</Button>}
     </form>
   );
 }

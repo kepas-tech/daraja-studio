@@ -10,21 +10,27 @@ import { PageHeader } from '../components/PageHeader';
 import { copy } from '../copy/en';
 import { money, phone, when } from '../format';
 
+const PAGE = 7;
 const STATUSES = ['completed', 'sent', 'failed', 'unknown', 'pending', 'cancelled'];
 
 export function History() {
   const [q, setQ] = useState(''); const [from, setFrom] = useState(''); const [to, setTo] = useState(''); const [status, setStatus] = useState('');
-  const [items, setItems] = useState<RequestView[]>([]); const [cursor, setCursor] = useState<string | null>(null); const [loaded, setLoaded] = useState(false);
+  const [items, setItems] = useState<RequestView[]>([]); const [next, setNext] = useState<string | null>(null); const [loaded, setLoaded] = useState(false);
+  // Keyset paging is forward-only on the server; Previous is the stack of cursors we came through.
+  const [stack, setStack] = useState<string[]>([]);
+  const cursor = stack[stack.length - 1] ?? null;
   const params = useCallback((c?: string | null) => {
     const p = new URLSearchParams();
+    p.set('limit', String(PAGE));
     if (q.trim()) p.set('q', q.trim()); if (from) p.set('from', from); if (to) p.set('to', to); if (status) p.set('status', status); if (c) p.set('cursor', c);
     return p.toString();
   }, [q, from, to, status]);
+  // A filter change starts again from the first page.
+  useEffect(() => { setStack([]); }, [q, from, to, status]);
   useEffect(() => {
-    const t = setTimeout(() => { api.get<Page<RequestView>>(`/api/requests?${params()}`).then((r) => { setItems(r.items); setCursor(r.nextCursor); setLoaded(true); }).catch(() => setLoaded(true)); }, 200);
+    const t = setTimeout(() => { api.get<Page<RequestView>>(`/api/requests?${params(cursor)}`).then((r) => { setItems(r.items); setNext(r.nextCursor); setLoaded(true); }).catch(() => setLoaded(true)); }, 200);
     return () => clearTimeout(t);
-  }, [params]);
-  const more = () => api.get<Page<RequestView>>(`/api/requests?${params(cursor)}`).then((r) => { setItems((prev) => [...prev, ...r.items]); setCursor(r.nextCursor); }).catch(() => {});
+  }, [params, cursor]);
   const control = 'min-h-10 rounded-md border border-line bg-surface px-3 text-base text-ink focus:outline-2 focus:-outline-offset-1 focus:outline-brand';
   return (
     <>
@@ -49,7 +55,7 @@ export function History() {
               <tbody>{items.map((r) => (
                 <tr key={r.id} className="border-t border-line">
                   <td className="px-4 py-3 whitespace-nowrap">{when(r.createdAt)}</td>
-                  <td className="px-4 py-3">{copy.request.subtype[r.subtype ?? ''] ?? copy.request.type[r.type] ?? r.type}</td>
+                  <td className="px-4 py-3">{r.category ?? copy.request.subtype[r.subtype ?? ''] ?? copy.request.type[r.type] ?? r.type}</td>
                   <td className="px-4 py-3"><Link to={`/requests/${r.id}`}>{r.recipient.kind === 'phone' ? phone(r.recipient.value) : r.recipient.value ?? '—'}</Link>{r.recipient.name && <span className="block text-sm text-muted">{r.recipient.name}</span>}</td>
                   <td className="px-4 py-3 whitespace-nowrap">{money(r.amountCents)}</td>
                   <td className="px-4 py-3"><StatusPill kind={STATUS_TONE[r.status] ?? 'muted'}>{copy.request.status[r.status] ?? r.status}</StatusPill></td>
@@ -59,7 +65,13 @@ export function History() {
           </div>
         )}
       </Card>
-      {cursor && <div className="mt-4 flex justify-center"><Button type="button" variant="secondary" onClick={() => void more()}>{copy.history.loadMore}</Button></div>}
+      {(stack.length > 0 || next) && (
+        <div className="mt-4 flex items-center justify-center gap-3">
+          <Button type="button" variant="secondary" disabled={stack.length === 0} onClick={() => setStack((s) => s.slice(0, -1))}>{copy.history.previous}</Button>
+          <span className="text-sm text-muted">{copy.history.page(stack.length + 1)}</span>
+          <Button type="button" variant="secondary" disabled={!next} onClick={() => { if (next) setStack((s) => [...s, next]); }}>{copy.history.next}</Button>
+        </div>
+      )}
     </>
   );
 }

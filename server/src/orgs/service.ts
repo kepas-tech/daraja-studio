@@ -4,6 +4,8 @@ import { currentOrgId, isSystem, withOrg, withSystem } from '../db/pool.js';
 import { decryptForOrg, deriveOrgKey, encryptWithOrgKey, randomSecret, sha256, type Keyring } from '../crypto/secrets.js';
 import { closeOrg } from './close.js';
 import { HttpError } from '../util/errors.js';
+import { audit } from '../audit/log.js';
+import { CLOSED_CHILD_TABLES } from './close.js';
 
 export type OrgStatus = 'pending' | 'creds_ok' | 'operator_probing' | 'verified' | 'failed' | 'suspended' | 'closed';
 
@@ -53,7 +55,15 @@ function slugFor(name: string): string {
   return `${base}-${suffix}`;
 }
 
+export interface WipeActor { personId: string | null; ip?: string }
+
 export interface OrgService {
+  /**
+   * The owner's own reset: every table that hangs off the organisation goes (credentials, people,
+   * history, sessions), the audit trail stays, and the `orgs` row is put back to a fresh `pending`
+   * one with the same id, so the next visit shows first-run setup without a restart.
+   */
+  wipe(orgId: string, confirmName: string, actor: WipeActor): Promise<void>;
   byId(id: string): Promise<OrgView | null>;
   /** The callback router's lookup: sha256 of the secret in the URL. */
   bySecretHash(hash: string): Promise<OrgView | null>;
@@ -150,6 +160,19 @@ export function createOrgService(deps: { db: Db; keyring: Keyring; master: Buffe
       });
     },
 
+    async wipe(orgId, confirmName, actor) {
+      const org = await this.byId(orgId);
+      if (!org) throw new HttpError(404, 'not_found', 'No organisation.');
+      if (confirmName.trim() !== org.name) throw new HttpError(400, 'confirm_name', 'Type the organisation name exactly to confirm.');
+      // Written first, in the organisation's own scope: audit rows survive the wipe on purpose.
+      await audit(deps.db, { personId: actor.personId, action: 'org.wiped', target: orgId, before: { name: org.name }, ip: actor.ip });
+      await withSystem(() => deps.db.tx(async (c) => {
+        for (const table of CLOSED_CHILD_TABLES) await c.query(`DELETE FROM ${table} WHERE org_id = $1`, [orgId]);
+        await c.query(`DELETE FROM jobs WHERE payload->>'orgId' = $1`, [orgId]);
+        await c.query(`DELETE FROM cache WHERE key LIKE 'org:' || $1 || ':%'`, [orgId]);
+        await c.query(`UPDATE orgs SET status = 'pending', name = 'My organisation', fail_reason = NULL, suspend_reason = NULL WHERE id = $1`, [orgId]);
+      }));
+    },
     async close(orgId, reason) {
       // A sign-up's failure path only ever reaches this while its organisation is still the
       // `pending` row it created moments earlier — nothing else has had a chance to move it on.

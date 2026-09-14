@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { api, ApiError } from '../../api/client';
 import { useEvents } from '../../api/events';
-import type { BalanceView, RequestView } from '../../api/types';
+import type { BalanceView, RequestView, SendCategory } from '../../api/types';
+import { useSession } from '../../app/session';
 import { Button } from '../../components/Button';
 import { TextField } from '../../components/TextField';
 import { MoneyInput } from '../../components/MoneyInput';
@@ -19,13 +20,15 @@ import { copy } from '../../copy/en';
 import { money, normalizeKe, phone, when } from '../../format';
 
 type Step = 'form' | 'review' | 'result';
-type CommandId = 'BusinessPayment' | 'SalaryPayment' | 'PromotionPayment';
 const STALE_MS = 24 * 3600 * 1000;
 
 export function SendPhone() {
   const toast = useToast();
   const [step, setStep] = useState<Step>('form');
-  const [to, setTo] = useState(''); const [cents, setCents] = useState<number | null>(null); const [kind, setKind] = useState<CommandId>('BusinessPayment'); const [remarks, setRemarks] = useState('');
+  const { person } = useSession();
+  const [to, setTo] = useState(''); const [cents, setCents] = useState<number | null>(null); const [kind, setKind] = useState(''); const [remarks, setRemarks] = useState('');
+  const [categories, setCategories] = useState<SendCategory[]>([]);
+  useEffect(() => { api.get<{ items: SendCategory[] }>('/api/send/categories').then((r) => { setCategories(r.items); setKind((k) => k || r.items[0]?.name || ''); }).catch(() => {}); }, []);
   const [balance, setBalance] = useState<BalanceView | null | undefined>(undefined);
   const [cap, setCap] = useState<number | null>(null);
   const [confirm, setConfirm] = useState(false); const [busy, setBusy] = useState(false); const [dialogError, setDialogError] = useState<Error | null>(null);
@@ -35,7 +38,8 @@ export function SendPhone() {
   const [err, setErr] = useState<Error | null>(null);
 
   const normalised = normalizeKe(to);
-  const valid = !!normalised && cents !== null && cents % 100 === 0;
+  // Until the categories arrive (or if they never do) the server's default kind applies.
+  const valid = !!normalised && cents !== null && cents % 100 === 0 && (categories.length === 0 || !!kind);
 
   useEffect(() => { if (step === 'review') api.get<BalanceView | null>('/api/balances/latest').then(setBalance).catch(() => setBalance(null)); }, [step]);
   // W5 (spec §10): the cap is enforced server-side (service.ts) regardless — this is only so the
@@ -48,7 +52,7 @@ export function SendPhone() {
     if (!again) return;
     setAgainUnavailable(false);
     api.get<RequestView>(`/api/requests/${again}`).then((prev) => {
-      setTo(prev.recipient.value ?? ''); setCents(prev.amountCents); setKind((prev.subtype as CommandId) ?? 'BusinessPayment'); setRemarks(prev.remarks ?? ''); setConfirmDuplicate(true); setStep('review');
+      setTo(prev.recipient.value ?? ''); setCents(prev.amountCents); if (prev.category) setKind(prev.category); setRemarks(prev.remarks ?? ''); setConfirmDuplicate(true); setStep('review');
     }).catch(() => { setAgainUnavailable(true); }).finally(() => { setSearch((p) => { p.delete('again'); return p; }, { replace: true }); });
   }, [search, setSearch]);
 
@@ -81,7 +85,7 @@ export function SendPhone() {
   const submit = async (password: string) => {
     setBusy(true); setDialogError(null); setErr(null);
     try {
-      const r = await api.post<RequestView>('/api/send/phone', { phone: to, amountCents: cents, commandId: kind, remarks: remarks || undefined, confirmDuplicate: confirmDuplicate || undefined, password });
+      const r = await api.post<RequestView>('/api/send/phone', { phone: to, amountCents: cents, category: kind || undefined, remarks: remarks || undefined, confirmDuplicate: confirmDuplicate || undefined, password });
       setRequest(r); setConfirm(false); setDuplicate(null); setConfirmDuplicate(false); setStep('result');
       const resultCopy = copy.send.phone.result as Record<string, string>;
       toast.show(r.status === 'completed' ? 'success' : r.status === 'failed' ? 'error' : 'info', resultCopy[r.status] ?? r.status);
@@ -92,14 +96,14 @@ export function SendPhone() {
   };
 
   const reset = () => { setStep('form'); setTo(''); setCents(null); setRemarks(''); setRequest(null); setDuplicate(null); setConfirmDuplicate(false); setErr(null); };
-  const again = () => { if (request) { setTo(request.recipient.value ?? ''); setCents(request.amountCents); setKind((request.subtype as CommandId) ?? 'BusinessPayment'); setRemarks(request.remarks ?? ''); setConfirmDuplicate(true); setRequest(null); setStep('review'); } };
+  const again = () => { if (request) { setTo(request.recipient.value ?? ''); setCents(request.amountCents); if (request.category) setKind(request.category); setRemarks(request.remarks ?? ''); setConfirmDuplicate(true); setRequest(null); setStep('review'); } };
 
   const utilityAfter = balance?.utilityCents != null && cents !== null ? balance.utilityCents - cents : null;
   const short = utilityAfter !== null && utilityAfter < 0;
   const overCap = cap !== null && cents !== null && cents > cap;
   const stale = balance?.queriedAt ? Date.now() - new Date(balance.queriedAt).getTime() > STALE_MS : false;
 
-  const kinds = (['BusinessPayment', 'SalaryPayment', 'PromotionPayment'] as CommandId[]).map((k) => ({ value: k, label: copy.send.phone.kinds[k] }));
+  const kinds = categories.map((c) => ({ value: c.name, label: c.name }));
   return (
     <>
       <PageHeader title={copy.send.phone.title} safaricom={copy.send.phone.safaricom} />
@@ -110,8 +114,10 @@ export function SendPhone() {
             <PhoneInput label={copy.send.phone.recipient} value={to} onChange={setTo} autoFocus />
             <MoneyInput label={copy.send.phone.amount} valueCents={cents} onChange={setCents} wholeShillings />
             <div>
-              <span className="mb-1 block text-base font-semibold">{copy.send.phone.kind}</span>
-              <Segmented name="commandId" label={copy.send.phone.kind} value={kind} options={kinds} onChange={setKind} />
+              <div className="mb-1 flex items-center justify-between"><span className="text-base font-semibold">{copy.send.phone.kind}</span>{person?.is_owner && <Link to="/settings#categories" className="text-sm">{copy.send.phone.kindManage}</Link>}</div>
+              {kinds.length <= 4
+                ? <Segmented name="category" label={copy.send.phone.kind} value={kind} options={kinds} onChange={setKind} />
+                : <select aria-label={copy.send.phone.kind} className="min-h-11 w-full rounded-md border border-line bg-surface px-3 text-base text-ink" value={kind} onChange={(e) => setKind(e.target.value)}>{kinds.map((k) => <option key={k.value} value={k.value}>{k.label}</option>)}</select>}
             </div>
             <TextField label={copy.send.phone.remarks} value={remarks} onChange={(e) => setRemarks(e.target.value)} maxLength={100} />
           </TaskCard>
@@ -128,7 +134,7 @@ export function SendPhone() {
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-base">
               <dt className="text-muted">{copy.request.to}</dt><dd>{phone(normalised)}<span className="block text-sm text-muted">{copy.send.phone.review.nameNote}</span></dd>
               <dt className="text-muted">{copy.request.amount}</dt><dd>{money(cents)}<span className="block text-sm text-muted">{copy.send.phone.review.feeNote}</span></dd>
-              <dt className="text-muted">{copy.send.phone.kind}</dt><dd>{copy.send.phone.kinds[kind]}</dd>
+              <dt className="text-muted">{copy.send.phone.kind}</dt><dd>{kind}</dd>
               <dt className="text-muted">{copy.send.phone.review.balanceNow}</dt>
               <dd>{balance === undefined ? copy.app.loading : balance === null || balance.utilityCents === null ? copy.send.phone.review.balanceMissing : money(balance.utilityCents)}
                 {stale && balance?.queriedAt && <span className="block text-sm text-muted">{copy.send.phone.review.balanceStale(when(balance.queriedAt))}</span>}</dd>

@@ -19,6 +19,7 @@ export function RequestCard({ request: r, children }: { request: RequestView; ch
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-base">
         <dt className="text-muted">{copy.request.to}</dt>
         <dd>{r.recipient.kind === 'phone' ? phone(r.recipient.value) : r.recipient.value ?? '—'}{r.recipient.name && <span className="block text-sm text-muted">{r.recipient.name}</span>}</dd>
+        {r.category && <><dt className="text-muted">{copy.request.category}</dt><dd>{r.category}</dd></>}
         {r.receipt && <><dt className="text-muted">{copy.request.receipt}</dt><dd><code>{r.receipt}</code></dd></>}
         <dt className="text-muted">{copy.request.when}</dt>
         <dd>{when(r.resultAt ?? r.sentAt ?? r.createdAt)}</dd>

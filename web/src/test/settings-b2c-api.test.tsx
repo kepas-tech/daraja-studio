@@ -35,11 +35,12 @@ const view = {
   org: { name: 'KEPAS', nominatedNumber: '254700000000', notificationPhone: '254700000000' },
   stkEnabled: false, publicUrl: 'https://x', publicVerifiedAt: null, httpsSeen: false,
   allowlist: ['1.1.1.1'], setupCompletedAt: 'x',
+  sendCategories: [],
 };
 
 async function renderAndWait() {
   render(<MemoryRouter><ToastHost /><Settings /></MemoryRouter>);
-  await waitFor(() => expect(screen.getByRole('tablist')).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByTestId('setting-b2c-api')).toBeInTheDocument());
 }
 
 function b2cSection() {
