@@ -4,8 +4,11 @@ import { TextField } from '../../components/TextField';
 import { ErrorCard } from '../../components/ErrorCard';
 import { Questionnaire } from '../../components/Questionnaire';
 import { copy } from '../../copy/en';
+import { Button } from '../../components/Button';
+import { Flash } from '../../components/Flash';
+import { StepFooter } from './StepFooter';
 
-export function Owner({ onDone }: { onDone: () => void }) {
+export function Owner({ onDone, created }: { onDone: () => void; created?: string | null }) {
   const [f, setF] = useState({ displayName: '', username: '', password: '' });
   const [err, setErr] = useState<Error | null>(null); const [busy, setBusy] = useState(false);
   const valid = !!f.displayName && /^[a-z0-9_.-]{3,32}$/i.test(f.username) && f.password.length >= 12;
@@ -15,6 +18,15 @@ export function Owner({ onDone }: { onDone: () => void }) {
     try { const r = await api.post<{ csrf: string }>('/api/setup/owner', f); api.setCsrf(r.csrf); onDone(); }
     catch (e2) { setErr(e2 instanceof ApiError ? e2 : new Error(copy.error.generic)); } finally { setBusy(false); }
   };
+  // Reached by Back from the next step: the account exists, so show it rather than a form that would be refused.
+  if (created) {
+    return (
+      <div className="space-y-4">
+        <Flash tone="success">{copy.setup.owner.created(created)}</Flash>
+        <StepFooter><Button type="button" onClick={onDone}>{copy.setup.next}</Button></StepFooter>
+      </div>
+    );
+  }
   return (
     <div className="space-y-4">
       <Questionnaire doneLabel={copy.setup.owner.button} busy={busy} onDone={() => void submit()} steps={[
