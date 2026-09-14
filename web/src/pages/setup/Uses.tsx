@@ -43,8 +43,8 @@ export function Uses({ onDone }: { onDone: () => void }) {
   return (
     <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); if (payOut || collect) void submit(); }}>
       <h2 className="text-xl font-semibold">{c.title}</h2>
-      {option(payOut, setPayOut, c.payOut, c.payOutHelp, c.payOutSafaricom)}
       {option(collect, setCollect, c.collect, c.collectHelp, c.collectSafaricom)}
+      {option(payOut, setPayOut, c.payOut, c.payOutHelp, c.payOutSafaricom)}
       {/* Refused server-side too; shown here so the reason arrives before the press, not after. */}
       {!payOut && !collect && <p className="text-base text-muted">{c.nothing}</p>}
       <ErrorCard error={err} />
