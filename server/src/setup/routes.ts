@@ -105,7 +105,7 @@ export function setupRoutes(deps: AppDeps): Router {
         const ip = clientIp(req);
         const s = await createSession(deps.db, p.id, ip, req.get('user-agent') ?? '');
         await audit(deps.db, { personId: p.id, action: 'setup.owner_created', ip });
-        await step('uses');
+        await step('environment');
         const person = (await deps.db.query(
           'SELECT id, username, display_name, is_owner, status, must_change_password, email, role, is_host_admin FROM people WHERE id=$1', [p.id],
         ))[0];
@@ -150,12 +150,12 @@ export function setupRoutes(deps: AppDeps): Router {
       await deps.settings.set('use.payOut', String(b.payOut));
       await deps.settings.set('use.collect', String(b.collect));
       await audit(deps.db, { personId: req.person!.id, action: 'setup.uses', ip: clientIp(req), after: b });
-      await step('environment');
+      await step('org');
       res.status(204).end();
     } catch (e) { next(e); }
   });
 
-  r.post('/environment', async (req, res, next) => { try { const b = parse(modeSchema, req.body); const out = await svc.setMode(b.environment, b.confirmShortcode, a(req)); await step('org'); res.json(out); } catch (e) { next(e); } });
+  r.post('/environment', async (req, res, next) => { try { const b = parse(modeSchema, req.body); const out = await svc.setMode(b.environment, b.confirmShortcode, a(req)); await step('uses'); res.json(out); } catch (e) { next(e); } });
   r.post('/org', async (req, res, next) => { try { await svc.setOrg(parse(orgSchema, req.body), a(req)); await step('shortcode'); res.status(204).end(); } catch (e) { next(e); } });
   r.post('/shortcode', async (req, res, next) => { try { const b = parse(shortcodeSchema, req.body); const out = await svc.setShortcode(await currentMode(), b.shortcode, a(req)); await step('daraja'); res.json(out); } catch (e) { next(e); } });
   r.post('/daraja', async (req, res, next) => { try { const b = parse(credsSchema, req.body); const out = await svc.setDarajaCreds(await currentMode(), b.consumerKey, b.consumerSecret, a(req)); if (out.ok) await step('public-url'); res.json(out); } catch (e) { next(e); } });

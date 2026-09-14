@@ -15,11 +15,11 @@ import { Operator } from './Operator';
 import { Done } from './Done';
 import logo from '../../assets/logo-long.png';
 
-const ORDER = ['owner', 'uses', 'environment', 'org', 'shortcode', 'daraja', 'public-url', 'passkey', 'operator', 'done'];
+const ORDER = ['owner', 'environment', 'uses', 'org', 'shortcode', 'daraja', 'public-url', 'passkey', 'operator', 'done'];
 
 export function SetupLayout() {
   const s = useSession(); const nav = useNavigate(); const { pathname } = useLocation();
-  const fromSession = s.status === 'needs-owner' ? 'owner' : (s.setupStep ?? 'uses');
+  const fromSession = s.status === 'needs-owner' ? 'owner' : (s.setupStep ?? 'environment');
   // The URL is the truth for what is on screen: a step page navigates onward without a session
   // refresh, so the session's own step can lag one behind.
   const fromUrl = pathname.split('/setup/')[1]?.split('/')[0] ?? '';
@@ -51,10 +51,10 @@ export function SetupLayout() {
           <p className="text-base text-muted">{copy.setup.intro[current]}</p>
           <Routes>
             <Route index element={<Navigate to={`/setup/${fromSession}`} replace />} />
-            <Route path="owner" element={<Owner onDone={async () => { await s.refresh(); go('uses'); }} />} />
-            <Route path="uses" element={<Uses onDone={async () => { await s.refresh(); go('environment'); }} />} />
-            <Route path="environment" element={<Environment onDone={() => go('org')} />} />
-            <Route path="org" element={<Org onDone={() => go('shortcode')} onBack={() => go('environment')} />} />
+            <Route path="owner" element={<Owner onDone={async () => { await s.refresh(); go('environment'); }} />} />
+            <Route path="environment" element={<Environment onDone={() => go('uses')} />} />
+            <Route path="uses" element={<Uses onDone={async () => { await s.refresh(); go('org'); }} onBack={() => go('environment')} />} />
+            <Route path="org" element={<Org onDone={() => go('shortcode')} onBack={() => go('uses')} />} />
             <Route path="shortcode" element={<Shortcode onDone={() => go('daraja')} onBack={() => go('org')} />} />
             <Route path="daraja" element={<Daraja onDone={() => go('public-url')} onBack={() => go('shortcode')} />} />
             <Route path="public-url" element={<PublicUrl onDone={afterPublicUrl} onBack={() => go('daraja')} />} />
