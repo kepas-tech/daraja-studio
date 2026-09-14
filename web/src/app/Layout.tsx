@@ -8,6 +8,7 @@ import { Icon } from '../components/Icon';
 import { StatusPill } from '../components/StatusPill';
 import { ToastHost } from '../components/Toast';
 import { copy } from '../copy/en';
+import logo from '../assets/logo-long.png';
 
 export function Layout() {
   const { person, org, refresh } = useSession();
@@ -15,7 +16,7 @@ export function Layout() {
   return (
     <div className="flex min-h-screen flex-col bg-surface text-ink">
       <header className="flex min-h-14 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-line bg-surface px-4 py-2 md:px-6">
-        <NavLink to="/" className="inline-flex items-center"><img src="/logo-long.png" alt={copy.appName} className="h-9 w-auto md:h-10" /></NavLink>
+        <NavLink to="/" className="inline-flex items-center"><img src={logo} alt={copy.appName} className="h-9 w-auto md:h-10" /></NavLink>
         <div className="flex flex-wrap items-center gap-4">
           {org && <span className="text-base font-semibold">{org.name}</span>}
           {org && (

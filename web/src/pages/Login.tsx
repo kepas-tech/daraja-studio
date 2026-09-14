@@ -6,6 +6,7 @@ import { Card } from '../components/Card';
 import { TextField } from '../components/TextField';
 import { ErrorCard } from '../components/ErrorCard';
 import { copy } from '../copy/en';
+import logo from '../assets/logo-long.png';
 
 export function Login() {
   const { refresh } = useSession();
@@ -14,7 +15,7 @@ export function Login() {
   return (
     <div className="min-h-screen bg-page px-4 pt-16 md:pt-24">
       <div className="mx-auto max-w-sm space-y-6">
-        <img src="/logo-long.png" alt={copy.appName} className="mx-auto h-14 w-auto" />
+        <img src={logo} alt={copy.appName} className="mx-auto h-14 w-auto" />
         <Card title={copy.login.title}>
           <form className="space-y-4" onSubmit={async (e) => {
             e.preventDefault(); setBusy(true); setErr(null);
