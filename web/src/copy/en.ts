@@ -244,6 +244,7 @@ export const copy = {
     uses: {
       title: 'What will you use M-Pesa for?',
       collect: 'Receive money from customers',
+      collectPopular: 'Most common',
       collectHelp: 'Customers pay from their own phone: they enter your paybill or till number and an account name or number. You can also send a prompt to their phone that asks for their M-Pesa PIN.',
       collectSafaricom: 'Safaricom calls this C2B; the phone prompt is M-Pesa Express (STK Push)',
       payOut: 'Send money to people',
