@@ -10,7 +10,10 @@ import { StepFooter } from './StepFooter';
 
 export function PublicUrl({ onDone, onBack }: { onDone: () => void; onBack: () => void }) {
   const toast = useToast();
-  const [url, setUrl] = useState(''); const [result, setResult] = useState<{ ok: boolean; detail: string } | null>(null);
+  // The address Safaricom needs is this studio's own, so the browser's address bar is the right
+  // default; a plain-http dev origin is offered too since the server accepts localhost.
+  const origin = window.location.origin;
+  const [url, setUrl] = useState(origin.startsWith('https://') || /^http:\/\/(localhost|127\.0\.0\.1)(:|$)/.test(origin) ? origin : ''); const [result, setResult] = useState<{ ok: boolean; detail: string } | null>(null);
   const [err, setErr] = useState<Error | null>(null); const [busy, setBusy] = useState(false);
   const test = async () => {
     setBusy(true); setErr(null); setResult(null);
@@ -24,9 +27,9 @@ export function PublicUrl({ onDone, onBack }: { onDone: () => void; onBack: () =
   };
   return (
     <div className="space-y-4">
-      <TextField label={copy.setup.publicUrl.field} value={url} onChange={(e) => setUrl(e.target.value)} placeholder={copy.setup.publicUrl.placeholder} autoFocus />
+      <TextField label={copy.setup.publicUrl.field} hint={copy.setup.publicUrl.hint} value={url} onChange={(e) => setUrl(e.target.value)} placeholder={copy.setup.publicUrl.placeholder} autoFocus />
       <Button type="button" variant="secondary" onClick={test} disabled={busy || !url}>{copy.setup.publicUrl.test}</Button>
-      {result && <Flash tone={result.ok ? 'success' : 'danger'} role="status">{result.detail}</Flash>}
+      {result && <Flash tone={result.ok ? 'success' : 'danger'} role="status">{result.detail}{!result.ok && <> {copy.setup.publicUrl.notThis}</>}</Flash>}
       <ErrorCard error={err} />
       <StepFooter onBack={onBack}><Button type="button" onClick={onDone} disabled={!result?.ok}>{copy.setup.next}</Button></StepFooter>
     </div>
