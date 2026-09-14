@@ -1,0 +1,14 @@
+node_modules
+dist
+.env
+*.log
+coverage
+.superpowers/
+.claude/
+.dsh/
+CLAUDE.local.md
+AGENTS.md
+docs/superpowers/
+docs/runbooks/
+
+.claude/settings.local.json

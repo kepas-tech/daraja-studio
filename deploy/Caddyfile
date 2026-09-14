@@ -1,0 +1,8 @@
+{
+  email {$ACME_EMAIL:admin@example.com}
+}
+
+{$STUDIO_DOMAIN} {
+  encode gzip
+  reverse_proxy studio:8080
+}
