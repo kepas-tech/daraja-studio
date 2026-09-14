@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.6.0 — new look
+
+- Light theme only, with one palette: Safaricom's green and neutrals plus the red and dark green of
+  the Daraja Studio logo. A test refuses any other colour in the source.
+- Components follow GitHub's Primer design: one-pixel borders, six-pixel corners, bordered cards
+  with a muted header, pill labels, and banners with a leading icon.
+- Menu grouped into Money and Manage, with the seven unbuilt items folded under Coming soon.
+- Home opens with the three most-used actions as tiles.
+- Guided setup shows "Step N of M", counts only the steps your answers need, and ends every step
+  with the same Back and Next buttons.
+- Animated line icons (line-md), bundled with the app.
+- Logo and icons exported at the sizes they are shown at; square favicons and a home-screen icon.
+
 ## 0.5.0 — first public release
 
 Self-hosted, single-organisation M-Pesa console. One install = one organisation = one shortcode.

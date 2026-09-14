@@ -19,7 +19,7 @@ beforeEach(() => { FakeEventSource.instances.length = 0; });
 afterEach(() => cleanup());
 
 /** Every named event the server publishes to a tenant stream and a screen listens for. */
-const NAMED = ['request.updated', 'balance.updated', 'operator.updated', 'alert', 'setup.updated', 'billing.updated', 'org.updated'];
+const NAMED = ['request.updated', 'balance.updated', 'operator.updated', 'alert', 'setup.updated', 'org.updated'];
 
 function Probe({ onEvent, onOpen, enabled = true }: { onEvent: (e: StudioEvent) => void; onOpen: () => void; enabled?: boolean }) {
   const handler = useCallback((e: StudioEvent) => onEvent(e), [onEvent]);

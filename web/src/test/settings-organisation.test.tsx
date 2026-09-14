@@ -38,7 +38,6 @@ function mount(handlers: (url: string, method: string, init?: RequestInit) => Re
         person: { id: 'p1', username: 'nelson@kepas.co.ke', display_name: 'Nelson', is_owner: true, must_change_password: false },
         csrf: 'c', permissions: [],
         org: { id: 'o1', name: 'KEPAS TECHNOLOGIES', status: 'verified', environment: 'production', isHost: true, suspendReason: null, createdAt: '2026-09-01T08:00:00Z', verifiedAt: '2026-09-01T09:05:00Z' },
-        hostAdmin: true,
       }), { status: 200 });
     }
     if (url === '/api/settings' && method === 'GET') return new Response(JSON.stringify(view), { status: 200 });

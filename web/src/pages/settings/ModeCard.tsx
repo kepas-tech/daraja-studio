@@ -51,11 +51,11 @@ export function ModeCard({ view, reload, stepUp, onSwitched }: { view: SettingsV
   const missing = missingFor(view, view.mode);
 
   return (
-    <section className="mb-8 space-y-4 rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-950">
+    <section className="mb-8 space-y-4 rounded-md border border-line bg-surface p-5">
       <h2 className="text-lg font-semibold">{copy.settings.mode.title}</h2>
       <div role="radiogroup" aria-label={copy.settings.mode.title} className="grid gap-3 sm:grid-cols-2">
         {ENVS.map((env) => (
-          <label key={env} className={`flex cursor-pointer flex-col gap-1 rounded-xl border p-4 ${view.mode === env ? 'border-emerald-600 bg-emerald-50 dark:border-emerald-500 dark:bg-emerald-900/20' : 'border-gray-200 dark:border-gray-800'}`}>
+          <label key={env} className={`flex cursor-pointer flex-col gap-1 rounded-md border p-4 ${view.mode === env ? 'border-brand bg-brand-tint' : 'border-line'}`}>
             <span className="flex items-center justify-between gap-2">
               <span className="flex items-center gap-2">
                 <input type="radio" name="mode" checked={view.mode === env} onChange={() => choose(env)} />
@@ -63,12 +63,12 @@ export function ModeCard({ view, reload, stepUp, onSwitched }: { view: SettingsV
               </span>
               {view.mode === env && <StatusPill kind="ok">{copy.settings.mode.inUse}</StatusPill>}
             </span>
-            <span className="pl-6 text-sm text-gray-500">{copy.settings.mode[`${env}Hint`]}</span>
+            <span className="pl-6 text-sm text-muted">{copy.settings.mode[`${env}Hint`]}</span>
           </label>
         ))}
       </div>
       {pendingEnv === 'production' && (
-        <div className="space-y-2 border-t border-gray-200 pt-4 dark:border-gray-800">
+        <div className="space-y-2 border-t border-line pt-4">
           <TextField label={copy.settings.mode.confirmShortcode} value={confirmShortcode} onChange={(e) => setConfirmShortcode(e.target.value)} />
           <div className="flex gap-2">
             <Button variant="secondary" type="button" onClick={() => { setPendingEnv(null); setConfirmShortcode(''); }}>{copy.confirm.cancel}</Button>
@@ -76,7 +76,7 @@ export function ModeCard({ view, reload, stepUp, onSwitched }: { view: SettingsV
           </div>
         </div>
       )}
-      {missing.length > 0 && <p className="text-sm text-amber-800 dark:text-amber-300">{copy.settings.mode.notReady(view.mode, missing)}</p>}
+      {missing.length > 0 && <p className="text-sm text-muted">{copy.settings.mode.notReady(view.mode, missing)}</p>}
     </section>
   );
 }

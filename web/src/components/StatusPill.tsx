@@ -1,4 +1,9 @@
-const tone: Record<string, string> = { ok: 'bg-emerald-100 text-emerald-900', warn: 'bg-amber-100 text-amber-900', bad: 'bg-red-100 text-red-900', muted: 'bg-gray-100 text-gray-800' };
+const tone: Record<string, string> = {
+  ok: 'border-brand bg-brand-tint text-brand-dark',
+  warn: 'border-line bg-page text-muted',
+  bad: 'border-danger bg-danger-tint text-danger',
+  muted: 'border-line bg-page text-muted',
+};
 export function StatusPill({ kind, children }: { kind: 'ok' | 'warn' | 'bad' | 'muted'; children: React.ReactNode }) {
-  return <span className={`inline-block rounded-full px-2.5 py-0.5 text-sm ${tone[kind]}`}>{children}</span>;
+  return <span className={`inline-block whitespace-nowrap rounded-full border px-2 text-xs font-semibold leading-[18px] ${tone[kind]}`}>{children}</span>;
 }

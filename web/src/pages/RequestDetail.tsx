@@ -42,24 +42,24 @@ export function RequestDetail() {
   return (
     <>
       <PageHeader title={copy.request.subtype[r.subtype ?? ''] ?? copy.request.type[r.type] ?? r.type} />
-      {msg && <p role="status" className="mb-4 text-base text-emerald-800 dark:text-emerald-300">{msg}</p>}
+      {msg && <p role="status" className="mb-4 text-base text-brand-dark">{msg}</p>}
       <ErrorCard error={err} />
       <div className="max-w-lg space-y-4">
         <RequestCard request={r}>
           {canCheck && <Button type="button" variant="secondary" onClick={() => void check()}>{copy.request.checkNow}</Button>}
-          {(r.status === 'completed' || r.status === 'failed') && r.type === 'b2c' && <Link className="rounded-lg border border-gray-300 px-4 py-2.5 text-base dark:border-gray-700" to={`/send/phone?again=${r.id}`}>{r.status === 'failed' && r.retriable ? copy.request.tryAgain : copy.request.sendAgain}</Link>}
+          {(r.status === 'completed' || r.status === 'failed') && r.type === 'b2c' && <Link className="rounded-md border border-line px-4 py-2.5 text-base" to={`/send/phone?again=${r.id}`}>{r.status === 'failed' && r.retriable ? copy.request.tryAgain : copy.request.sendAgain}</Link>}
         </RequestCard>
         {canMarkChecked && (
-          <div className="space-y-3 rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-950">
+          <div className="space-y-3 rounded-md border border-line bg-surface p-5">
             <TextField label={copy.request.markCheckedNote} value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} />
             <Button type="button" disabled={!note.trim()} onClick={() => { setDialogError(null); setConfirm(true); }}>{copy.request.markChecked}</Button>
           </div>
         )}
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-base">
-          <dt className="text-gray-600 dark:text-gray-400">{copy.request.timeline.created}</dt><dd>{when(r.createdAt)}{r.createdBy && <span className="text-sm text-gray-500"> · {r.createdBy.displayName}</span>}</dd>
-          {r.sentAt && <><dt className="text-gray-600 dark:text-gray-400">{copy.request.timeline.sent}</dt><dd>{when(r.sentAt)}</dd></>}
-          {r.resultAt && <><dt className="text-gray-600 dark:text-gray-400">{copy.request.timeline.result}</dt><dd>{when(r.resultAt)}{r.resultSource && <span className="text-sm text-gray-500"> · {copy.request.source[r.resultSource] ?? r.resultSource}</span>}</dd></>}
-          {r.checked && <><dt className="text-gray-600 dark:text-gray-400">{copy.request.timeline.checked}</dt><dd>{when(r.checked.at)}</dd></>}
+          <dt className="text-muted">{copy.request.timeline.created}</dt><dd>{when(r.createdAt)}{r.createdBy && <span className="text-sm text-muted"> · {r.createdBy.displayName}</span>}</dd>
+          {r.sentAt && <><dt className="text-muted">{copy.request.timeline.sent}</dt><dd>{when(r.sentAt)}</dd></>}
+          {r.resultAt && <><dt className="text-muted">{copy.request.timeline.result}</dt><dd>{when(r.resultAt)}{r.resultSource && <span className="text-sm text-muted"> · {copy.request.source[r.resultSource] ?? r.resultSource}</span>}</dd></>}
+          {r.checked && <><dt className="text-muted">{copy.request.timeline.checked}</dt><dd>{when(r.checked.at)}</dd></>}
         </dl>
       </div>
       <PasswordConfirmDialog open={confirm} title={copy.request.markCheckedConfirm} busy={busy} error={dialogError} onConfirm={(pw) => void markChecked(pw)} onCancel={() => setConfirm(false)} />

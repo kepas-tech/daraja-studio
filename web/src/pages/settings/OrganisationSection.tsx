@@ -25,9 +25,9 @@ export function OrganisationSection({ view, stepUp }: { view: SettingsView; step
   return (
     <Section title={copy.settings.organisation.title}>
       <p className="text-lg font-medium">{name}</p>
-      <p className="text-sm text-gray-500">{copy.settings.organisation.nameNote}</p>
-      {org?.createdAt && <p className="text-sm text-gray-600 dark:text-gray-400">{copy.org.signedUp}: {when(org.createdAt)}</p>}
-      {org?.verifiedAt && <p className="text-sm text-gray-600 dark:text-gray-400">{copy.org.verifiedOn}: {when(org.verifiedAt)}</p>}
+      <p className="text-sm text-muted">{copy.settings.organisation.nameNote}</p>
+      {org?.createdAt && <p className="text-sm text-muted">{copy.org.signedUp}: {when(org.createdAt)}</p>}
+      {org?.verifiedAt && <p className="text-sm text-muted">{copy.org.verifiedOn}: {when(org.verifiedAt)}</p>}
 
       <h3 className="pt-2 font-medium">{copy.settings.organisation.verification}</h3>
       <ul className="space-y-2">
@@ -35,13 +35,13 @@ export function OrganisationSection({ view, stepUp }: { view: SettingsView; step
           const slot = view.environments[e];
           const verified = slot.ready.creds && slot.ready.operator;
           return (
-            <li key={e} data-testid={`verification-${e}`} className="rounded-lg border border-gray-200 p-3 dark:border-gray-800">
+            <li key={e} data-testid={`verification-${e}`} className="rounded-md border border-line p-3">
               <span className="flex flex-wrap items-center gap-2">
                 <strong>{copy.settings.tabs[e]}</strong>
-                <span className="text-xs text-gray-500">{copy.org.badgeSafaricom[e]}</span>
+                <span className="text-xs text-muted">{copy.org.badgeSafaricom[e]}</span>
                 <StatusPill kind={verified ? 'ok' : 'muted'}>{verified ? copy.settings.organisation.verifiedWith : copy.settings.organisation.notVerifiedWith}</StatusPill>
               </span>
-              <span className="mt-1 block text-sm text-gray-600 dark:text-gray-400">
+              <span className="mt-1 block text-sm text-muted">
                 {copy.settings.organisation.shortcode}: {slot.shortcode ?? copy.settings.organisation.none}
                 {' · '}{copy.settings.organisation.creds}: {slot.credsVerifiedAt ? when(slot.credsVerifiedAt) : copy.settings.organisation.none}
                 {' · '}{copy.settings.organisation.operator}: {slot.ready.operator ? copy.settings.operatorStatus.verified : copy.settings.organisation.none}
@@ -52,12 +52,12 @@ export function OrganisationSection({ view, stepUp }: { view: SettingsView; step
       </ul>
 
       <h3 className="pt-2 font-medium">{copy.settings.organisation.people}</h3>
-      <p><Link className="underline" to="/people">{copy.settings.organisation.peopleLink}</Link></p>
+      <p><Link to="/people">{copy.settings.organisation.peopleLink}</Link></p>
 
-      <p className="pt-2 text-sm text-gray-500">{copy.settings.revealWhy}</p>
+      <p className="pt-2 text-sm text-muted">{copy.settings.revealWhy}</p>
       {secret ? (
         <div className="flex flex-wrap items-center gap-2">
-          <code className="block break-all rounded bg-gray-100 p-2 dark:bg-gray-800">{secret}</code>
+          <code className="block break-all rounded bg-page p-2">{secret}</code>
           <Button variant="secondary" onClick={() => setSecret(null)}>{copy.settings.hideSecret}</Button>
         </div>
       ) : (

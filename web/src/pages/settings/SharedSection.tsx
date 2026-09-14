@@ -23,7 +23,7 @@ export function SharedSection({ view, reload, stepUp }: { view: SettingsView; re
         <TextField label={copy.setup.org.name} value={org.name} onChange={(e) => setOrg({ ...org, name: e.target.value })} />
         <TextField label={copy.setup.org.nominated} value={org.nominatedNumber} onChange={(e) => setOrg({ ...org, nominatedNumber: e.target.value })} />
         <TextField label={copy.setup.org.notify} value={org.notificationPhone} onChange={(e) => setOrg({ ...org, notificationPhone: e.target.value })} />
-        <p className="text-sm text-gray-500">{copy.settings.orgPortalNote(copy.settings.portalOnly)}</p>
+        <p className="text-sm text-muted">{copy.settings.orgPortalNote(copy.settings.portalOnly)}</p>
         <Button onClick={() => stepUp.ask(copy.settings.confirm.org, async (password) => {
           await api.put('/api/settings/org', { ...org, password });
           toast.success(copy.settings.saved);

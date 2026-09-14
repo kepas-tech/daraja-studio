@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { copy } from '../copy/en';
+import { Icon } from './Icon';
 
 export type ToastKind = 'success' | 'error' | 'info';
 interface ToastItem { id: number; kind: ToastKind; text: string }
@@ -40,16 +41,17 @@ function ToastRow({ item, onDismiss }: { item: ToastItem; onDismiss: (id: number
     const t = setTimeout(() => onDismiss(item.id), DURATIONS[item.kind]);
     return () => clearTimeout(t);
   }, [item.id, item.kind, paused, onDismiss]);
-  const tone = item.kind === 'error' ? 'bg-red-700 text-white' : item.kind === 'success' ? 'bg-emerald-700 text-white dark:bg-emerald-600' : 'bg-gray-800 text-white dark:bg-gray-700';
+  const icon = item.kind === 'error' ? <Icon name="alert-circle" className="size-5 text-danger" /> : item.kind === 'success' ? <Icon name="confirm-circle" className="size-5 text-brand" /> : <Icon name="lightbulb" className="size-5" />;
   return (
     <div
       role={item.kind === 'error' ? 'alert' : 'status'}
-      className={`pointer-events-auto flex w-full max-w-sm items-center justify-between gap-3 rounded-lg px-4 py-3 text-sm shadow-lg ${tone}`}
+      className="pointer-events-auto flex w-full max-w-sm items-center gap-3 rounded-md bg-ink px-4 py-3 text-sm text-surface shadow-lg"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
-      <span>{item.text}</span>
-      <button type="button" aria-label={copy.toast.close} className="shrink-0 text-lg leading-none opacity-80 hover:opacity-100" onClick={() => onDismiss(item.id)}>×</button>
+      {icon}
+      <span className="flex-1">{item.text}</span>
+      <button type="button" aria-label={copy.toast.close} className="shrink-0 cursor-pointer text-lg leading-none opacity-80 hover:opacity-100" onClick={() => onDismiss(item.id)}>×</button>
     </div>
   );
 }

@@ -101,7 +101,7 @@ export function SendPhone() {
       <PageHeader title={copy.send.phone.title} safaricom={copy.send.phone.safaricom} />
       {step === 'form' && (
         <>
-          {againUnavailable && <p role="alert" className="mb-4 max-w-lg rounded-lg border border-amber-300 bg-amber-50 p-3 text-base dark:bg-amber-950/30">{copy.send.phone.againUnavailable}</p>}
+          {againUnavailable && <p role="alert" className="mb-4 max-w-lg rounded-md border border-line bg-page p-3 text-base">{copy.send.phone.againUnavailable}</p>}
           <form className="max-w-lg space-y-4" onSubmit={(e) => { e.preventDefault(); if (valid) setStep('review'); }}>
             <PhoneInput label={copy.send.phone.recipient} value={to} onChange={setTo} autoFocus />
             <MoneyInput label={copy.send.phone.amount} valueCents={cents} onChange={setCents} wholeShillings />
@@ -120,20 +120,20 @@ export function SendPhone() {
       {step === 'review' && (
         <div className="max-w-lg space-y-4">
           <h2 className="text-xl font-semibold">{copy.send.phone.review.title}</h2>
-          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 rounded-xl border border-gray-200 bg-white p-5 text-base dark:border-gray-800 dark:bg-gray-950">
-            <dt className="text-gray-600 dark:text-gray-400">{copy.request.to}</dt><dd>{phone(normalised)}<span className="block text-sm text-gray-600 dark:text-gray-400">{copy.send.phone.review.nameNote}</span></dd>
-            <dt className="text-gray-600 dark:text-gray-400">{copy.request.amount}</dt><dd>{money(cents)}<span className="block text-sm text-gray-600 dark:text-gray-400">{copy.send.phone.review.feeNote}</span></dd>
-            <dt className="text-gray-600 dark:text-gray-400">{copy.send.phone.kind}</dt><dd>{copy.send.phone.kinds[kind]}</dd>
-            <dt className="text-gray-600 dark:text-gray-400">{copy.send.phone.review.balanceNow}</dt>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 rounded-md border border-line bg-surface p-5 text-base">
+            <dt className="text-muted">{copy.request.to}</dt><dd>{phone(normalised)}<span className="block text-sm text-muted">{copy.send.phone.review.nameNote}</span></dd>
+            <dt className="text-muted">{copy.request.amount}</dt><dd>{money(cents)}<span className="block text-sm text-muted">{copy.send.phone.review.feeNote}</span></dd>
+            <dt className="text-muted">{copy.send.phone.kind}</dt><dd>{copy.send.phone.kinds[kind]}</dd>
+            <dt className="text-muted">{copy.send.phone.review.balanceNow}</dt>
             <dd>{balance === undefined ? copy.app.loading : balance === null || balance.utilityCents === null ? copy.send.phone.review.balanceMissing : money(balance.utilityCents)}
-              {stale && balance?.queriedAt && <span className="block text-sm text-amber-800 dark:text-amber-300">{copy.send.phone.review.balanceStale(when(balance.queriedAt))}</span>}</dd>
-            {utilityAfter !== null && <><dt className="text-gray-600 dark:text-gray-400">{copy.send.phone.review.balanceAfter}</dt><dd>{money(utilityAfter)}</dd></>}
+              {stale && balance?.queriedAt && <span className="block text-sm text-muted">{copy.send.phone.review.balanceStale(when(balance.queriedAt))}</span>}</dd>
+            {utilityAfter !== null && <><dt className="text-muted">{copy.send.phone.review.balanceAfter}</dt><dd>{money(utilityAfter)}</dd></>}
           </dl>
-          <p className="text-sm text-gray-600 dark:text-gray-400">{copy.send.phone.review.debits}</p>
-          {cap !== null && <p className="text-sm text-gray-600 dark:text-gray-400">{copy.send.phone.review.cap(money(cap))}</p>}
-          {short && <p role="alert" className="rounded-lg border border-red-300 bg-red-50 p-3 text-base dark:bg-red-950/30">{copy.send.phone.review.short}</p>}
+          <p className="text-sm text-muted">{copy.send.phone.review.debits}</p>
+          {cap !== null && <p className="text-sm text-muted">{copy.send.phone.review.cap(money(cap))}</p>}
+          {short && <p role="alert" className="rounded-md border border-danger bg-danger-tint p-3 text-base">{copy.send.phone.review.short}</p>}
           {duplicate && (
-            <div role="alert" className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-base dark:bg-amber-950/30">
+            <div role="alert" className="space-y-2 rounded-md border border-line bg-page p-3 text-base">
               <p>{copy.send.phone.duplicate(when(duplicate.at))}</p>
               <div className="flex gap-2">
                 <Button type="button" onClick={() => { setConfirmDuplicate(true); setDuplicate(null); setConfirm(true); }}>{copy.send.phone.duplicateYes}</Button>

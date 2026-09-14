@@ -13,10 +13,10 @@ const STALE_MS = 24 * 3600 * 1000;
 
 function Card({ title, hint, cents }: { title: string; hint?: string; cents: number | null | undefined }) {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-950">
-      <h2 className="text-base text-gray-600 dark:text-gray-400">{title}</h2>
+    <div className="rounded-md border border-line bg-surface p-5">
+      <h2 className="text-base text-muted">{title}</h2>
       <p className="text-3xl font-semibold">{money(cents)}</p>
-      {hint && <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{hint}</p>}
+      {hint && <p className="mt-1 text-sm text-muted">{hint}</p>}
     </div>
   );
 }
@@ -69,13 +69,13 @@ export function Balances() {
       <PageHeader title={copy.balances.title} safaricom={copy.balances.safaricom}>
         <Button type="button" onClick={() => void refresh()} disabled={busy}>{busy ? copy.balances.refreshing : copy.balances.refresh}</Button>
       </PageHeader>
-      {msg && <p role="status" className="mb-4 text-base text-amber-800 dark:text-amber-300">{msg}</p>}
+      {msg && <p role="status" className="mb-4 text-base text-muted">{msg}</p>}
       <ErrorCard error={err} />
       {b === null && <p className="text-base">{copy.balances.never}</p>}
       {b && (
         <div className="space-y-4">
-          <p className="text-base text-gray-600 dark:text-gray-400">{copy.balances.asOf(when(b.queriedAt))}</p>
-          {stale && <p role="status" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-base dark:bg-amber-950/30">{copy.balances.stale}</p>}
+          <p className="text-base text-muted">{copy.balances.asOf(when(b.queriedAt))}</p>
+          {stale && <p role="status" className="rounded-md border border-line bg-page p-3 text-base">{copy.balances.stale}</p>}
           <div className="grid gap-4 sm:grid-cols-2">
             <Card title={copy.balances.working} hint={copy.balances.workingHint} cents={b.workingCents} />
             <Card title={copy.balances.utility} hint={copy.balances.utilityHint} cents={b.utilityCents} />

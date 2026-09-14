@@ -5,6 +5,8 @@ import { TextField } from '../../components/TextField';
 import { ErrorCard } from '../../components/ErrorCard';
 import { useToast } from '../../components/Toast';
 import { copy } from '../../copy/en';
+import { Flash } from '../../components/Flash';
+import { StepFooter } from './StepFooter';
 
 export function Shortcode({ onDone, onBack }: { onDone: () => void; onBack: () => void }) {
   const toast = useToast();
@@ -26,9 +28,9 @@ export function Shortcode({ onDone, onBack }: { onDone: () => void; onBack: () =
       } catch (e2) { setErr(e2 instanceof ApiError ? e2 : new Error(copy.error.generic)); setBusy(false); }
     }}>
       <TextField label={copy.setup.shortcode.field} inputMode="numeric" value={shortcode} onChange={(e) => setShortcode(e.target.value)} autoFocus />
-      {msg && <p className="text-emerald-800">{msg}</p>}
+      {msg && <Flash tone="success">{msg}</Flash>}
       <ErrorCard error={err} />
-      <div className="flex gap-2"><Button type="button" variant="secondary" onClick={onBack} disabled={busy}>{copy.setup.back}</Button><Button type="submit" disabled={!valid || busy}>{copy.setup.next}</Button></div>
+      <StepFooter onBack={onBack} backDisabled={busy}><Button type="submit" disabled={!valid || busy}>{copy.setup.next}</Button></StepFooter>
     </form>
   );
 }
