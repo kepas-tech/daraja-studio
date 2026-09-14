@@ -1,0 +1,22 @@
+{
+  "name": "daraja-studio",
+  "private": true,
+  "version": "0.5.0",
+  "packageManager": "pnpm@10.15.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "argon2",
+      "esbuild"
+    ]
+  }
+}

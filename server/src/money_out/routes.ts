@@ -1,0 +1,139 @@
+import { Router } from 'express';
+import { z } from 'zod';
+import type { AppDeps } from '../app.js';
+import { requireAuth, requireCsrf, requireStepUp } from '../auth/middleware.js';
+import { requirePermission, assertPermission } from '../permissions/middleware.js';
+import { requireMoneyReady } from './ready.js';
+import { getRequest, listRequests } from './reads.js';
+import { clientIp } from '../util/ip.js';
+import { HttpError } from '../util/errors.js';
+import { KINDS } from './registry.js';
+
+const sendPhone = z.object({
+  phone: z.string().trim().min(1).max(20),
+  amountCents: z.number().int().positive(),
+  commandId: z.enum(['BusinessPayment', 'SalaryPayment', 'PromotionPayment']).default('BusinessPayment'),
+  remarks: z.string().trim().max(100).optional(),
+  occasion: z.string().trim().max(100).optional(),
+  confirmDuplicate: z.boolean().optional(),
+});
+
+// A YYYY-MM-DD that fails to round-trip through Date (2026-02-30, 2026-13-45, ...) is calendar-
+// invalid, not just malformed — the regex alone lets it through to a Postgres ::date cast, which
+// 500s instead of the plain-English 400. An out-of-range month/day/year
+// makes `new Date(...)` an Invalid Date, and `.toISOString()` on that throws — the predicate must
+// check `getTime()` first so a throw never escapes zod's `.refine`.
+const isRealDay = (s: string) => {
+  const d = new Date(`${s}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
+};
+const dayString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(isRealDay, { message: 'Enter a real date.' });
+const listSchema = z.object({
+  type: z.string().optional(), status: z.enum(['pending', 'sent', 'completed', 'failed', 'unknown', 'cancelled', 'rejected', 'awaiting_approval']).optional(),
+  from: dayString.optional(), to: dayString.optional(),
+  q: z.string().trim().max(60).optional(), limit: z.coerce.number().int().min(1).max(100).default(25), cursor: z.string().max(200).optional(),
+}).refine((v) => !v.from || !v.to || v.from <= v.to, { message: 'The end date must be on or after the start date.', path: ['to'] });
+const checkedSchema = z.object({ note: z.string().trim().min(1).max(500) });
+const isUuid = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+const lookupSchema = z.object({ receipt: z.string().trim().toUpperCase().regex(/^[A-Z0-9]{10}$/, 'An M-Pesa receipt is 10 letters and numbers, like RI6BZTPXNM.') });
+
+function parse<T>(schema: z.ZodType<T>, body: unknown): T {
+  const r = schema.safeParse(body);
+  if (!r.success) throw new HttpError(400, 'invalid', r.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; '));
+  return r.data;
+}
+
+export function sendRoutes(deps: AppDeps): Router {
+  const r = Router();
+  r.post('/phone', requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'send.phone'), requireMoneyReady(deps), requireStepUp(deps.db), async (req, res, next) => {
+    try {
+      const b = parse(sendPhone, req.body);
+      const v = await deps.moneyOut.send(b, { personId: req.person!.id, ip: clientIp(req) });
+      res.status(201).json(v);
+    } catch (e) { next(e); }
+  });
+  return r;
+}
+
+export function requestRoutes(deps: AppDeps): Router {
+  const r = Router();
+  // Session + CSRF are shared by every route here; the permission key is not — `/check` can
+  // actually move a poll budget and hit Safaricom, so it needs `send.phone`, not the
+  // read-only `lookup.view` the other three routes use.
+  r.use(requireAuth(deps.db), requireCsrf);
+  r.get('/', requirePermission(deps.db, 'lookup.view'), async (req, res, next) => {
+    try {
+      const qy = parse(listSchema, req.query);
+      res.json(await listRequests(deps.db, { ...qy, type: qy.type ? qy.type.split(',').map((s) => s.trim()).filter(Boolean) : undefined }, deps.config.egressIps));
+    } catch (e) { next(e); }
+  });
+  r.get('/:id', requirePermission(deps.db, 'lookup.view'), async (req, res, next) => {
+    try {
+      const id = String(req.params.id);
+      if (!isUuid(id)) throw new HttpError(404, 'not_found', 'That request does not exist.');
+      const v = await getRequest(deps.db, id, deps.config.egressIps);
+      if (!v) throw new HttpError(404, 'not_found', 'That request does not exist.');
+      res.json(v);
+    } catch (e) { next(e); }
+  });
+  r.post('/:id/checked', requirePermission(deps.db, 'lookup.view'), requireStepUp(deps.db), async (req, res, next) => {
+    try {
+      const id = String(req.params.id);
+      if (!isUuid(id)) throw new HttpError(404, 'not_found', 'That request does not exist.');
+      const b = parse(checkedSchema, req.body);
+      res.json(await deps.moneyOut.markChecked(id, b.note, { personId: req.person!.id, ip: clientIp(req) }));
+    } catch (e) { next(e); }
+  });
+  // B0: the permission is the kind's, not always the phone's. `pollOne` already accepts every
+  // money type, so leaving `send.phone` here would have let anyone who may send to a phone poll a
+  // paybill payment or a reversal, and would have refused someone permitted only for those. The
+  // row is read inside the organisation first, so tenant isolation decides existence before
+  // permission decides access.
+  r.post('/:id/check', requireMoneyReady(deps), async (req, res, next) => {
+    try {
+      const id = String(req.params.id);
+      if (!isUuid(id)) throw new HttpError(404, 'not_found', 'That request does not exist.');
+      const [row] = await deps.db.query<{ type: string }>('SELECT type FROM requests WHERE id=$1', [id]);
+      if (!row) throw new HttpError(404, 'not_found', 'That request does not exist.');
+      const kind = KINDS[row.type];
+      if (!kind) throw new HttpError(404, 'not_found', 'That request does not exist.');
+      await assertPermission(deps.db, req.person!, kind.permission);
+      const { queryId } = await deps.moneyOut.pollOne(id);
+      res.status(202).json({ requestId: queryId });
+    } catch (e) { next(e); }
+  });
+  return r;
+}
+
+export function balanceRoutes(deps: AppDeps): Router {
+  const r = Router();
+  r.use(requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'balances.view'));
+  r.get('/latest', async (_req, res, next) => {
+    try {
+      const rows = await deps.db.query<{ working_cents: string | null; utility_cents: string | null; charges_paid_cents: string | null; queried_at: Date }>(
+        'SELECT working_cents, utility_cents, charges_paid_cents, queried_at FROM balances ORDER BY queried_at DESC LIMIT 1');
+      const b = rows[0];
+      res.json(b ? {
+        workingCents: b.working_cents === null ? null : Number(b.working_cents),
+        utilityCents: b.utility_cents === null ? null : Number(b.utility_cents),
+        chargesPaidCents: b.charges_paid_cents === null ? null : Number(b.charges_paid_cents),
+        queriedAt: b.queried_at.toISOString(),
+      } : null);
+    } catch (e) { next(e); }
+  });
+  r.post('/refresh', requireMoneyReady(deps), async (req, res, next) => {
+    try { res.status(202).json(await deps.moneyOut.refreshBalance({ personId: req.person!.id, ip: clientIp(req) })); } catch (e) { next(e); }
+  });
+  return r;
+}
+
+export function lookupRoutes(deps: AppDeps): Router {
+  const r = Router();
+  r.post('/', requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'lookup.view'), requireMoneyReady(deps), async (req, res, next) => {
+    try {
+      const b = parse(lookupSchema, req.body);
+      res.status(202).json(await deps.moneyOut.lookup(b.receipt, { personId: req.person!.id, ip: clientIp(req) }));
+    } catch (e) { next(e); }
+  });
+  return r;
+}

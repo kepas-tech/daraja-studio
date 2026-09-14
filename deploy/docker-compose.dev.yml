@@ -1,0 +1,11 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: studio
+      POSTGRES_PASSWORD: studio
+      POSTGRES_DB: studio
+    ports: ["5433:5432"]
+    volumes: ["studio-dev-pg:/var/lib/postgresql/data"]
+volumes:
+  studio-dev-pg: {}

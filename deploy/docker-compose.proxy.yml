@@ -1,0 +1,8 @@
+# Options 2 and 3 in README.md: your own proxy or a Cloudflare Tunnel terminates TLS, so studio is
+# published on the loopback only and the bundled Caddy is not started at all (no host ports 80/443).
+services:
+  studio:
+    ports: ["127.0.0.1:8080:8080"]
+  caddy:
+    deploy:
+      replicas: 0
