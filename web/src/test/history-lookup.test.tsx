@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { Lookup } from '../pages/Lookup';
+import { History } from '../pages/History';
 import { copy } from '../copy/en';
 
 class FakeEventSource {
@@ -18,21 +18,29 @@ afterEach(() => cleanup());
 
 const answered = { id: 'q1', type: 'status_query', subtype: 'lookup', status: 'completed', amountCents: 25000, currency: 'KES', recipient: { kind: 'phone', value: 'RI6BZTPXNM', name: '254700123456 - Jane Doe' }, remarks: null, receipt: 'RI6BZTPXNM', createdAt: '2026-09-06T11:00:00Z', sentAt: '2026-09-06T11:00:01Z', resultAt: '2026-09-06T11:00:05Z', resultSource: 'callback', safaricomSaid: 'The service request is processed successfully.', meaning: 'Safaricom reports this transaction as Completed.', whatToDo: null, retriable: false, pollAttempts: 0, checked: null, createdBy: null };
 
-describe('Lookup', () => {
+describe('History › Ask Safaricom about a receipt', () => {
+  it('does not offer Safaricom for a receipt that is already in the list', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ items: [{ ...answered, type: 'b2c', receipt: 'RI6BZTPXNM' }], nextCursor: null }), { status: 200 })));
+    render(<MemoryRouter><History /></MemoryRouter>);
+    fireEvent.change(screen.getByLabelText(copy.history.search), { target: { value: 'RI6BZTPXNM' } });
+    await screen.findAllByText('RI6BZTPXNM');
+    expect(screen.queryByRole('button', { name: copy.lookup.ask })).not.toBeInTheDocument();
+  });
+
   it('validates, asks, and renders the live answer', async () => {
     let body: unknown = null;
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const key = `${init?.method ?? 'GET'} ${String(input)}`;
       if (key === 'POST /api/lookup') { body = JSON.parse(String(init?.body)); return new Response(JSON.stringify({ requestId: 'q1' }), { status: 202 }); }
       if (key === 'GET /api/requests/q1') return new Response(JSON.stringify(answered), { status: 200 });
+      if (key.startsWith('GET /api/requests?')) return new Response(JSON.stringify({ items: [], nextCursor: null }), { status: 200 });
       throw new Error(`unexpected fetch ${key}`);
     });
     vi.stubGlobal('fetch', fetchMock);
-    render(<MemoryRouter><Lookup /></MemoryRouter>);
-    expect(screen.getByRole('button', { name: copy.lookup.button })).toBeDisabled();
-    fireEvent.change(screen.getByLabelText(copy.lookup.receipt), { target: { value: 'ri6bztpxnm' } });
-    fireEvent.click(screen.getByRole('button', { name: copy.lookup.button }));
-    await screen.findByText(copy.lookup.asking);
+    render(<MemoryRouter><History /></MemoryRouter>);
+    fireEvent.change(screen.getByLabelText(copy.history.search), { target: { value: 'ri6bztpxnm' } });
+    fireEvent.click(await screen.findByRole('button', { name: copy.lookup.ask }));
+    await screen.findAllByText(copy.lookup.asking);
     expect(body).toEqual({ receipt: 'RI6BZTPXNM' });
     await waitFor(() => expect(FakeEventSource.instances.length).toBeGreaterThan(0));
     const es = FakeEventSource.instances[FakeEventSource.instances.length - 1]!;
@@ -47,13 +55,14 @@ describe('Lookup', () => {
       const key = `${init?.method ?? 'GET'} ${String(input)}`;
       if (key === 'POST /api/lookup') return new Response(JSON.stringify({ requestId: 'q1' }), { status: 202 });
       if (key === 'GET /api/requests/q1') return new Response(JSON.stringify(answered), { status: 200 });
+      if (key.startsWith('GET /api/requests?')) return new Response(JSON.stringify({ items: [], nextCursor: null }), { status: 200 });
       throw new Error(`unexpected fetch ${key}`);
     });
     vi.stubGlobal('fetch', fetchMock);
-    render(<MemoryRouter><Lookup /></MemoryRouter>);
-    fireEvent.change(screen.getByLabelText(copy.lookup.receipt), { target: { value: 'ri6bztpxnm' } });
-    fireEvent.click(screen.getByRole('button', { name: copy.lookup.button }));
-    await screen.findByText(copy.lookup.asking);
+    render(<MemoryRouter><History /></MemoryRouter>);
+    fireEvent.change(screen.getByLabelText(copy.history.search), { target: { value: 'ri6bztpxnm' } });
+    fireEvent.click(await screen.findByRole('button', { name: copy.lookup.ask }));
+    await screen.findAllByText(copy.lookup.asking);
     await waitFor(() => expect(FakeEventSource.instances.length).toBeGreaterThan(0));
     const es = FakeEventSource.instances[FakeEventSource.instances.length - 1]!;
     // No 'request.updated' event is ever emitted — only the connection's own open fires.
@@ -69,13 +78,14 @@ describe('Lookup', () => {
         const key = `${init?.method ?? 'GET'} ${String(input)}`;
         if (key === 'POST /api/lookup') return new Response(JSON.stringify({ requestId: 'q1' }), { status: 202 });
         if (key === 'GET /api/requests/q1') { calls++; return new Response(JSON.stringify(answered), { status: 200 }); }
-        throw new Error(`unexpected fetch ${key}`);
+        if (key.startsWith('GET /api/requests?')) return new Response(JSON.stringify({ items: [], nextCursor: null }), { status: 200 });
+      throw new Error(`unexpected fetch ${key}`);
       });
       vi.stubGlobal('fetch', fetchMock);
-      render(<MemoryRouter><Lookup /></MemoryRouter>);
-      fireEvent.change(screen.getByLabelText(copy.lookup.receipt), { target: { value: 'ri6bztpxnm' } });
-      fireEvent.click(screen.getByRole('button', { name: copy.lookup.button }));
-      await screen.findByText(copy.lookup.asking);
+      render(<MemoryRouter><History /></MemoryRouter>);
+      fireEvent.change(screen.getByLabelText(copy.history.search), { target: { value: 'ri6bztpxnm' } });
+      fireEvent.click(await screen.findByRole('button', { name: copy.lookup.ask }));
+      await screen.findAllByText(copy.lookup.asking);
       await vi.advanceTimersByTimeAsync(15_000);
       await screen.findByText('Safaricom reports this transaction as Completed.');
       expect(calls).toBe(1);
@@ -86,12 +96,13 @@ describe('Lookup', () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const key = `${init?.method ?? 'GET'} ${String(input)}`;
       if (key === 'POST /api/lookup') return new Response(JSON.stringify({ error: { code: 'safaricom_rejected', message: 'Safaricom rejected the request.', details: { safaricomSaid: 'The transaction is not permitted to your account.', meaning: 'Wrong receipt or account.' } } }), { status: 502 });
+      if (key.startsWith('GET /api/requests?')) return new Response(JSON.stringify({ items: [], nextCursor: null }), { status: 200 });
       throw new Error(`unexpected fetch ${key}`);
     });
     vi.stubGlobal('fetch', fetchMock);
-    render(<MemoryRouter><Lookup /></MemoryRouter>);
-    fireEvent.change(screen.getByLabelText(copy.lookup.receipt), { target: { value: 'ri6bztpxnm' } });
-    fireEvent.click(screen.getByRole('button', { name: copy.lookup.button }));
+    render(<MemoryRouter><History /></MemoryRouter>);
+    fireEvent.change(screen.getByLabelText(copy.history.search), { target: { value: 'ri6bztpxnm' } });
+    fireEvent.click(await screen.findByRole('button', { name: copy.lookup.ask }));
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent(copy.error.safaricomSaid);
     expect(alert).toHaveTextContent('The transaction is not permitted to your account.');
@@ -103,22 +114,14 @@ describe('Lookup', () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const key = `${init?.method ?? 'GET'} ${String(input)}`;
       if (key === 'POST /api/lookup') return new Response(JSON.stringify({ error: { code: 'lookup_in_flight', message: 'x' } }), { status: 409 });
+      if (key.startsWith('GET /api/requests?')) return new Response(JSON.stringify({ items: [], nextCursor: null }), { status: 200 });
       throw new Error(`unexpected fetch ${key}`);
     });
     vi.stubGlobal('fetch', fetchMock);
-    render(<MemoryRouter><Lookup /></MemoryRouter>);
-    fireEvent.change(screen.getByLabelText(copy.lookup.receipt), { target: { value: 'ri6bztpxnm' } });
-    fireEvent.click(screen.getByRole('button', { name: copy.lookup.button }));
+    render(<MemoryRouter><History /></MemoryRouter>);
+    fireEvent.change(screen.getByLabelText(copy.history.search), { target: { value: 'ri6bztpxnm' } });
+    fireEvent.click(await screen.findByRole('button', { name: copy.lookup.ask }));
     await screen.findByText(copy.lookup.inFlight);
-  });
-
-  it('links the receipt hint to the input via aria-describedby', () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 200 })));
-    render(<MemoryRouter><Lookup /></MemoryRouter>);
-    const input = screen.getByLabelText(copy.lookup.receipt);
-    const describedBy = input.getAttribute('aria-describedby');
-    expect(describedBy).toBeTruthy();
-    expect(document.getElementById(describedBy!)).toHaveTextContent(copy.lookup.hint);
   });
 
   it('shows a plain error card when a failed lookup has no what-to-do', async () => {
@@ -127,13 +130,14 @@ describe('Lookup', () => {
       const key = `${init?.method ?? 'GET'} ${String(input)}`;
       if (key === 'POST /api/lookup') return new Response(JSON.stringify({ requestId: 'q1' }), { status: 202 });
       if (key === 'GET /api/requests/q1') return new Response(JSON.stringify(failed), { status: 200 });
+      if (key.startsWith('GET /api/requests?')) return new Response(JSON.stringify({ items: [], nextCursor: null }), { status: 200 });
       throw new Error(`unexpected fetch ${key}`);
     });
     vi.stubGlobal('fetch', fetchMock);
-    render(<MemoryRouter><Lookup /></MemoryRouter>);
-    fireEvent.change(screen.getByLabelText(copy.lookup.receipt), { target: { value: 'ri6bztpxnm' } });
-    fireEvent.click(screen.getByRole('button', { name: copy.lookup.button }));
-    await screen.findByText(copy.lookup.asking);
+    render(<MemoryRouter><History /></MemoryRouter>);
+    fireEvent.change(screen.getByLabelText(copy.history.search), { target: { value: 'ri6bztpxnm' } });
+    fireEvent.click(await screen.findByRole('button', { name: copy.lookup.ask }));
+    await screen.findAllByText(copy.lookup.asking);
     await waitFor(() => expect(FakeEventSource.instances.length).toBeGreaterThan(0));
     const es = FakeEventSource.instances[FakeEventSource.instances.length - 1]!;
     es.emit('request.updated', { type: 'request.updated', payload: { id: 'q1', status: 'failed' }, at: new Date().toISOString() });
@@ -142,19 +146,19 @@ describe('Lookup', () => {
   });
 
   it('renders the message for an unmapped ApiError code', async () => {
-    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ error: { code: 'no_operator', message: 'Add an API operator in Settings first.' } }), { status: 409 }));
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => String(input).startsWith('/api/requests?') ? new Response(JSON.stringify({ items: [], nextCursor: null }), { status: 200 }) : new Response(JSON.stringify({ error: { code: 'no_operator', message: 'Add an API operator in Settings first.' } }), { status: 409 }));
     vi.stubGlobal('fetch', fetchMock);
-    render(<MemoryRouter><Lookup /></MemoryRouter>);
-    fireEvent.change(screen.getByLabelText(copy.lookup.receipt), { target: { value: 'ri6bztpxnm' } });
-    fireEvent.click(screen.getByRole('button', { name: copy.lookup.button }));
+    render(<MemoryRouter><History /></MemoryRouter>);
+    fireEvent.change(screen.getByLabelText(copy.history.search), { target: { value: 'ri6bztpxnm' } });
+    fireEvent.click(await screen.findByRole('button', { name: copy.lookup.ask }));
     await screen.findByText('Add an API operator in Settings first.');
   });
 
   it('falls back to the generic message for a non-API error', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch'); }));
-    render(<MemoryRouter><Lookup /></MemoryRouter>);
-    fireEvent.change(screen.getByLabelText(copy.lookup.receipt), { target: { value: 'ri6bztpxnm' } });
-    fireEvent.click(screen.getByRole('button', { name: copy.lookup.button }));
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => { if (String(input).startsWith('/api/requests?')) return new Response(JSON.stringify({ items: [], nextCursor: null }), { status: 200 }); throw new TypeError('Failed to fetch'); }));
+    render(<MemoryRouter><History /></MemoryRouter>);
+    fireEvent.change(screen.getByLabelText(copy.history.search), { target: { value: 'ri6bztpxnm' } });
+    fireEvent.click(await screen.findByRole('button', { name: copy.lookup.ask }));
     await screen.findByText(copy.error.generic);
   });
 });

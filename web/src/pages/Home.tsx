@@ -18,7 +18,7 @@ import type { BalanceView, Page, RequestView, SettingsView } from '../api/types'
 
 const RELOAD_ON: readonly string[] = ['operator.updated', 'setup.updated', 'balance.updated'];
 // The three things a business does most, as tiles above the fold.
-const QUICK: { key: string; to: string }[] = [{ key: 'send', to: '/send/phone' }, { key: 'stk', to: '/ask-to-pay' }, { key: 'balances', to: '/balances' }];
+const QUICK: { key: string; to: string }[] = [{ key: 'send', to: '/send/phone' }, { key: 'stk', to: '/ask-to-pay' }, { key: 'history', to: '/history' }];
 
 export function Home() {
   const { person, org, refresh } = useSession();
@@ -64,7 +64,7 @@ export function Home() {
         </Flash>
       )}
       <ErrorCardSlot error={balances.err} />
-      <BalanceHero balance={balance} className="mb-2" action={<Button type="button" variant="secondary" onClick={() => void balances.refresh()} disabled={balances.busy}>{balances.busy ? copy.balances.refreshing : copy.balances.refresh}</Button>} />
+      <BalanceHero balance={balance} message={balances.msg} className="mb-2" action={<Button type="button" variant="secondary" onClick={() => void balances.refresh()} disabled={balances.busy}>{balances.busy ? copy.balances.refreshing : copy.balances.refresh}</Button>} />
       {alerts.length === 0 && v && <p className="mb-6 text-sm text-muted">{copy.home.connected}</p>}
       <div className="my-6 grid gap-3 sm:grid-cols-3">
         {QUICK.map(({ key, to }) => {

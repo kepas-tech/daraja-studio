@@ -8,7 +8,7 @@ export const copy = {
     title: 'QR codes', safaricom: 'Dynamic QR',
     payee: 'Paid to', shortcode: 'Shortcode', reference: 'Payment reference', referenceHint: 'An order or account reference, up to 32 characters.',
     type: 'How customers pay', paybill: 'Pay Bill', till: 'Buy Goods (till)',
-    amount: 'Amount (KES)', customerAmount: 'Customer enters the amount',
+    amount: 'Amount (KES)', customerAmount: 'Customer enters the amount', who: 'Who sets the amount?', fixed: 'A fixed amount',
     generate: 'Create QR code', generating: 'Creating the code…', download: 'Download QR image',
     imageAlt: 'M-Pesa payment QR code', ready: 'QR code ready',
     scan: 'The customer scans this with their M-Pesa app and checks the payee before paying.',
@@ -43,10 +43,8 @@ export const copy = {
   pageHeader: { safaricomPrefix: 'Safaricom calls this: ' },
   nav: Object.assign([
     { key: 'home', label: 'Home', safaricom: null, path: '/', icon: 'home', group: 'home', phase: 1, available: true },
-    { key: 'balances', label: 'Balances', safaricom: 'My Organization › Account', path: '/balances', icon: 'document-report', group: 'money', phase: 2, available: true },
     { key: 'send', label: 'Send money', safaricom: 'Initiate Transaction', path: '/send', icon: 'arrow-right-circle', group: 'money', phase: 2, available: true },
     { key: 'bulk', label: 'Bulk send', safaricom: 'Bulk Task › Bulk Payment', path: '/bulk', icon: 'document-list', group: 'money', phase: 5, available: false },
-    { key: 'lookup', label: 'Look up a payment', safaricom: 'Transaction Status', path: '/lookup', icon: 'search', group: 'money', phase: 2, available: true },
     { key: 'reverse', label: 'Reverse a payment', safaricom: 'Reversal', path: '/reverse', icon: 'arrow-left-circle', group: 'money', phase: 2, available: true },
     { key: 'money-in', label: 'Money in', safaricom: null, path: '/money-in', icon: 'arrow-down-circle', group: 'money', phase: 3, available: false },
     { key: 'stk', label: 'Ask a customer to pay', safaricom: 'STK Push', path: '/ask-to-pay', icon: 'cellphone', group: 'money', phase: 3, available: true },
@@ -71,6 +69,7 @@ export const copy = {
     again: 'Type your new password again',
     save: 'Save my password',
     voluntaryIntro: 'Choose a new password.',
+    mismatch: 'The two passwords are not the same.',
     cancel: 'Cancel',
   },
   people: {
@@ -81,6 +80,7 @@ export const copy = {
     displayName: 'Their name',
     usernameSingle: 'A username for them',
     role: 'What may they do?',
+    roleShort: { operator: 'Operator', viewer: 'Viewer' } as Record<string, string>,
     // The row selects get a name of their own: two controls labelled "What may they do?" on one
     // page (the add form and a row) would be ambiguous to a screen reader and to a test.
     roleFor: (name: string) => `What may ${name} do?`,
@@ -125,7 +125,7 @@ export const copy = {
     subtype: { BusinessPayment: 'Business payment', SalaryPayment: 'Salary', PromotionPayment: 'Promotion', refresh: 'Balance refresh', lookup: 'Lookup', sweep: 'Safaricom check' } as Record<string, string>,
     to: 'To', amount: 'Amount', receipt: 'Receipt', when: 'When', by: 'By', category: 'Category',
     checkedBy: (name: string, note: string) => `Checked by ${name}: ${note}`,
-    sendAgain: 'Send again', tryAgain: 'Try again', checkNow: 'Check with Safaricom now',
+    sendAgain: 'Send again', tryAgain: 'Try again', checkNow: 'Check with Safaricom now', reverseThis: 'Reverse this payment',
     checkSent: 'Check sent. The answer will show here within a few minutes.',
     markChecked: 'Mark as checked', markedChecked: 'Marked as checked.', markCheckedNote: 'What did you find? (for example: "Paid, seen in the portal")', markCheckedConfirm: 'Mark this as checked?',
     waiting: 'Waiting for Safaricom…', notFound: 'That request does not exist.', notFoundTitle: 'Request not found',
@@ -197,6 +197,7 @@ export const copy = {
     title: 'Look up a payment', safaricom: 'Transaction Status', receipt: 'M-Pesa receipt', hint: '10 letters and numbers, like RI6BZTPXNM',
     button: 'Look up', asking: 'Asking Safaricom…', says: 'Safaricom says', noAnswer: 'No answer within 5 minutes. Try again.',
     history: 'Sent from here? See History.',
+    notHere: 'This receipt was not sent from here.', ask: 'Ask Safaricom about this receipt',
     inFlight: 'Studio already asked Safaricom about this receipt. Wait for that answer.',
   },
   reverse: {
@@ -386,6 +387,7 @@ export const copy = {
     },
   },
   toast: { close: 'Dismiss' },
+  questionnaire: { of: (n: number, m: number) => `Question ${n} of ${m}`, next: 'Continue', back: 'Back', skip: 'Skip' },
   account: {
     menu: 'Account', title: 'Account', organisation: 'Organisation & shortcodes', shortcodes: 'Shortcodes', changePassword: 'Change password',
     deleteTitle: 'Delete this studio', deleteBody: 'Removes the organisation, its people, credentials and history. The install returns to first-run setup. This cannot be undone.',

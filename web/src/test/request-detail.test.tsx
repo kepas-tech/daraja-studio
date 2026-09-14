@@ -15,6 +15,17 @@ function renderAt(id: string) {
 }
 
 describe('RequestDetail', () => {
+  it('offers Reverse this payment on a paid customer payment, and not on a send to a phone', async () => {
+    const paid = { ...unknown, id: 'c1', type: 'stk', subtype: null, status: 'completed', receipt: 'RI6BZTPXNM', meaning: null, whatToDo: null, pollAttempts: 0 };
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => new Response(JSON.stringify(String(input).endsWith('/c1') ? paid : { ...unknown, status: 'completed', receipt: 'X' }), { status: 200 })));
+    renderAt('c1');
+    expect(await screen.findByRole('link', { name: copy.request.reverseThis })).toHaveAttribute('href', '/reverse?receipt=RI6BZTPXNM');
+    cleanup();
+    renderAt('r9');
+    await screen.findByText('X');
+    expect(screen.queryByRole('link', { name: copy.request.reverseThis })).not.toBeInTheDocument();
+  });
+
   it('marks an unknown request as checked with a note and password', async () => {
     let body: unknown = null;
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {

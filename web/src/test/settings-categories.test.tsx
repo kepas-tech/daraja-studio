@@ -37,6 +37,7 @@ describe('Settings › Payment categories', () => {
     const puts = mount();
     fireEvent.click(await screen.findByRole('button', { name: copy.settings.categories.add }));
     fireEvent.change(screen.getByLabelText(copy.settings.categories.name), { target: { value: 'Personal use' } });
+    fireEvent.click(screen.getByRole('button', { name: copy.questionnaire.next }));
     fireEvent.change(screen.getByLabelText(copy.settings.categories.kind), { target: { value: 'PromotionPayment' } });
     fireEvent.click(screen.getByRole('button', { name: copy.settings.save }));
     await confirm();
@@ -49,6 +50,7 @@ describe('Settings › Payment categories', () => {
     const row = await screen.findByTestId('category-salary');
     fireEvent.click(within(row).getByRole('button', { name: copy.settings.categories.edit }));
     fireEvent.change(within(row).getByLabelText(copy.settings.categories.name), { target: { value: 'Wages' } });
+    fireEvent.click(within(row).getByRole('button', { name: copy.questionnaire.next }));
     fireEvent.click(within(row).getByRole('button', { name: copy.settings.save }));
     await confirm();
     await waitFor(() => expect(puts).toHaveLength(1));

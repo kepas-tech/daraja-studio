@@ -65,7 +65,7 @@ function renderSettings() {
 
 async function renderAndWait() {
   renderSettings();
-  await waitFor(() => expect(screen.getByTestId('setting-shortcode')).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByTestId('setting-daraja')).toBeInTheDocument());
 }
 
 describe('Settings', () => {
@@ -117,6 +117,7 @@ describe('Settings', () => {
     const darajaSection = screen.getByTestId('setting-daraja');
     fireEvent.click(within(darajaSection).getByRole('button', { name: copy.settings.replace }));
     fireEvent.change(within(darajaSection).getByLabelText(copy.setup.daraja.key), { target: { value: 'key123' } });
+    fireEvent.click(within(darajaSection).getByRole('button', { name: copy.questionnaire.next }));
     fireEvent.change(within(darajaSection).getByLabelText(copy.setup.daraja.secret), { target: { value: 'secret123' } });
     fireEvent.click(within(darajaSection).getByRole('button', { name: copy.settings.save }));
     fireEvent.change(screen.getByLabelText(copy.confirm.yourPassword), { target: { value: 'studio-pw' } });
@@ -129,24 +130,6 @@ describe('Settings', () => {
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Safaricom accepted the key and secret.'));
   });
 
-  it('shows the shortcode verified-name toast on save', async () => {
-    const fetchMock = mockFetch((url, method) => {
-      if (url === '/api/settings/environments/production/shortcode' && method === 'PUT') return new Response(JSON.stringify({ verifiedName: 'KEPAS TECHNOLOGIES', verifyError: null }), { status: 200 });
-      throw new Error(`unexpected fetch ${method} ${url}`);
-    });
-    vi.stubGlobal('fetch', fetchMock);
-    await renderAndWait();
-
-    const shortcodeSection = screen.getByTestId('setting-shortcode');
-    fireEvent.click(within(shortcodeSection).getByRole('button', { name: copy.settings.change }));
-    fireEvent.change(within(shortcodeSection).getByLabelText(copy.settings.shortcode.label), { target: { value: '700111' } });
-    fireEvent.click(within(shortcodeSection).getByRole('button', { name: copy.settings.save }));
-    fireEvent.change(screen.getByLabelText(copy.confirm.yourPassword), { target: { value: 'studio-pw' } });
-    fireEvent.click(screen.getByRole('button', { name: copy.confirm.confirm }));
-
-    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(copy.settings.shortcode.knownAs('KEPAS TECHNOLOGIES')));
-  });
-
   it('every visible label comes from copy (spot check a few)', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(view), { status: 200 })));
     await renderAndWait();
@@ -155,7 +138,7 @@ describe('Settings', () => {
     }
   });
 
-  it('an operator.updated event refreshes the view, keeping a typed but unsaved shortcode edit', async () => {
+  it('an operator.updated event refreshes the view, keeping a typed but unsaved consumer key', async () => {
     const updatedView = { ...view, environments: { ...view.environments, production: { ...view.environments.production, operators: [{ ...view.environments.production.operators[0], status: 'failed' as const }] } } };
     let settingsGets = 0;
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -170,14 +153,14 @@ describe('Settings', () => {
     vi.stubGlobal('fetch', fetchMock);
     await renderAndWait();
 
-    fireEvent.click(within(screen.getByTestId('setting-shortcode')).getByRole('button', { name: copy.settings.change }));
-    fireEvent.change(screen.getByLabelText(copy.settings.shortcode.label), { target: { value: '1234567' } });
+    fireEvent.click(within(screen.getByTestId('setting-daraja')).getByRole('button', { name: copy.settings.replace }));
+    fireEvent.change(screen.getByLabelText(copy.setup.daraja.key), { target: { value: 'typed-key' } });
 
     const es = FakeEventSource.instances[FakeEventSource.instances.length - 1]!;
     es.emit('operator.updated', { type: 'operator.updated', payload: {}, at: new Date().toISOString() });
 
     await waitFor(() => expect(screen.getByText(copy.settings.operatorStatus.failed)).toBeInTheDocument());
-    expect(screen.getByLabelText(copy.settings.shortcode.label)).toHaveValue('1234567');
+    expect(screen.getByLabelText(copy.setup.daraja.key)).toHaveValue('typed-key');
   });
 
   it('keeps the confirm dialog open and shows the server message on a 403 step-up failure', async () => {

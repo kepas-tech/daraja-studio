@@ -13,8 +13,6 @@ import { NotPossible } from '../pages/NotPossible';
 import { SetupLayout } from '../pages/setup/SetupLayout';
 import { SendHub } from '../pages/send/SendHub';
 import { SendPhone } from '../pages/send/SendPhone';
-import { Balances } from '../pages/Balances';
-import { Lookup } from '../pages/Lookup';
 import { History } from '../pages/History';
 import { RequestDetail } from '../pages/RequestDetail';
 import { People } from '../pages/People';
@@ -53,8 +51,8 @@ function Gate() {
         <Route path="/not-possible" element={<NotPossible />} />
         <Route path="/send" element={<SendHub />} />
         <Route path="/send/phone" element={<SendPhone />} />
-        <Route path="/balances" element={<Balances />} />
-        <Route path="/lookup" element={<Lookup />} />
+        <Route path="/balances" element={<Navigate to="/" replace />} />
+        <Route path="/lookup" element={<Navigate to="/history" replace />} />
         <Route path="/qr" element={<Qr />} />
         <Route path="/ask-to-pay" element={<AskToPay />} />
         <Route path="/reverse" element={<Reverse />} />

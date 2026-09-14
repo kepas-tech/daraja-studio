@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.8.0 — one question at a time, two pages fewer
+
+- Every form with more than one input asks one question per screen: Back, Next, a counter, then
+  the review or save. Send money, Ask a customer to pay, QR codes, Add somebody, Change password,
+  every Settings edit, and the setup wizard's multi-field steps.
+- Balances merged into Home (charges paid and the stale warning included); `/balances` opens Home.
+- Look up a payment merged into History: type a receipt; if it was not sent from here, one button
+  asks Safaricom about it and the answer shows there. `/lookup` opens History.
+- A paid customer payment's page offers Reverse this payment, opening Reverse on the review step.
+- Shortcodes are edited on the Account page only.
+
 ## 0.7.0 — your own payment categories, an account menu, one environment at a time
 
 - Send money takes your own payment categories (Personal use, Rent, …); each sits on one of

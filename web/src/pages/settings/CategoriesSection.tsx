@@ -4,6 +4,7 @@ import type { CommandId, SendCategory } from '../../api/types';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { TextField } from '../../components/TextField';
+import { Questionnaire } from '../../components/Questionnaire';
 import { toastText } from '../../components/ErrorCard';
 import { useToast } from '../../components/Toast';
 import { copy } from '../../copy/en';
@@ -30,19 +31,14 @@ export function CategoriesSection({ items, reload, stepUp }: { items: SendCatego
   });
 
   const form = (onSave: () => void, onCancel: () => void) => (
-    <div className="space-y-3">
-      <TextField label={c.name} value={draft.name} maxLength={40} onChange={(e) => setDraft({ ...draft, name: e.target.value })} autoFocus />
-      <label className="block">
-        <span className="mb-1 block text-base font-semibold">{c.kind}</span>
-        <select className={control} value={draft.commandId} onChange={(e) => setDraft({ ...draft, commandId: e.target.value as CommandId })}>
+    <Questionnaire doneLabel={copy.settings.save} onDone={onSave} onCancel={onCancel} steps={[
+      { key: 'name', question: c.name, valid: draft.name.trim().length > 0, render: () => <TextField label={c.name} labelHidden value={draft.name} maxLength={40} onChange={(e) => setDraft({ ...draft, name: e.target.value })} autoFocus /> },
+      { key: 'kind', question: c.kind, valid: true, render: () => (
+        <select aria-label={c.kind} className={control} value={draft.commandId} onChange={(e) => setDraft({ ...draft, commandId: e.target.value as CommandId })}>
           {KINDS.map((k) => <option key={k} value={k}>{copy.send.phone.kinds[k]}</option>)}
         </select>
-      </label>
-      <div className="flex gap-2">
-        <Button type="button" disabled={!draft.name.trim()} onClick={onSave}>{copy.settings.save}</Button>
-        <Button type="button" variant="secondary" onClick={onCancel}>{copy.confirm.cancel}</Button>
-      </div>
-    </div>
+      ) },
+    ]} />
   );
 
   return (

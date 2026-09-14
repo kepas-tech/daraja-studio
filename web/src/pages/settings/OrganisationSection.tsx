@@ -9,6 +9,7 @@ import { toastText } from '../../components/ErrorCard';
 import { SettingRow } from '../../components/SettingRow';
 import { StatusPill } from '../../components/StatusPill';
 import { TextField } from '../../components/TextField';
+import { Questionnaire } from '../../components/Questionnaire';
 import { useToast } from '../../components/Toast';
 import { copy } from '../../copy/en';
 import { when } from '../../format';
@@ -38,18 +39,18 @@ export function OrganisationSection({ view, reload, stepUp }: { view: SettingsVi
         </>
       }>
         {(close) => (
-          <>
-            <TextField label={copy.setup.org.name} value={org.name} onChange={(e) => setOrg({ ...org, name: e.target.value })} />
-            <TextField label={copy.setup.org.nominated} value={org.nominatedNumber} onChange={(e) => setOrg({ ...org, nominatedNumber: e.target.value })} />
-            <TextField label={copy.setup.org.notify} value={org.notificationPhone} onChange={(e) => setOrg({ ...org, notificationPhone: e.target.value })} />
-            <p className="text-sm text-muted">{copy.settings.orgPortalNote(copy.settings.portalOnly)}</p>
-            <Button onClick={() => stepUp.ask(copy.settings.confirm.org, async (password) => {
+          <Questionnaire doneLabel={copy.settings.save} onCancel={close} intro={copy.settings.orgPortalNote(copy.settings.portalOnly)}
+            onDone={() => stepUp.ask(copy.settings.confirm.org, async (password) => {
               await api.put('/api/settings/org', { ...org, password });
               toast.success(copy.settings.saved);
               await reload();
               close();
-            })}>{copy.settings.save}</Button>
-          </>
+            })}
+            steps={[
+              { key: 'name', question: copy.setup.org.name, valid: org.name.trim().length > 0, render: () => <TextField label={copy.setup.org.name} labelHidden value={org.name} onChange={(e) => setOrg({ ...org, name: e.target.value })} autoFocus /> },
+              { key: 'nominated', question: copy.setup.org.nominated, valid: /^254\d{9}$/.test(org.nominatedNumber), render: () => <TextField label={copy.setup.org.nominated} labelHidden value={org.nominatedNumber} onChange={(e) => setOrg({ ...org, nominatedNumber: e.target.value })} autoFocus /> },
+              { key: 'notify', question: copy.setup.org.notify, valid: /^254\d{9}$/.test(org.notificationPhone), render: () => <TextField label={copy.setup.org.notify} labelHidden value={org.notificationPhone} onChange={(e) => setOrg({ ...org, notificationPhone: e.target.value })} autoFocus /> },
+            ]} />
         )}
       </SettingRow>
 

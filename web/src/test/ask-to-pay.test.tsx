@@ -3,6 +3,7 @@ import { MemoryRouter } from 'react-router';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { AskToPay } from '../pages/AskToPay';
 import { copy } from '../copy/en';
+import { answer } from './questionnaire';
 
 class FakeEventSource {
   static instances: FakeEventSource[] = [];
@@ -34,9 +35,9 @@ function fetchFor(handlers: Record<string, (init?: RequestInit) => Response>) {
 }
 
 async function fillForm(reference = 'INV-7') {
-  fireEvent.change(screen.getByLabelText(copy.askToPay.phone, { exact: false }), { target: { value: '0700123456' } });
-  fireEvent.change(screen.getByLabelText(copy.askToPay.amount, { exact: false }), { target: { value: '1' } });
-  fireEvent.change(screen.getByLabelText(copy.askToPay.reference, { exact: false }), { target: { value: reference } });
+  answer(copy.askToPay.phone, '0700123456', { exact: false });
+  answer(copy.askToPay.amount, '1', { exact: false });
+  answer(copy.askToPay.reference, reference, { exact: false });
   fireEvent.click(screen.getByRole('button', { name: copy.askToPay.next }));
   await screen.findByText(copy.askToPay.review.title);
 }
@@ -51,7 +52,7 @@ describe('AskToPay', () => {
     vi.stubGlobal('fetch', fetchMock);
     render(<MemoryRouter><AskToPay /></MemoryRouter>);
 
-    expect(screen.getByRole('button', { name: copy.askToPay.next })).toBeDisabled();
+    expect(screen.getByRole('button', { name: copy.questionnaire.next })).toBeDisabled();
     await fillForm();
     fireEvent.click(screen.getByRole('button', { name: copy.askToPay.ask }));
     await screen.findByText(copy.askToPay.result.sent);
@@ -69,11 +70,11 @@ describe('AskToPay', () => {
   it('a reference is required before the customer can be asked', async () => {
     vi.stubGlobal('fetch', fetchFor({}));
     render(<MemoryRouter><AskToPay /></MemoryRouter>);
-    fireEvent.change(screen.getByLabelText(copy.askToPay.phone, { exact: false }), { target: { value: '0700123456' } });
-    fireEvent.change(screen.getByLabelText(copy.askToPay.amount, { exact: false }), { target: { value: '1' } });
-    expect(screen.getByRole('button', { name: copy.askToPay.next })).toBeDisabled();
+    answer(copy.askToPay.phone, '0700123456', { exact: false });
+    answer(copy.askToPay.amount, '1', { exact: false });
+    expect(screen.getByRole('button', { name: copy.questionnaire.next })).toBeDisabled();
     fireEvent.change(screen.getByLabelText(copy.askToPay.reference, { exact: false }), { target: { value: 'INV-7' } });
-    expect(screen.getByRole('button', { name: copy.askToPay.next })).toBeEnabled();
+    expect(screen.getByRole('button', { name: copy.questionnaire.next })).toBeEnabled();
   });
 
   it('asked twice: the repeat is refused until it is confirmed, and confirming sends it', async () => {

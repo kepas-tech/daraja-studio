@@ -49,6 +49,7 @@ export function RequestDetail() {
       <div className="max-w-lg space-y-4">
         <RequestCard request={r}>
           {canCheck && <Button type="button" variant="secondary" onClick={() => void check()}>{copy.request.checkNow}</Button>}
+          {r.type === 'stk' && r.status === 'completed' && r.receipt && <Link className="inline-flex min-h-11 items-center rounded-md border border-line bg-page px-4 font-semibold text-danger hover:border-danger hover:bg-danger hover:text-surface hover:no-underline" to={`/reverse?receipt=${encodeURIComponent(r.receipt)}`}>{copy.request.reverseThis}</Link>}
           {(r.status === 'completed' || r.status === 'failed') && r.type === 'b2c' && <Link className="inline-flex min-h-11 items-center rounded-md border border-line bg-page px-4 font-semibold text-ink hover:bg-line/60 hover:no-underline" to={`/send/phone?again=${r.id}`}>{r.status === 'failed' && r.retriable ? copy.request.tryAgain : copy.request.sendAgain}</Link>}
         </RequestCard>
         {canMarkChecked && (

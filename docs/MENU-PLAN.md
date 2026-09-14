@@ -4,7 +4,7 @@
 It is tracked in git and published, so any person, session or model can read it and know exactly
 where the project stands without asking anyone.
 
-Last updated 2026-09-14.
+Last updated 2026-09-15.
 
 ## The commitment
 
@@ -45,10 +45,10 @@ Status values are exactly `live`, `building`, or `planned`. One slice is `buildi
 | # | Menu item | key | Status | Slice | Evidence |
 |---|---|---|---|---|---|
 | 1 | Home | `home` | live | — | shipped before 0.4.0 |
-| 2 | Balances | `balances` | live | — | shipped in 2A |
+| 2 | Balances | `balances` | live | — | shipped in 2A; merged into Home in 0.8.0 (no menu item, `/balances` opens Home) |
 | 3 | Send money | `send` | live | 2A | phone sends only; other send types tracked below |
 | 4 | Bulk send | `bulk` | planned | M5 | — |
-| 5 | Look up a payment | `lookup` | live | — | shipped in 2A |
+| 5 | Look up a payment | `lookup` | live | — | shipped in 2A; merged into History in 0.8.0 (no menu item, `/lookup` opens History) |
 | 6 | Reverse a payment | `reverse` | live | M3 | shipped 2026-09-14 |
 | 7 | Money in | `money-in` | planned | M2 | — |
 | 8 | Ask a customer to pay | `stk` | live | M1 | shipped 2026-09-14 |
@@ -63,7 +63,7 @@ Status values are exactly `live`, `building`, or `planned`. One slice is `buildi
 | 17 | Settings | `settings` | live | — | shipped before 0.4.0 |
 | 18 | Not possible via API | `not-possible` | live | — | 15 explanation cards |
 
-**11 of 18 live. 7 to build.** Each slice below removes exactly one Coming soon label.
+**11 of 18 live (two of them folded into Home and History). 7 to build.** Each slice below removes exactly one Coming soon label.
 
 ## Send types inside Send money
 

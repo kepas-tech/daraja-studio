@@ -9,6 +9,8 @@ import { StatusPill } from '../../components/StatusPill';
 import { useToast } from '../../components/Toast';
 import { copy } from '../../copy/en';
 import { StepFooter } from './StepFooter';
+import { Questionnaire } from '../../components/Questionnaire';
+import { Segmented } from '../../components/Segmented';
 
 type Mode = 'modePassword' | 'modeCredential';
 
@@ -21,44 +23,33 @@ export function Operator({ onDone, onBack }: { onDone: () => void; onBack: () =>
   useEffect(() => { void load(); }, [load]);
   useEvents(useCallback((e) => { if (e.type === 'operator.updated') void load(); }, [load]));
   const tone = { pending: 'warn', verified: 'ok', failed: 'bad', disabled: 'muted' } as const;
-  const valid = f.name.length > 0 && (mode === 'modePassword' ? f.operatorPassword.length > 0 && f.certPem.length > 0 : f.credential.length > 0);
+  const textarea = 'min-h-32 w-full rounded-md border border-line bg-surface p-2 font-mono text-xs text-ink shadow-inner focus:outline-2 focus:-outline-offset-1 focus:outline-brand';
+  const submit = async () => {
+    if (busy) return;
+    setBusy(true); setErr(null);
+    try {
+      const body = mode === 'modePassword'
+        ? { name: f.name, operatorPassword: f.operatorPassword, certPem: f.certPem }
+        : { name: f.name, credential: f.credential };
+      await api.post('/api/setup/operator', body);
+      toast.success(copy.settings.saved);
+      setF({ name: '', operatorPassword: '', certPem: '', credential: '' });
+      await load();
+    } catch (e2) { setErr(e2 instanceof ApiError ? e2 : new Error(copy.error.generic)); } finally { setBusy(false); }
+  };
   return (
     <div className="space-y-6">
-      <form className="space-y-4" onSubmit={async (e) => {
-        e.preventDefault(); setBusy(true); setErr(null);
-        try {
-          const body = mode === 'modePassword'
-            ? { name: f.name, operatorPassword: f.operatorPassword, certPem: f.certPem }
-            : { name: f.name, credential: f.credential };
-          await api.post('/api/setup/operator', body);
-          toast.success(copy.settings.saved);
-          setF({ name: '', operatorPassword: '', certPem: '', credential: '' });
-          await load();
-        } catch (e2) { setErr(e2 instanceof ApiError ? e2 : new Error(copy.error.generic)); } finally { setBusy(false); }
-      }}>
-        <fieldset className="space-y-2">
-          <legend className="mb-1 block font-semibold">{copy.setup.operator.mode}</legend>
-          <label className="flex items-center gap-3"><input type="radio" name="operator-mode" className="size-4 accent-brand" checked={mode === 'modeCredential'} onChange={() => setMode('modeCredential')} /> {copy.setup.operator.modeCredential}</label>
-          <label className="flex items-center gap-3"><input type="radio" name="operator-mode" className="size-4 accent-brand" checked={mode === 'modePassword'} onChange={() => setMode('modePassword')} /> {copy.setup.operator.modePassword}</label>
-        </fieldset>
-        <TextField label={copy.setup.operator.name} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} autoComplete="off" />
-        {mode === 'modePassword' ? (
-          <>
-            <TextField label={copy.setup.operator.password} type="password" value={f.operatorPassword} onChange={(e) => setF({ ...f, operatorPassword: e.target.value })} autoComplete="off" />
-            <label className="block"><span className="mb-1 block font-semibold">{copy.setup.operator.cert}</span>
-              <textarea className="min-h-32 w-full rounded-md border border-line bg-surface p-2 font-mono text-xs text-ink shadow-inner focus:outline-2 focus:-outline-offset-1 focus:outline-brand" value={f.certPem} onChange={(e) => setF({ ...f, certPem: e.target.value })} autoComplete="off" spellCheck={false} autoCorrect="off" /></label>
-          </>
-        ) : (
-          <div>
-            <label className="block"><span className="mb-1 block font-semibold">{copy.setup.operator.credential}</span>
-              <textarea className="min-h-32 w-full rounded-md border border-line bg-surface p-2 font-mono text-xs text-ink shadow-inner focus:outline-2 focus:-outline-offset-1 focus:outline-brand" value={f.credential} onChange={(e) => setF({ ...f, credential: e.target.value })} autoComplete="off" spellCheck={false} autoCorrect="off" />
-            </label>
-            <p className="mt-1 text-sm text-muted">{copy.setup.operator.whereCredential}</p>
-          </div>
-        )}
-        <ErrorCard error={err} />
-        <Button type="submit" variant="secondary" disabled={busy || !valid}>{copy.setup.operator.add}</Button>
-      </form>
+      <Questionnaire doneLabel={copy.setup.operator.add} busy={busy} onDone={() => void submit()} steps={[
+        { key: 'name', question: copy.setup.operator.name, valid: f.name.length > 0, render: () => <TextField label={copy.setup.operator.name} labelHidden value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} autoComplete="off" autoFocus /> },
+        { key: 'mode', question: copy.setup.operator.mode, valid: true, render: () => <Segmented name="operator-mode" label={copy.setup.operator.mode} value={mode} onChange={setMode} options={[{ value: 'modeCredential', label: copy.setup.operator.modeCredential }, { value: 'modePassword', label: copy.setup.operator.modePassword }]} /> },
+        ...(mode === 'modePassword' ? [
+          { key: 'password', question: copy.setup.operator.password, valid: f.operatorPassword.length > 0, render: () => <TextField label={copy.setup.operator.password} labelHidden type="password" value={f.operatorPassword} onChange={(e) => setF({ ...f, operatorPassword: e.target.value })} autoComplete="off" autoFocus /> },
+          { key: 'cert', question: copy.setup.operator.cert, valid: f.certPem.length > 0, render: () => <label className="block"><span className="sr-only">{copy.setup.operator.cert}</span><textarea className={textarea} value={f.certPem} onChange={(e) => setF({ ...f, certPem: e.target.value })} autoComplete="off" spellCheck={false} autoCorrect="off" autoFocus /></label> },
+        ] : [
+          { key: 'credential', question: copy.setup.operator.credential, hint: copy.setup.operator.whereCredential, valid: f.credential.length > 0, render: () => <label className="block"><span className="sr-only">{copy.setup.operator.credential}</span><textarea className={textarea} value={f.credential} onChange={(e) => setF({ ...f, credential: e.target.value })} autoComplete="off" spellCheck={false} autoCorrect="off" autoFocus /></label> },
+        ]),
+      ]} />
+      <ErrorCard error={err} />
       <ul className="space-y-2">{ops.map((o) => (
         <li key={o.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-line bg-page p-3">
           <span>{o.name}</span>

@@ -2,14 +2,15 @@ import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/re
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { Org } from '../pages/setup/Org';
 import { copy } from '../copy/en';
+import { answer } from './questionnaire';
 
 afterEach(() => cleanup());
 
 const validForm = { name: 'KEPAS', nominatedNumber: '254712345678', notificationPhone: '254712345678' };
 
 function fillAndSubmit() {
-  fireEvent.change(screen.getByLabelText(copy.setup.org.name), { target: { value: validForm.name } });
-  fireEvent.change(screen.getByLabelText(copy.setup.org.nominated), { target: { value: validForm.nominatedNumber } });
+  answer(copy.setup.org.name, validForm.name);
+  answer(copy.setup.org.nominated, validForm.nominatedNumber);
   fireEvent.change(screen.getByLabelText(copy.setup.org.notify), { target: { value: validForm.notificationPhone } });
   fireEvent.click(screen.getByRole('button', { name: copy.setup.next }));
 }
@@ -42,7 +43,7 @@ describe('Setup › Org', () => {
     fillAndSubmit();
     await screen.findByRole('alert');
 
-    fireEvent.click(screen.getByRole('button', { name: copy.setup.back }));
+    for (let i = 0; i < 3; i++) fireEvent.click(screen.getByRole('button', { name: copy.setup.back }));
     expect(onBack).toHaveBeenCalledTimes(1);
   });
 });

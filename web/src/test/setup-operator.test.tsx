@@ -3,6 +3,7 @@ import { MemoryRouter } from 'react-router';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { Operator } from '../pages/setup/Operator';
 import { copy } from '../copy/en';
+import { answer, next } from './questionnaire';
 
 // This file's vitest config does not set `test.globals: true`, so Testing
 // Library's automatic per-test cleanup (which hooks the global `afterEach`)
@@ -36,10 +37,10 @@ describe('Setup › Operator', () => {
     render(<MemoryRouter><Operator onDone={() => {}} onBack={() => {}} /></MemoryRouter>);
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/settings', expect.anything()));
 
+    answer(copy.setup.operator.name, 'KEPAS');
+    next();
     const credentialField = screen.getByLabelText(copy.setup.operator.credential);
     expect(credentialField).toHaveAttribute('autocomplete', 'off');
-
-    fireEvent.change(screen.getByLabelText(copy.setup.operator.name), { target: { value: 'KEPAS' } });
     fireEvent.change(credentialField, { target: { value: 'the-credential' } });
     fireEvent.click(screen.getByRole('button', { name: copy.setup.operator.add }));
 
@@ -56,9 +57,10 @@ describe('Setup › Operator', () => {
     render(<MemoryRouter><Operator onDone={() => {}} onBack={() => {}} /></MemoryRouter>);
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/settings', expect.anything()));
 
+    answer(copy.setup.operator.name, 'KEPAS');
     fireEvent.click(screen.getByLabelText(copy.setup.operator.modePassword));
-    fireEvent.change(screen.getByLabelText(copy.setup.operator.name), { target: { value: 'KEPAS' } });
-    fireEvent.change(screen.getByLabelText(copy.setup.operator.password), { target: { value: 'op-password' } });
+    next();
+    answer(copy.setup.operator.password, 'op-password');
     fireEvent.change(screen.getByLabelText(copy.setup.operator.cert), { target: { value: '-----BEGIN CERTIFICATE-----' } });
     fireEvent.click(screen.getByRole('button', { name: copy.setup.operator.add }));
 
