@@ -234,7 +234,7 @@ export const copy = {
       operator: 'The Safaricom portal user allowed to move money out of your account.',
       done: 'Everything Safaricom needs is in place.',
     } as Record<string, string>,
-    owner: { displayName: 'Your name', username: 'Username', password: 'Choose a password (12+ characters)', button: 'Create owner', created: (name: string) => `Owner account created for ${name}.` },
+    owner: { displayName: 'Your name', username: 'Username', password: 'Choose a password (12+ characters)', button: 'Create owner', created: (name: string) => `Owner account created for ${name}.`, changeName: 'Change name', nameSaved: 'Name saved.', fixed: 'The username and password stay; change the password later from the account menu.' },
     /**
      * Asked in the business's own words, never in Safaricom's. Somebody setting up a shop should
      * not have to know what B2C or STK mean to answer correctly — the answers decide which steps

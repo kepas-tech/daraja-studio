@@ -108,6 +108,15 @@ export function authRoutes(db: Db, config: Config): Router {
     } catch (e) { next(e); }
   });
 
+  r.put('/display-name', requireAuth(db), requireCsrf, async (req, res, next) => {
+    try {
+      const name = typeof req.body?.displayName === 'string' ? req.body.displayName.trim() : '';
+      if (!name || name.length > 80) throw new HttpError(400, 'invalid', 'Enter a name of up to 80 characters.');
+      await db.query('UPDATE people SET display_name = $2 WHERE id = $1', [req.person!.id, name]);
+      await audit(db, { personId: req.person!.id, action: 'auth.display_name', after: { displayName: name }, ip: clientIp(req) });
+      res.status(204).end();
+    } catch (e) { next(e); }
+  });
   r.post('/change-password', requireAuth(db), requireCsrf, async (req, res, next) => {
     try {
       const body = changeSchema.parse(req.body);
