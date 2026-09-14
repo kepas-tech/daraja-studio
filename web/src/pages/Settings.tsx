@@ -10,8 +10,11 @@ import type { Env, SettingsView } from '../api/types';
 import { ModeCard } from './settings/ModeCard';
 import { EnvironmentTab } from './settings/EnvironmentTab';
 import { OrganisationSection } from './settings/OrganisationSection';
-import { SharedSection } from './settings/SharedSection';
 import { useStepUp } from './settings/useStepUp';
+import { Card } from '../components/Card';
+import { Loading } from '../components/Loading';
+import { Segmented } from '../components/Segmented';
+import { useTheme, type Theme } from '../app/theme';
 
 const ENVS: Env[] = ['sandbox', 'production'];
 
@@ -20,6 +23,8 @@ export function Settings() {
   const [err, setErr] = useState<Error | Explained | null>(null);
   const [tab, setTab] = useState<Env | null>(null);
   const stepUp = useStepUp();
+  const [theme, setTheme] = useTheme();
+  const themes: { value: Theme; label: string }[] = [{ value: 'system', label: copy.settings.appearance.system }, { value: 'light', label: copy.settings.appearance.light }, { value: 'dark', label: copy.settings.appearance.dark }];
 
   const load = useCallback(async () => {
     const d = await api.get<SettingsView>('/api/settings');
@@ -31,11 +36,11 @@ export function Settings() {
 
   // A live operator update anywhere in the org can affect either tab's list — refresh the whole
   // view. Each section keeps its own in-progress edits in local state, so this never clobbers
-  // something the owner is mid-typing (see settings/SharedSection.tsx and EnvironmentTab.tsx).
+  // something the owner is mid-typing (see settings/OrganisationSection.tsx and EnvironmentTab.tsx).
   useEvents(useCallback((e) => { if (e.type === 'operator.updated') load().catch(() => {}); }, [load]));
 
   if (err && !v) return <><PageHeader title={copy.settings.title} /><ErrorCard error={err} /></>;
-  if (!v || !tab) return <p>{copy.app.loading}</p>;
+  if (!v || !tab) return <Loading />;
 
   const onTabKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
@@ -52,8 +57,11 @@ export function Settings() {
       <PageHeader title={copy.settings.title} safaricom={copy.nav.find((n) => n.key === 'settings')?.safaricom ?? null} />
       <ErrorCard error={err} />
 
-      <OrganisationSection view={v} stepUp={stepUp} />
+      <Card id="appearance" title={copy.settings.appearance.title} className="mb-6" bodyClassName="p-4">
+        <div className="max-w-sm"><Segmented name="theme" label={copy.settings.appearance.title} value={theme} options={themes} onChange={setTheme} /></div>
+      </Card>
 
+      <OrganisationSection view={v} reload={load} stepUp={stepUp} />
 
       <ModeCard view={v} reload={load} stepUp={stepUp} onSwitched={setTab} />
 
@@ -67,7 +75,7 @@ export function Settings() {
             aria-selected={tab === e}
             aria-controls={`settings-panel-${e}`}
             tabIndex={tab === e ? 0 : -1}
-            className={`flex items-center gap-2 border-b-2 px-4 py-2 text-base ${tab === e ? 'border-brand font-medium text-brand-dark' : 'border-transparent text-muted'}`}
+            className={`flex min-h-11 cursor-pointer items-center gap-2 border-b-2 px-4 text-base ${tab === e ? 'border-brand font-semibold text-ink' : 'border-transparent text-muted hover:text-ink'}`}
             onClick={() => setTab(e)}
           >
             {copy.settings.tabs[e]}
@@ -79,7 +87,6 @@ export function Settings() {
         <EnvironmentTab key={tab} env={tab} slot={v.environments[tab]} isActiveMode={tab === v.mode} reload={load} stepUp={stepUp} />
       </div>
 
-      <SharedSection view={v} reload={load} stepUp={stepUp} />
 
       <PasswordConfirmDialog {...stepUp.dialogProps} />
     </>

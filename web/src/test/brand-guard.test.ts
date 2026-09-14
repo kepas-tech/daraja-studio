@@ -7,18 +7,18 @@ import { describe, expect, it } from 'vitest';
 // The CSS is read from disk: Vite would hand the glob Tailwind's compiled output, not the source.
 const files = import.meta.glob<string>(['../**/*.{ts,tsx}', '!../test/**', '!../icons/**'], { query: '?raw', import: 'default', eager: true });
 const css = readFileSync(resolve(process.cwd(), 'src/index.css'), 'utf8');
-const TOKENS = ['#35a839', '#186738', '#f7fdf7', '#da222a', '#fdf2f2', '#242623', '#727272', '#e0e0e0', '#ffffff', '#f5f5f5'];
+const TOKENS = ['#35a839', '#186738', '#f7fdf7', '#da222a', '#fdf2f2', '#242623', '#727272', '#e0e0e0', '#ffffff', '#f5f5f5', '#6eb04c', '#1e2f21', '#e04445', '#3a2223', '#d9d9d9', '#494949', '#2e312e'];
 const DEFAULT_PALETTE = /\b(?:bg|text|border|ring|outline|accent|from|to|via|fill|stroke|divide|placeholder|shadow|decoration|caret)-(?:gray|zinc|slate|neutral|stone|emerald|green|red|amber|yellow|blue|sky|indigo|orange|lime|teal|cyan|violet|purple|fuchsia|pink|rose|white|black)(?:-\d{2,3})?(?:\/\d+)?\b/g;
 
 describe('brand guard', () => {
   const entries = Object.entries(files);
   it('sees the source tree', () => { expect(entries.length).toBeGreaterThan(30); });
-  it('index.css holds exactly the ten brand tokens', () => {
+  it('index.css holds exactly the brand tokens, light and dark', () => {
     const found = [...new Set((css.match(/#[0-9a-f]{6}\b/gi) ?? []).map((h) => h.toLowerCase()))].sort();
     expect(found).toEqual([...TOKENS].sort());
   });
   it('no file uses a dark: variant', () => {
-    expect(entries.filter(([, src]) => /\bdark:/.test(src)).map(([f]) => f)).toEqual([]);
+    expect(entries.filter(([, src]) => /\bdark:(?=[a-z[-])/.test(src)).map(([f]) => f)).toEqual([]);
   });
   it('no file uses a Tailwind default-palette colour class', () => {
     const bad = entries.flatMap(([f, src]) => { const hits = src.match(DEFAULT_PALETTE); return hits ? [`${f}: ${[...new Set(hits)].join(' ')}`] : []; });

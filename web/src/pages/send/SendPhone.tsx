@@ -11,6 +11,9 @@ import { PasswordConfirmDialog } from '../../components/PasswordConfirmDialog';
 import { PageHeader } from '../../components/PageHeader';
 import { RequestCard } from '../../components/RequestCard';
 import { ErrorCard } from '../../components/ErrorCard';
+import { Flash } from '../../components/Flash';
+import { Segmented } from '../../components/Segmented';
+import { TaskCard } from '../../components/TaskCard';
 import { useToast } from '../../components/Toast';
 import { copy } from '../../copy/en';
 import { money, normalizeKe, phone, when } from '../../format';
@@ -96,67 +99,66 @@ export function SendPhone() {
   const overCap = cap !== null && cents !== null && cents > cap;
   const stale = balance?.queriedAt ? Date.now() - new Date(balance.queriedAt).getTime() > STALE_MS : false;
 
+  const kinds = (['BusinessPayment', 'SalaryPayment', 'PromotionPayment'] as CommandId[]).map((k) => ({ value: k, label: copy.send.phone.kinds[k] }));
   return (
     <>
       <PageHeader title={copy.send.phone.title} safaricom={copy.send.phone.safaricom} />
       {step === 'form' && (
-        <>
-          {againUnavailable && <p role="alert" className="mb-4 max-w-lg rounded-md border border-line bg-page p-3 text-base">{copy.send.phone.againUnavailable}</p>}
-          <form className="max-w-lg space-y-4" onSubmit={(e) => { e.preventDefault(); if (valid) setStep('review'); }}>
+        <form onSubmit={(e) => { e.preventDefault(); if (valid) setStep('review'); }}>
+          {againUnavailable && <Flash tone="neutral" role="alert" className="mb-4 max-w-xl">{copy.send.phone.againUnavailable}</Flash>}
+          <TaskCard intro={copy.send.phoneIntro} footer={<Button type="submit" disabled={!valid}>{copy.send.phone.next}</Button>}>
             <PhoneInput label={copy.send.phone.recipient} value={to} onChange={setTo} autoFocus />
             <MoneyInput label={copy.send.phone.amount} valueCents={cents} onChange={setCents} wholeShillings />
-            <fieldset className="space-y-1">
-              <legend className="mb-1 block text-base">{copy.send.phone.kind}</legend>
-              {(['BusinessPayment', 'SalaryPayment', 'PromotionPayment'] as CommandId[]).map((k) => (
-                <label key={k} className="flex items-center gap-3 text-base"><input type="radio" name="commandId" checked={kind === k} onChange={() => setKind(k)} /> {copy.send.phone.kinds[k]}</label>
-              ))}
-            </fieldset>
+            <div>
+              <span className="mb-1 block text-base font-semibold">{copy.send.phone.kind}</span>
+              <Segmented name="commandId" label={copy.send.phone.kind} value={kind} options={kinds} onChange={setKind} />
+            </div>
             <TextField label={copy.send.phone.remarks} value={remarks} onChange={(e) => setRemarks(e.target.value)} maxLength={100} />
-            <Button type="submit" disabled={!valid}>{copy.send.phone.next}</Button>
-          </form>
-        </>
+          </TaskCard>
+        </form>
       )}
 
       {step === 'review' && (
-        <div className="max-w-lg space-y-4">
-          <h2 className="text-xl font-semibold">{copy.send.phone.review.title}</h2>
-          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 rounded-md border border-line bg-surface p-5 text-base">
-            <dt className="text-muted">{copy.request.to}</dt><dd>{phone(normalised)}<span className="block text-sm text-muted">{copy.send.phone.review.nameNote}</span></dd>
-            <dt className="text-muted">{copy.request.amount}</dt><dd>{money(cents)}<span className="block text-sm text-muted">{copy.send.phone.review.feeNote}</span></dd>
-            <dt className="text-muted">{copy.send.phone.kind}</dt><dd>{copy.send.phone.kinds[kind]}</dd>
-            <dt className="text-muted">{copy.send.phone.review.balanceNow}</dt>
-            <dd>{balance === undefined ? copy.app.loading : balance === null || balance.utilityCents === null ? copy.send.phone.review.balanceMissing : money(balance.utilityCents)}
-              {stale && balance?.queriedAt && <span className="block text-sm text-muted">{copy.send.phone.review.balanceStale(when(balance.queriedAt))}</span>}</dd>
-            {utilityAfter !== null && <><dt className="text-muted">{copy.send.phone.review.balanceAfter}</dt><dd>{money(utilityAfter)}</dd></>}
-          </dl>
-          <p className="text-sm text-muted">{copy.send.phone.review.debits}</p>
-          {cap !== null && <p className="text-sm text-muted">{copy.send.phone.review.cap(money(cap))}</p>}
-          {short && <p role="alert" className="rounded-md border border-danger bg-danger-tint p-3 text-base">{copy.send.phone.review.short}</p>}
-          {duplicate && (
-            <div role="alert" className="space-y-2 rounded-md border border-line bg-page p-3 text-base">
-              <p>{copy.send.phone.duplicate(when(duplicate.at))}</p>
-              <div className="flex gap-2">
-                <Button type="button" onClick={() => { setConfirmDuplicate(true); setDuplicate(null); setConfirm(true); }}>{copy.send.phone.duplicateYes}</Button>
-                <Button type="button" variant="secondary" onClick={() => { setDuplicate(null); setConfirmDuplicate(false); toast.info(copy.send.phone.duplicateCancelled); }}>{copy.send.phone.duplicateNo}</Button>
-              </div>
-            </div>
-          )}
-          <ErrorCard error={err} />
-          <div className="flex gap-2">
-            <Button type="button" variant="secondary" onClick={() => { setStep('form'); setConfirmDuplicate(false); setDuplicate(null); }}>{copy.send.phone.back}</Button>
-            <Button type="button" disabled={short || overCap || busy} onClick={() => { setDialogError(null); setConfirm(true); }}>{copy.send.phone.send}</Button>
-          </div>
+        <div className="max-w-xl space-y-4">
+          <TaskCard
+            footerStart={<Button type="button" variant="secondary" onClick={() => { setStep('form'); setConfirmDuplicate(false); setDuplicate(null); }}>{copy.send.phone.back}</Button>}
+            footer={<Button type="button" disabled={short || overCap || busy} onClick={() => { setDialogError(null); setConfirm(true); }}>{copy.send.phone.send}</Button>}
+          >
+            <h2 className="text-xl font-semibold">{copy.send.phone.review.title}</h2>
+            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-base">
+              <dt className="text-muted">{copy.request.to}</dt><dd>{phone(normalised)}<span className="block text-sm text-muted">{copy.send.phone.review.nameNote}</span></dd>
+              <dt className="text-muted">{copy.request.amount}</dt><dd>{money(cents)}<span className="block text-sm text-muted">{copy.send.phone.review.feeNote}</span></dd>
+              <dt className="text-muted">{copy.send.phone.kind}</dt><dd>{copy.send.phone.kinds[kind]}</dd>
+              <dt className="text-muted">{copy.send.phone.review.balanceNow}</dt>
+              <dd>{balance === undefined ? copy.app.loading : balance === null || balance.utilityCents === null ? copy.send.phone.review.balanceMissing : money(balance.utilityCents)}
+                {stale && balance?.queriedAt && <span className="block text-sm text-muted">{copy.send.phone.review.balanceStale(when(balance.queriedAt))}</span>}</dd>
+              {utilityAfter !== null && <><dt className="text-muted">{copy.send.phone.review.balanceAfter}</dt><dd>{money(utilityAfter)}</dd></>}
+            </dl>
+            <p className="text-sm text-muted">{copy.send.phone.review.debits}</p>
+            {cap !== null && <p className="text-sm text-muted">{copy.send.phone.review.cap(money(cap))}</p>}
+            {short && <Flash tone="danger" role="alert">{copy.send.phone.review.short}</Flash>}
+            {duplicate && (
+              <Flash tone="neutral" role="alert">
+                <p>{copy.send.phone.duplicate(when(duplicate.at))}</p>
+                <div className="flex gap-2 pt-1">
+                  <Button type="button" onClick={() => { setConfirmDuplicate(true); setDuplicate(null); setConfirm(true); }}>{copy.send.phone.duplicateYes}</Button>
+                  <Button type="button" variant="secondary" onClick={() => { setDuplicate(null); setConfirmDuplicate(false); toast.info(copy.send.phone.duplicateCancelled); }}>{copy.send.phone.duplicateNo}</Button>
+                </div>
+              </Flash>
+            )}
+            <ErrorCard error={err} />
+          </TaskCard>
           <PasswordConfirmDialog open={confirm} title={copy.send.phone.confirmTitle(money(cents), phone(normalised))} busy={busy} error={dialogError} onConfirm={(pw) => void submit(pw)} onCancel={() => setConfirm(false)} />
         </div>
       )}
 
       {step === 'result' && request && (
-        <div className="max-w-lg space-y-4">
-          <p role="status" className="text-lg">{copy.send.phone.result[request.status as 'sent' | 'completed' | 'failed' | 'unknown'] ?? request.status}</p>
+        <div className="max-w-xl space-y-4">
+          <p role="status" className="text-lg font-semibold">{copy.send.phone.result[request.status as 'sent' | 'completed' | 'failed' | 'unknown'] ?? request.status}</p>
           <RequestCard request={request}>
             {request.status === 'completed' && <Button type="button" onClick={reset}>{copy.send.phone.result.sendAnother}</Button>}
             {request.status === 'failed' && <Button type="button" onClick={again}>{request.retriable ? copy.request.tryAgain : copy.request.sendAgain}</Button>}
-            {request.status === 'unknown' && <Link className="text-base underline" to={`/requests/${request.id}`}>{copy.request.markChecked}</Link>}
+            {request.status === 'unknown' && <Link className="text-base" to={`/requests/${request.id}`}>{copy.request.markChecked}</Link>}
           </RequestCard>
         </div>
       )}

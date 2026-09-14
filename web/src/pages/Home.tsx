@@ -2,7 +2,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { api } from '../api/client';
 import { useEvents } from '../api/events';
+import { useBalanceRefresh } from '../api/useBalanceRefresh';
 import { useSession } from '../app/session';
+import { BalanceHero } from '../components/BalanceHero';
+import { Button } from '../components/Button';
 import { Card, cardRow } from '../components/Card';
 import { Flash } from '../components/Flash';
 import { Icon } from '../components/Icon';
@@ -10,7 +13,7 @@ import { PageHeader } from '../components/PageHeader';
 import { StatusPill } from '../components/StatusPill';
 import { STATUS_TONE } from '../components/RequestCard';
 import { copy } from '../copy/en';
-import { money, phone, when } from '../format';
+import { money, phone } from '../format';
 import type { BalanceView, Page, RequestView, SettingsView } from '../api/types';
 
 const RELOAD_ON: readonly string[] = ['operator.updated', 'setup.updated', 'balance.updated'];
@@ -18,7 +21,7 @@ const RELOAD_ON: readonly string[] = ['operator.updated', 'setup.updated', 'bala
 const QUICK: { key: string; to: string }[] = [{ key: 'send', to: '/send/phone' }, { key: 'stk', to: '/ask-to-pay' }, { key: 'balances', to: '/balances' }];
 
 export function Home() {
-  const { person, refresh } = useSession();
+  const { person, org, refresh } = useSession();
   const [v, setV] = useState<SettingsView | null>(null);
   const [balance, setBalance] = useState<BalanceView | null | undefined>(undefined);
   const [recent, setRecent] = useState<RequestView[]>([]);
@@ -36,13 +39,15 @@ export function Home() {
   }, [personId]);
   useEffect(load, [load]);
   useEffect(loadMoney, [loadMoney]);
+  const balances = useBalanceRefresh(loadMoney);
   // A reconnect re-reads everything this page shows, for events lost while the stream was down.
-  const reloadAll = useCallback(() => { load(); loadMoney(); void refresh(); }, [load, loadMoney, refresh]);
+  const reloadAll = useCallback(() => { load(); loadMoney(); void refresh(); balances.checkPending(); }, [load, loadMoney, refresh, balances.checkPending]);
   useEvents(useCallback((e) => {
+    balances.onEvent(e);
     if (RELOAD_ON.includes(e.type)) load();
     if (e.type === 'balance.updated' || e.type === 'request.updated') loadMoney();
     if (e.type === 'org.updated') void refresh();
-  }, [load, loadMoney, refresh]), true, reloadAll);
+  }, [load, loadMoney, refresh, balances.onEvent]), true, reloadAll);
   const active = v?.environments[v.mode];
   const alerts: string[] = [];
   if (active && !active.ready.operator) alerts.push(copy.home.noOperator);
@@ -51,37 +56,29 @@ export function Home() {
   const settingsLabel = copy.nav.find((e) => e.key === 'settings')?.label ?? 'Settings';
   return (
     <>
-      <PageHeader title={copy.home.welcome(person?.display_name ?? '')}>{v && <StatusPill kind={v.mode === 'production' ? 'ok' : 'muted'}>{v.mode}</StatusPill>}</PageHeader>
+      <PageHeader title={org?.name ?? copy.appName} />
       {alerts.length > 0 && (
         <Flash tone="danger" className="mb-6">
           <p className="font-semibold">{copy.home.finishSetup}</p>
           <ul className="space-y-1">{alerts.map((a) => <li key={a}>{a} <Link to="/settings">{settingsLabel}</Link></li>)}</ul>
         </Flash>
       )}
-      {alerts.length === 0 && v && <Flash tone="success" className="mb-6">{copy.home.connected}</Flash>}
-      <div className="mb-6 grid gap-3 sm:grid-cols-3">
+      <ErrorCardSlot error={balances.err} />
+      <BalanceHero balance={balance} className="mb-2" action={<Button type="button" variant="secondary" onClick={() => void balances.refresh()} disabled={balances.busy}>{balances.busy ? copy.balances.refreshing : copy.balances.refresh}</Button>} />
+      {alerts.length === 0 && v && <p className="mb-6 text-sm text-muted">{copy.home.connected}</p>}
+      <div className="my-6 grid gap-3 sm:grid-cols-3">
         {QUICK.map(({ key, to }) => {
           const e = copy.nav.find((n) => n.key === key);
           if (!e) return null;
           return (
-            <Link key={key} to={to} className="flex items-start gap-3 rounded-md border border-line bg-surface p-4 text-ink hover:border-brand hover:no-underline">
-              <Icon name={e.icon} className="mt-0.5 size-6 text-brand" />
-              <span className="flex min-w-0 flex-col"><span className="font-semibold">{e.label}</span>{e.safaricom && <span className="text-xs text-muted">{e.safaricom}</span>}</span>
+            <Link key={key} to={to} className="flex items-center gap-3 rounded-md border border-line bg-surface p-4 text-ink hover:border-brand hover:no-underline">
+              <Icon name={e.icon} className="size-6 text-brand" />
+              <span className="font-semibold">{e.label}</span>
             </Link>
           );
         })}
       </div>
-      <Card title={copy.home.latestBalance} className="mb-6">
-        {balance ? (
-          <p className="text-lg">
-            <Link to="/balances">{copy.balances.utility}: <strong>{money(balance.utilityCents)}</strong> · {copy.balances.working}: <strong>{money(balance.workingCents)}</strong></Link>
-            <span className="block text-sm text-muted">{copy.balances.asOf(when(balance.queriedAt))}</span>
-          </p>
-        ) : (
-          <p className="text-base"><Link to="/balances">{copy.home.noBalance}</Link></p>
-        )}
-      </Card>
-      <Card title={copy.home.recent} bodyClassName="p-0">
+      <Card title={copy.home.recent} bodyClassName="p-0" actions={<Link to="/history" className="text-sm">{copy.home.viewAll}</Link>}>
         {recent.length === 0 ? <p className="p-4 text-base text-muted">{copy.home.noRecent}</p> : (
           <ul>
             {recent.map((r) => <li key={r.id} className={`${cardRow} flex items-center justify-between gap-3 text-base`}><Link to={`/requests/${r.id}`}>{phone(r.recipient.value)}</Link><span>{money(r.amountCents)}</span><StatusPill kind={STATUS_TONE[r.status] ?? 'muted'}>{copy.request.status[r.status] ?? r.status}</StatusPill></li>)}
@@ -90,4 +87,9 @@ export function Home() {
       </Card>
     </>
   );
+}
+
+function ErrorCardSlot({ error }: { error: Error | { safaricomSaid: string; meaning: string; whatToDo: string } | null }) {
+  if (!error) return null;
+  return <div className="mb-6"><Flash tone="danger" role="alert">{'safaricomSaid' in error ? error.safaricomSaid : error.message}</Flash></div>;
 }

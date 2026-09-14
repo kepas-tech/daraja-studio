@@ -1,7 +1,7 @@
 {
   "name": "daraja-studio",
   "private": true,
-  "version": "0.6.0",
+  "version": "0.6.1",
   "packageManager": "pnpm@10.15.0",
   "engines": {
     "node": ">=20"

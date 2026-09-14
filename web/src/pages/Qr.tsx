@@ -3,6 +3,9 @@ import { api, ApiError } from '../api/client';
 import { useSession } from '../app/session';
 import { Button } from '../components/Button';
 import { ErrorCard, type Explained } from '../components/ErrorCard';
+import { Card } from '../components/Card';
+import { Flash } from '../components/Flash';
+import { TaskCard } from '../components/TaskCard';
 import { MoneyInput } from '../components/MoneyInput';
 import { PageHeader } from '../components/PageHeader';
 import { TextField } from '../components/TextField';
@@ -53,38 +56,37 @@ export function Qr() {
     } catch (e) { setError(errorLines(e)); }
     finally { sending.current = false; setBusy(false); }
   }
+  const env = (result ?? details)?.environment;
   return <>
     <PageHeader title={text.title} safaricom={text.safaricom} />
-    {!allowed ? <p role="alert">{text.noPermission}</p> : <div className="max-w-xl space-y-5">
-      <p>{text.intro}</p>
-      {details && <p>{text.payee}: <strong>{details.merchantName}</strong> · {text.shortcode}: {details.shortcode}</p>}
-      {!details && !error && <p role="status">{copy.app.loading}</p>}
-      <ErrorCard error={error} />
-      {!details && error && <Button onClick={() => setAttempt((v) => v + 1)}>{copy.app.retry}</Button>}
-      <form onSubmit={(e) => { e.preventDefault(); void generate(); }}>
-        <fieldset disabled={busy || !details} className="space-y-4">
-          <label className="block"><span className="mb-1 block">{text.type}</span>
-            <select className="w-full rounded-md border p-3" value={trxCode} onChange={(e) => { changed(); setTrxCode(e.target.value as 'PB' | 'BG'); }}>
-              <option value="PB">{text.paybill}</option><option value="BG">{text.till}</option>
-            </select>
-          </label>
-          <TextField label={text.reference} hint={text.referenceHint} value={reference} maxLength={32} onChange={(e) => { changed(); setReference(e.target.value); }} />
-          <label className="flex items-center gap-3"><input type="checkbox" checked={customerAmount} onChange={(e) => { changed(); setCustomerAmount(e.target.checked); }} />{text.customerAmount}</label>
-          {!customerAmount && <MoneyInput label={text.amount} valueCents={amount} onChange={(v) => { changed(); setAmount(v); }} />}
-          <Button type="submit" disabled={!valid || busy}>{busy ? text.generating : text.generate}</Button>
-        </fieldset>
-      </form>
-      {(result ?? details) && <p className="font-semibold">{(result ?? details)!.environment === 'sandbox' ? text.sandbox : text.production}</p>}
-      {result && <section aria-label={text.ready} className="space-y-3 rounded-md border p-4">
-        <h2 className="text-xl font-semibold">{result.merchantName}</h2>
-        <p>{text.shortcode}: {result.shortcode} · {result.trxCode === 'PB' ? text.paybill : text.till}</p>
-        <p>{result.amountCents === 0 ? text.customerAmount : money(result.amountCents)} · {result.accountReference}</p>
-        <img className="h-auto w-full max-w-[400px] bg-surface" src={result.imageUrl} alt={text.imageAlt} width="400" height="400"
+    {!allowed ? <Flash tone="danger" role="alert" className="max-w-xl">{text.noPermission}</Flash> : <div className="space-y-4">
+      {!details && !error && <p role="status" className="text-muted">{copy.app.loading}</p>}
+      {!details && error && <div className="max-w-xl space-y-3"><ErrorCard error={error} /><Button onClick={() => setAttempt((v) => v + 1)}>{copy.app.retry}</Button></div>}
+      {details && (
+        <form onSubmit={(e) => { e.preventDefault(); void generate(); }}>
+          <TaskCard intro={<>{text.payee}: <strong className="text-ink">{details.merchantName}</strong> · {text.shortcode}: {details.shortcode}</>} footer={<Button type="submit" disabled={!valid || busy}>{busy ? text.generating : text.generate}</Button>}>
+            <fieldset disabled={busy} className="space-y-4">
+              <label className="block"><span className="mb-1 block text-base font-semibold">{text.type}</span>
+                <select className="min-h-11 w-full rounded-md border border-line bg-surface px-3 text-base text-ink" value={trxCode} onChange={(e) => { changed(); setTrxCode(e.target.value as 'PB' | 'BG'); }}>
+                  <option value="PB">{text.paybill}</option><option value="BG">{text.till}</option>
+                </select>
+              </label>
+              <TextField label={text.reference} hint={text.referenceHint} value={reference} maxLength={32} onChange={(e) => { changed(); setReference(e.target.value); }} />
+              <label className="flex items-center gap-3 text-base"><input type="checkbox" className="size-5" checked={customerAmount} onChange={(e) => { changed(); setCustomerAmount(e.target.checked); }} />{text.customerAmount}</label>
+              {!customerAmount && <MoneyInput label={text.amount} valueCents={amount} onChange={(v) => { changed(); setAmount(v); }} />}
+              <ErrorCard error={error} />
+            </fieldset>
+          </TaskCard>
+        </form>
+      )}
+      {env && <Flash tone={env === 'sandbox' ? 'neutral' : 'success'} className="max-w-xl"><p>{env === 'sandbox' ? text.sandbox : text.production}</p><p className="text-sm text-muted">{text.unpaid}</p></Flash>}
+      {result && <Card className="max-w-xl" title={result.merchantName} aria-label={text.ready} bodyClassName="space-y-3 p-4">
+        <p className="text-sm text-muted">{text.shortcode}: {result.shortcode} · {result.trxCode === 'PB' ? text.paybill : text.till} · {result.amountCents === 0 ? text.customerAmount : money(result.amountCents)} · {result.accountReference}</p>
+        <img className="h-auto w-full max-w-[400px] rounded-md bg-surface" src={result.imageUrl} alt={text.imageAlt} width="400" height="400"
           onError={() => { setResult(null); setError(errorLines(new Error(text.badResponse))); }} />
         <p>{text.scan}</p>
-        <a className="inline-block rounded-md border px-4 py-3 underline" href={result.imageUrl} download="mpesa-qr.png">{text.download}</a>
-      </section>}
-      <p className="text-sm text-muted">{text.unpaid}</p>
+        <a className="inline-flex min-h-11 items-center rounded-md border border-line bg-page px-4 font-semibold text-ink hover:bg-line/60 hover:no-underline" href={result.imageUrl} download="mpesa-qr.png">{text.download}</a>
+      </Card>}
     </div>}
   </>;
 }

@@ -4,68 +4,128 @@ import { api } from '../../api/client';
 import type { Env, SettingsView } from '../../api/types';
 import { useSession } from '../../app/session';
 import { Button } from '../../components/Button';
+import { Card } from '../../components/Card';
+import { toastText } from '../../components/ErrorCard';
+import { SettingRow } from '../../components/SettingRow';
 import { StatusPill } from '../../components/StatusPill';
+import { TextField } from '../../components/TextField';
+import { useToast } from '../../components/Toast';
 import { copy } from '../../copy/en';
 import { when } from '../../format';
 import type { StepUp } from './useStepUp';
-import { Section } from './Section';
 
 const ENVS: Env[] = ['sandbox', 'production'];
 
-/**
- * Spec 9. Name, sign-up date, what Safaricom has verified in each environment, the callback secret
- * (moved here from Advanced) and the way to the People page. The editable organisation details stay
- * in SharedSection — one editable name, in one place.
- */
-export function OrganisationSection({ view, stepUp }: { view: SettingsView; stepUp: StepUp }) {
-  const { org } = useSession();
+/** Everything about the organisation as read-only rows; each edit form opens on request. */
+export function OrganisationSection({ view, reload, stepUp }: { view: SettingsView; reload: () => Promise<unknown>; stepUp: StepUp }) {
+  const toast = useToast();
+  const { org: session } = useSession();
+  const [org, setOrg] = useState(view.org);
+  const [url, setUrl] = useState(view.publicUrl ?? '');
+  const [allow, setAllow] = useState(view.allowlist.join(', '));
+  const [testing, setTesting] = useState(false);
   const [secret, setSecret] = useState<string | null>(null);
-  const name = org?.name ?? view.org.name;
+  const name = session?.name ?? view.org.name;
+  const c = copy.settings.organisation;
 
   return (
-    <Section title={copy.settings.organisation.title}>
-      <p className="text-lg font-medium">{name}</p>
-      <p className="text-sm text-muted">{copy.settings.organisation.nameNote}</p>
-      {org?.createdAt && <p className="text-sm text-muted">{copy.org.signedUp}: {when(org.createdAt)}</p>}
-      {org?.verifiedAt && <p className="text-sm text-muted">{copy.org.verifiedOn}: {when(org.verifiedAt)}</p>}
+    <Card title={c.title} className="mb-6" bodyClassName="p-0">
+      <SettingRow testId="setting-org" label={copy.settings.org} value={
+        <>
+          <span className="font-semibold">{name}</span>
+          {(view.org.nominatedNumber || view.org.notificationPhone) && <span className="block text-sm text-muted">{copy.settings.nominated}: {view.org.nominatedNumber || c.none} · {copy.settings.notify}: {view.org.notificationPhone || c.none}</span>}
+          {session?.createdAt && <span className="block text-sm text-muted">{copy.org.signedUp}: {when(session.createdAt)}{session.verifiedAt && <> · {copy.org.verifiedOn}: {when(session.verifiedAt)}</>}</span>}
+        </>
+      }>
+        {(close) => (
+          <>
+            <TextField label={copy.setup.org.name} value={org.name} onChange={(e) => setOrg({ ...org, name: e.target.value })} />
+            <TextField label={copy.setup.org.nominated} value={org.nominatedNumber} onChange={(e) => setOrg({ ...org, nominatedNumber: e.target.value })} />
+            <TextField label={copy.setup.org.notify} value={org.notificationPhone} onChange={(e) => setOrg({ ...org, notificationPhone: e.target.value })} />
+            <p className="text-sm text-muted">{copy.settings.orgPortalNote(copy.settings.portalOnly)}</p>
+            <Button onClick={() => stepUp.ask(copy.settings.confirm.org, async (password) => {
+              await api.put('/api/settings/org', { ...org, password });
+              toast.success(copy.settings.saved);
+              await reload();
+              close();
+            })}>{copy.settings.save}</Button>
+          </>
+        )}
+      </SettingRow>
 
-      <h3 className="pt-2 font-medium">{copy.settings.organisation.verification}</h3>
-      <ul className="space-y-2">
-        {ENVS.map((e) => {
-          const slot = view.environments[e];
-          const verified = slot.ready.creds && slot.ready.operator;
-          return (
-            <li key={e} data-testid={`verification-${e}`} className="rounded-md border border-line p-3">
-              <span className="flex flex-wrap items-center gap-2">
-                <strong>{copy.settings.tabs[e]}</strong>
-                <span className="text-xs text-muted">{copy.org.badgeSafaricom[e]}</span>
-                <StatusPill kind={verified ? 'ok' : 'muted'}>{verified ? copy.settings.organisation.verifiedWith : copy.settings.organisation.notVerifiedWith}</StatusPill>
-              </span>
-              <span className="mt-1 block text-sm text-muted">
-                {copy.settings.organisation.shortcode}: {slot.shortcode ?? copy.settings.organisation.none}
-                {' · '}{copy.settings.organisation.creds}: {slot.credsVerifiedAt ? when(slot.credsVerifiedAt) : copy.settings.organisation.none}
-                {' · '}{copy.settings.organisation.operator}: {slot.ready.operator ? copy.settings.operatorStatus.verified : copy.settings.organisation.none}
-              </span>
-            </li>
-          );
-        })}
-      </ul>
+      <SettingRow testId="setting-public-url" label={copy.settings.publicUrl} value={
+        <span className="flex flex-wrap items-center gap-2">
+          <span>{view.publicUrl ?? copy.settings.organisation.none}</span>
+          {view.publicVerifiedAt ? <StatusPill kind="ok">{copy.settings.publicUrlTested(new Date(view.publicVerifiedAt).toLocaleString())}</StatusPill> : <StatusPill kind="bad">{copy.settings.publicUrlNotTested}</StatusPill>}
+        </span>
+      }>
+        {() => (
+          <>
+            <TextField label={copy.setup.publicUrl.field} value={url} onChange={(e) => setUrl(e.target.value)} />
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" onClick={() => stepUp.ask(copy.settings.confirm.publicUrl, async (password) => {
+                await api.put('/api/settings/public-url', { url, password });
+                toast.success(copy.settings.saved);
+                await reload();
+              })}>{copy.settings.save}</Button>
+              <Button disabled={testing} onClick={async () => {
+                setTesting(true);
+                try {
+                  const r = await api.post<{ ok: boolean; detail: string }>('/api/settings/public-url/test');
+                  if (r.ok) toast.success(r.detail); else toast.error(r.detail);
+                } catch (e) { toast.error(toastText(e)); }
+                finally { setTesting(false); await reload(); }
+              }}>{copy.setup.publicUrl.test}</Button>
+            </div>
+          </>
+        )}
+      </SettingRow>
 
-      <h3 className="pt-2 font-medium">{copy.settings.organisation.people}</h3>
-      <p><Link to="/people">{copy.settings.organisation.peopleLink}</Link></p>
+      <SettingRow label={c.verification} value={
+        <ul className="space-y-1">
+          {ENVS.map((e) => {
+            const slot = view.environments[e];
+            const verified = slot.ready.creds && slot.ready.operator;
+            return (
+              <li key={e} data-testid={`verification-${e}`} className="flex flex-wrap items-center gap-2">
+                <span>{copy.settings.tabs[e]}</span>
+                <StatusPill kind={verified ? 'ok' : 'muted'}>{verified ? c.verifiedWith : c.notVerifiedWith}</StatusPill>
+                <span className="text-sm text-muted">{c.shortcode}: {slot.shortcode ?? c.none} · {c.creds}: {slot.credsVerifiedAt ? when(slot.credsVerifiedAt) : c.none} · {c.operator}: {slot.ready.operator ? copy.settings.operatorStatus.verified : c.none}</span>
+              </li>
+            );
+          })}
+        </ul>
+      } />
 
-      <p className="pt-2 text-sm text-muted">{copy.settings.revealWhy}</p>
-      {secret ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <code className="block break-all rounded bg-page p-2">{secret}</code>
-          <Button variant="secondary" onClick={() => setSecret(null)}>{copy.settings.hideSecret}</Button>
+      <SettingRow label={c.people} value={<Link to="/people">{c.peopleLink}</Link>} />
+
+      <SettingRow testId="setting-allowlist" label={copy.settings.allowlist} value={view.allowlist.length ? view.allowlist.join(', ') : c.none}>
+        {(close) => (
+          <>
+            <TextField label={copy.settings.allowlistFieldLabel} value={allow} onChange={(e) => setAllow(e.target.value)} />
+            <Button onClick={() => stepUp.ask(copy.settings.confirm.allowlist, async (password) => {
+              await api.put('/api/settings/allowlist', { allowlist: allow.split(',').map((s) => s.trim()).filter(Boolean), password });
+              toast.success(copy.settings.saved);
+              await reload();
+              close();
+            })}>{copy.settings.save}</Button>
+          </>
+        )}
+      </SettingRow>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-4 py-3">
+        <div className="min-w-0">
+          <div className="text-sm text-muted">{c.callbackSecret}</div>
+          <div className="text-base">{secret ? <code className="break-all">{secret}</code> : copy.settings.hidden}</div>
+          <div className="text-sm text-muted">{copy.settings.revealWhy}</div>
         </div>
-      ) : (
-        <Button variant="secondary" onClick={() => stepUp.ask(copy.settings.confirm.reveal, async (password) => {
-          const r = await api.post<{ secret: string }>('/api/settings/install-secret/reveal', { password });
-          setSecret(r.secret);
-        })}>{copy.settings.revealSecret}</Button>
-      )}
-    </Section>
+        {secret
+          ? <Button variant="secondary" onClick={() => setSecret(null)}>{copy.settings.hideSecret}</Button>
+          : <Button variant="secondary" onClick={() => stepUp.ask(copy.settings.confirm.reveal, async (password) => {
+              const r = await api.post<{ secret: string }>('/api/settings/install-secret/reveal', { password });
+              setSecret(r.secret);
+            })}>{copy.settings.revealSecret}</Button>}
+      </div>
+    </Card>
   );
 }

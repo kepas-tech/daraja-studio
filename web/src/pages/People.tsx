@@ -7,6 +7,9 @@ import { PageHeader } from '../components/PageHeader';
 import { StatusPill } from '../components/StatusPill';
 import { PasswordConfirmDialog } from '../components/PasswordConfirmDialog';
 import { ErrorCard, explainApiError, type Explained } from '../components/ErrorCard';
+import { Card, cardRow } from '../components/Card';
+import { Flash } from '../components/Flash';
+import { Loading } from '../components/Loading';
 import { useToast } from '../components/Toast';
 import { useStepUp } from './settings/useStepUp';
 import { copy } from '../copy/en';
@@ -41,7 +44,7 @@ export function People() {
   useEffect(() => { void load(); }, [load]);
 
   if (err && !people) return <><PageHeader title={copy.people.title} safaricom={copy.people.safaricom} /><ErrorCard error={err} /></>;
-  if (!people) return <p>{copy.app.loading}</p>;
+  if (!people) return <Loading />;
 
   const addPerson = () => stepUp.ask(copy.people.confirm.add(form.displayName || form.username), async (password) => {
     await api.post<PersonView>('/api/people', {
@@ -85,22 +88,20 @@ export function People() {
       <PageHeader title={copy.people.title} safaricom={copy.people.safaricom}>
         {!adding && <Button onClick={() => setAdding(true)}>{copy.people.add}</Button>}
       </PageHeader>
-      <p className="mb-4 text-sm text-muted">{copy.people.intro}</p>
       <ErrorCard error={err} />
 
       {handOver && (
-        <div role="status" className="mb-6 space-y-2 rounded-md border border-brand bg-brand-tint p-4">
-          <p>{copy.people.tellThem}</p>
-          <p className="text-sm text-muted">{copy.people.shownOnce}</p>
-          <p><strong>{handOver.username}</strong></p>
-          <code className="block break-all rounded bg-surface p-2 text-lg">{handOver.password}</code>
-          <Button variant="secondary" onClick={() => setHandOver(null)}>{copy.people.gotIt}</Button>
-        </div>
+        <Flash tone="success" role="status" className="mb-6">
+          <p className="font-semibold">{handOver.username}</p>
+          <code className="block break-all rounded-md bg-surface p-2 text-lg">{handOver.password}</code>
+          <p className="text-sm text-muted">{copy.people.tellThem} {copy.people.shownOnce}</p>
+          <div className="pt-1"><Button variant="secondary" onClick={() => setHandOver(null)}>{copy.people.gotIt}</Button></div>
+        </Flash>
       )}
 
       {adding && (
         <form className="mb-6 space-y-3 rounded-md border border-line bg-surface p-5" onSubmit={(e) => { e.preventDefault(); addPerson(); }}>
-          <h2 className="text-lg font-semibold">{copy.people.addTitle}</h2>
+          <h2 className="text-base font-semibold">{copy.people.addTitle}</h2>
           <TextField label={copy.people.displayName} value={form.displayName} onChange={(e) => setForm({ ...form, displayName: e.target.value })} autoFocus />
           <TextField
             label={copy.people.usernameSingle}
@@ -110,8 +111,8 @@ export function People() {
             autoComplete="off"
           />
           <label className="block">
-            <span className="mb-1 block text-base">{copy.people.role}</span>
-            <select className="w-full rounded-md border border-line px-3 py-2.5 text-base" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as AssignableRole })}>
+            <span className="mb-1 block text-base font-semibold">{copy.people.role}</span>
+            <select className="min-h-11 w-full rounded-md border border-line bg-surface px-3 text-base text-ink" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as AssignableRole })}>
               {ROLES.map((r) => <option key={r} value={r} disabled={r === 'custom'}>{copy.people.roles[r]}</option>)}
             </select>
           </label>
@@ -124,10 +125,11 @@ export function People() {
         </form>
       )}
 
-      {people.length <= 1 && !adding && <p className="mb-4">{copy.people.empty}</p>}
-      <ul className="divide-y divide-line rounded-md border border-line bg-surface">
+      {people.length <= 1 && !adding && <p className="mb-4 text-sm text-muted">{copy.people.empty}</p>}
+      <Card bodyClassName="p-0">
+      <ul>
         {people.map((p) => (
-          <li key={p.id} data-testid={`person-${p.id}`} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+          <li key={p.id} data-testid={`person-${p.id}`} className={`${cardRow} flex flex-wrap items-center justify-between gap-3`}>
             <span className="flex flex-col">
               <span className="text-base font-medium">{p.displayName}</span>
               <span className="text-sm text-muted">{p.username}</span>
@@ -145,7 +147,7 @@ export function People() {
                 <>
                   <select
                     aria-label={copy.people.roleFor(p.displayName)}
-                    className="rounded-md border border-line px-2 py-1.5 text-sm"
+                    className="min-h-10 rounded-md border border-line bg-surface px-2 text-sm text-ink"
                     value={p.role}
                     onChange={(e) => changeRole(p, e.target.value as AssignableRole)}
                   >
@@ -161,6 +163,7 @@ export function People() {
           </li>
         ))}
       </ul>
+      </Card>
 
       <PasswordConfirmDialog {...stepUp.dialogProps} />
     </>

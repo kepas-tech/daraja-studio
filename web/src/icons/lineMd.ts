@@ -152,6 +152,16 @@ export const ICONS = {
     "width": 24,
     "height": 24
   },
+  "chevron-right": {
+    "body": "<path fill=\"none\" stroke=\"currentColor\" stroke-dasharray=\"12\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M16 12l-7 -7M16 12l-7 7\"><animate fill=\"freeze\" attributeName=\"stroke-dashoffset\" dur=\"0.4s\" values=\"12;0\"/></path>",
+    "width": 24,
+    "height": 24
+  },
+  "chevron-left": {
+    "body": "<path fill=\"none\" stroke=\"currentColor\" stroke-dasharray=\"12\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M8 12l7 -7M8 12l7 7\"><animate fill=\"freeze\" attributeName=\"stroke-dashoffset\" dur=\"0.4s\" values=\"12;0\"/></path>",
+    "width": 24,
+    "height": 24
+  },
   "external-link": {
     "body": "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\"><path stroke-dasharray=\"42\" d=\"M11 5h-6v14h14v-6\"><animate fill=\"freeze\" attributeName=\"stroke-dashoffset\" dur=\"0.5s\" values=\"42;0\"/></path><path stroke-dasharray=\"12\" stroke-dashoffset=\"12\" d=\"M13 11l7 -7\"><animate fill=\"freeze\" attributeName=\"stroke-dashoffset\" begin=\"0.5s\" dur=\"0.2s\" to=\"0\"/></path><path stroke-dasharray=\"8\" stroke-dashoffset=\"8\" d=\"M21 3h-6M21 3v6\"><animate fill=\"freeze\" attributeName=\"stroke-dashoffset\" begin=\"0.7s\" dur=\"0.2s\" to=\"0\"/></path></g>",
     "width": 24,

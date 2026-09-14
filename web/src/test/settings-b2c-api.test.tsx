@@ -43,7 +43,9 @@ async function renderAndWait() {
 }
 
 function b2cSection() {
-  return screen.getByText(copy.settings.b2cApi.title, { selector: 'h2' }).closest('section')!;
+  const section = screen.getByTestId('setting-b2c-api');
+  if (within(section).queryAllByRole('radio').length === 0) fireEvent.click(within(section).getByRole('button', { name: copy.settings.change }));
+  return section;
 }
 // The radio group is `[auto, v1, v3]` in that fixed order (see B2C_VERSIONS in EnvironmentTab.tsx).
 // getByLabelText can't disambiguate "v3" here — the Automatic option's own hint text mentions "v3"

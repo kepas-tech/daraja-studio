@@ -103,11 +103,11 @@ describe('Settings', () => {
     await renderAndWait();
 
     const productionPanel = screen.getByRole('tabpanel');
-    expect(within(productionPanel).getByText(`${copy.settings.cert.label}: ${copy.settings.secret.saved}`)).toBeInTheDocument();
+    expect(within(within(productionPanel).getByTestId('setting-cert')).getByText(copy.settings.secret.saved)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('tab', { name: copy.settings.tabs.sandbox }));
     const sandboxPanel = await screen.findByRole('tabpanel');
-    expect(within(sandboxPanel).getByText(`${copy.settings.cert.label}: ${copy.settings.secret.notSet}`)).toBeInTheDocument();
+    expect(within(within(sandboxPanel).getByTestId('setting-cert')).getByText(copy.settings.secret.notSet)).toBeInTheDocument();
   });
 
   it('shows "not yet accepted" when the consumer key is saved but not yet verified', async () => {
@@ -173,7 +173,8 @@ describe('Settings', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: copy.settings.tabs.sandbox }));
     await screen.findByRole('tabpanel');
-    const darajaSection = screen.getByText(copy.settings.daraja).closest('section')!;
+    const darajaSection = screen.getByTestId('setting-daraja');
+    fireEvent.click(within(darajaSection).getByRole('button', { name: copy.settings.replace }));
     fireEvent.change(within(darajaSection).getByLabelText(copy.setup.daraja.key), { target: { value: 'key123' } });
     fireEvent.change(within(darajaSection).getByLabelText(copy.setup.daraja.secret), { target: { value: 'secret123' } });
     fireEvent.click(within(darajaSection).getByRole('button', { name: copy.settings.save }));
@@ -207,7 +208,8 @@ describe('Settings', () => {
     vi.stubGlobal('fetch', fetchMock);
     await renderAndWait();
 
-    const shortcodeSection = screen.getByText(copy.settings.shortcode.label, { selector: 'h2' }).closest('section')!;
+    const shortcodeSection = screen.getByTestId('setting-shortcode');
+    fireEvent.click(within(shortcodeSection).getByRole('button', { name: copy.settings.change }));
     fireEvent.change(within(shortcodeSection).getByLabelText(copy.settings.shortcode.label), { target: { value: '700111' } });
     fireEvent.click(within(shortcodeSection).getByRole('button', { name: copy.settings.save }));
     fireEvent.change(screen.getByLabelText(copy.confirm.yourPassword), { target: { value: 'studio-pw' } });
@@ -239,6 +241,7 @@ describe('Settings', () => {
     vi.stubGlobal('fetch', fetchMock);
     await renderAndWait();
 
+    fireEvent.click(within(screen.getByTestId('setting-public-url')).getByRole('button', { name: copy.settings.change }));
     fireEvent.change(screen.getByLabelText(copy.setup.publicUrl.field), { target: { value: 'https://not-yet-saved.example' } });
 
     const es = FakeEventSource.instances[FakeEventSource.instances.length - 1]!;
@@ -258,7 +261,8 @@ describe('Settings', () => {
     vi.stubGlobal('fetch', fetchMock);
     await renderAndWait();
 
-    const passkeySection = screen.getByText(copy.settings.passkey, { selector: 'h2' }).closest('section')!;
+    const passkeySection = screen.getByTestId('setting-passkey');
+    fireEvent.click(within(passkeySection).getByRole('button', { name: copy.settings.replace }));
     fireEvent.change(within(passkeySection).getByLabelText(copy.settings.newPasskey), { target: { value: 'a-new-passkey' } });
     fireEvent.click(within(passkeySection).getByRole('button', { name: copy.settings.save }));
     fireEvent.change(screen.getByLabelText(copy.confirm.yourPassword), { target: { value: 'wrong-pw' } });

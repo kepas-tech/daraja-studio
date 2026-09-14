@@ -1,7 +1,6 @@
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router';
 import { useSession } from '../../app/session';
 import { Card } from '../../components/Card';
-import { Icon } from '../../components/Icon';
 import { ToastHost } from '../../components/Toast';
 import { copy } from '../../copy/en';
 import { Owner } from './Owner';
@@ -38,7 +37,7 @@ export function SetupLayout() {
   return (
     <div className="min-h-screen bg-page px-4 py-8">
       <div className="mx-auto max-w-2xl space-y-6">
-        <img src={logo} alt={copy.appName} className="mx-auto h-12 w-auto" />
+        <img src={logo} alt={copy.appName} className="mx-auto h-20 w-auto" />
         <div>
           <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
             <h1 className="text-2xl font-semibold">{copy.setup.title}</h1>
@@ -48,13 +47,6 @@ export function SetupLayout() {
             <div className="h-full bg-brand transition-all" style={{ width: `${((idx + 1) / steps.length) * 100}%` }} />
           </div>
         </div>
-        <ol className="hidden flex-wrap gap-x-4 gap-y-1 text-sm md:flex">
-          {steps.map((k, i) => (
-            <li key={k} className={`flex items-center gap-1 ${i < idx ? 'text-brand-dark' : i === idx ? 'font-semibold text-ink' : 'text-muted'}`}>
-              {i < idx ? <Icon name="confirm" className="size-4" /> : <span>{i + 1}.</span>}{titleOf(k)}
-            </li>
-          ))}
-        </ol>
         <Card title={titleOf(current)} bodyClassName="space-y-4 p-4 md:p-6">
           <p className="text-base text-muted">{copy.setup.intro[current]}</p>
           <Routes>

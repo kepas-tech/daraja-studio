@@ -13,7 +13,7 @@ export function ChangePassword() {
   const [error, setError] = useState<Error | null>(null);
   const valid = !!form.current && form.next.length >= 12 && form.next === form.again && form.next !== form.current;
   return (
-    <form className="mx-auto mt-16 max-w-md space-y-4 rounded-md bg-surface p-6 shadow" onSubmit={async (e) => {
+    <form className="mx-auto mt-16 max-w-md space-y-4 rounded-md border border-line bg-surface p-6" onSubmit={async (e) => {
       e.preventDefault();
       if (!valid || busy) return;
       setBusy(true); setError(null);
@@ -25,7 +25,7 @@ export function ChangePassword() {
       finally { setBusy(false); }
     }}>
       <h1 className="text-xl font-semibold">{copy.changePassword.title}</h1>
-      <p>{copy.changePassword.intro}</p>
+      <p className="text-muted">{copy.changePassword.intro}</p>
       <TextField label={copy.changePassword.current} type="password" value={form.current} onChange={(e) => setForm({ ...form, current: e.target.value })} autoComplete="current-password" autoFocus />
       <TextField label={copy.changePassword.next} type="password" value={form.next} onChange={(e) => setForm({ ...form, next: e.target.value })} autoComplete="new-password" />
       <TextField label={copy.changePassword.again} type="password" value={form.again} onChange={(e) => setForm({ ...form, again: e.target.value })} autoComplete="new-password" />
