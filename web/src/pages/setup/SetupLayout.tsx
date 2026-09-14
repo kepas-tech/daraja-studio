@@ -51,8 +51,8 @@ export function SetupLayout() {
           <p className="text-base text-muted">{copy.setup.intro[current]}</p>
           <Routes>
             <Route index element={<Navigate to={`/setup/${fromSession}`} replace />} />
-            <Route path="owner" element={<Owner onDone={async () => { await s.refresh(); go('environment'); }} />} />
-            <Route path="environment" element={<Environment onDone={() => go('uses')} />} />
+            <Route path="owner" element={<Owner created={s.person?.display_name ?? null} onDone={async () => { if (!s.person) await s.refresh(); go('environment'); }} />} />
+            <Route path="environment" element={<Environment onDone={() => go('uses')} onBack={() => go('owner')} />} />
             <Route path="uses" element={<Uses onDone={async () => { await s.refresh(); go('org'); }} onBack={() => go('environment')} />} />
             <Route path="org" element={<Org onDone={() => go('shortcode')} onBack={() => go('uses')} />} />
             <Route path="shortcode" element={<Shortcode onDone={() => go('daraja')} onBack={() => go('org')} />} />

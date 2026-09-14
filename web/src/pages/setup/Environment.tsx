@@ -12,7 +12,7 @@ import { StatusPill } from '../../components/StatusPill';
 type Env = 'sandbox' | 'production';
 const ENVS: Env[] = ['sandbox', 'production'];
 
-export function Environment({ onDone }: { onDone: () => void }) {
+export function Environment({ onDone, onBack }: { onDone: () => void; onBack?: () => void }) {
   const toast = useToast();
   const [env, setEnv] = useState<Env>('sandbox');
   const [confirm, setConfirm] = useState(''); const [err, setErr] = useState<Error | null>(null); const [busy, setBusy] = useState(false);
@@ -39,7 +39,7 @@ export function Environment({ onDone }: { onDone: () => void }) {
       <Flash tone="neutral">{copy.setup.env.advice}</Flash>
       {env === 'production' && <TextField label={copy.setup.env.confirm} value={confirm} onChange={(e) => setConfirm(e.target.value)} />}
       <ErrorCard error={err} />
-      <StepFooter><Button type="submit" disabled={busy}>{copy.setup.next}</Button></StepFooter>
+      <StepFooter onBack={onBack}><Button type="submit" disabled={busy}>{copy.setup.next}</Button></StepFooter>
     </form>
   );
 }
