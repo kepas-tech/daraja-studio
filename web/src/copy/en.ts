@@ -224,13 +224,13 @@ export const copy = {
     /** One plain sentence per step: what it is for and where the value comes from. */
     intro: {
       owner: 'Your own login. Nobody else sees this password.',
-      uses: 'Tick everything you need. You can change this later in Settings.',
+      uses: 'Most businesses receive, send, or both. Tick what applies; you can change it later in Settings.',
       environment: 'Sandbox uses pretend money. Production is your real M-Pesa account.',
       org: 'Shown in the menu and on receipts.',
       shortcode: 'Your paybill or till number, as on your Safaricom letter.',
       daraja: 'From developer.safaricom.co.ke, under My Apps.',
       'public-url': 'Safaricom sends payment results here. It must be reachable from the internet.',
-      passkey: 'From the Daraja portal, under Lipa Na M-Pesa Online. Tested right away.',
+      passkey: 'Needed to prompt a customer\'s phone. From the Daraja portal, under Lipa Na M-Pesa Online. Tested right away.',
       operator: 'The Safaricom portal user allowed to move money out of your account.',
       done: 'Everything Safaricom needs is in place.',
     } as Record<string, string>,
@@ -243,12 +243,12 @@ export const copy = {
      */
     uses: {
       title: 'What will you use M-Pesa for?',
-      payOut: 'Pay money out to people',
+      collect: 'Receive money from customers',
+      collectHelp: 'Customers pay your paybill or till. You can also send a prompt to their phone that asks for their M-Pesa PIN.',
+      collectSafaricom: 'Safaricom calls this C2B; the phone prompt is M-Pesa Express (STK Push)',
+      payOut: 'Send money to people',
       payOutHelp: 'Salaries, suppliers, refunds. Money leaves your account and arrives on a phone.',
       payOutSafaricom: 'Safaricom calls this B2C',
-      collect: 'Ask customers to pay you on their phone',
-      collectHelp: 'You enter their number and the amount. Their phone asks for their M-Pesa PIN.',
-      collectSafaricom: 'Safaricom calls this M-Pesa Express, or STK Push',
       nothing: 'Choose at least one, so we know what to set up.',
     },
     org: { name: 'Business name', nominated: 'Nominated number (2547…)', notify: 'Notification phone (2547…)' },
