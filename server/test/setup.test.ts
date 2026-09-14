@@ -33,6 +33,24 @@ const { app, deps, close } = makeApp({
 });
 afterAll(close);
 
+describe('setup environment', () => {
+  it('lets the wizard pick production before any shortcode exists, without a confirmation', async () => {
+    await resetTables(deps.db);
+    await request(app).get('/api/setup/status');
+    const owner = await request(app).post('/api/setup/owner').send({ displayName: 'Nelson', username: 'nelson', password: 'correct horse battery' });
+    expect(owner.status).toBe(201);
+    const h = (r: request.Test) => r.set('Cookie', owner.headers['set-cookie'][0]).set('x-csrf-token', owner.body.csrf);
+    const r = await h(request(app).post('/api/setup/environment')).send({ environment: 'production' });
+    expect(r.status).toBe(200);
+    expect(r.body.mode).toBe('production');
+    // The owner's name can be corrected from the wizard; the username stays.
+    expect((await h(request(app).put('/api/auth/display-name')).send({ displayName: 'Nelson Lemein' })).status).toBe(204);
+    expect((await h(request(app).put('/api/auth/display-name')).send({ displayName: '' })).status).toBe(400);
+    const me = await h(request(app).get('/api/auth/me'));
+    expect(me.body.person.display_name).toBe('Nelson Lemein');
+  });
+});
+
 describe('setup wizard', () => {
   beforeAll(async () => { await resetTables(deps.db); });
 

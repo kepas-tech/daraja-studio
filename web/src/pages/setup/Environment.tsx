@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { api, ApiError } from '../../api/client';
 import { Button } from '../../components/Button';
-import { TextField } from '../../components/TextField';
 import { ErrorCard } from '../../components/ErrorCard';
 import { useToast } from '../../components/Toast';
 import { copy } from '../../copy/en';
@@ -15,12 +14,13 @@ const ENVS: Env[] = ['sandbox', 'production'];
 export function Environment({ onDone, onBack }: { onDone: () => void; onBack?: () => void }) {
   const toast = useToast();
   const [env, setEnv] = useState<Env>('sandbox');
-  const [confirm, setConfirm] = useState(''); const [err, setErr] = useState<Error | null>(null); const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<Error | null>(null); const [busy, setBusy] = useState(false);
   return (
     <form className="space-y-4" onSubmit={async (e) => {
       e.preventDefault(); setBusy(true); setErr(null);
       try {
-        await api.post('/api/setup/environment', { environment: env, confirmShortcode: confirm || undefined });
+        // No shortcode exists yet at this step — it is asked two steps on — so nothing is confirmed here.
+        await api.post('/api/setup/environment', { environment: env });
         toast.success(copy.settings.saved);
         onDone();
       } catch (e2) { setErr(e2 instanceof ApiError ? e2 : new Error(copy.error.generic)); } finally { setBusy(false); }
@@ -37,7 +37,6 @@ export function Environment({ onDone, onBack }: { onDone: () => void; onBack?: (
       </div>
       <div className="grid grid-cols-2 gap-4 text-sm text-muted"><p>{copy.setup.env.sandboxHint}</p><p>{copy.setup.env.productionHint}</p></div>
       <Flash tone="neutral">{copy.setup.env.advice}</Flash>
-      {env === 'production' && <TextField label={copy.setup.env.confirm} value={confirm} onChange={(e) => setConfirm(e.target.value)} />}
       <ErrorCard error={err} />
       <StepFooter onBack={onBack}><Button type="submit" disabled={busy}>{copy.setup.next}</Button></StepFooter>
     </form>
