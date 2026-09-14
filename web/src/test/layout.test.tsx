@@ -28,6 +28,7 @@ describe('Layout log out', () => {
     render(<MemoryRouter><SessionProvider><Layout /></SessionProvider></MemoryRouter>);
     await screen.findByText('Host Owner');
 
+    fireEvent.click(screen.getByRole('button', { name: copy.account.menu }));
     fireEvent.click(screen.getByRole('button', { name: copy.nav.logout }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/auth/logout', expect.objectContaining({ method: 'POST' })));

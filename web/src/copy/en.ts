@@ -1,6 +1,6 @@
 import type { IconName } from '../icons/lineMd';
 
-export interface NavEntry { key: string; label: string; safaricom: string | null; path: string; icon: IconName; group: 'home' | 'money' | 'manage'; phase: 1 | 2 | 3 | 4 | 5; available: boolean }
+export interface NavEntry { key: string; label: string; safaricom: string | null; path: string; icon: IconName; group: 'home' | 'money' | 'manage' | 'help'; phase: 1 | 2 | 3 | 4 | 5; available: boolean }
 export interface NotPossibleItem { key: string; title: string; what: string; why: string; portalPath: string; ussd?: string }
 
 export const copy = {
@@ -59,7 +59,7 @@ export const copy = {
     { key: 'history', label: 'History', safaricom: 'Account Statement', path: '/history', icon: 'list', group: 'money', phase: 2, available: true },
     { key: 'people', label: 'People', safaricom: 'Organization Operator', path: '/people', icon: 'account', group: 'manage', phase: 5, available: true },
     { key: 'settings', label: 'Settings', safaricom: 'My Preference', path: '/settings', icon: 'cog', group: 'manage', phase: 1, available: true },
-    { key: 'not-possible', label: 'Not possible via API', safaricom: null, path: '/not-possible', icon: 'alert-circle', group: 'manage', phase: 1, available: true },
+    { key: 'not-possible', label: 'Not possible via API', safaricom: null, path: '/not-possible', icon: 'alert-circle', group: 'help', phase: 1, available: true },
   ] as NavEntry[], { logout: 'Log out', menu: 'Menu', groups: { money: 'Money', manage: 'Manage' }, planned: (n: number) => `${n} planned features` }),
   comingSoon: { title: 'Not in this version yet', badge: 'Coming soon', body: 'Planned for a later release.' },
   login: { title: 'Log in', username: 'Username', password: 'Password', button: 'Log in', locked: 'Too many wrong tries. Wait 15 minutes and try again.' },
@@ -70,6 +70,8 @@ export const copy = {
     next: 'Your new password (at least 12 characters)',
     again: 'Type your new password again',
     save: 'Save my password',
+    voluntaryIntro: 'Choose a new password.',
+    cancel: 'Cancel',
   },
   people: {
     title: 'People',
@@ -121,7 +123,7 @@ export const copy = {
     status: { pending: 'Preparing', sent: 'Waiting', completed: 'Paid', failed: 'Failed', unknown: 'Needs a check', cancelled: 'Cancelled', rejected: 'Rejected', awaiting_approval: 'Waiting for approval' } as Record<string, string>,
     type: { b2c: 'Sent to a phone', stk: 'Asked a customer to pay', reversal: 'Reversal', balance: 'Balance check', status_query: 'Payment lookup' } as Record<string, string>,
     subtype: { BusinessPayment: 'Business payment', SalaryPayment: 'Salary', PromotionPayment: 'Promotion', refresh: 'Balance refresh', lookup: 'Lookup', sweep: 'Safaricom check' } as Record<string, string>,
-    to: 'To', amount: 'Amount', receipt: 'Receipt', when: 'When', by: 'By',
+    to: 'To', amount: 'Amount', receipt: 'Receipt', when: 'When', by: 'By', category: 'Category',
     checkedBy: (name: string, note: string) => `Checked by ${name}: ${note}`,
     sendAgain: 'Send again', tryAgain: 'Try again', checkNow: 'Check with Safaricom now',
     checkSent: 'Check sent. The answer will show here within a few minutes.',
@@ -146,7 +148,7 @@ export const copy = {
       recipient: 'Phone number', amount: 'Amount (KES)', badPhone: 'Enter a Kenyan mobile number such as 0712 345 678.',
       wholeShillings: 'Whole shillings only. Safaricom does not send cents to phones.', centsNotAllowed: 'Remove the cents. Safaricom sends whole shillings to phones.',
       kind: 'What kind of payment is this?', kinds: { BusinessPayment: 'Business payment', SalaryPayment: 'Salary', PromotionPayment: 'Promotion' } as Record<string, string>,
-      remarks: 'Note (optional)', next: 'Review', back: 'Back', send: 'Send',
+      remarks: 'Note (optional)', next: 'Review', back: 'Back', send: 'Send', kindManage: 'Manage',
       againUnavailable: 'Studio could not load that earlier payment. Enter the details yourself.',
       review: {
         title: 'Check before you send', nameNote: 'Safaricom cannot check the name before sending. Check the number.',
@@ -211,7 +213,7 @@ export const copy = {
   },
   history: {
     title: 'History', safaricom: 'Account Statement', search: 'Search phone, name or receipt', searchPlaceholder: 'Phone, name or receipt', from: 'From', to: 'To', status: 'Status', any: 'Any status',
-    empty: 'Nothing here yet.', loadMore: 'Load more',
+    empty: 'Nothing here yet.', loadMore: 'Load more', previous: 'Previous', next: 'Next', page: (n: number) => `Page ${n}`,
     columns: { when: 'When', what: 'What', to: 'To', amount: 'Amount', status: 'Status', receipt: 'Receipt' },
   },
   setup: {
@@ -314,6 +316,12 @@ export const copy = {
     org: 'Your organization', daraja: 'Daraja app', passkey: 'STK passkey', publicUrl: 'Public address', operatorsTitle: 'API operators', allowlist: 'Safaricom callback addresses', advanced: 'Advanced',
     change: 'Change', replace: 'Replace', test: 'Test', addOperator: 'Add operator', hidden: 'Hidden',
     appearance: { title: 'Appearance', system: 'System', light: 'Light', dark: 'Dark' },
+    envSettings: (env: string) => `${env === 'production' ? 'Production' : 'Sandbox'} settings`,
+    categories: {
+      title: 'Payment categories', intro: 'Your own names for a send. Each one goes to Safaricom as one of its three kinds.',
+      add: 'Add category', name: 'Category name', kind: 'Sent to Safaricom as', edit: 'Edit', remove: 'Delete', last: 'Keep at least one category.', saved: 'Categories saved.',
+      confirm: 'Save the payment categories?',
+    },
     portalOnly: 'Change this in the Safaricom portal',
     orgPortalNote: (what: string) => `Contacts, KYC, bank account, tills: ${what}.`,
     publicUrlTested: (when: string) => `Tested ${when}`, publicUrlNotTested: 'Not tested yet',
@@ -338,7 +346,7 @@ export const copy = {
       notReadyMissing: { creds: 'the Daraja key and secret', operator: 'an API operator' },
       notReady: (env: string, missing: string[]) => {
         const label = env === 'production' ? 'Production' : 'Sandbox';
-        return `${label} is not ready: add ${missing.join(', and ')}, in the ${label} tab.`;
+        return `${label} is not ready: add ${missing.join(', and ')}, below.`;
       },
     },
     tabs: { sandbox: 'Sandbox', production: 'Production' },
@@ -378,6 +386,11 @@ export const copy = {
     },
   },
   toast: { close: 'Dismiss' },
+  account: {
+    menu: 'Account', title: 'Account', organisation: 'Organisation & shortcodes', shortcodes: 'Shortcodes', changePassword: 'Change password',
+    deleteTitle: 'Delete this studio', deleteBody: 'Removes the organisation, its people, credentials and history. The install returns to first-run setup. This cannot be undone.',
+    deleteButton: 'Delete this studio…', typeName: (name: string) => `Type ${name} to confirm`, deleted: 'Studio deleted.', ownerOnly: 'Only the owner can see this page.',
+  },
   notPossiblePage: {
     title: 'Not possible via API',
     intro: 'Safaricom keeps these in its portal. Each card says why and where.',

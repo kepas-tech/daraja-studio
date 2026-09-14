@@ -43,6 +43,7 @@ const balance = { workingCents: 1400, utilityCents: 3439200, chargesPaidCents: 0
 function fetchFor(handlers: Record<string, (init?: RequestInit) => Response>) {
   return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const key = `${init?.method ?? 'GET'} ${String(input)}`;
+    if (key === 'GET /api/send/categories') return new Response(JSON.stringify({ items: [{ id: 'business', name: 'Business payment', commandId: 'BusinessPayment' }, { id: 'salary', name: 'Salary', commandId: 'SalaryPayment' }] }), { status: 200 });
     const h = handlers[key];
     if (!h) throw new Error(`unexpected fetch ${key}`);
     return h(init);
@@ -75,7 +76,7 @@ describe('SendPhone', () => {
     fireEvent.change(screen.getByLabelText(copy.confirm.yourPassword), { target: { value: 'studio-pw' } });
     fireEvent.click(screen.getByRole('button', { name: copy.confirm.confirm }));
     await screen.findByText(copy.send.phone.result.sent);
-    expect(posted).toEqual({ phone: '0700123456', amountCents: 100, commandId: 'BusinessPayment', remarks: undefined, confirmDuplicate: undefined, password: 'studio-pw' });
+    expect(posted).toEqual({ phone: '0700123456', amountCents: 100, category: 'Business payment', remarks: undefined, confirmDuplicate: undefined, password: 'studio-pw' });
     const es = await lastEventSource();
     const instancesAtSent = FakeEventSource.instances.length;
     es.emit('request.updated', { type: 'request.updated', payload: { id: 'r1', status: 'completed' }, at: new Date().toISOString() });

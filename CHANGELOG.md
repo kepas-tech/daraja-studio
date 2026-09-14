@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.7.0 — your own payment categories, an account menu, one environment at a time
+
+- Send money takes your own payment categories (Personal use, Rent, …); each sits on one of
+  Safaricom's three kinds. Add, edit and delete them in Settings › Payment categories.
+  New: `GET /api/send/categories`, `PUT /api/settings/send-categories`, `category` on a send.
+- History shows seven rows a page with Previous and Next.
+- Settings shows the settings of the mode you are in; switching Mode swaps them. No tabs.
+- Header and sidebar stay fixed; only the content scrolls.
+- One account button in the header: organisation and shortcodes, change password, log out, and
+  Delete this studio (owner, password plus the organisation name typed exactly; returns the
+  install to first-run setup). New: `POST /api/org/wipe`.
+- "Not possible via API" sits last in the menu.
+
 ## 0.6.1 — one page, one job
 
 - Header: the DS mark with the name in text; one line for the environment; a quiet Log out.

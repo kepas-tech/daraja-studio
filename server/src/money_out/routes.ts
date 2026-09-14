@@ -12,6 +12,9 @@ import { KINDS } from './registry.js';
 const sendPhone = z.object({
   phone: z.string().trim().min(1).max(20),
   amountCents: z.number().int().positive(),
+  // The business's own category name (settings/categories.ts) decides the Safaricom command; a
+  // bare commandId is still accepted for callers that have no category.
+  category: z.string().trim().min(1).max(40).optional(),
   commandId: z.enum(['BusinessPayment', 'SalaryPayment', 'PromotionPayment']).default('BusinessPayment'),
   remarks: z.string().trim().max(100).optional(),
   occasion: z.string().trim().max(100).optional(),
@@ -45,6 +48,7 @@ function parse<T>(schema: z.ZodType<T>, body: unknown): T {
 
 export function sendRoutes(deps: AppDeps): Router {
   const r = Router();
+  r.get('/categories', requireAuth(deps.db), requireCsrf, async (_req, res, next) => { try { res.json({ items: await deps.settingsService.getSendCategories() }); } catch (e) { next(e); } });
   r.post('/phone', requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'send.phone'), requireMoneyReady(deps), requireStepUp(deps.db), async (req, res, next) => {
     try {
       const b = parse(sendPhone, req.body);

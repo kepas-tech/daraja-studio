@@ -4,10 +4,12 @@ import { TextField } from './TextField';
 import { ErrorCard, type Explained } from './ErrorCard';
 import { copy } from '../copy/en';
 
-export function PasswordConfirmDialog({ open, title, onConfirm, onCancel, busy, error }: { open: boolean; title: string; onConfirm: (password: string) => void; onCancel: () => void; busy?: boolean; error?: Error | Explained | null }) {
+export function PasswordConfirmDialog({ open, title, onConfirm, onCancel, busy, error, challenge, danger }: { open: boolean; title: string; onConfirm: (password: string) => void; onCancel: () => void; busy?: boolean; error?: Error | Explained | null; challenge?: { label: string; expected: string }; danger?: boolean }) {
   const [pw, setPw] = useState('');
+  const [typed, setTyped] = useState('');
+  const challengeOk = !challenge || typed.trim() === challenge.expected;
   const dialogRef = useRef<HTMLDivElement>(null);
-  useEffect(() => { if (!open) setPw(''); }, [open]);
+  useEffect(() => { if (!open) { setPw(''); setTyped(''); } }, [open]);
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (e: KeyboardEvent) => {
@@ -33,12 +35,13 @@ export function PasswordConfirmDialog({ open, title, onConfirm, onCancel, busy, 
         <h2 className="border-b border-line px-4 py-3 text-base font-semibold">{title}</h2>
         <div className="space-y-4 p-4">
           <p className="text-sm text-muted">{copy.confirm.why}</p>
+          {challenge && <TextField label={challenge.label} value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" />}
           <TextField label={copy.confirm.yourPassword} type="password" value={pw} onChange={(e) => setPw(e.target.value)} autoFocus autoComplete="current-password" />
           <ErrorCard error={error ?? null} />
         </div>
         <div className="flex justify-end gap-2 border-t border-line bg-page px-4 py-3">
           <Button type="button" variant="secondary" onClick={onCancel} disabled={busy}>{copy.confirm.cancel}</Button>
-          <Button type="submit" disabled={busy || !pw}>{copy.confirm.confirm}</Button>
+          <Button type="submit" variant={danger ? 'danger' : 'primary'} disabled={busy || !pw || !challengeOk}>{copy.confirm.confirm}</Button>
         </div>
       </form>
     </div>

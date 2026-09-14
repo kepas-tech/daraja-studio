@@ -7,6 +7,8 @@ import { AUTH_FAILED_MEANING } from './service.js';
 export interface RequestView {
   id: string; type: string; subtype: string | null; status: string; amountCents: number | null; currency: 'KES';
   recipient: { kind: string | null; value: string | null; name: string | null }; remarks: string | null; receipt: string | null;
+  /** The business's own payment category name, when the send was made with one. */
+  category: string | null;
   createdAt: string; sentAt: string | null; resultAt: string | null; resultSource: 'callback' | 'poll' | 'ack' | null;
   safaricomSaid: string | null; meaning: string | null; whatToDo: string | null; retriable: boolean; pollAttempts: number;
   checked: { by: { id: string; displayName: string } | null; at: string; note: string } | null;
@@ -57,6 +59,7 @@ export function toView(row: ViewRow, egressIps: string[] = []): RequestView {
     amountCents: row.amount_cents === null ? null : Number(row.amount_cents), currency: 'KES',
     recipient: { kind: row.recipient_kind, value: row.recipient_value, name: row.recipient_name },
     remarks: row.remarks, receipt: row.receipt,
+    category: typeof (row.payload_json as { category?: unknown }).category === 'string' ? (row.payload_json as { category: string }).category : null,
     createdAt: row.created_at.toISOString(), sentAt: row.sent_at?.toISOString() ?? null, resultAt: row.result_at?.toISOString() ?? null, resultSource: row.result_source,
     safaricomSaid: row.result_desc, meaning: row.meaning ?? ex?.meaning ?? null,
     whatToDo: row.status === 'failed'
