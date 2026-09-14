@@ -4,6 +4,7 @@ const VARIANT = {
   primary: 'border-brand bg-brand text-surface hover:border-brand-dark hover:bg-brand-dark',
   secondary: 'border-line bg-page text-ink hover:bg-line/60',
   danger: 'border-line bg-page text-danger hover:border-danger hover:bg-danger hover:text-surface',
+  ghost: 'border-transparent bg-transparent text-muted shadow-none hover:bg-page hover:text-ink',
 };
 
 export function Button({ variant = 'primary', className = '', icon, children, ...p }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: keyof typeof VARIANT; icon?: ReactNode }) {

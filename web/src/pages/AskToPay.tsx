@@ -10,6 +10,8 @@ import { PhoneInput } from '../components/PhoneInput';
 import { PageHeader } from '../components/PageHeader';
 import { RequestCard } from '../components/RequestCard';
 import { ErrorCard } from '../components/ErrorCard';
+import { Flash } from '../components/Flash';
+import { TaskCard } from '../components/TaskCard';
 import { useToast } from '../components/Toast';
 import { copy } from '../copy/en';
 import { money, normalizeKe, phone, when } from '../format';
@@ -88,50 +90,48 @@ export function AskToPay() {
     <>
       <PageHeader title={copy.askToPay.title} safaricom={copy.askToPay.safaricom} />
       {step === 'form' && (
-        <form className="max-w-lg space-y-4" onSubmit={(e) => { e.preventDefault(); if (valid) setStep('review'); }}>
-          <p className="text-base text-muted">{copy.askToPay.intro}</p>
-          <PhoneInput label={copy.askToPay.phone} value={to} onChange={setTo} autoFocus />
-          <MoneyInput label={copy.askToPay.amount} valueCents={cents} onChange={setCents} wholeShillings />
-          <TextField label={copy.askToPay.reference} value={reference} onChange={(e) => setReference(e.target.value)} maxLength={12} hint={copy.askToPay.referenceHint} />
-          <TextField label={copy.askToPay.description} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={13} hint={copy.askToPay.descriptionHint} />
-          <Button type="submit" disabled={!valid}>{copy.askToPay.next}</Button>
+        <form onSubmit={(e) => { e.preventDefault(); if (valid) setStep('review'); }}>
+          <TaskCard intro={copy.askToPay.intro} footer={<Button type="submit" disabled={!valid}>{copy.askToPay.next}</Button>}>
+            <PhoneInput label={copy.askToPay.phone} value={to} onChange={setTo} autoFocus />
+            <MoneyInput label={copy.askToPay.amount} valueCents={cents} onChange={setCents} wholeShillings />
+            <TextField label={copy.askToPay.reference} value={reference} onChange={(e) => setReference(e.target.value)} maxLength={12} hint={copy.askToPay.referenceHint} />
+            <TextField label={copy.askToPay.description} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={13} hint={copy.askToPay.descriptionHint} />
+          </TaskCard>
         </form>
       )}
 
       {step === 'review' && (
-        <div className="max-w-lg space-y-4">
+        <TaskCard
+          footerStart={<Button type="button" variant="secondary" onClick={() => { setStep('form'); setDuplicate(null); setConfirmDuplicate(false); }}>{copy.askToPay.back}</Button>}
+          footer={<Button type="button" disabled={busy} onClick={() => void submit()}>{copy.askToPay.ask}</Button>}
+        >
           <h2 className="text-xl font-semibold">{copy.askToPay.review.title}</h2>
-          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 rounded-md border border-line bg-surface p-5 text-base">
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-base">
             <dt className="text-muted">{copy.askToPay.phone}</dt><dd>{phone(normalised)}</dd>
             <dt className="text-muted">{copy.request.amount}</dt><dd>{money(cents)}</dd>
             <dt className="text-muted">{copy.askToPay.reference}</dt><dd>{reference.trim()}</dd>
           </dl>
-          <p className="text-sm text-muted">{copy.askToPay.review.incoming}</p>
           <p className="text-sm text-muted">{copy.askToPay.review.note}</p>
           {duplicate && (
-            <div role="alert" className="space-y-2 rounded-md border border-line bg-page p-3 text-base">
+            <Flash tone="neutral" role="alert">
               <p>{copy.askToPay.duplicate(when(duplicate.at))}</p>
-              <div className="flex gap-2">
+              <div className="flex gap-2 pt-1">
                 <Button type="button" disabled={busy} onClick={() => { setConfirmDuplicate(true); void submit(true); }}>{copy.askToPay.duplicateYes}</Button>
                 <Button type="button" variant="secondary" onClick={() => { setDuplicate(null); setConfirmDuplicate(false); toast.info(copy.askToPay.duplicateCancelled); }}>{copy.askToPay.duplicateNo}</Button>
               </div>
-            </div>
+            </Flash>
           )}
           <ErrorCard error={err} />
-          <div className="flex gap-2">
-            <Button type="button" variant="secondary" onClick={() => { setStep('form'); setDuplicate(null); setConfirmDuplicate(false); }}>{copy.askToPay.back}</Button>
-            <Button type="button" disabled={busy} onClick={() => void submit()}>{copy.askToPay.ask}</Button>
-          </div>
-        </div>
+        </TaskCard>
       )}
 
       {step === 'result' && request && (
-        <div className="max-w-lg space-y-4">
-          <p role="status" className="text-lg">{copy.askToPay.result[request.status as 'sent' | 'completed' | 'failed' | 'unknown'] ?? request.status}</p>
+        <div className="max-w-xl space-y-4">
+          <p role="status" className="text-lg font-semibold">{copy.askToPay.result[request.status as 'sent' | 'completed' | 'failed' | 'unknown'] ?? request.status}</p>
           {request.status === 'sent' && <p className="text-base text-muted">{copy.askToPay.waiting}</p>}
           <RequestCard request={request}>
             {(request.status === 'completed' || request.status === 'failed') && <Button type="button" onClick={reset}>{copy.askToPay.result.askAnother}</Button>}
-            {request.status === 'unknown' && <Link className="text-base underline" to={`/requests/${request.id}`}>{copy.request.markChecked}</Link>}
+            {request.status === 'unknown' && <Link className="text-base" to={`/requests/${request.id}`}>{copy.request.markChecked}</Link>}
           </RequestCard>
         </div>
       )}

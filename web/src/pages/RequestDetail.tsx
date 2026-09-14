@@ -10,6 +10,8 @@ import { PageHeader } from '../components/PageHeader';
 import { RequestCard } from '../components/RequestCard';
 import { PasswordConfirmDialog } from '../components/PasswordConfirmDialog';
 import { useToast } from '../components/Toast';
+import { Loading } from '../components/Loading';
+import { Flash } from '../components/Flash';
 import { copy } from '../copy/en';
 import { when } from '../format';
 
@@ -36,18 +38,18 @@ export function RequestDetail() {
     catch (e) { setDialogError(explainApiError(e)); } finally { setBusy(false); }
   };
   if (err && !r) return <><PageHeader title={copy.request.notFoundTitle} /><ErrorCard error={err} /></>;
-  if (!r) return <p className="p-6">{copy.app.loading}</p>;
+  if (!r) return <Loading />;
   const canCheck = (r.status === 'sent' || r.status === 'pending' || r.status === 'unknown') && r.pollAttempts < 5 && r.type === 'b2c';
   const canMarkChecked = r.status === 'unknown' && !r.checked && r.type === 'b2c';
   return (
     <>
       <PageHeader title={copy.request.subtype[r.subtype ?? ''] ?? copy.request.type[r.type] ?? r.type} />
-      {msg && <p role="status" className="mb-4 text-base text-brand-dark">{msg}</p>}
+      {msg && <Flash tone="success" role="status" className="mb-4 max-w-lg">{msg}</Flash>}
       <ErrorCard error={err} />
       <div className="max-w-lg space-y-4">
         <RequestCard request={r}>
           {canCheck && <Button type="button" variant="secondary" onClick={() => void check()}>{copy.request.checkNow}</Button>}
-          {(r.status === 'completed' || r.status === 'failed') && r.type === 'b2c' && <Link className="rounded-md border border-line px-4 py-2.5 text-base" to={`/send/phone?again=${r.id}`}>{r.status === 'failed' && r.retriable ? copy.request.tryAgain : copy.request.sendAgain}</Link>}
+          {(r.status === 'completed' || r.status === 'failed') && r.type === 'b2c' && <Link className="inline-flex min-h-11 items-center rounded-md border border-line bg-page px-4 font-semibold text-ink hover:bg-line/60 hover:no-underline" to={`/send/phone?again=${r.id}`}>{r.status === 'failed' && r.retriable ? copy.request.tryAgain : copy.request.sendAgain}</Link>}
         </RequestCard>
         {canMarkChecked && (
           <div className="space-y-3 rounded-md border border-line bg-surface p-5">

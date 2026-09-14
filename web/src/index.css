@@ -1,26 +1,70 @@
 @import "tailwindcss";
 
 /*
- * The only colours in the app. Tailwind's default palette is wiped so a stray gray-500 or
- * emerald-700 produces no CSS at all; src/test/brand-guard.test.ts fails the build if one is typed.
+ * The only colours in the app. Light values are Safaricom's greens and neutrals plus the logo's red
+ * and dark green; dark values come from the same Safaricom developer-portal stylesheet. Tailwind's
+ * default palette is wiped, and src/test/brand-guard.test.ts fails the build on any other colour.
  */
-@theme {
+:root {
+  --brand: #35a839;
+  --brand-dark: #186738;
+  --brand-tint: #f7fdf7;
+  --danger: #da222a;
+  --danger-tint: #fdf2f2;
+  --ink: #242623;
+  --muted: #727272;
+  --line: #e0e0e0;
+  --surface: #ffffff;
+  --page: #f5f5f5;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --brand: #35a839;
+    --brand-dark: #6eb04c;
+    --brand-tint: #1e2f21;
+    --danger: #e04445;
+    --danger-tint: #3a2223;
+    --ink: #f5f5f5;
+    --muted: #d9d9d9;
+    --line: #494949;
+    --surface: #2e312e;
+    --page: #242623;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --brand: #35a839;
+  --brand-dark: #6eb04c;
+  --brand-tint: #1e2f21;
+  --danger: #e04445;
+  --danger-tint: #3a2223;
+  --ink: #f5f5f5;
+  --muted: #d9d9d9;
+  --line: #494949;
+  --surface: #2e312e;
+  --page: #242623;
+  color-scheme: dark;
+}
+
+@theme inline {
   --color-*: initial;
-  --color-brand: #35a839;
-  --color-brand-dark: #186738;
-  --color-brand-tint: #f7fdf7;
-  --color-danger: #da222a;
-  --color-danger-tint: #fdf2f2;
-  --color-ink: #242623;
-  --color-muted: #727272;
-  --color-line: #e0e0e0;
-  --color-surface: #ffffff;
-  --color-page: #f5f5f5;
+  --color-brand: var(--brand);
+  --color-brand-dark: var(--brand-dark);
+  --color-brand-tint: var(--brand-tint);
+  --color-danger: var(--danger);
+  --color-danger-tint: var(--danger-tint);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-surface: var(--surface);
+  --color-page: var(--page);
 }
 
 @layer base {
-  html { color-scheme: light; }
   body { @apply bg-page text-ink; }
   a { @apply text-brand-dark hover:underline; }
-  input[type='radio'], input[type='checkbox'], progress { accent-color: var(--color-brand); }
+  input[type='radio'], input[type='checkbox'], progress { accent-color: var(--brand); }
 }

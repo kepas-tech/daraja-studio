@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router';
+import { useSession } from './session';
 import { Icon } from '../components/Icon';
 import { StatusPill } from '../components/StatusPill';
 import { copy, type NavEntry } from '../copy/en';
@@ -7,21 +8,20 @@ import { copy, type NavEntry } from '../copy/en';
 function Item({ e, onPick }: { e: NavEntry; onPick: () => void }) {
   return (
     <li>
-      <NavLink to={e.path} end={e.path === '/'} onClick={onPick} className={({ isActive }) => `flex items-start gap-3 border-l-2 px-4 py-3 text-base text-ink hover:no-underline ${isActive ? 'border-brand bg-surface font-semibold' : 'border-transparent hover:bg-surface/70'}`}>
-        <Icon name={e.icon} className="mt-1 size-4 text-muted" />
-        <span className="flex min-w-0 flex-col">
-          <span>{e.label}</span>
-          {e.safaricom && <span className="text-xs font-normal text-muted">{e.safaricom}</span>}
-          {!e.available && <span className="mt-1"><StatusPill kind="muted">{copy.comingSoon.badge}</StatusPill></span>}
-        </span>
+      <NavLink to={e.path} end={e.path === '/'} onClick={onPick} title={e.safaricom ?? undefined} className={({ isActive }) => `flex min-h-10 items-center gap-3 border-l-2 px-3 py-2 text-base text-ink hover:no-underline ${isActive ? 'border-brand bg-surface font-semibold' : 'border-transparent hover:bg-surface/70'}`}>
+        <Icon name={e.icon} className={`size-4 ${e.available ? '' : 'text-muted'}`} />
+        <span className={`min-w-0 truncate ${e.available ? '' : 'text-muted'}`}>{e.label}</span>
+        {e.safaricom && <span className="sr-only">{e.safaricom}</span>}
+        {!e.available && <StatusPill kind="muted">{copy.comingSoon.badge}</StatusPill>}
       </NavLink>
     </li>
   );
 }
 
-const heading = 'px-4 pt-4 pb-1 text-xs font-semibold text-muted';
+const heading = 'px-3 pt-5 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted';
 
 export function Nav() {
+  const { org } = useSession();
   // The open state is ours, not the browser's: a <details> element is content-hidden when closed in
   // current Chrome, so its links were never painted or clickable. Owning the state keeps the
   // open/closed decision somewhere a test can assert (see nav.test.tsx).
@@ -31,21 +31,22 @@ export function Nav() {
   const live = copy.nav.filter((e) => e.available);
   const soon = copy.nav.filter((e) => !e.available);
   return (
-    <nav aria-label={copy.app.navLabel} className="w-full shrink-0 border-b border-line bg-page md:w-64 md:border-r md:border-b-0">
+    <nav aria-label={copy.app.navLabel} className="w-full shrink-0 border-b border-line bg-page md:w-60 md:border-r md:border-b-0">
       <button type="button" aria-expanded={open} aria-controls="nav-entries" onClick={() => setOpen((v) => !v)} className="flex min-h-11 w-full cursor-pointer items-center gap-2 px-4 text-base font-semibold md:hidden">
         <Icon name={open ? 'close' : 'menu'} className="size-5" />
         <span>{copy.nav.menu}</span>
       </button>
       <ul id="nav-entries" className={`${open ? 'block' : 'hidden'} pb-4 md:block`}>
+        {org && <li className="truncate px-3 pt-4 pb-2 text-sm font-semibold" title={org.name}>{org.name}</li>}
         {live.filter((e) => e.group === 'home').map((e) => <Item key={e.key} e={e} onPick={pick} />)}
         <li className={heading}>{copy.nav.groups.money}</li>
         {live.filter((e) => e.group === 'money').map((e) => <Item key={e.key} e={e} onPick={pick} />)}
         <li className={heading}>{copy.nav.groups.manage}</li>
         {live.filter((e) => e.group === 'manage').map((e) => <Item key={e.key} e={e} onPick={pick} />)}
-        <li>
-          <button type="button" aria-expanded={soonOpen} aria-controls="nav-soon" onClick={() => setSoonOpen((v) => !v)} className={`${heading} flex w-full cursor-pointer items-center gap-1 text-left`}>
-            <span>{copy.nav.groups.comingSoon} ({soon.length})</span>
-            <Icon name={soonOpen ? 'chevron-up' : 'chevron-down'} className="size-3" />
+        <li className="pt-4">
+          <button type="button" aria-expanded={soonOpen} aria-controls="nav-soon" onClick={() => setSoonOpen((v) => !v)} className="flex min-h-10 w-full cursor-pointer items-center gap-3 px-3 text-left text-sm text-muted hover:text-ink">
+            <Icon name={soonOpen ? 'chevron-up' : 'chevron-down'} className="size-4" />
+            <span>{copy.nav.planned(soon.length)}</span>
           </button>
           <ul id="nav-soon" className={soonOpen ? 'block' : 'hidden'}>
             {soon.map((e) => <Item key={e.key} e={e} onPick={pick} />)}

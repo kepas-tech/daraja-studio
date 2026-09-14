@@ -4,6 +4,7 @@ import { Layout } from './Layout';
 import { copy } from '../copy/en';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
+import { Loading } from '../components/Loading';
 import { ComingSoon } from '../pages/ComingSoon';
 import { Login } from '../pages/Login';
 import { Home } from '../pages/Home';
@@ -24,7 +25,7 @@ import { Reverse } from '../pages/Reverse';
 
 function Gate() {
   const s = useSession();
-  if (s.status === 'loading') return <p className="p-6 text-muted">{copy.app.loading}</p>;
+  if (s.status === 'loading') return <Loading full />;
   if (s.status === 'error') {
     return (
       <div className="mx-auto mt-24 max-w-sm px-4">

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.1 — one page, one job
+
+- Header: the DS mark with the name in text; one line for the environment; a quiet Log out.
+- Sidebar: one line per destination, grouped into Money and Manage; the seven unbuilt features
+  fold behind "7 planned features".
+- Home: your balances first, then the three most-used actions, then recent requests.
+- Task pages (Send, Ask to pay, Look up, Reverse, QR) sit in one box with one primary button.
+- Settings shows each value read-only and opens its form only when you press Change or Replace.
+- Appearance follows your system by default; Light and Dark are a click away at the top of Settings.
+- Wording cut to what changes what you do next.
+
 ## 0.6.0 — new look
 
 - Light theme only, with one palette: Safaricom's green and neutrals plus the red and dark green of
