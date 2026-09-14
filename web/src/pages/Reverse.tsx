@@ -101,8 +101,8 @@ export function Reverse() {
       {step === 'form' && (
         <form className="max-w-lg space-y-4" onSubmit={(e) => { e.preventDefault(); if (valid && !pending) void find(); }}>
           <TextField label={copy.reverse.receipt} value={receipt} onChange={(e) => setReceipt(e.target.value)} autoFocus autoComplete="off" aria-describedby={hintId} />
-          <p id={hintId} className="-mt-3 text-sm text-gray-500">{copy.reverse.hint}</p>
-          <p className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-base dark:bg-amber-950/30">{copy.reverse.spent}</p>
+          <p id={hintId} className="-mt-3 text-sm text-muted">{copy.reverse.hint}</p>
+          <p className="rounded-md border border-line bg-page p-3 text-base">{copy.reverse.spent}</p>
           <Button type="submit" disabled={!valid || pending}>{pending ? copy.reverse.finding : copy.reverse.find}</Button>
           <ErrorCard error={err} />
         </form>
@@ -111,13 +111,13 @@ export function Reverse() {
       {step === 'review' && found && (
         <div className="max-w-lg space-y-4">
           <h2 className="text-xl font-semibold">{copy.reverse.found}</h2>
-          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 rounded-xl border border-gray-200 bg-white p-5 text-base dark:border-gray-800 dark:bg-gray-950">
-            <dt className="text-gray-600 dark:text-gray-400">{copy.request.receipt}</dt><dd><code>{found.receipt}</code></dd>
-            <dt className="text-gray-600 dark:text-gray-400">{copy.request.amount}</dt><dd>{money(found.amountCents)}</dd>
-            <dt className="text-gray-600 dark:text-gray-400">{copy.reverse.settledOn}</dt><dd>{when(found.at)}</dd>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 rounded-md border border-line bg-surface p-5 text-base">
+            <dt className="text-muted">{copy.request.receipt}</dt><dd><code>{found.receipt}</code></dd>
+            <dt className="text-muted">{copy.request.amount}</dt><dd>{money(found.amountCents)}</dd>
+            <dt className="text-muted">{copy.reverse.settledOn}</dt><dd>{when(found.at)}</dd>
           </dl>
           <p className="text-base">{copy.reverse.willTakeBack}</p>
-          <p role="alert" className="rounded-lg border border-red-300 bg-red-50 p-3 text-base dark:bg-red-950/30">{copy.reverse.irreversible}</p>
+          <p role="alert" className="rounded-md border border-danger bg-danger-tint p-3 text-base">{copy.reverse.irreversible}</p>
           <ErrorCard error={err} />
           <div className="flex gap-2">
             <Button type="button" variant="secondary" onClick={() => { setStep('form'); setErr(null); }}>{copy.reverse.back}</Button>
@@ -134,7 +134,7 @@ export function Reverse() {
             {request.status === 'sent' && <Link className="text-base underline" to={'/requests/' + request.id}>{copy.request.checkNow}</Link>}
             <Button type="button" onClick={reset}>{copy.reverse.result.another}</Button>
           </RequestCard>
-          <p className="text-sm text-gray-600 dark:text-gray-400"><Link className="underline" to="/history">{copy.reverse.history}</Link></p>
+          <p className="text-sm text-muted"><Link to="/history">{copy.reverse.history}</Link></p>
         </div>
       )}
     </>

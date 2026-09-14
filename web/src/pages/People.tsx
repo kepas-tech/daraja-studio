@@ -85,21 +85,21 @@ export function People() {
       <PageHeader title={copy.people.title} safaricom={copy.people.safaricom}>
         {!adding && <Button onClick={() => setAdding(true)}>{copy.people.add}</Button>}
       </PageHeader>
-      <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">{copy.people.intro}</p>
+      <p className="mb-4 text-sm text-muted">{copy.people.intro}</p>
       <ErrorCard error={err} />
 
       {handOver && (
-        <div role="status" className="mb-6 space-y-2 rounded-xl border border-emerald-300 bg-emerald-50 p-4 dark:bg-emerald-950/30">
+        <div role="status" className="mb-6 space-y-2 rounded-md border border-brand bg-brand-tint p-4">
           <p>{copy.people.tellThem}</p>
-          <p className="text-sm text-gray-600 dark:text-gray-400">{copy.people.shownOnce}</p>
+          <p className="text-sm text-muted">{copy.people.shownOnce}</p>
           <p><strong>{handOver.username}</strong></p>
-          <code className="block break-all rounded bg-white p-2 text-lg dark:bg-gray-900">{handOver.password}</code>
+          <code className="block break-all rounded bg-surface p-2 text-lg">{handOver.password}</code>
           <Button variant="secondary" onClick={() => setHandOver(null)}>{copy.people.gotIt}</Button>
         </div>
       )}
 
       {adding && (
-        <form className="mb-6 space-y-3 rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-950" onSubmit={(e) => { e.preventDefault(); addPerson(); }}>
+        <form className="mb-6 space-y-3 rounded-md border border-line bg-surface p-5" onSubmit={(e) => { e.preventDefault(); addPerson(); }}>
           <h2 className="text-lg font-semibold">{copy.people.addTitle}</h2>
           <TextField label={copy.people.displayName} value={form.displayName} onChange={(e) => setForm({ ...form, displayName: e.target.value })} autoFocus />
           <TextField
@@ -111,7 +111,7 @@ export function People() {
           />
           <label className="block">
             <span className="mb-1 block text-base">{copy.people.role}</span>
-            <select className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-base dark:border-gray-700 dark:bg-gray-900" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as AssignableRole })}>
+            <select className="w-full rounded-md border border-line px-3 py-2.5 text-base" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as AssignableRole })}>
               {ROLES.map((r) => <option key={r} value={r} disabled={r === 'custom'}>{copy.people.roles[r]}</option>)}
             </select>
           </label>
@@ -125,13 +125,13 @@ export function People() {
       )}
 
       {people.length <= 1 && !adding && <p className="mb-4">{copy.people.empty}</p>}
-      <ul className="divide-y divide-gray-100 rounded-xl border border-gray-200 bg-white dark:divide-gray-800 dark:border-gray-800 dark:bg-gray-950">
+      <ul className="divide-y divide-line rounded-md border border-line bg-surface">
         {people.map((p) => (
           <li key={p.id} data-testid={`person-${p.id}`} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
             <span className="flex flex-col">
               <span className="text-base font-medium">{p.displayName}</span>
-              <span className="text-sm text-gray-500">{p.username}</span>
-              <span className="text-sm text-gray-500">{p.lastLoginAt ? copy.people.lastLogin(when(p.lastLoginAt)) : copy.people.neverLoggedIn}</span>
+              <span className="text-sm text-muted">{p.username}</span>
+              <span className="text-sm text-muted">{p.lastLoginAt ? copy.people.lastLogin(when(p.lastLoginAt)) : copy.people.neverLoggedIn}</span>
             </span>
             <span className="flex flex-wrap items-center gap-2">
               {p.status === 'suspended' && <StatusPill kind="muted">{copy.people.suspended}</StatusPill>}
@@ -139,13 +139,13 @@ export function People() {
               {p.isOwner ? (
                 <>
                   <StatusPill kind="ok">{copy.people.roles.owner}</StatusPill>
-                  <span className="text-sm text-gray-500">{copy.people.ownerNote}</span>
+                  <span className="text-sm text-muted">{copy.people.ownerNote}</span>
                 </>
               ) : (
                 <>
                   <select
                     aria-label={copy.people.roleFor(p.displayName)}
-                    className="rounded-lg border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-900"
+                    className="rounded-md border border-line px-2 py-1.5 text-sm"
                     value={p.role}
                     onChange={(e) => changeRole(p, e.target.value as AssignableRole)}
                   >

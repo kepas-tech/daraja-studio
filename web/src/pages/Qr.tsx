@@ -64,7 +64,7 @@ export function Qr() {
       <form onSubmit={(e) => { e.preventDefault(); void generate(); }}>
         <fieldset disabled={busy || !details} className="space-y-4">
           <label className="block"><span className="mb-1 block">{text.type}</span>
-            <select className="w-full rounded-lg border p-3 dark:bg-gray-900" value={trxCode} onChange={(e) => { changed(); setTrxCode(e.target.value as 'PB' | 'BG'); }}>
+            <select className="w-full rounded-md border p-3" value={trxCode} onChange={(e) => { changed(); setTrxCode(e.target.value as 'PB' | 'BG'); }}>
               <option value="PB">{text.paybill}</option><option value="BG">{text.till}</option>
             </select>
           </label>
@@ -75,16 +75,16 @@ export function Qr() {
         </fieldset>
       </form>
       {(result ?? details) && <p className="font-semibold">{(result ?? details)!.environment === 'sandbox' ? text.sandbox : text.production}</p>}
-      {result && <section aria-label={text.ready} className="space-y-3 rounded-xl border p-4">
+      {result && <section aria-label={text.ready} className="space-y-3 rounded-md border p-4">
         <h2 className="text-xl font-semibold">{result.merchantName}</h2>
         <p>{text.shortcode}: {result.shortcode} · {result.trxCode === 'PB' ? text.paybill : text.till}</p>
         <p>{result.amountCents === 0 ? text.customerAmount : money(result.amountCents)} · {result.accountReference}</p>
-        <img className="h-auto w-full max-w-[400px] bg-white" src={result.imageUrl} alt={text.imageAlt} width="400" height="400"
+        <img className="h-auto w-full max-w-[400px] bg-surface" src={result.imageUrl} alt={text.imageAlt} width="400" height="400"
           onError={() => { setResult(null); setError(errorLines(new Error(text.badResponse))); }} />
         <p>{text.scan}</p>
-        <a className="inline-block rounded-lg border px-4 py-3 underline" href={result.imageUrl} download="mpesa-qr.png">{text.download}</a>
+        <a className="inline-block rounded-md border px-4 py-3 underline" href={result.imageUrl} download="mpesa-qr.png">{text.download}</a>
       </section>}
-      <p className="text-sm text-gray-600 dark:text-gray-400">{text.unpaid}</p>
+      <p className="text-sm text-muted">{text.unpaid}</p>
     </div>}
   </>;
 }

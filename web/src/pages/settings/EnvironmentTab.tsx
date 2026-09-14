@@ -17,7 +17,7 @@ const B2C_VERSIONS: B2cApiSetting[] = ['auto', 'v1', 'v3'];
 function ModeFieldset({ name, mode, onChange }: { name: string; mode: OpMode; onChange: (m: OpMode) => void }) {
   return (
     <fieldset className="space-y-1">
-      <legend className="mb-1 block text-sm text-gray-600">{copy.setup.operator.mode}</legend>
+      <legend className="mb-1 block text-sm text-muted">{copy.setup.operator.mode}</legend>
       <label className="flex items-center gap-3"><input type="radio" name={name} checked={mode === 'modeCredential'} onChange={() => onChange('modeCredential')} /> {copy.setup.operator.modeCredential}</label>
       <label className="flex items-center gap-3"><input type="radio" name={name} checked={mode === 'modePassword'} onChange={() => onChange('modePassword')} /> {copy.setup.operator.modePassword}</label>
     </fieldset>
@@ -89,11 +89,11 @@ export function EnvironmentTab({ env, slot, isActiveMode, reload, stepUp }: { en
           {B2C_VERSIONS.map((v) => (
             <label key={v} className="flex items-start gap-3">
               <input type="radio" name={`b2c-api-${env}`} className="mt-1" checked={b2cApi === v} onChange={() => setB2cApi(v)} />
-              <span><span className="block">{copy.settings.b2cApi[v]}</span><span className="block text-sm text-gray-500">{copy.settings.b2cApi[`${v}Hint`]}</span></span>
+              <span><span className="block">{copy.settings.b2cApi[v]}</span><span className="block text-sm text-muted">{copy.settings.b2cApi[`${v}Hint`]}</span></span>
             </label>
           ))}
         </div>
-        {slot.b2cApi.detected && <p className="text-sm text-gray-500">{copy.settings.b2cApi.detected(slot.b2cApi.detected, when(slot.b2cApi.detectedAt))}</p>}
+        {slot.b2cApi.detected && <p className="text-sm text-muted">{copy.settings.b2cApi.detected(slot.b2cApi.detected, when(slot.b2cApi.detectedAt))}</p>}
         <Button variant="secondary" disabled={b2cApi === slot.b2cApi.setting} onClick={() => stepUp.ask(copy.settings.confirm.saveB2cApi, async (password) => {
           await api.put(`/api/settings/environments/${env}/b2c-api`, { version: b2cApi, password });
           toast.success(copy.settings.b2cApi.saved);
@@ -114,22 +114,22 @@ export function EnvironmentTab({ env, slot, isActiveMode, reload, stepUp }: { en
 
       <Section title={copy.settings.operatorsTitle}>
         <p>{copy.settings.cert.label}: {secretText(slot.cert)}</p>
-        <p className="text-sm text-gray-500">{copy.settings.cert.hint}</p>
-        {!isActiveMode && slot.operators.length > 0 && <p className="text-sm text-gray-500">{copy.settings.operators.switchToTest(env)}</p>}
+        <p className="text-sm text-muted">{copy.settings.cert.hint}</p>
+        {!isActiveMode && slot.operators.length > 0 && <p className="text-sm text-muted">{copy.settings.operators.switchToTest(env)}</p>}
         <ul className="space-y-3">{slot.operators.map((o) => {
           const rMode = rotateMode[o.id] ?? 'modeCredential';
           const rForm = rotateForm[o.id] ?? { operatorPassword: '', credential: '' };
           const rValid = rMode === 'modePassword' ? rForm.operatorPassword.length > 0 : rForm.credential.length > 0;
           const setRForm = (patch: Partial<{ operatorPassword: string; credential: string }>) => setRotateForm({ ...rotateForm, [o.id]: { ...rForm, ...patch } });
           return (
-            <li key={o.id} className="space-y-2 rounded-lg border border-gray-200 p-3 dark:border-gray-800">
+            <li key={o.id} className="space-y-2 rounded-md border border-line p-3">
               <div className="flex items-center justify-between"><span className="font-medium">{o.name}</span><StatusPill kind={tone[o.status]}>{copy.settings.operatorStatus[o.status]}</StatusPill></div>
-              <p className="text-sm text-gray-500">{copy.settings.expires(new Date(o.expiresAt).toLocaleDateString())}</p>
-              {o.lastError && <p className="text-sm text-red-700">{o.lastError}</p>}
+              <p className="text-sm text-muted">{copy.settings.expires(new Date(o.expiresAt).toLocaleDateString())}</p>
+              {o.lastError && <p className="text-sm text-danger">{o.lastError}</p>}
               <ModeFieldset name={`rotate-mode-${o.id}`} mode={rMode} onChange={(m) => setRotateMode({ ...rotateMode, [o.id]: m })} />
               {rMode === 'modePassword'
                 ? <TextField label={copy.settings.rotate} type="password" value={rForm.operatorPassword} onChange={(e) => setRForm({ operatorPassword: e.target.value })} autoComplete="off" />
-                : <label className="block"><span className="mb-1 block">{copy.settings.rotateByCredential}</span><textarea className="h-20 w-full rounded-lg border border-gray-300 p-2 font-mono text-xs dark:bg-gray-900 dark:border-gray-700" value={rForm.credential} onChange={(e) => setRForm({ credential: e.target.value })} autoComplete="off" spellCheck={false} autoCorrect="off" /></label>}
+                : <label className="block"><span className="mb-1 block">{copy.settings.rotateByCredential}</span><textarea className="h-20 w-full rounded-md border border-line p-2 font-mono text-xs" value={rForm.credential} onChange={(e) => setRForm({ credential: e.target.value })} autoComplete="off" spellCheck={false} autoCorrect="off" /></label>}
               <div className="flex flex-wrap items-end gap-2">
                 <Button variant="secondary" disabled={!rValid} onClick={() => stepUp.ask(copy.settings.confirm.rotate(o.name), async (password) => {
                   const body = rMode === 'modePassword' ? { operatorPassword: rForm.operatorPassword, password } : { credential: rForm.credential, password };
@@ -155,12 +155,12 @@ export function EnvironmentTab({ env, slot, isActiveMode, reload, stepUp }: { en
           {newOpMode === 'modePassword' ? (
             <>
               <TextField label={copy.setup.operator.password} type="password" value={newOp.operatorPassword} onChange={(e) => setNewOp({ ...newOp, operatorPassword: e.target.value })} autoComplete="off" />
-              <label className="block"><span className="mb-1 block">{copy.setup.operator.cert}</span><textarea className="h-24 w-full rounded-lg border border-gray-300 p-2 font-mono text-xs dark:bg-gray-900 dark:border-gray-700" value={newOp.certPem} onChange={(e) => setNewOp({ ...newOp, certPem: e.target.value })} autoComplete="off" spellCheck={false} autoCorrect="off" /></label>
+              <label className="block"><span className="mb-1 block">{copy.setup.operator.cert}</span><textarea className="h-24 w-full rounded-md border border-line p-2 font-mono text-xs" value={newOp.certPem} onChange={(e) => setNewOp({ ...newOp, certPem: e.target.value })} autoComplete="off" spellCheck={false} autoCorrect="off" /></label>
             </>
           ) : (
             <div>
-              <label className="block"><span className="mb-1 block">{copy.setup.operator.credential}</span><textarea className="h-24 w-full rounded-lg border border-gray-300 p-2 font-mono text-xs dark:bg-gray-900 dark:border-gray-700" value={newOp.credential} onChange={(e) => setNewOp({ ...newOp, credential: e.target.value })} autoComplete="off" spellCheck={false} autoCorrect="off" /></label>
-              <p className="mt-1 text-sm text-gray-500">{copy.setup.operator.whereCredential}</p>
+              <label className="block"><span className="mb-1 block">{copy.setup.operator.credential}</span><textarea className="h-24 w-full rounded-md border border-line p-2 font-mono text-xs" value={newOp.credential} onChange={(e) => setNewOp({ ...newOp, credential: e.target.value })} autoComplete="off" spellCheck={false} autoCorrect="off" /></label>
+              <p className="mt-1 text-sm text-muted">{copy.setup.operator.whereCredential}</p>
             </div>
           )}
           <Button disabled={!newOpValid} onClick={() => stepUp.ask(copy.settings.confirm.add(newOp.name), async (password) => {

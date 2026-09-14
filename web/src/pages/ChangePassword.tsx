@@ -13,7 +13,7 @@ export function ChangePassword() {
   const [error, setError] = useState<Error | null>(null);
   const valid = !!form.current && form.next.length >= 12 && form.next === form.again && form.next !== form.current;
   return (
-    <form className="mx-auto mt-16 max-w-md space-y-4 rounded-xl bg-white p-6 shadow dark:bg-gray-900" onSubmit={async (e) => {
+    <form className="mx-auto mt-16 max-w-md space-y-4 rounded-md bg-surface p-6 shadow" onSubmit={async (e) => {
       e.preventDefault();
       if (!valid || busy) return;
       setBusy(true); setError(null);

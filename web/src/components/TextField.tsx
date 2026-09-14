@@ -3,10 +3,10 @@ export function TextField({ label, hint, error, ...p }: InputHTMLAttributes<HTML
   const id = useId();
   return (
     <label htmlFor={id} className="block">
-      <span className="mb-1 block text-base">{label}</span>
-      <input id={id} {...p} className={`w-full rounded-lg border px-3 py-2.5 text-base dark:bg-gray-900 ${error ? 'border-red-500' : 'border-gray-300 dark:border-gray-700'}`} aria-invalid={p['aria-invalid'] ?? !!error} />
-      {hint && !error && <span className="mt-1 block text-sm text-gray-500">{hint}</span>}
-      {error && <span className="mt-1 block text-sm text-red-700">{error}</span>}
+      <span className="mb-1 block text-base font-semibold">{label}</span>
+      <input id={id} {...p} className={`min-h-11 w-full rounded-md border bg-surface px-3 text-base text-ink shadow-inner placeholder:text-muted focus:outline-2 focus:-outline-offset-1 focus:outline-brand disabled:bg-page disabled:text-muted ${error ? 'border-danger' : 'border-line'}`} aria-invalid={p['aria-invalid'] ?? !!error} />
+      {hint && !error && <span className="mt-1 block text-sm text-muted">{hint}</span>}
+      {error && <span className="mt-1 block text-sm text-danger">{error}</span>}
     </label>
   );
 }

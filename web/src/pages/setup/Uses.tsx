@@ -3,6 +3,7 @@ import { api, ApiError } from '../../api/client';
 import { Button } from '../../components/Button';
 import { ErrorCard } from '../../components/ErrorCard';
 import { copy } from '../../copy/en';
+import { StepFooter } from './StepFooter';
 
 /**
  * The first question that is about the business rather than about Safaricom.
@@ -29,12 +30,12 @@ export function Uses({ onDone }: { onDone: () => void }) {
   };
 
   const option = (checked: boolean, set: (v: boolean) => void, label: string, help: string, safaricom: string) => (
-    <label className={`flex cursor-pointer gap-3 rounded-lg border p-4 ${checked ? 'border-[#186738]' : 'border-[#cccccc]'}`}>
-      <input type="checkbox" className="mt-1 size-5 accent-[#186738]" checked={checked} onChange={(e) => set(e.target.checked)} />
+    <label className={`flex cursor-pointer gap-3 rounded-md border p-4 ${checked ? 'border-brand bg-brand-tint' : 'border-line hover:bg-page'}`}>
+      <input type="checkbox" className="mt-1 size-5 accent-brand" checked={checked} onChange={(e) => set(e.target.checked)} />
       <span>
         <span className="block text-base font-medium">{label}</span>
-        <span className="block text-base text-black dark:text-white">{help}</span>
-        <span className="mt-1 block text-sm text-black dark:text-[#cccccc]">{safaricom}</span>
+        <span className="block text-base text-ink">{help}</span>
+        <span className="mt-1 block text-sm text-muted">{safaricom}</span>
       </span>
     </label>
   );
@@ -42,13 +43,12 @@ export function Uses({ onDone }: { onDone: () => void }) {
   return (
     <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); if (payOut || collect) void submit(); }}>
       <h2 className="text-xl font-semibold">{c.title}</h2>
-      <p className="text-base text-black dark:text-white">{c.intro}</p>
       {option(payOut, setPayOut, c.payOut, c.payOutHelp, c.payOutSafaricom)}
       {option(collect, setCollect, c.collect, c.collectHelp, c.collectSafaricom)}
       {/* Refused server-side too; shown here so the reason arrives before the press, not after. */}
-      {!payOut && !collect && <p className="text-base text-black dark:text-white">{c.nothing}</p>}
+      {!payOut && !collect && <p className="text-base text-muted">{c.nothing}</p>}
       <ErrorCard error={err} />
-      <Button type="submit" disabled={busy || (!payOut && !collect)}>{copy.setup.next}</Button>
+      <StepFooter><Button type="submit" disabled={busy || (!payOut && !collect)}>{copy.setup.next}</Button></StepFooter>
     </form>
   );
 }

@@ -5,6 +5,8 @@ import { TextField } from '../../components/TextField';
 import { PhoneInput } from '../../components/PhoneInput';
 import { ErrorCard } from '../../components/ErrorCard';
 import { copy } from '../../copy/en';
+import { Flash } from '../../components/Flash';
+import { StepFooter } from './StepFooter';
 import { normalizeKe } from '../../format';
 
 /**
@@ -40,42 +42,39 @@ export function Passkey({ onDone, onBack }: { onDone: () => void; onBack: () => 
   if (result === 'proven') {
     return (
       <div className="space-y-4">
-        <div role="status" className="rounded-lg border border-[#186738] p-4">
-          <p className="text-base font-medium text-[#186738]">{c.proven}</p>
-          <p className="text-base text-black dark:text-white">{c.provenNote}</p>
-        </div>
-        <Button type="button" onClick={onDone}>{copy.setup.next}</Button>
+        <Flash tone="success" role="status">
+          <p className="font-semibold text-brand-dark">{c.proven}</p>
+          <p>{c.provenNote}</p>
+        </Flash>
+        <StepFooter><Button type="button" onClick={onDone}>{copy.setup.next}</Button></StepFooter>
       </div>
     );
   }
 
   return (
     <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); if (ready) void submit(); }}>
-      <p className="text-base text-black dark:text-white">{c.where}</p>
-
       {result === 'refused' && (
         // Safaricom refused it, so nothing was sent and nothing was charged. Said plainly, because
         // this is the exact moment a wrong passkey used to slip through and be called ready.
-        <div role="alert" className="rounded-lg border border-[#da222a] p-4">
-          <p className="text-base font-medium text-[#da222a]">{c.failedTitle}</p>
-          <p className="text-base text-black dark:text-white">{c.failedBody}</p>
-        </div>
+        <Flash tone="danger" role="alert">
+          <p className="font-semibold text-danger">{c.failedTitle}</p>
+          <p>{c.failedBody}</p>
+        </Flash>
       )}
 
       <TextField label={c.field} type="password" value={passkey} onChange={(e) => setPasskey(e.target.value)} autoComplete="off" autoFocus />
       <PhoneInput label={c.phone} value={phone} onChange={setPhone} />
-      <p className="text-sm text-black dark:text-[#cccccc]">{c.phoneHelp}</p>
+      <p className="text-sm text-muted">{c.phoneHelp}</p>
 
-      <div className="rounded-lg border border-[#cccccc] p-4">
-        <p className="text-base font-medium">{c.testTitle}</p>
-        <p className="text-base text-black dark:text-white">{c.testBody}</p>
-      </div>
+      <Flash tone="neutral">
+        <p className="font-semibold">{c.testTitle}</p>
+        <p>{c.testBody}</p>
+      </Flash>
 
       <ErrorCard error={err} />
-      <div className="flex gap-2">
-        <Button type="button" variant="secondary" onClick={onBack}>{copy.setup.back}</Button>
+      <StepFooter onBack={onBack}>
         <Button type="submit" disabled={!ready || busy}>{busy ? c.testing : result === 'refused' ? c.retry : c.test}</Button>
-      </div>
+      </StepFooter>
     </form>
   );
 }

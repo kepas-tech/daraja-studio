@@ -1,5 +1,6 @@
 import { ApiError } from '../api/client';
 import { copy } from '../copy/en';
+import { Flash } from './Flash';
 export type Explained = { safaricomSaid: string; meaning: string; whatToDo: string };
 function isExplained(e: ApiError | Explained | Error): e is Explained {
   return 'safaricomSaid' in e;
@@ -35,12 +36,12 @@ export function toastText(e: unknown): string {
 export function ErrorCard({ error }: { error: ApiError | Explained | Error | null }) {
   if (!error) return null;
   return (
-    <div role="alert" className="space-y-1 rounded-lg border border-red-300 bg-red-50 p-4 text-sm dark:bg-red-950/30">
+    <Flash tone="danger" role="alert">
       {isExplained(error) ? (<>
         <p><strong>{copy.error.safaricomSaid}:</strong> {error.safaricomSaid}</p>
         <p><strong>{copy.error.meaning}:</strong> {error.meaning}</p>
         <p><strong>{copy.error.whatToDo}:</strong> {error.whatToDo}</p>
       </>) : <p>{error.message || copy.error.generic}</p>}
-    </div>
+    </Flash>
   );
 }

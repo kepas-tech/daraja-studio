@@ -5,6 +5,7 @@ import { TextField } from '../../components/TextField';
 import { ErrorCard } from '../../components/ErrorCard';
 import { useToast } from '../../components/Toast';
 import { copy } from '../../copy/en';
+import { StepFooter } from './StepFooter';
 
 export function Daraja({ onDone, onBack }: { onDone: () => void; onBack: () => void }) {
   const toast = useToast();
@@ -16,11 +17,10 @@ export function Daraja({ onDone, onBack }: { onDone: () => void; onBack: () => v
       try { const r = await api.post<{ ok: boolean; message: string }>('/api/setup/daraja', f); if (r.ok) { toast.success(r.message); onDone(); } else setErr(new Error(r.message)); }
       catch (e2) { setErr(e2 instanceof ApiError ? e2 : new Error(copy.error.generic)); } finally { setBusy(false); }
     }}>
-      <p className="text-sm text-gray-600">{copy.setup.daraja.where}</p>
       <TextField label={copy.setup.daraja.key} value={f.consumerKey} onChange={(e) => setF({ ...f, consumerKey: e.target.value })} autoFocus autoComplete="off" />
       <TextField label={copy.setup.daraja.secret} type="password" value={f.consumerSecret} onChange={(e) => setF({ ...f, consumerSecret: e.target.value })} autoComplete="off" />
       <ErrorCard error={err} />
-      <div className="flex gap-2"><Button type="button" variant="secondary" onClick={onBack}>{copy.setup.back}</Button><Button type="submit" disabled={busy || !f.consumerKey || !f.consumerSecret}>{copy.setup.next}</Button></div>
+      <StepFooter onBack={onBack}><Button type="submit" disabled={busy || !f.consumerKey || !f.consumerSecret}>{copy.setup.next}</Button></StepFooter>
     </form>
   );
 }

@@ -89,7 +89,7 @@ export function AskToPay() {
       <PageHeader title={copy.askToPay.title} safaricom={copy.askToPay.safaricom} />
       {step === 'form' && (
         <form className="max-w-lg space-y-4" onSubmit={(e) => { e.preventDefault(); if (valid) setStep('review'); }}>
-          <p className="text-base text-gray-600 dark:text-gray-400">{copy.askToPay.intro}</p>
+          <p className="text-base text-muted">{copy.askToPay.intro}</p>
           <PhoneInput label={copy.askToPay.phone} value={to} onChange={setTo} autoFocus />
           <MoneyInput label={copy.askToPay.amount} valueCents={cents} onChange={setCents} wholeShillings />
           <TextField label={copy.askToPay.reference} value={reference} onChange={(e) => setReference(e.target.value)} maxLength={12} hint={copy.askToPay.referenceHint} />
@@ -101,15 +101,15 @@ export function AskToPay() {
       {step === 'review' && (
         <div className="max-w-lg space-y-4">
           <h2 className="text-xl font-semibold">{copy.askToPay.review.title}</h2>
-          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 rounded-xl border border-gray-200 bg-white p-5 text-base dark:border-gray-800 dark:bg-gray-950">
-            <dt className="text-gray-600 dark:text-gray-400">{copy.askToPay.phone}</dt><dd>{phone(normalised)}</dd>
-            <dt className="text-gray-600 dark:text-gray-400">{copy.request.amount}</dt><dd>{money(cents)}</dd>
-            <dt className="text-gray-600 dark:text-gray-400">{copy.askToPay.reference}</dt><dd>{reference.trim()}</dd>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 rounded-md border border-line bg-surface p-5 text-base">
+            <dt className="text-muted">{copy.askToPay.phone}</dt><dd>{phone(normalised)}</dd>
+            <dt className="text-muted">{copy.request.amount}</dt><dd>{money(cents)}</dd>
+            <dt className="text-muted">{copy.askToPay.reference}</dt><dd>{reference.trim()}</dd>
           </dl>
-          <p className="text-sm text-gray-600 dark:text-gray-400">{copy.askToPay.review.incoming}</p>
-          <p className="text-sm text-gray-600 dark:text-gray-400">{copy.askToPay.review.note}</p>
+          <p className="text-sm text-muted">{copy.askToPay.review.incoming}</p>
+          <p className="text-sm text-muted">{copy.askToPay.review.note}</p>
           {duplicate && (
-            <div role="alert" className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-base dark:bg-amber-950/30">
+            <div role="alert" className="space-y-2 rounded-md border border-line bg-page p-3 text-base">
               <p>{copy.askToPay.duplicate(when(duplicate.at))}</p>
               <div className="flex gap-2">
                 <Button type="button" disabled={busy} onClick={() => { setConfirmDuplicate(true); void submit(true); }}>{copy.askToPay.duplicateYes}</Button>
@@ -128,7 +128,7 @@ export function AskToPay() {
       {step === 'result' && request && (
         <div className="max-w-lg space-y-4">
           <p role="status" className="text-lg">{copy.askToPay.result[request.status as 'sent' | 'completed' | 'failed' | 'unknown'] ?? request.status}</p>
-          {request.status === 'sent' && <p className="text-base text-gray-600 dark:text-gray-400">{copy.askToPay.waiting}</p>}
+          {request.status === 'sent' && <p className="text-base text-muted">{copy.askToPay.waiting}</p>}
           <RequestCard request={request}>
             {(request.status === 'completed' || request.status === 'failed') && <Button type="button" onClick={reset}>{copy.askToPay.result.askAnother}</Button>}
             {request.status === 'unknown' && <Link className="text-base underline" to={`/requests/${request.id}`}>{copy.request.markChecked}</Link>}

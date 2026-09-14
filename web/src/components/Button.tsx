@@ -1,5 +1,15 @@
-import type { ButtonHTMLAttributes } from 'react';
-export function Button({ variant = 'primary', className = '', ...p }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'danger' }) {
-  const v = variant === 'primary' ? 'bg-emerald-700 text-white hover:bg-emerald-800' : variant === 'danger' ? 'bg-red-700 text-white hover:bg-red-800' : 'border border-gray-300 bg-white text-gray-900 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700';
-  return <button {...p} className={`rounded-lg px-4 py-2.5 text-base font-medium disabled:opacity-50 ${v} ${className}`} />;
+import type { ButtonHTMLAttributes, ReactNode } from 'react';
+
+const VARIANT = {
+  primary: 'border-brand bg-brand text-surface hover:border-brand-dark hover:bg-brand-dark',
+  secondary: 'border-line bg-page text-ink hover:bg-line/60',
+  danger: 'border-line bg-page text-danger hover:border-danger hover:bg-danger hover:text-surface',
+};
+
+export function Button({ variant = 'primary', className = '', icon, children, ...p }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: keyof typeof VARIANT; icon?: ReactNode }) {
+  return (
+    <button {...p} className={`inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-md border px-4 text-base font-semibold shadow-[0_1px_0_rgba(0,0,0,0.04)] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-50 ${VARIANT[variant]} ${className}`}>
+      {icon}{children}
+    </button>
+  );
 }

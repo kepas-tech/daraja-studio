@@ -57,7 +57,7 @@ export function Settings() {
 
       <ModeCard view={v} reload={load} stepUp={stepUp} onSwitched={setTab} />
 
-      <div role="tablist" aria-label={copy.settings.mode.title} className="mb-4 flex gap-2 border-b border-gray-200 dark:border-gray-800" onKeyDown={onTabKeyDown}>
+      <div role="tablist" aria-label={copy.settings.mode.title} className="mb-4 flex gap-2 border-b border-line" onKeyDown={onTabKeyDown}>
         {ENVS.map((e) => (
           <button
             key={e}
@@ -67,7 +67,7 @@ export function Settings() {
             aria-selected={tab === e}
             aria-controls={`settings-panel-${e}`}
             tabIndex={tab === e ? 0 : -1}
-            className={`flex items-center gap-2 border-b-2 px-4 py-2 text-base ${tab === e ? 'border-emerald-700 font-medium text-emerald-900 dark:border-emerald-500 dark:text-emerald-300' : 'border-transparent text-gray-600 dark:text-gray-400'}`}
+            className={`flex items-center gap-2 border-b-2 px-4 py-2 text-base ${tab === e ? 'border-brand font-medium text-brand-dark' : 'border-transparent text-muted'}`}
             onClick={() => setTab(e)}
           >
             {copy.settings.tabs[e]}

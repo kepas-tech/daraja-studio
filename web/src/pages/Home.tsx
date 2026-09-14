@@ -3,6 +3,9 @@ import { Link } from 'react-router';
 import { api } from '../api/client';
 import { useEvents } from '../api/events';
 import { useSession } from '../app/session';
+import { Card, cardRow } from '../components/Card';
+import { Flash } from '../components/Flash';
+import { Icon } from '../components/Icon';
 import { PageHeader } from '../components/PageHeader';
 import { StatusPill } from '../components/StatusPill';
 import { STATUS_TONE } from '../components/RequestCard';
@@ -11,6 +14,8 @@ import { money, phone, when } from '../format';
 import type { BalanceView, Page, RequestView, SettingsView } from '../api/types';
 
 const RELOAD_ON: readonly string[] = ['operator.updated', 'setup.updated', 'balance.updated'];
+// The three things a business does most, as tiles above the fold.
+const QUICK: { key: string; to: string }[] = [{ key: 'send', to: '/send/phone' }, { key: 'stk', to: '/ask-to-pay' }, { key: 'balances', to: '/balances' }];
 
 export function Home() {
   const { person, refresh } = useSession();
@@ -43,30 +48,46 @@ export function Home() {
   if (active && !active.ready.operator) alerts.push(copy.home.noOperator);
   if (v && !v.publicVerifiedAt) alerts.push(copy.home.noPublicUrl);
   if (v && !v.stkEnabled) alerts.push(copy.home.stkOff);
+  const settingsLabel = copy.nav.find((e) => e.key === 'settings')?.label ?? 'Settings';
   return (
     <>
-      <PageHeader title={copy.home.welcome(person?.display_name ?? '')}>{v && <StatusPill kind={v.mode === 'production' ? 'ok' : 'warn'}>{v.mode}</StatusPill>}</PageHeader>
-      <section className="mb-6 rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-950">
-        <h2 className="text-base text-gray-600 dark:text-gray-400">{copy.home.latestBalance}</h2>
+      <PageHeader title={copy.home.welcome(person?.display_name ?? '')}>{v && <StatusPill kind={v.mode === 'production' ? 'ok' : 'muted'}>{v.mode}</StatusPill>}</PageHeader>
+      {alerts.length > 0 && (
+        <Flash tone="danger" className="mb-6">
+          <p className="font-semibold">{copy.home.finishSetup}</p>
+          <ul className="space-y-1">{alerts.map((a) => <li key={a}>{a} <Link to="/settings">{settingsLabel}</Link></li>)}</ul>
+        </Flash>
+      )}
+      {alerts.length === 0 && v && <Flash tone="success" className="mb-6">{copy.home.connected}</Flash>}
+      <div className="mb-6 grid gap-3 sm:grid-cols-3">
+        {QUICK.map(({ key, to }) => {
+          const e = copy.nav.find((n) => n.key === key);
+          if (!e) return null;
+          return (
+            <Link key={key} to={to} className="flex items-start gap-3 rounded-md border border-line bg-surface p-4 text-ink hover:border-brand hover:no-underline">
+              <Icon name={e.icon} className="mt-0.5 size-6 text-brand" />
+              <span className="flex min-w-0 flex-col"><span className="font-semibold">{e.label}</span>{e.safaricom && <span className="text-xs text-muted">{e.safaricom}</span>}</span>
+            </Link>
+          );
+        })}
+      </div>
+      <Card title={copy.home.latestBalance} className="mb-6">
         {balance ? (
           <p className="text-lg">
-            <Link className="underline" to="/balances">{copy.balances.utility}: <strong>{money(balance.utilityCents)}</strong> · {copy.balances.working}: <strong>{money(balance.workingCents)}</strong></Link>
-            <span className="block text-sm text-gray-500">{copy.balances.asOf(when(balance.queriedAt))}</span>
+            <Link to="/balances">{copy.balances.utility}: <strong>{money(balance.utilityCents)}</strong> · {copy.balances.working}: <strong>{money(balance.workingCents)}</strong></Link>
+            <span className="block text-sm text-muted">{copy.balances.asOf(when(balance.queriedAt))}</span>
           </p>
         ) : (
-          <p className="text-base"><Link className="underline" to="/balances">{copy.home.noBalance}</Link></p>
+          <p className="text-base"><Link to="/balances">{copy.home.noBalance}</Link></p>
         )}
-      </section>
-      <section className="mb-6">
-        <h2 className="mb-2 text-base text-gray-600 dark:text-gray-400">{copy.home.recent}</h2>
-        {recent.length === 0 ? <p className="text-base">{copy.home.noRecent}</p> : (
-          <ul className="divide-y divide-gray-100 rounded-xl border border-gray-200 bg-white dark:divide-gray-800 dark:border-gray-800 dark:bg-gray-950">
-            {recent.map((r) => <li key={r.id} className="flex items-center justify-between px-4 py-2 text-base"><Link className="underline" to={`/requests/${r.id}`}>{phone(r.recipient.value)}</Link><span>{money(r.amountCents)}</span><StatusPill kind={STATUS_TONE[r.status] ?? 'muted'}>{copy.request.status[r.status] ?? r.status}</StatusPill></li>)}
+      </Card>
+      <Card title={copy.home.recent} bodyClassName="p-0">
+        {recent.length === 0 ? <p className="p-4 text-base text-muted">{copy.home.noRecent}</p> : (
+          <ul>
+            {recent.map((r) => <li key={r.id} className={`${cardRow} flex items-center justify-between gap-3 text-base`}><Link to={`/requests/${r.id}`}>{phone(r.recipient.value)}</Link><span>{money(r.amountCents)}</span><StatusPill kind={STATUS_TONE[r.status] ?? 'muted'}>{copy.request.status[r.status] ?? r.status}</StatusPill></li>)}
           </ul>
         )}
-      </section>
-      <ul className="space-y-2">{alerts.map((a) => <li key={a} className="rounded-lg border border-amber-300 bg-amber-50 p-3 dark:bg-amber-950/30">{a} <Link className="underline" to="/settings">Settings</Link></li>)}</ul>
-      {alerts.length === 0 && v && <p className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 dark:bg-emerald-950/30">{copy.home.connected}</p>}
+      </Card>
     </>
   );
 }

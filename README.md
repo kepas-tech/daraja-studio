@@ -3,7 +3,7 @@
 Simplified console for your M-Pesa shortcode. Self-hosted, open source, built on
 [@kepas/daraja-js](https://github.com/kepas-tech/daraja-js).
 
-Status: v0.5.0. One install = one organisation = one shortcode: Studio mirrors the Safaricom
+Status: v0.6.0. One install = one organisation = one shortcode: Studio mirrors the Safaricom
 organisation portal wherever the Daraja API allows, exposes the whole `@kepas/daraja-js` surface,
 and lists what the API cannot do.
 

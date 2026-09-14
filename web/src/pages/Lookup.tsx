@@ -49,22 +49,22 @@ export function Lookup() {
       <PageHeader title={copy.lookup.title} safaricom={copy.lookup.safaricom} />
       <form className="max-w-lg space-y-4" onSubmit={(e) => { e.preventDefault(); if (valid) void ask(); }}>
         <TextField label={copy.lookup.receipt} value={receipt} onChange={(e) => setReceipt(e.target.value)} autoFocus autoComplete="off" aria-describedby={hintId} />
-        <p id={hintId} className="-mt-3 text-sm text-gray-500">{copy.lookup.hint}</p>
+        <p id={hintId} className="-mt-3 text-sm text-muted">{copy.lookup.hint}</p>
         <Button type="submit" disabled={!valid || pending !== null}>{copy.lookup.button}</Button>
         <ErrorCard error={err} />
-        {pending && !result && <p role="status" className="text-base text-amber-800 dark:text-amber-300">{copy.lookup.asking}</p>}
+        {pending && !result && <p role="status" className="text-base text-muted">{copy.lookup.asking}</p>}
         {result && result.status === 'completed' && (
-          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 rounded-xl border border-gray-200 bg-white p-5 text-base dark:border-gray-800 dark:bg-gray-950">
-            <dt className="text-gray-600 dark:text-gray-400">{copy.lookup.says}</dt><dd>{result.meaning}</dd>
-            <dt className="text-gray-600 dark:text-gray-400">{copy.request.receipt}</dt><dd><code>{result.receipt}</code></dd>
-            <dt className="text-gray-600 dark:text-gray-400">{copy.request.amount}</dt><dd>{money(result.amountCents)}</dd>
-            {result.recipient.name && <><dt className="text-gray-600 dark:text-gray-400">{copy.request.to}</dt><dd>{result.recipient.name}</dd></>}
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 rounded-md border border-line bg-surface p-5 text-base">
+            <dt className="text-muted">{copy.lookup.says}</dt><dd>{result.meaning}</dd>
+            <dt className="text-muted">{copy.request.receipt}</dt><dd><code>{result.receipt}</code></dd>
+            <dt className="text-muted">{copy.request.amount}</dt><dd>{money(result.amountCents)}</dd>
+            {result.recipient.name && <><dt className="text-muted">{copy.request.to}</dt><dd>{result.recipient.name}</dd></>}
           </dl>
         )}
         {explained && <ErrorCard error={explained} />}
         {result && result.status === 'failed' && !explained && <ErrorCard error={new Error(result.meaning ?? result.safaricomSaid ?? copy.error.generic)} />}
         {result && result.status === 'unknown' && <p role="alert" className="text-base">{copy.lookup.noAnswer}</p>}
-        <p className="text-sm text-gray-600 dark:text-gray-400"><Link className="underline" to="/history">{copy.lookup.history}</Link></p>
+        <p className="text-sm text-muted"><Link to="/history">{copy.lookup.history}</Link></p>
       </form>
     </>
   );

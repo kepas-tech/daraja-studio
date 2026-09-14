@@ -9,7 +9,6 @@ interface Session {
   status: Status;
   person: Person | null;
   org: OrgSummary | null;
-  hostAdmin: boolean;
   permissions: string[];
   setupStep: string | null;
   /** What the business said it needs, in its own words. `null` until it has been asked. */
@@ -20,7 +19,7 @@ interface Session {
 }
 
 const empty = () => ({
-  person: null, org: null, hostAdmin: false, permissions: [] as string[],
+  person: null, org: null, permissions: [] as string[],
   setupStep: null as string | null, uses: null as { payOut: boolean; collect: boolean } | null, passkeyProven: false,
 });
 const Ctx = createContext<Session>({ status: 'loading', ...empty(), refresh: async () => {} });
@@ -36,7 +35,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         api.setCsrf(me.csrf);
         const status: Status = me.person.must_change_password ? 'password-change' : (st.completed || !me.person.is_owner ? 'ready' : 'setup');
         setS({
-          status, person: me.person, org: me.org ?? null, hostAdmin: me.hostAdmin === true, permissions: me.permissions,
+          status, person: me.person, org: me.org ?? null, permissions: me.permissions,
           setupStep: st.step, uses: st.uses, passkeyProven: st.passkeyProven,
         });
       } catch (e) {

@@ -33,23 +33,23 @@ export function History() {
         <TextField label={copy.history.from} type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
         <TextField label={copy.history.to} type="date" value={to} onChange={(e) => setTo(e.target.value)} />
         <label className="block"><span className="mb-1 block text-base">{copy.history.status}</span>
-          <select className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-base dark:border-gray-700 dark:bg-gray-900" value={status} onChange={(e) => setStatus(e.target.value)}>
+          <select className="w-full rounded-md border border-line px-3 py-2.5 text-base" value={status} onChange={(e) => setStatus(e.target.value)}>
             <option value="">{copy.history.any}</option>
             {STATUSES.map((s) => <option key={s} value={s}>{copy.request.status[s] ?? s}</option>)}
           </select></label>
       </div>
       {loaded && items.length === 0 && <p className="text-base">{copy.history.empty}</p>}
       {items.length > 0 && (
-        <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950">
+        <div className="overflow-x-auto rounded-md border border-line bg-surface">
           <table className="w-full text-base">
-            <thead><tr className="text-left text-sm text-gray-600 dark:text-gray-400">
+            <thead><tr className="text-left text-sm text-muted">
               {Object.values(copy.history.columns).map((c) => <th key={c} className="px-4 py-2 font-medium">{c}</th>)}
             </tr></thead>
             <tbody>{items.map((r) => (
-              <tr key={r.id} className="border-t border-gray-100 dark:border-gray-800">
+              <tr key={r.id} className="border-t border-line">
                 <td className="px-4 py-2">{when(r.createdAt)}</td>
                 <td className="px-4 py-2">{copy.request.subtype[r.subtype ?? ''] ?? copy.request.type[r.type] ?? r.type}</td>
-                <td className="px-4 py-2"><Link className="underline" to={`/requests/${r.id}`}>{r.recipient.kind === 'phone' ? phone(r.recipient.value) : r.recipient.value ?? '—'}</Link>{r.recipient.name && <span className="block text-sm text-gray-500">{r.recipient.name}</span>}</td>
+                <td className="px-4 py-2"><Link to={`/requests/${r.id}`}>{r.recipient.kind === 'phone' ? phone(r.recipient.value) : r.recipient.value ?? '—'}</Link>{r.recipient.name && <span className="block text-sm text-muted">{r.recipient.name}</span>}</td>
                 <td className="px-4 py-2">{money(r.amountCents)}</td>
                 <td className="px-4 py-2"><StatusPill kind={STATUS_TONE[r.status] ?? 'muted'}>{copy.request.status[r.status] ?? r.status}</StatusPill></td>
                 <td className="px-4 py-2">{r.receipt ? <code>{r.receipt}</code> : '—'}</td>

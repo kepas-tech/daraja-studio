@@ -1,5 +1,26 @@
 @import "tailwindcss";
 
+/*
+ * The only colours in the app. Tailwind's default palette is wiped so a stray gray-500 or
+ * emerald-700 produces no CSS at all; src/test/brand-guard.test.ts fails the build if one is typed.
+ */
+@theme {
+  --color-*: initial;
+  --color-brand: #35a839;
+  --color-brand-dark: #186738;
+  --color-brand-tint: #f7fdf7;
+  --color-danger: #da222a;
+  --color-danger-tint: #fdf2f2;
+  --color-ink: #242623;
+  --color-muted: #727272;
+  --color-line: #e0e0e0;
+  --color-surface: #ffffff;
+  --color-page: #f5f5f5;
+}
+
 @layer base {
-  body { @apply bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100; }
+  html { color-scheme: light; }
+  body { @apply bg-page text-ink; }
+  a { @apply text-brand-dark hover:underline; }
+  input[type='radio'], input[type='checkbox'], progress { accent-color: var(--color-brand); }
 }

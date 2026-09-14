@@ -5,6 +5,8 @@ import { TextField } from '../../components/TextField';
 import { ErrorCard } from '../../components/ErrorCard';
 import { useToast } from '../../components/Toast';
 import { copy } from '../../copy/en';
+import { Flash } from '../../components/Flash';
+import { StepFooter } from './StepFooter';
 
 export function PublicUrl({ onDone, onBack }: { onDone: () => void; onBack: () => void }) {
   const toast = useToast();
@@ -24,9 +26,9 @@ export function PublicUrl({ onDone, onBack }: { onDone: () => void; onBack: () =
     <div className="space-y-4">
       <TextField label={copy.setup.publicUrl.field} value={url} onChange={(e) => setUrl(e.target.value)} placeholder={copy.setup.publicUrl.placeholder} autoFocus />
       <Button type="button" variant="secondary" onClick={test} disabled={busy || !url}>{copy.setup.publicUrl.test}</Button>
-      {result && <p role="status" className={result.ok ? 'text-emerald-800' : 'text-red-800'}>{result.detail}</p>}
+      {result && <Flash tone={result.ok ? 'success' : 'danger'} role="status">{result.detail}</Flash>}
       <ErrorCard error={err} />
-      <div className="flex gap-2"><Button type="button" variant="secondary" onClick={onBack}>{copy.setup.back}</Button><Button type="button" onClick={onDone} disabled={!result?.ok}>{copy.setup.next}</Button></div>
+      <StepFooter onBack={onBack}><Button type="button" onClick={onDone} disabled={!result?.ok}>{copy.setup.next}</Button></StepFooter>
     </div>
   );
 }

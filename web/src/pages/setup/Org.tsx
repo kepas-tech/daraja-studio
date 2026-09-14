@@ -5,6 +5,7 @@ import { TextField } from '../../components/TextField';
 import { ErrorCard } from '../../components/ErrorCard';
 import { useToast } from '../../components/Toast';
 import { copy } from '../../copy/en';
+import { StepFooter } from './StepFooter';
 
 export function Org({ onDone, onBack }: { onDone: () => void; onBack: () => void }) {
   const toast = useToast();
@@ -24,7 +25,7 @@ export function Org({ onDone, onBack }: { onDone: () => void; onBack: () => void
       <TextField label={copy.setup.org.nominated} inputMode="numeric" value={f.nominatedNumber} onChange={(e) => setF({ ...f, nominatedNumber: e.target.value })} />
       <TextField label={copy.setup.org.notify} inputMode="numeric" value={f.notificationPhone} onChange={(e) => setF({ ...f, notificationPhone: e.target.value })} />
       <ErrorCard error={err} />
-      <div className="flex gap-2"><Button type="button" variant="secondary" onClick={onBack}>{copy.setup.back}</Button><Button type="submit" disabled={!valid || busy}>{copy.setup.next}</Button></div>
+      <StepFooter onBack={onBack}><Button type="submit" disabled={!valid || busy}>{copy.setup.next}</Button></StepFooter>
     </form>
   );
 }
