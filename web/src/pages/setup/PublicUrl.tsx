@@ -7,6 +7,7 @@ import { useToast } from '../../components/Toast';
 import { copy } from '../../copy/en';
 import { Flash } from '../../components/Flash';
 import { StepFooter } from './StepFooter';
+import { useSession } from '../../app/session';
 
 export function PublicUrl({ onDone, onBack }: { onDone: () => void; onBack: () => void }) {
   const toast = useToast();
@@ -15,8 +16,9 @@ export function PublicUrl({ onDone, onBack }: { onDone: () => void; onBack: () =
   // than one domain. A plain-http origin is only accepted for local development.
   const origin = window.location.origin;
   const detected = origin.startsWith('https://') || /^http:\/\/(localhost|127\.0\.0\.1)(:|$)/.test(origin) ? origin : null;
-  const [url, setUrl] = useState(detected ?? ''); const [editing, setEditing] = useState(detected === null);
-  const [result, setResult] = useState<{ ok: boolean; detail: string } | null>(null);
+  const { saved } = useSession();
+  const [url, setUrl] = useState(saved?.publicUrl ?? detected ?? ''); const [editing, setEditing] = useState(detected === null && !saved?.publicUrl);
+  const [result, setResult] = useState<{ ok: boolean; detail: string } | null>(saved?.publicVerified ? { ok: true, detail: copy.setup.publicUrl.ok } : null);
   const [err, setErr] = useState<Error | null>(null); const [busy, setBusy] = useState(false);
   const test = async () => {
     setBusy(true); setErr(null); setResult(null);

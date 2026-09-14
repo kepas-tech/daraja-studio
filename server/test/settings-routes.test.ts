@@ -164,6 +164,8 @@ describe('settings routes', () => {
   });
 
   it('production mode switch needs the shortcode typed back, and never touches credentials', async () => {
+    // The guard is for a studio in use: setup finished, real money one switch away.
+    await deps.settings.set('setup.completedAt', new Date().toISOString());
     await request(app).put('/api/settings/environments/production/shortcode').set('Cookie', cookie).set('x-csrf-token', csrf).send({ shortcode: '4052037', password: 'correct horse' });
     const bad = await request(app).put('/api/settings/mode').set('Cookie', cookie).set('x-csrf-token', csrf).send({ environment: 'production', confirmShortcode: '123', password: 'correct horse' });
     expect(bad.status).toBe(400);

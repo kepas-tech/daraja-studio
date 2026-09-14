@@ -205,10 +205,14 @@ export function createSettingsService(deps: { db: Db; config: Config; settings: 
 
     async setMode(env, confirmShortcode, actor) {
       if (env === 'production') {
-        const sc = await deps.settings.get('env.production.shortcode');
-        // Nothing to confirm before a production shortcode exists (the setup wizard asks for the
-        // environment two steps before the shortcode); once one is stored it must be typed back.
-        if (sc && confirmShortcode !== sc) throw new HttpError(400, 'confirm_shortcode', 'Type your shortcode exactly to switch to production.');
+        const s = await deps.settings.getMany(['env.production.shortcode', 'daraja.environment', 'setup.completedAt']);
+        const sc = s['env.production.shortcode'];
+        // The typed-back shortcode guards a live studio against an accidental move to real money.
+        // It has nothing to guard while setup is still running (the wizard asks for the environment
+        // before the shortcode, and Back can land here again with one stored), nor when the studio
+        // is already in production and nothing changes.
+        const switching = s['daraja.environment'] !== 'production';
+        if (sc && s['setup.completedAt'] && switching && confirmShortcode !== sc) throw new HttpError(400, 'confirm_shortcode', 'Type your shortcode exactly to switch to production.');
       }
       await deps.settings.set('daraja.environment', env);
       deps.daraja.invalidate();

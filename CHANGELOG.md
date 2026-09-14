@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.8.1 — a wizard you can walk back through
+
+- Back keeps your answers: every step starts from what was saved (environment, what you need,
+  organisation, shortcode, public address). Steps that hold a secret show "accepted" with
+  Replace instead of blank fields; a proven passkey stays proven.
+- Environment first, right after the owner, with a plain explanation and Sandbox recommended.
+  Choosing Production during setup never asks for the shortcode to be typed back; that guard
+  applies only to a finished studio switching to real money.
+- What you need: Receive (C2B, most common, nothing extra), Send (B2C/B2B, needs an API
+  operator), and, on its own, the phone prompt (STK Push), the one option that needs a passkey.
+- Public address is found from the browser's address bar and shown read-only, with Change;
+  a failed test says the address is not this studio.
+- The owner's name can be changed on the "Owner account created" screen.
+
 ## 0.8.0 — one question at a time, two pages fewer
 
 - Every form with more than one input asks one question per screen: Back, Next, a counter, then

@@ -32,7 +32,22 @@ describe('Uses', () => {
     fireEvent.click(screen.getByRole('button', { name: copy.setup.next }));
     await waitFor(() => expect(onDone).toHaveBeenCalled());
     // An unticked box is a real "no", not an absence — the server stores it as one.
-    expect(posted).toEqual({ payOut: false, collect: true });
+    expect(posted).toEqual({ payOut: false, collect: true, stk: false });
+  });
+
+  it('the phone prompt is its own tick, and counts as receiving', async () => {
+    let posted: unknown = null;
+    vi.stubGlobal('fetch', fetchFor({
+      'POST /api/setup/uses': (init) => { posted = JSON.parse(String(init?.body)); return new Response(null, { status: 204 }); },
+    }));
+    const onDone = vi.fn();
+    render(<Uses onDone={onDone} />);
+    expect(screen.getByText(copy.setup.uses.stkTitle)).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText(copy.setup.uses.stk, { exact: false }));
+    fireEvent.click(screen.getByRole('button', { name: copy.setup.next }));
+    await waitFor(() => expect(onDone).toHaveBeenCalled());
+    expect(posted).toEqual({ payOut: false, collect: true, stk: true });
+    expect(copy.setup.uses.stk).not.toMatch(/STK|B2C/i);
   });
 
   it('asks in plain words, and puts Safaricom\'s name underneath rather than in the question', () => {

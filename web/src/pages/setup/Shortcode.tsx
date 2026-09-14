@@ -7,10 +7,12 @@ import { useToast } from '../../components/Toast';
 import { copy } from '../../copy/en';
 import { Flash } from '../../components/Flash';
 import { StepFooter } from './StepFooter';
+import { useSession } from '../../app/session';
 
 export function Shortcode({ onDone, onBack }: { onDone: () => void; onBack: () => void }) {
   const toast = useToast();
-  const [shortcode, setShortcode] = useState('');
+  const { saved } = useSession();
+  const [shortcode, setShortcode] = useState(saved?.shortcode ?? '');
   const [msg, setMsg] = useState<string | null>(null); const [err, setErr] = useState<Error | null>(null); const [busy, setBusy] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);

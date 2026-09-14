@@ -19,9 +19,18 @@ export interface OrgSummary {
 export interface SetupStatus {
   needsOwner: boolean; completed: boolean; step: string | null;
   /** What the business said it needs, in its own words. `null` until it has been asked. */
-  uses: { payOut: boolean; collect: boolean } | null;
+  uses: { payOut: boolean; collect: boolean; stk: boolean } | null;
   /** Whether Safaricom has ever accepted a push here — the only proof a passkey can have. */
   passkeyProven: boolean;
+  /** Answers earlier steps stored, for a signed-in caller only; secrets are never included. */
+  saved?: SetupSaved;
+}
+export interface SetupSaved {
+  mode: 'sandbox' | 'production';
+  org: { name: string | null; nominatedNumber: string | null; notificationPhone: string | null };
+  shortcode: string | null;
+  darajaVerified: boolean;
+  publicUrl: string | null; publicVerified: boolean;
 }
 export interface Me {
   person: Person; csrf: string; permissions: string[];

@@ -25,7 +25,7 @@ export type SettingKey =
   // What the business said it needs, in its own terms, asked once during setup. These decide which
   // credentials are required, so nobody is asked for a passkey to run a payroll, or walked past the
   // one step their shop actually depends on. 'true'/'false'.
-  | 'use.payOut' | 'use.collect'
+  | 'use.payOut' | 'use.collect' | 'use.stk'
   // The business's own payment categories, a JSON list (see settings/categories.ts).
   | 'send.categories'
   | EnvSettingKey;
