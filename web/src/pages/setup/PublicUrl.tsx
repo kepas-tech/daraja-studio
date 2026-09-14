@@ -10,10 +10,13 @@ import { StepFooter } from './StepFooter';
 
 export function PublicUrl({ onDone, onBack }: { onDone: () => void; onBack: () => void }) {
   const toast = useToast();
-  // The address Safaricom needs is this studio's own, so the browser's address bar is the right
-  // default; a plain-http dev origin is offered too since the server accepts localhost.
+  // The address Safaricom needs is this studio's own, and the browser reached this page through
+  // exactly that address, so it is shown read-only; Change exists for a studio served under more
+  // than one domain. A plain-http origin is only accepted for local development.
   const origin = window.location.origin;
-  const [url, setUrl] = useState(origin.startsWith('https://') || /^http:\/\/(localhost|127\.0\.0\.1)(:|$)/.test(origin) ? origin : ''); const [result, setResult] = useState<{ ok: boolean; detail: string } | null>(null);
+  const detected = origin.startsWith('https://') || /^http:\/\/(localhost|127\.0\.0\.1)(:|$)/.test(origin) ? origin : null;
+  const [url, setUrl] = useState(detected ?? ''); const [editing, setEditing] = useState(detected === null);
+  const [result, setResult] = useState<{ ok: boolean; detail: string } | null>(null);
   const [err, setErr] = useState<Error | null>(null); const [busy, setBusy] = useState(false);
   const test = async () => {
     setBusy(true); setErr(null); setResult(null);
@@ -27,7 +30,17 @@ export function PublicUrl({ onDone, onBack }: { onDone: () => void; onBack: () =
   };
   return (
     <div className="space-y-4">
-      <TextField label={copy.setup.publicUrl.field} hint={copy.setup.publicUrl.hint} value={url} onChange={(e) => setUrl(e.target.value)} placeholder={copy.setup.publicUrl.placeholder} autoFocus />
+      {editing ? (
+        <TextField label={copy.setup.publicUrl.field} hint={copy.setup.publicUrl.hint} value={url} onChange={(e) => setUrl(e.target.value)} placeholder={copy.setup.publicUrl.placeholder} autoFocus />
+      ) : (
+        <div className="flex items-center justify-between gap-3 rounded-md border border-line bg-surface px-4 py-3">
+          <div>
+            <div className="text-sm text-muted">{copy.setup.publicUrl.detected}</div>
+            <div className="font-medium break-all">{url}</div>
+          </div>
+          <Button type="button" variant="ghost" onClick={() => setEditing(true)}>{copy.setup.publicUrl.change}</Button>
+        </div>
+      )}
       <Button type="button" variant="secondary" onClick={test} disabled={busy || !url}>{copy.setup.publicUrl.test}</Button>
       {result && <Flash tone={result.ok ? 'success' : 'danger'} role="status">{result.detail}{!result.ok && <> {copy.setup.publicUrl.notThis}</>}</Flash>}
       <ErrorCard error={err} />

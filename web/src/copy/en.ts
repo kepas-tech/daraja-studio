@@ -299,7 +299,8 @@ export const copy = {
     },
     publicUrl: {
       field: 'This studio\'s address (https://…)', placeholder: 'https://pay.example.co.ke', test: 'Test this address', ok: 'Safaricom will be able to reach you here.',
-      hint: 'Filled in from your browser\'s address bar. Change it only if people reach this studio through a different domain.',
+      detected: 'Found from your browser\'s address bar', change: 'Change',
+      hint: 'Change it only if people reach this studio through a different domain.',
       notThis: 'That address is not this studio. Enter the address you use to open this studio.',
     },
     done: { title: 'All set', body: 'Your studio is ready.', finish: 'Finish' },
