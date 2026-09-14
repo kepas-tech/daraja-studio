@@ -48,7 +48,7 @@ describe('setup wizard', () => {
     expect((await request(app).post('/api/setup/owner').send({ displayName: 'X', username: 'x', password: 'correct horse battery' })).status).toBe(409);
 
     st = await request(app).get('/api/setup/status');
-    expect(st.body.step).toBe('uses');
+    expect(st.body.step).toBe('environment');
     expect(st.body.uses).toBeNull();
 
     // Both ticked, so every step below is on this walk's path — the untested one (collect-only

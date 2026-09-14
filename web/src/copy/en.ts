@@ -219,13 +219,13 @@ export const copy = {
   },
   setup: {
     title: 'Set up your studio',
-    steps: ['Owner', 'What you need', 'Environment', 'Your organization', 'Shortcode', 'Daraja app', 'Public address', 'STK passkey', 'API operator', 'Done'],
+    steps: ['Owner', 'Environment', 'What you need', 'Your organization', 'Shortcode', 'Daraja app', 'Public address', 'STK passkey', 'API operator', 'Done'],
     stepOf: (n: number, of: number) => `Step ${n} of ${of}`,
     /** One plain sentence per step: what it is for and where the value comes from. */
     intro: {
       owner: 'Your own login. Nobody else sees this password.',
       uses: 'Most businesses receive, send, or both. Tick what applies; you can change it later in Settings.',
-      environment: 'Sandbox uses pretend money. Production is your real M-Pesa account.',
+      environment: 'Sandbox is Safaricom\'s practice area with pretend money and test credentials. Production is your real M-Pesa account and real money. You can switch later in Settings.',
       org: 'Shown in the menu and on receipts.',
       shortcode: 'Your paybill or till number, as on your Safaricom letter.',
       daraja: 'From developer.safaricom.co.ke, under My Apps.',
@@ -257,6 +257,7 @@ export const copy = {
     env: {
       sandbox: 'Sandbox (test money, safe to try things)', sandboxHint: 'Use this to try the studio without moving real money.',
       production: 'Production (real money)', productionHint: 'Connects to your real M-Pesa account.',
+      recommended: 'Start here', advice: 'Still setting things up or testing? Start with Sandbox. Switch to Production in Settings when you are ready to move real money.',
       confirm: 'Type your shortcode to confirm production',
     },
     daraja: { key: 'Consumer key', secret: 'Consumer secret', where: 'From the Daraja portal › My Apps.', ok: 'Safaricom accepted the key and secret.' },

@@ -13,7 +13,7 @@ import { StepFooter } from './StepFooter';
  * money is never walked through an API operator it will never use, and one that only pays out is
  * never asked for a passkey. Asking here is what lets every later step be genuinely required.
  */
-export function Uses({ onDone }: { onDone: () => void }) {
+export function Uses({ onDone, onBack }: { onDone: () => void; onBack?: () => void }) {
   const [payOut, setPayOut] = useState(false);
   const [collect, setCollect] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -49,7 +49,7 @@ export function Uses({ onDone }: { onDone: () => void }) {
       {/* Refused server-side too; shown here so the reason arrives before the press, not after. */}
       {!payOut && !collect && <p className="text-base text-muted">{c.nothing}</p>}
       <ErrorCard error={err} />
-      <StepFooter><Button type="submit" disabled={busy || (!payOut && !collect)}>{copy.setup.next}</Button></StepFooter>
+      <StepFooter onBack={onBack}><Button type="submit" disabled={busy || (!payOut && !collect)}>{copy.setup.next}</Button></StepFooter>
     </form>
   );
 }
