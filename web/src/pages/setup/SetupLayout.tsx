@@ -14,6 +14,7 @@ import { Passkey } from './Passkey';
 import { PublicUrl } from './PublicUrl';
 import { Operator } from './Operator';
 import { Done } from './Done';
+import logo from '../../assets/logo-long.png';
 
 const ORDER = ['owner', 'uses', 'environment', 'org', 'shortcode', 'daraja', 'public-url', 'passkey', 'operator', 'done'];
 
@@ -37,7 +38,7 @@ export function SetupLayout() {
   return (
     <div className="min-h-screen bg-page px-4 py-8">
       <div className="mx-auto max-w-2xl space-y-6">
-        <img src="/logo-long.png" alt={copy.appName} className="mx-auto h-12 w-auto" />
+        <img src={logo} alt={copy.appName} className="mx-auto h-12 w-auto" />
         <div>
           <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
             <h1 className="text-2xl font-semibold">{copy.setup.title}</h1>
