@@ -255,8 +255,8 @@ export const copy = {
     org: { name: 'Business name', nominated: 'Nominated number (2547…)', notify: 'Notification phone (2547…)' },
     shortcode: { field: 'Paybill or till number', verified: (n: string) => `Safaricom knows this shortcode as "${n}".`, notVerified: 'Saved. We could not verify the name with Safaricom yet.' },
     env: {
-      sandbox: 'Sandbox (test money, safe to try things)', sandboxHint: 'Use this to try the studio without moving real money.',
-      production: 'Production (real money)', productionHint: 'Connects to your real M-Pesa account.',
+      sandbox: 'Sandbox', sandboxHint: 'Test money. Safe to try things without moving real money.',
+      production: 'Production', productionHint: 'Real money. Connects to your real M-Pesa account.',
       recommended: 'Start here', advice: 'Still setting things up or testing? Start with Sandbox. Switch to Production in Settings when you are ready to move real money.',
       confirm: 'Type your shortcode to confirm production',
     },
