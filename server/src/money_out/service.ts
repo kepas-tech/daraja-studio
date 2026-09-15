@@ -90,7 +90,7 @@ export function syncRejection(e: DarajaAPIError): { code: string | null; desc: s
  * complete — so both collapse to the same `safaricom_unreachable` line rather than inventing a
  * meaning decision 4 never named. `details` carries the catalog meaning alongside Safaricom's own
  * text so a `safaricom_rejected` response still shows the house three lines, not just one. */
-function sdkCallError(e: unknown, scope: DarajaScope, egressIps: string[]): HttpError {
+export function sdkCallError(e: unknown, scope: DarajaScope, egressIps: string[]): HttpError {
   if (e instanceof DarajaAuthError) return new HttpError(502, 'daraja_auth', e.message);
   if (e instanceof DarajaAPIError) {
     const { code, desc } = syncRejection(e);

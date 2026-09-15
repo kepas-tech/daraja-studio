@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.13.0 — standing orders, express checkout, Bonga points
+
+- Standing orders (M-Pesa Ratiba): set one up for a customer, they agree once on their phone,
+  Safaricom collects on the schedule; the page says plainly that nothing can be changed afterwards.
+- Express checkout: prompt another business's till to pay your paybill.
+- Bonga points: see what a customer's points are worth, then let them pay with them; the payment
+  arrives through Money in. Every menu item is now live. New: `POST /api/collect/ratiba`,
+  `POST /api/collect/express`, `POST /api/collect/bonga/calculate`, `POST /api/collect/bonga/redeem`;
+  callbacks `/cb/<secret>/ratiba` and `/cb/<secret>/express`.
+
 ## 0.12.0 — invoices
 
 - Invoices, through Safaricom Bill Manager: set up once (owner, password), then send an invoice

@@ -4,6 +4,9 @@ import type { callbackUrls } from '../sdk/callbackUrls.js';
 import { b2c } from './kinds/b2c.js';
 import { reversal } from './kinds/reversal.js';
 import { stk } from './kinds/stk.js';
+import { ratiba } from './kinds/ratiba.js';
+import { express } from './kinds/express.js';
+import { bonga } from './kinds/bonga.js';
 
 export { toCents } from './amounts.js';
 
@@ -31,7 +34,7 @@ export interface RequestKind {
   type: string;
   permission: PermissionKey;
   scope: DarajaScope;
-  callbackPath: 'b2c' | 'b2b' | 'reversal' | 'status' | 'stk';
+  callbackPath: 'b2c' | 'b2b' | 'reversal' | 'status' | 'stk' | 'ratiba' | 'express' | 'c2b/confirm';
   /** `none` is money coming in: a payment request credits the shortcode, it debits no account. */
   debits: 'utility' | 'working' | 'none';
   wholeShillings: boolean;
@@ -87,7 +90,7 @@ export const BILLABLE_SEND_TYPES: string[] = Object.entries(KINDS).filter(([, k]
  * callback. Kept apart from `KINDS` so nothing that reasons about sending accidentally counts it.
  * History shows both, which is the one place the two lists are combined.
  */
-export const COLLECT_KINDS: Record<string, RequestKind> = { stk };
+export const COLLECT_KINDS: Record<string, RequestKind> = { stk, ratiba, express, bonga };
 export const COLLECT_TYPES: string[] = Object.keys(COLLECT_KINDS);
 /** Everything the tenant should see in History, whichever direction the money moved. */
 /** Money that arrives without a request from us (M2): read by History, never polled, never a send. */

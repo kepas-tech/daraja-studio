@@ -54,16 +54,16 @@ Status values are exactly `live`, `building`, or `planned`. One slice is `buildi
 | 8 | Ask a customer to pay | `stk` | live | M1 | shipped 2026-09-14 |
 | 9 | QR codes | `qr` | live | M6 | shipped 2026-09-14 |
 | 10 | Invoices | `invoices` | live | M7 | 0.12.0, deployed 2026-09-16 |
-| 11 | Standing orders | `standing-orders` | planned | M8 | — |
-| 12 | Express checkout | `express` | planned | M9 | — |
-| 13 | Bonga points | `bonga` | planned | M10 | — |
+| 11 | Standing orders | `standing-orders` | live | M8 | 0.13.0, deployed 2026-09-16 |
+| 12 | Express checkout | `express` | live | M9 | 0.13.0, deployed 2026-09-16 |
+| 13 | Bonga points | `bonga` | live | M10 | 0.13.0, deployed 2026-09-16 |
 | 14 | Waiting for approval | `approvals` | live | M4 | 0.10.0, deployed 2026-09-16 |
 | 15 | History | `history` | live | — | shipped in 2A |
 | 16 | People | `people` | live | — | shipped in 3B |
 | 17 | Settings | `settings` | live | — | shipped before 0.4.0 |
 | 18 | Not possible via API | `not-possible` | live | — | 15 explanation cards |
 
-**15 of 18 live (two of them folded into Home and History). 3 to build.** Each slice below removes exactly one Coming soon label.
+**18 of 18 live (two of them folded into Home and History). Nothing left to build; the send types below are the remaining work.** Each slice below removes exactly one Coming soon label.
 
 ## Send types inside Send money
 
@@ -191,15 +191,31 @@ callback router lets a handler name its own acknowledgement body, which Bill Man
 came through the hosted line already has for the host's own billing); routes under /api/invoices;
 the Invoices page and Settings › Invoices.
 
-### M8 — Standing orders · `ratiba.create`
+### M8 — Standing orders · `ratiba.create` — DONE 2026-09-16
 A recurring debit. The scheduling rules must be shown honestly, including what Daraja will not let
 anyone change after creation.
 
-### M9 — Express checkout · `express.checkout`
+What shipped: the `ratiba` collect kind (`money_out/kinds/ratiba.ts`, in `COLLECT_KINDS`); the
+collect service's STK path became one `start()` shared by M1, M8, M9 and M10; a repeat name for
+the same customer is refused before the call; the consent callback on `/cb/<secret>/ratiba`
+completes or fails the row; no answer in 15 minutes marks it unknown; the Standing orders page
+(list, questionnaire, review with the "nothing can be changed" note). Each collection then
+arrives as an ordinary Money in row.
+
+### M9 — Express checkout · `express.checkout` — DONE 2026-09-16
 Business-to-business with a checkout experience. Narrow.
 
-### M10 — Bonga points · `bonga.calculatePoints`, `bonga.redeem`
+What shipped: the `express` collect kind; this studio is the vendor and prompts the paying
+business's till (`primaryShortCode`) to pay this paybill; the flat callback on `/cb/<secret>/express`
+settles the row; the Express checkout page mirrors Ask a customer to pay.
+
+### M10 — Bonga points · `bonga.calculatePoints`, `bonga.redeem` — DONE 2026-09-16
 Loyalty points. Narrow, and last because few businesses need it to operate.
+
+What shipped: the `bonga` collect kind; the page values points as they are typed (read only) and
+the server values them again before redeeming, never trusting the browser's rate; the settlement
+arrives on the C2B confirmation and `money_in/record.ts` completes the waiting bonga row under
+that account number instead of writing a second row; refused until Money in is turned on.
 
 ## Rules every slice obeys
 

@@ -20,6 +20,16 @@ const askToPay = z.object({
   confirmDuplicate: z.boolean().optional(),
 });
 
+const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((s) => { const d = new Date(`${s}T00:00:00Z`); return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s; }, { message: 'Enter a real date.' });
+const standingOrder = z.object({
+  name: z.string().trim().min(1).max(60), phone: z.string().trim().min(1).max(20), amountCents: z.number().int().positive(),
+  frequency: z.enum(['1', '2', '3', '4', '5', '6', '7', '8']), startDate: day, endDate: day,
+  accountReference: z.string().trim().min(1).max(12), transactionDesc: z.string().trim().max(13).default(''), transactionType: z.enum(['paybill', 'buygoods']).default('paybill'),
+});
+const expressCheckout = z.object({ till: z.string().trim().min(1).max(10), amountCents: z.number().int().positive(), paymentRef: z.string().trim().min(1).max(20), partnerName: z.string().trim().max(40).default(''), confirmDuplicate: z.boolean().optional() });
+const bongaCalculate = z.object({ points: z.number().int().positive().max(10_000_000) });
+const bongaRedeem = z.object({ phone: z.string().trim().min(1).max(20), points: z.number().int().positive().max(10_000_000), accountReference: z.string().trim().min(1).max(20), confirmDuplicate: z.boolean().optional() });
+
 function parse<T>(schema: z.ZodType<T>, body: unknown): T {
   const r = schema.safeParse(body);
   if (!r.success) throw new HttpError(400, 'invalid', r.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; '));
@@ -63,6 +73,20 @@ export function collectRoutes(deps: AppDeps): Router {
       const v = await deps.collect.askToPay(b, { personId: req.person!.id, ip: clientIp(req) });
       res.status(201).json(v);
     } catch (e) { next(e); }
+  });
+  const actor = (req: Parameters<typeof clientIp>[0] & { person?: { id: string } }) => ({ personId: req.person!.id, ip: clientIp(req) });
+  // M8, M9, M10: money in like STK, so the same readiness and no step-up password.
+  r.post('/ratiba', requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'standing_orders.manage'), requireCollectReady(deps), async (req, res, next) => {
+    try { res.status(201).json(await deps.collect.standingOrder(parse(standingOrder, req.body), actor(req))); } catch (e) { next(e); }
+  });
+  r.post('/express', requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'express.checkout'), requireCollectReady(deps), async (req, res, next) => {
+    try { res.status(201).json(await deps.collect.expressCheckout(parse(expressCheckout, req.body), actor(req))); } catch (e) { next(e); }
+  });
+  r.post('/bonga/calculate', requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'bonga.redeem'), async (req, res, next) => {
+    try { res.json(await deps.collect.bongaCalculate(parse(bongaCalculate, req.body).points)); } catch (e) { next(e); }
+  });
+  r.post('/bonga/redeem', requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'bonga.redeem'), requireCollectReady(deps), async (req, res, next) => {
+    try { res.status(201).json(await deps.collect.bongaRedeem(parse(bongaRedeem, req.body), actor(req))); } catch (e) { next(e); }
   });
   return r;
 }

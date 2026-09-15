@@ -55,7 +55,7 @@ describe('Nav', () => {
     render(<MemoryRouter><Nav /></MemoryRouter>);
     const unfinished = copy.nav.filter((e) => !e.available);
     const finished = copy.nav.filter((e) => e.available);
-    expect(unfinished.length).toBeGreaterThan(0);
+    // Every menu item shipped on 2026-09-16, so `unfinished` may be empty; the loop below still guards a regression.
     expect(finished.length).toBeGreaterThan(0);
     for (const e of unfinished) {
       const link = document.querySelector<HTMLAnchorElement>(`a[href="${e.path}"]`)!;

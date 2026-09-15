@@ -16,9 +16,9 @@ export const REQUEST_TIMEOUT_MEANING = 'No answer from Safaricom within 5 minute
 /** One-shot: a non-money request (balance refresh, lookup) that never got its result. */
 export function requestTimeoutHandler(deps: { db: Db; events: EventHub }): JobHandler {
   return async (payload) => {
-    const { requestId } = payload as { requestId: string };
+    const { requestId, meaning } = payload as { requestId: string; meaning?: string };
     const rows = await deps.db.query<{ id: string }>(
-      `UPDATE requests SET status='unknown', result_at=now(), meaning=$2 WHERE id=$1 AND status='sent' RETURNING id`, [requestId, REQUEST_TIMEOUT_MEANING]);
+      `UPDATE requests SET status='unknown', result_at=now(), meaning=$2 WHERE id=$1 AND status='sent' RETURNING id`, [requestId, meaning ?? REQUEST_TIMEOUT_MEANING]);
     if (rows[0]) await deps.events.publish('request.updated', { id: rows[0].id, status: 'unknown' });
   };
 }

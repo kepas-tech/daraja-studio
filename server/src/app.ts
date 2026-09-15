@@ -44,6 +44,7 @@ import type { BulkService } from './money_out/bulk.js';
 import type { MoneyInService } from './money_in/service.js';
 import { c2bConfirmHandler, c2bValidateHandler } from './callbacks/c2b.js';
 import { billManagerHandler } from './callbacks/billmanager.js';
+import { expressHandler, ratibaHandler } from './callbacks/collectKinds.js';
 import { invoiceRoutes } from './invoices/routes.js';
 import type { InvoicesService } from './invoices/service.js';
 import type { Scheduler } from './scheduler/loop.js';
@@ -99,7 +100,7 @@ export function buildApp(deps: AppDeps): express.Express {
   app.use(
     '/cb',
     express.json({ limit: '256kb', verify: (req, _res, buf) => { (req as Request).rawBody = buf.toString('utf8'); } }),
-    callbackRoutes({ ...deps, handlers: { selftest: selftestHandler, balance: balanceHandler, b2c: b2cHandler, 'b2c/timeout': b2cTimeoutHandler, status: statusHandler, stk: stkHandler, reversal: reversalHandler, 'reversal/timeout': reversalTimeoutHandler, 'c2b/validate': c2bValidateHandler, 'c2b/confirm': c2bConfirmHandler, billmanager: billManagerHandler(deps.invoices) } }),
+    callbackRoutes({ ...deps, handlers: { selftest: selftestHandler, balance: balanceHandler, b2c: b2cHandler, 'b2c/timeout': b2cTimeoutHandler, status: statusHandler, stk: stkHandler, reversal: reversalHandler, 'reversal/timeout': reversalTimeoutHandler, 'c2b/validate': c2bValidateHandler, 'c2b/confirm': c2bConfirmHandler, billmanager: billManagerHandler(deps.invoices), ratiba: ratibaHandler, express: expressHandler } }),
     callbackErrorHandler(deps),
   );
   app.use(express.json({ limit: '256kb' }));

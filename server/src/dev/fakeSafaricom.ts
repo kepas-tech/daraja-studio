@@ -303,6 +303,52 @@ export function createFakeSafaricom(opts: FakeSafaricomOptions): FakeSafaricom {
       }
       return json({ rescode: '200', resmsg: 'Success', Status_Message: 'Invoice sent successfully' });
     }
+    if (path.endsWith('/createStandingOrderExternal')) {
+      const ref = `fake-ratiba-${n}`;
+      const cbPath = pathOf(String(body.CallBackURL ?? ''));
+      if (scenario !== 'losesCallback' && scenario !== 'neverAnswers') {
+        const ok = scenario !== 'credentialError';
+        const post = () => opts.post(cbPath, {
+          responseHeader: { responseRefID: ref, requestRefID: `req-${n}`, responseCode: ok ? '0' : '1', responseDescription: ok ? 'Request accepted for processing' : 'The customer declined' },
+          responseBody: { responseData: ok ? [{ name: 'TransactionID', value: `RS${String(n).padStart(8, '0')}` }, { name: 'Status', value: 'Active' }, { name: 'Msisdn', value: String(body.PartyA ?? '') }] : [] },
+        });
+        later(post);
+        if (scenario === 'duplicatesCallback') later(post);
+      }
+      return json({ ResponseHeader: { responseRefID: ref, responseCode: '200', responseDescription: 'Request accepted', ResultDesc: 'The service request is being processed' } });
+    }
+    if (path.endsWith('/ussdpush/get-msisdn')) {
+      const ref = String(body.RequestRefID ?? `fake-ex-${n}`);
+      const cbPath = pathOf(String(body.callbackUrl ?? ''));
+      const amount = Number(body.amount);
+      if (scenario !== 'losesCallback' && scenario !== 'neverAnswers') {
+        const ok = scenario !== 'credentialError';
+        const post = () => opts.post(cbPath, ok
+          ? { resultCode: '0', resultDesc: 'The service request is processed successfully.', requestId: ref, amount: String(amount), paymentReference: String(body.paymentRef ?? ''), resultType: '0', conversationID: `AG_ex_${n}`, transactionId: `RX${String(n).padStart(8, '0')}`, status: 'SUCCESS' }
+          : { resultCode: '1', resultDesc: 'The initiator declined', requestId: ref, amount: String(amount), status: 'FAILED' });
+        later(post);
+        if (scenario === 'duplicatesCallback') later(post);
+      }
+      return json({ code: '0', status: 'USSD Initiated Successfully' });
+    }
+    if (path.endsWith('/lipa/na/bonga/calculate-points')) {
+      const points = Number(body.points);
+      return json({ header: { requestRefId: `fake-bc-${n}`, responseCode: 200, responseMessage: 'Success' }, body: { amount: String(points * 0.2), points: String(points), rate: '0.2' } });
+    }
+    if (path.endsWith('/lipa/na/bonga/redeem-paybill')) {
+      const ref = `fake-br-${n}`;
+      const amount = Number(body.amount);
+      const phone = String(body.msisdn ?? '');
+      const account = String(body.accountNumber ?? '');
+      if (scenario !== 'losesCallback' && scenario !== 'neverAnswers' && scenario !== 'credentialError' && c2bConfirmUrl) {
+        const id = `RB${String(n).padStart(8, '0')}`;
+        paid.push({ receipt: id, amount, phone, account, at: new Date() });
+        const at = new Date(Date.now() + 3 * 3_600_000); const p = (v: number) => String(v).padStart(2, '0');
+        const transTime = `${at.getUTCFullYear()}${p(at.getUTCMonth() + 1)}${p(at.getUTCDate())}${p(at.getUTCHours())}${p(at.getUTCMinutes())}${p(at.getUTCSeconds())}`;
+        later(() => opts.post(c2bConfirmUrl!, { TransactionType: 'Pay Bill', TransID: id, TransTime: transTime, TransAmount: String(amount), BusinessShortCode: '600999', BillRefNumber: account, InvoiceNumber: '', OrgAccountBalance: String(utility + amount), ThirdPartyTransID: '', MSISDN: phone, FirstName: 'Jane', MiddleName: '', LastName: 'Doe' }));
+      }
+      return json({ header: { requestRefId: ref, responseCode: 200, responseMessage: 'Success', customerMessage: 'Enter your PIN to pay with points' } });
+    }
     if (path.endsWith('/registerurl')) {
       c2bConfirmUrl = pathOf(String(body.ConfirmationURL ?? ''));
       return json({ OriginatorCoversationID: `fake-c2b-${n}`, ResponseCode: '0', ResponseDescription: 'Success' });

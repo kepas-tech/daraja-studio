@@ -20,8 +20,15 @@ export async function recordC2b(deps: { db: Db; events: EventHub }, p: C2bPaymen
   const name = [p.firstName, p.middleName, p.lastName].map((s) => String(s ?? '').trim()).filter(Boolean).join(' ') || null;
   const out = await deps.db.tx(async (c) => {
     await c.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`c2b:${receipt}`]);
-    const existing = await c.query<{ id: string }>(`SELECT id FROM requests WHERE type='c2b' AND receipt=$1 LIMIT 1`, [receipt]);
+    const existing = await c.query<{ id: string }>(`SELECT id FROM requests WHERE type IN ('c2b','bonga') AND receipt=$1 LIMIT 1`, [receipt]);
     if (existing.rows[0]) return { verdict: 'duplicate' as const, requestId: existing.rows[0].id };
+    // Lipa na Bonga (M10) settles here: a points redemption waiting under this account number is
+    // this payment, so its own row is completed rather than a second one written.
+    const bonga = await c.query<{ id: string }>(
+      `UPDATE requests SET status='completed', result_at=now(), result_source=$3, result_code='0', result_desc='Completed', receipt=$2, recipient_name=COALESCE($4, recipient_name), raw_result_json=$5::jsonb
+       WHERE id = (SELECT id FROM requests WHERE type='bonga' AND status='sent' AND account_reference=$1 ORDER BY created_at ASC LIMIT 1) RETURNING id`,
+      [String(p.billRefNumber ?? ''), receipt, source, name, JSON.stringify(p)]);
+    if (bonga.rows[0]) return { verdict: 'applied' as const, requestId: bonga.rows[0].id };
     const ins = await c.query<{ id: string }>(
       `INSERT INTO requests(type, subtype, originator_conversation_id, status, amount_cents, currency, recipient_kind, recipient_value, recipient_name,
          account_reference, payload_json, sent_at, result_at, result_source, result_code, result_desc, receipt)

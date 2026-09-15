@@ -56,7 +56,7 @@ export function Nav() {
         {live.filter((e) => e.group === 'money').map((e) => <Item key={e.key} e={e} onPick={pick} badge={e.key === 'approvals' ? waiting : undefined} />)}
         <li className={heading}>{copy.nav.groups.manage}</li>
         {live.filter((e) => e.group === 'manage').map((e) => <Item key={e.key} e={e} onPick={pick} />)}
-        <li className="pt-4">
+        {soon.length > 0 && <li className="pt-4">
           <button type="button" aria-expanded={soonOpen} aria-controls="nav-soon" onClick={() => setSoonOpen((v) => !v)} className="flex min-h-10 w-full cursor-pointer items-center gap-3 px-3 text-left text-sm text-muted hover:text-ink">
             <Icon name={soonOpen ? 'chevron-up' : 'chevron-down'} className="size-4" />
             <span>{copy.nav.planned(soon.length)}</span>
@@ -64,7 +64,7 @@ export function Nav() {
           <ul id="nav-soon" className={soonOpen ? 'block' : 'hidden'}>
             {soon.map((e) => <Item key={e.key} e={e} onPick={pick} />)}
           </ul>
-        </li>
+        </li>}
         <li className="mt-4 border-t border-line pt-2"><ul>{live.filter((e) => e.group === 'help').map((e) => <Item key={e.key} e={e} onPick={pick} />)}</ul></li>
       </ul>
     </nav>
