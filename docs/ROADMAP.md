@@ -13,3 +13,5 @@ Ask a customer to pay, Reverse a payment, QR codes.
 Money in (paybill/till, without being asked), Waiting for approval, Bulk send, Invoices, Standing
 orders, Express checkout, Bonga points — in that order, and why, in [MENU-PLAN.md](MENU-PLAN.md).
 
+The design for all seven, agreed 2026-09-16: [design/2026-09-16-planned-features-design.md](design/2026-09-16-planned-features-design.md).
+
