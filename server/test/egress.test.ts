@@ -127,7 +127,8 @@ describe('the whitelist line reaches every product surface, not just a stored ro
   it('an operator probe records the address in the operator\'s own last_error', async () => {
     await localWithIps.deps.settings.set('public.url', 'https://studio.example');
     const [op] = await localWithIps.deps.db.query<{ id: string }>(
-      `INSERT INTO operators(name, credential_enc, status) VALUES ('KEPAS-P','x','pending') RETURNING id`,
+      // Once verified, so the refusal is recorded on the row rather than dropping it.
+      `INSERT INTO operators(name, credential_enc, status, verified_at) VALUES ('KEPAS-P','x','pending', now()) RETURNING id`,
     );
     const svc = createOperatorService({
       db: localWithIps.deps.db, settings: localWithIps.deps.settings, keyring: localWithIps.deps.keyring,

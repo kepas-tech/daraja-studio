@@ -231,7 +231,7 @@ export const copy = {
       daraja: 'From developer.safaricom.co.ke, under My Apps.',
       'public-url': 'The address of this studio itself, as you open it in your browser. Safaricom posts payment results to it, so it must be reachable from the internet over https.',
       passkey: 'Needed to prompt a customer\'s phone. From the Daraja portal, under Lipa Na M-Pesa Online. Tested right away.',
-      operator: 'The Safaricom portal user allowed to move money out of your account.',
+      operator: 'The Safaricom portal user allowed to move money out of your account. Only an operator Safaricom accepts is kept.',
       done: 'Everything Safaricom needs is in place.',
     } as Record<string, string>,
     owner: { displayName: 'Your name', username: 'Username', password: 'Choose a password (12+ characters)', button: 'Create owner', created: (name: string) => `Owner account created for ${name}.`, changeName: 'Change name', nameSaved: 'Name saved.', fixed: 'The username and password stay; change the password later from the account menu.' },

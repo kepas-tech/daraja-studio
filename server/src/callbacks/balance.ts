@@ -10,7 +10,7 @@ const toCents = (n: number | undefined): number | null => (n === undefined ? nul
 type TxOutcome =
   | { verdict: 'unmatched' | 'off_range' }
   | { verdict: 'duplicate'; requestId: string }
-  | { verdict: 'applied'; requestId: string; subtype: string | null; operatorId: string | null;
+  | { verdict: 'applied'; requestId: string; subtype: string | null; operatorId: string | null; operatorRemoved: boolean;
       verifiedOrgId: string | null; verifiedEnv: Env | null; recovery: { recoveryId: string; personId: string } | null };
 
 type BalanceRow = { id: string; subtype: string | null; operator_id: string | null; payload_json: unknown; environment: Env | null };
@@ -86,6 +86,7 @@ export const balanceHandler: CallbackHandler = async ({ db, cache, events, body,
     let verifiedOrgId: string | null = null;
     let verifiedEnv: Env | null = null;
     let appliedOperatorId: string | null = null;
+    let operatorRemoved = false;
     if (found.subtype === 'operator_probe') {
       // Whether this is the probe the organisation is actually waiting on. Meaningful only while
       // the organisation is mid-sign-up (`operator_probing`) — outside that window every probe
@@ -99,24 +100,31 @@ export const balanceHandler: CallbackHandler = async ({ db, cache, events, body,
       )).rows;
       const isCurrentProbe = !waiting || waiting.probe_request_id === found.id;
 
-      let updatedOperator: { environment: Env; status: string } | undefined;
+      let updatedOperator: { environment: Env; status: string; verified_at: Date | null } | undefined;
       if (found.operator_id && isCurrentProbe) {
         const payload = found.payload_json && typeof found.payload_json === 'object'
           ? found.payload_json as { operatorRotatedAt?: unknown } : null;
         const generation = typeof payload?.operatorRotatedAt === 'string' ? payload.operatorRotatedAt : null;
-        const operator = await c.query<{ environment: Env; status: string }>(
+        const operator = await c.query<{ environment: Env; status: string; verified_at: Date | null }>(
           `UPDATE operators
-           SET status=$2, last_probe_at=now(), last_error=$3
+           SET status=$2, last_probe_at=now(), last_error=$3, verified_at=COALESCE(verified_at, CASE WHEN $2='verified' THEN now() END)
            WHERE id=$1 AND status <> 'disabled'
              AND (($4::timestamptz IS NOT NULL AND rotated_at IS NOT DISTINCT FROM $4::timestamptz)
                   OR ($4::timestamptz IS NULL AND EXISTS (
                     SELECT 1 FROM requests WHERE id=$5 AND COALESCE(sent_at, created_at) >= operators.rotated_at
                   )))
-           RETURNING environment, status`,
+           RETURNING environment, status, verified_at`,
           [found.operator_id, r.success ? 'verified' : 'failed', r.success ? null : r.resultDesc, generation, found.id],
         );
         updatedOperator = operator.rows[0];
         if (updatedOperator) appliedOperatorId = found.operator_id;
+        // Only an accepted operator is kept: one refused before it was ever verified is dropped
+        // (operators/service.ts applies the same rule to a synchronous refusal and a timeout).
+        if (updatedOperator && updatedOperator.status === 'failed' && !updatedOperator.verified_at) {
+          await c.query(`UPDATE requests SET operator_id=NULL WHERE operator_id=$1`, [found.operator_id]);
+          await c.query(`DELETE FROM operators WHERE id=$1 AND verified_at IS NULL`, [found.operator_id]);
+          operatorRemoved = true;
+        }
       }
 
       if (!updatedOperator) {
@@ -187,14 +195,16 @@ export const balanceHandler: CallbackHandler = async ({ db, cache, events, body,
         recovery = { recoveryId: payload.recoveryId, personId: payload.personId };
       }
     }
-    return { verdict: 'applied' as const, requestId: found.id, subtype: found.subtype, operatorId, verifiedOrgId, verifiedEnv, recovery };
+    return { verdict: 'applied' as const, requestId: found.id, subtype: found.subtype, operatorId, operatorRemoved, verifiedOrgId, verifiedEnv, recovery };
   });
 
   if (outcome.verdict !== 'applied') return outcome satisfies CallbackVerdict;
 
   if (r.success && outcome.subtype !== 'recovery_probe') await events.publish('balance.updated', { at: new Date().toISOString() });
   if (outcome.subtype === 'operator_probe' && outcome.operatorId) {
-    await events.publish('operator.updated', { operatorId: outcome.operatorId, status: r.success ? 'verified' : 'failed' });
+    await events.publish('operator.updated', outcome.operatorRemoved
+      ? { operatorId: outcome.operatorId, status: 'failed', removed: true, lastError: [ex.safaricomSaid.slice(0, 500), ex.meaning, ex.whatToDo].join('\n') }
+      : { operatorId: outcome.operatorId, status: r.success ? 'verified' : 'failed' });
   }
   // A single-mode organisation is never `operator_probing`, so the guard this outcome came from
   // never matches and verifiedOrgId is always null here — kept rather than deleted because the

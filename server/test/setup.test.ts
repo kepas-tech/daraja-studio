@@ -25,6 +25,9 @@ const { app, deps, close } = makeApp({
     if (u.includes('/cb/')) { await request(app).post(new URL(u).pathname).send(JSON.parse(String(init?.body))); return new Response('{}', { status: 200 }); }
     // The passkey step's own test push. Never a real prompt — this is the fake transport, and no
     // async callback delivery is needed for the proof: markPasskeyProven fires on the ack itself.
+    // The operator step's own probe: acknowledged, so the operator stays pending (a refused one
+    // is dropped, and the tests below flip the pending row to verified by hand).
+    if (u.includes('/accountbalance/')) return new Response(JSON.stringify({ OriginatorConversationID: 'OC-probe', ConversationID: 'C-probe', ResponseCode: '0', ResponseDescription: 'Accept the service request successfully.' }), { status: 200 });
     if (u.includes('/stkpush/') && !u.includes('query')) {
       return new Response(JSON.stringify({ MerchantRequestID: 'MR1', CheckoutRequestID: 'ws_CO_setup1', ResponseCode: '0', ResponseDescription: 'Accepted' }), { status: 200 });
     }

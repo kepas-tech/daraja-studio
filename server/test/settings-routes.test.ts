@@ -11,6 +11,8 @@ const { app, deps, close } = makeApp({
     const u = String(url);
     if (u.includes('/oauth/v1/generate')) return new Response(JSON.stringify({ access_token: 't', expires_in: '3599' }), { status: 200 });
     if (u.includes('/cb/')) { await request(app).post(new URL(u).pathname).send(JSON.parse(String(init?.body))); return new Response('{}', { status: 200 }); }
+    // An added operator's probe is acknowledged so it stays pending; a refused one would be dropped.
+    if (u.includes('/accountbalance/')) return new Response(JSON.stringify({ OriginatorConversationID: 'OC-probe', ConversationID: 'C-probe', ResponseCode: '0', ResponseDescription: 'Accept the service request successfully.' }), { status: 200 });
     return new Response('{}', { status: 500 });
   }) as typeof fetch,
 });

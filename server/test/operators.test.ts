@@ -68,17 +68,42 @@ describe('operators', () => {
     await expect(svc.add('sandbox', { name: 'X', password: 'bad(1)', certPem }, { personId: null as never, ip: '' })).rejects.toMatchObject({ status: 400, code: 'bad_password' });
   });
 
-  it('sync SDK failure marks operator failed', async () => {
+  it('sync SDK failure on a never-verified operator drops it and hands the reason back', async () => {
     const svc = createOperatorService({ ...deps, secretKey: deps.config.secretKey, daraja: fakeFactory(async () => { throw new Error('Invalid SecurityCredential'); }), events });
-    const { id } = await svc.add('sandbox', { name: 'BAD', password: 'Secret#123', certPem }, { personId: null as never, ip: '' });
+    await expect(svc.add('sandbox', { name: 'BAD', password: 'Secret#123', certPem }, { personId: null as never, ip: '' }))
+      .rejects.toMatchObject({ status: 400, code: 'operator_refused', message: expect.stringMatching(/SecurityCredential/) });
+    expect((await deps.db.query('SELECT 1 FROM operators')).length).toBe(0);
+    // The same name is free to try again.
+    const ok = createOperatorService({ ...deps, secretKey: deps.config.secretKey, daraja: fakeFactory(ackFor('OC-BAD2')), events });
+    await ok.add('sandbox', { name: 'BAD', password: 'Secret#456', certPem }, { personId: null as never, ip: '' });
+    expect((await deps.db.query<{ status: string }>('SELECT status FROM operators'))[0].status).toBe('pending');
+  });
+
+  it('sync SDK failure on an operator that once worked keeps it, marked failed', async () => {
+    const svc = createOperatorService({ ...deps, secretKey: deps.config.secretKey, daraja: fakeFactory(ackFor('OC-ONCE')), events });
+    const { id } = await svc.add('sandbox', { name: 'ONCE', password: 'Secret#123', certPem }, { personId: null as never, ip: '' });
+    await deps.db.query(`UPDATE operators SET status='verified', verified_at=now() WHERE id=$1`, [id]);
+    const failing = createOperatorService({ ...deps, secretKey: deps.config.secretKey, daraja: fakeFactory(async () => { throw new Error('Invalid SecurityCredential'); }), events });
+    await failing.probe(id);
     const op = (await deps.db.query<{ status: string; last_error: string }>('SELECT status, last_error FROM operators WHERE id=$1', [id]))[0];
     expect(op.status).toBe('failed');
     expect(op.last_error).toMatch(/SecurityCredential/);
   });
 
+  it('timeout handler drops a never-verified probe with no answer', async () => {
+    const svc = createOperatorService({ ...deps, secretKey: deps.config.secretKey, daraja: fakeFactory(ackFor('OC-T0')), events });
+    const { id } = await svc.add('sandbox', { name: 'SLOW0', password: 'Secret#123', certPem }, { personId: null as never, ip: '' });
+    const [req] = await deps.db.query<{ id: string }>(`SELECT id FROM requests WHERE originator_conversation_id='OC-T0'`);
+    await svc.timeoutHandler({ requestId: req.id }, { id: 'j', kind: 'operator_probe_timeout', payload: {}, attempts: 0, max_attempts: 1 });
+    expect((await deps.db.query('SELECT 1 FROM operators WHERE id=$1', [id])).length).toBe(0);
+    const [left] = await deps.db.query<{ status: string; operator_id: string | null }>('SELECT status, operator_id FROM requests WHERE id=$1', [req.id]);
+    expect(left).toEqual({ status: 'unknown', operator_id: null });
+  });
+
   it('timeout handler fails a probe with no answer', async () => {
     const svc = createOperatorService({ ...deps, secretKey: deps.config.secretKey, daraja: fakeFactory(ackFor('OC-T')), events });
     const { id } = await svc.add('sandbox', { name: 'SLOW', password: 'Secret#123', certPem }, { personId: null as never, ip: '' });
+    await deps.db.query(`UPDATE operators SET verified_at=now() WHERE id=$1`, [id]);
     const before = (await deps.db.query<{ last_probe_at: Date }>('SELECT last_probe_at FROM operators WHERE id=$1', [id]))[0];
     const [req] = await deps.db.query<{ id: string }>(`SELECT id FROM requests WHERE originator_conversation_id='OC-T'`);
     await svc.timeoutHandler({ requestId: req.id }, { id: 'j', kind: 'operator_probe_timeout', payload: {}, attempts: 0, max_attempts: 1 });
@@ -188,10 +213,25 @@ describe('operators', () => {
       .rejects.toMatchObject({ status: 409, code: 'operator_exists' });
   });
 
+  it('adding a failed operator again under the same name retries it with the new credential', async () => {
+    const first = createOperatorService({ ...deps, secretKey: deps.config.secretKey, daraja: fakeFactory(ackFor('OC-RT0')), events });
+    const { id } = await first.add('sandbox', { name: 'RETRY', password: 'Secret#123', certPem }, { personId: null as never, ip: '' });
+    await deps.db.query(`UPDATE operators SET status='failed', verified_at=now(), last_error='x' WHERE id=$1`, [id]);
+
+    const workingSvc = createOperatorService({ ...deps, secretKey: deps.config.secretKey, daraja: fakeFactory(ackFor('OC-RT')), events });
+    const again = await workingSvc.add('sandbox', { name: 'RETRY', password: 'Secret#456', certPem }, { personId: null as never, ip: '' });
+    expect(again.id).toBe(id);
+    const op = (await deps.db.query<{ status: string; credential_enc: string; last_error: string | null }>('SELECT status, credential_enc, last_error FROM operators WHERE id=$1', [id]))[0];
+    expect(op.status).toBe('pending');
+    expect(op.last_error).toBeNull();
+    expect(passwordIn(await decryptForOrg(deps.keyring, op.credential_enc))).toBe('Secret#456');
+    expect((await deps.db.query('SELECT 1 FROM operators WHERE name=$1', ['RETRY'])).length).toBe(1);
+  });
+
   it('probe re-arms a failed operator ("Test again") back to pending and re-sends', async () => {
-    const failingSvc = createOperatorService({ ...deps, secretKey: deps.config.secretKey, daraja: fakeFactory(async () => { throw new Error('down'); }), events });
-    const { id } = await failingSvc.add('sandbox', { name: 'REPROBE', password: 'Secret#123', certPem }, { personId: null as never, ip: '' });
-    expect((await deps.db.query<{ status: string }>('SELECT status FROM operators WHERE id=$1', [id]))[0].status).toBe('failed');
+    const first = createOperatorService({ ...deps, secretKey: deps.config.secretKey, daraja: fakeFactory(ackFor('OC-RP0')), events });
+    const { id } = await first.add('sandbox', { name: 'REPROBE', password: 'Secret#123', certPem }, { personId: null as never, ip: '' });
+    await deps.db.query(`UPDATE operators SET status='failed', verified_at=now(), last_error='down' WHERE id=$1`, [id]);
 
     const query = ackFor('OC-RP');
     const workingSvc = createOperatorService({ ...deps, secretKey: deps.config.secretKey, daraja: fakeFactory(query), events });

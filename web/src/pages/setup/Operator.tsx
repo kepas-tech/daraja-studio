@@ -21,7 +21,13 @@ export function Operator({ onDone, onBack }: { onDone: () => void; onBack: () =>
   const [ops, setOps] = useState<OperatorView[]>([]); const [err, setErr] = useState<Error | null>(null); const [busy, setBusy] = useState(false);
   const load = useCallback(() => api.get<SettingsView>('/api/settings').then((v) => setOps(v.environments[v.mode].operators)).catch(() => {}), []);
   useEffect(() => { void load(); }, [load]);
-  useEvents(useCallback((e) => { if (e.type === 'operator.updated') void load(); }, [load]));
+  // A refused operator is not kept, so its reason arrives on the event rather than on a row.
+  useEvents(useCallback((e) => {
+    if (e.type !== 'operator.updated') return;
+    const p = e.payload as { removed?: boolean; lastError?: string } | null;
+    if (p?.removed && p.lastError) setErr(new Error(p.lastError));
+    void load();
+  }, [load]));
   const tone = { pending: 'warn', verified: 'ok', failed: 'bad', disabled: 'muted' } as const;
   const textarea = 'min-h-32 w-full rounded-md border border-line bg-surface p-2 font-mono text-xs text-ink shadow-inner focus:outline-2 focus:-outline-offset-1 focus:outline-brand';
   const submit = async () => {

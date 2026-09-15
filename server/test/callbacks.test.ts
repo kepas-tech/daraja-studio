@@ -106,8 +106,17 @@ describe('callbacks', () => {
     expect(keys).toEqual([]);
   });
 
-  it('failed probe marks operator failed with the Safaricom text', async () => {
+  it('a failed probe drops an operator that was never verified, keeping the request', async () => {
     const [op] = await deps.db.query<{ id: string }>(`INSERT INTO operators(name, credential_enc, status) VALUES ('APITWO', $1, 'pending') RETURNING id`, [encrypt(deps.config.secretKey, 'c')]);
+    await deps.db.query(`INSERT INTO requests(type, subtype, originator_conversation_id, status, operator_id) VALUES ('balance','operator_probe','OC3','sent',$1)`, [op.id]);
+    await request(app).post('/cb/sekret/balance').set('X-Forwarded-For', SAF_IP).send(balanceBody('OC3', 2001));
+    expect((await deps.db.query('SELECT 1 FROM operators WHERE id=$1', [op.id])).length).toBe(0);
+    const [req] = await deps.db.query<{ status: string; operator_id: string | null; result_desc: string }>(`SELECT status, operator_id, result_desc FROM requests WHERE originator_conversation_id='OC3'`);
+    expect(req).toEqual({ status: 'failed', operator_id: null, result_desc: 'The initiator information is invalid.' });
+  });
+
+  it('a failed probe keeps an operator that once worked, marked failed with the Safaricom text', async () => {
+    const [op] = await deps.db.query<{ id: string }>(`INSERT INTO operators(name, credential_enc, status, verified_at) VALUES ('APITWO', $1, 'pending', now()) RETURNING id`, [encrypt(deps.config.secretKey, 'c')]);
     await deps.db.query(`INSERT INTO requests(type, subtype, originator_conversation_id, status, operator_id) VALUES ('balance','operator_probe','OC3','sent',$1)`, [op.id]);
     await request(app).post('/cb/sekret/balance').set('X-Forwarded-For', SAF_IP).send(balanceBody('OC3', 2001));
     const o = (await deps.db.query<{ status: string; last_error: string }>('SELECT status, last_error FROM operators WHERE id=$1', [op.id]))[0];

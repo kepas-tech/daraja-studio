@@ -103,17 +103,41 @@ export function createOperatorService(deps: { db: Db; settings: Settings; keyrin
     return credential;
   }
 
+  /** Refusals of operators that were dropped, so add() can hand the reason straight back. */
+  const refusals = new Map<string, string>();
+
+  /**
+   * Only an operator Safaricom has accepted is kept. One that fails before ever being verified is
+   * removed (its probe requests stay, detached), so the list never fills with refused attempts
+   * and the same name can be tried again. One that once worked keeps its row and is marked failed.
+   */
   async function setFailed(id: string, rotatedAt: string | null, message: string) {
     const [updated] = await deps.db.query<{ id: string }>(
       `UPDATE operators
        SET status='failed', last_probe_at=now(), last_error=$3
        WHERE id=$1
          AND status <> 'disabled'
+         AND verified_at IS NOT NULL
          AND rotated_at IS NOT DISTINCT FROM $2::timestamptz
        RETURNING id`,
       [id, rotatedAt, message.slice(0, 500)],
     );
-    if (updated) await deps.events.publish('operator.updated', { operatorId: id, status: 'failed' });
+    if (updated) { await deps.events.publish('operator.updated', { operatorId: id, status: 'failed' }); return; }
+    const dropped = await deps.db.tx(async (c) => {
+      const { rows } = await c.query<{ id: string }>(
+        `SELECT id FROM operators WHERE id=$1 AND status <> 'disabled' AND verified_at IS NULL
+           AND rotated_at IS NOT DISTINCT FROM $2::timestamptz FOR UPDATE`,
+        [id, rotatedAt],
+      );
+      if (!rows[0]) return false;
+      await c.query(`UPDATE requests SET operator_id=NULL WHERE operator_id=$1`, [id]);
+      await c.query(`DELETE FROM operators WHERE id=$1`, [id]);
+      return true;
+    });
+    if (dropped) {
+      refusals.set(id, message);
+      await deps.events.publish('operator.updated', { operatorId: id, status: 'failed', removed: true, lastError: message.slice(0, 500) });
+    }
   }
 
   /** Safaricom's own code and text from a synchronous rejection — the SDK's errorFromResponse only
@@ -142,6 +166,14 @@ export function createOperatorService(deps: { db: Db; settings: Settings; keyrin
         );
       } catch (e) {
         if (e && typeof e === 'object' && (e as { code?: string }).code === UNIQUE_VIOLATION) {
+          // Adding a failed operator again under the same name is a retry with a new credential —
+          // the natural thing to do after Safaricom refused the last one — not a clash. A working
+          // or pending operator keeps its name.
+          const [failed] = await deps.db.query<{ id: string }>(
+            `SELECT id FROM operators WHERE org_id=$1 AND name=$2 AND environment=$3 AND status='failed'`,
+            [requireOrgId(), input.name.trim(), env],
+          );
+          if (failed) { await svc.rotate(failed.id, input, actor); return { id: failed.id }; }
           throw new HttpError(409, 'operator_exists', 'An operator with that name already exists.');
         }
         throw e;
@@ -155,6 +187,9 @@ export function createOperatorService(deps: { db: Db; settings: Settings; keyrin
       // rejecting the add outright.
       const mode = ((await deps.settings.get('daraja.environment')) as Env) || 'sandbox';
       if (env === mode) await svc.probe(row.id);
+      // A synchronous refusal has already dropped the row: the caller gets the reason, not an id.
+      const refusal = refusals.get(row.id);
+      if (refusal) { refusals.delete(row.id); throw new HttpError(400, 'operator_refused', refusal); }
       return { id: row.id };
     },
 
@@ -310,6 +345,7 @@ export function createOperatorService(deps: { db: Db; settings: Settings; keyrin
       // Check-then-act against a callback that can land at any moment must be one atomic
       // statement: only a request still 'sent' is claimed, and only the operator behind a
       // claimed request is touched, all inside one transaction.
+      let removed = false;
       const operatorId = await deps.db.tx(async (c) => {
         const { rows } = await c.query<{ operator_id: string | null }>(
           `UPDATE requests SET status='unknown', result_at=now(), result_source='poll', meaning=$2
@@ -319,7 +355,13 @@ export function createOperatorService(deps: { db: Db; settings: Settings; keyrin
         const row = rows[0];
         if (!row) return null;
         if (row.operator_id) {
-          await c.query(`UPDATE operators SET status='failed', last_error=$2 WHERE id=$1`, [row.operator_id, NO_ANSWER]);
+          // Same rule as setFailed: a never-verified operator is dropped, a once-working one is kept.
+          const kept = await c.query<{ id: string }>(`UPDATE operators SET status='failed', last_error=$2 WHERE id=$1 AND verified_at IS NOT NULL RETURNING id`, [row.operator_id, NO_ANSWER]);
+          if (!kept.rows[0]) {
+            await c.query(`UPDATE requests SET operator_id=NULL WHERE operator_id=$1`, [row.operator_id]);
+            const gone = await c.query<{ id: string }>(`DELETE FROM operators WHERE id=$1 AND verified_at IS NULL RETURNING id`, [row.operator_id]);
+            removed = !!gone.rows[0];
+          }
         }
         return row.operator_id;
       });
@@ -335,7 +377,7 @@ export function createOperatorService(deps: { db: Db; settings: Settings; keyrin
              AND EXISTS (SELECT 1 FROM settings WHERE org_id=$2 AND key='setup.probeRequestId' AND value=$3)`,
         [PROBE_TIMEOUT_FAIL_REASON, requireOrgId(), requestId],
       );
-      await deps.events.publish('operator.updated', { operatorId, status: 'failed' });
+      await deps.events.publish('operator.updated', removed ? { operatorId, status: 'failed', removed: true, lastError: NO_ANSWER } : { operatorId, status: 'failed' });
     },
   };
   return svc;

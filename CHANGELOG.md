@@ -13,6 +13,9 @@
 - Public address is found from the browser's address bar and shown read-only, with Change;
   a failed test says the address is not this studio.
 - The owner's name can be changed on the "Owner account created" screen.
+- Only an operator Safaricom accepts is kept. One refused before it ever worked is removed, its
+  reason shown once, and the same name is free to try again. The Done step names the step still
+  missing and takes you there; the operator step no longer offers Skip.
 
 ## 0.8.0 — one question at a time, two pages fewer
 
