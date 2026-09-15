@@ -8,6 +8,7 @@ import { audit } from '../audit/log.js';
 import { PASSWORD_EXPIRY_DAYS, type OperatorService } from '../operators/service.js';
 import type { OrgStatus } from '../orgs/service.js';
 import type { MoneyInService } from '../money_in/service.js';
+import type { BulkService } from '../money_out/bulk.js';
 import type { JobHandler } from './loop.js';
 
 export const REQUEST_TIMEOUT_MEANING = 'No answer from Safaricom within 5 minutes. Try again.';
@@ -148,9 +149,12 @@ export function buildHandlers(
     db: Db; events: EventHub; settings: Settings; moneyOut: Pick<MoneyOutService, 'sweep' | 'refreshBalance' | 'expireApprovals'>;
     operators: Pick<OperatorService, 'timeoutHandler'>;
     moneyIn: Pick<MoneyInService, 'checkMissedIfRegistered'>;
+    bulk: Pick<BulkService, 'drain'>;
   },
 ): Record<string, JobHandler> {
   return {
+    // One-shot, inside the batch's own organisation (the loop enters it from the stamped payload).
+    bulk_send: async (payload) => { await deps.bulk.drain((payload as { planId: string }).planId); },
     // Every hour: backfill any customer payment whose confirmation Safaricom never delivered.
     // Every 10 minutes: a held send nobody decided on within a day is refused by the clock (M4).
     approvals_expire: async () => { await forEachOrg(deps.db, async () => { await deps.moneyOut.expireApprovals(); }); },

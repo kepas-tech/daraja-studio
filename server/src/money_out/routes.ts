@@ -169,3 +169,22 @@ export function approvalRoutes(deps: AppDeps): Router {
   });
   return r;
 }
+
+/** M5. Check is free of side effects; create and retry move money, so they take the password. */
+export function bulkRoutes(deps: AppDeps): Router {
+  const r = Router();
+  const text = z.object({ text: z.string().max(200_000) });
+  const create = text.extend({ category: z.string().trim().min(1).max(40).optional() });
+  r.post('/check', requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'bulk.send'), async (req, res, next) => { try { res.json(deps.bulk.check(parse(text, req.body).text)); } catch (e) { next(e); } });
+  r.post('/', requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'bulk.send'), requireMoneyReady(deps), requireStepUp(deps.db), async (req, res, next) => {
+    try { const b = parse(create, req.body); res.status(201).json(await deps.bulk.create(b.text, b.category, { personId: req.person!.id, ip: clientIp(req) })); } catch (e) { next(e); }
+  });
+  r.get('/', requireAuth(deps.db), requirePermission(deps.db, 'bulk.send'), async (_req, res, next) => { try { res.json({ items: await deps.bulk.list() }); } catch (e) { next(e); } });
+  r.get('/:id', requireAuth(deps.db), requirePermission(deps.db, 'bulk.send'), async (req, res, next) => {
+    try { if (!isUuid(String(req.params.id))) throw new HttpError(404, 'not_found', 'That batch does not exist.'); res.json(await deps.bulk.get(String(req.params.id))); } catch (e) { next(e); }
+  });
+  r.post('/:id/retry', requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'bulk.send'), requireMoneyReady(deps), requireStepUp(deps.db), async (req, res, next) => {
+    try { if (!isUuid(String(req.params.id))) throw new HttpError(404, 'not_found', 'That batch does not exist.'); res.json(await deps.bulk.retry(String(req.params.id), { personId: req.person!.id, ip: clientIp(req) })); } catch (e) { next(e); }
+  });
+  return r;
+}

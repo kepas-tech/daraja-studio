@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.11.0 — bulk send
+
+- Bulk send: paste a list or upload a CSV (phone, amount, name, note), check it, and send it with
+  one password. Every row is checked before anything moves; each row then goes out in turn as an
+  ordinary send, so the duplicate guard, the cap and the approval hold all apply; a failed row never
+  stops the rest. The batch page shows every row live, offers Retry for rows the studio refused
+  before Safaricom, and a results download. New: `POST /api/send/bulk/check`, `POST /api/send/bulk`,
+  `GET /api/send/bulk`, `GET /api/send/bulk/:id`, `POST /api/send/bulk/:id/retry`.
+
 ## 0.10.0 — a second pair of eyes
 
 - Waiting for approval: Settings › Approvals holds any send at or above an amount you set until a

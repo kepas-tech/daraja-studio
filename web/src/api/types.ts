@@ -82,6 +82,15 @@ export interface RequestView {
   checked: { by: { id: string; displayName: string } | null; at: string; note: string } | null;
   createdBy: { id: string; displayName: string } | null;
   approvedBy?: { id: string; displayName: string } | null;
+  bulkPlanId?: string | null;
+}
+export interface BulkRow { line: number; phone: string; amountCents: number; name: string | null; note: string | null }
+export interface BulkCheck { rows: BulkRow[]; errors: { line: number; message: string }[]; count: number; totalCents: number }
+export interface BulkResult { requestId?: string; status: string; error?: string; retriable?: boolean }
+export interface BulkPlanView {
+  id: string; category: string | null; rowCount: number; totalCents: number; status: 'sending' | 'done' | 'partly_done';
+  createdAt: string; finishedAt: string | null; createdBy: { id: string; displayName: string } | null;
+  rows: (BulkRow & { index: number; result: BulkResult | null; receipt: string | null; liveStatus: string | null })[];
 }
 export interface MoneyInView {
   mode: 'sandbox' | 'production'; c2bRegisteredAt: string | null; pullRegisteredAt: string | null; pullCheckedAt: string | null;

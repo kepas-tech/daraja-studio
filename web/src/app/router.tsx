@@ -23,6 +23,7 @@ import { Reverse } from '../pages/Reverse';
 import { Account } from '../pages/Account';
 import { MoneyIn } from '../pages/MoneyIn';
 import { Approvals } from '../pages/Approvals';
+import { Bulk, BulkDetail } from '../pages/Bulk';
 
 function Gate() {
   const s = useSession();
@@ -60,6 +61,8 @@ function Gate() {
         <Route path="/reverse" element={<Reverse />} />
         <Route path="/money-in" element={<MoneyIn />} />
         <Route path="/approvals" element={<Approvals />} />
+        <Route path="/bulk" element={<Bulk />} />
+        <Route path="/bulk/:id" element={<BulkDetail />} />
         <Route path="/history" element={<History />} />
         <Route path="/requests/:id" element={<RequestDetail />} />
         {copy.nav.filter((e) => !e.available).map((e) => <Route key={e.key} path={e.path} element={<ComingSoon />} />)}

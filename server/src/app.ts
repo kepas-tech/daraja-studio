@@ -39,7 +39,8 @@ import { orgRoutes } from './orgs/routes.js';
 import { collectRoutes } from './collect/routes.js';
 import type { CollectService } from './collect/service.js';
 import { moneyInRoutes } from './money_in/routes.js';
-import { approvalRoutes } from './money_out/routes.js';
+import { approvalRoutes, bulkRoutes } from './money_out/routes.js';
+import type { BulkService } from './money_out/bulk.js';
 import type { MoneyInService } from './money_in/service.js';
 import { c2bConfirmHandler, c2bValidateHandler } from './callbacks/c2b.js';
 import type { Scheduler } from './scheduler/loop.js';
@@ -61,6 +62,8 @@ export interface AppDeps {
   collect: CollectService;
   /** M2: money that arrives without a request; registration, the pull check and the page's reads. */
   moneyIn: MoneyInService;
+  /** M5: batches over ordinary sends. */
+  bulk: BulkService;
   /** Present at boot; absent in tests that build the app without a scheduler. */
   scheduler?: Pick<Scheduler, 'lastTickAt'>;
   /** The fetch every Safaricom-facing call goes through. Set only by the local demo and the tests. */
@@ -120,6 +123,7 @@ export function buildApp(deps: AppDeps): express.Express {
   app.use('/api/collect', collectRoutes(deps));
   app.use('/api/money-in', moneyInRoutes(deps));
   app.use('/api/approvals', approvalRoutes(deps));
+  app.use('/api/send/bulk', bulkRoutes(deps));
   app.use('/api/requests', requestRoutes(deps));
   app.use('/api/balances', balanceRoutes(deps));
   app.use('/api/lookup', lookupRoutes(deps));

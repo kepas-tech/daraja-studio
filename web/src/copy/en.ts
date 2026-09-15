@@ -44,7 +44,7 @@ export const copy = {
   nav: Object.assign([
     { key: 'home', label: 'Home', safaricom: null, path: '/', icon: 'home', group: 'home', phase: 1, available: true },
     { key: 'send', label: 'Send money', safaricom: 'Initiate Transaction', path: '/send', icon: 'arrow-right-circle', group: 'money', phase: 2, available: true },
-    { key: 'bulk', label: 'Bulk send', safaricom: 'Bulk Task › Bulk Payment', path: '/bulk', icon: 'document-list', group: 'money', phase: 5, available: false },
+    { key: 'bulk', label: 'Bulk send', safaricom: 'Bulk Task › Bulk Payment', path: '/bulk', icon: 'document-list', group: 'money', phase: 5, available: true },
     { key: 'reverse', label: 'Reverse a payment', safaricom: 'Reversal', path: '/reverse', icon: 'arrow-left-circle', group: 'money', phase: 2, available: true },
     { key: 'money-in', label: 'Money in', safaricom: null, path: '/money-in', icon: 'arrow-down-circle', group: 'money', phase: 3, available: true },
     { key: 'stk', label: 'Ask a customer to pay', safaricom: 'STK Push', path: '/ask-to-pay', icon: 'cellphone', group: 'money', phase: 3, available: true },
@@ -218,6 +218,17 @@ export const copy = {
     empty: 'Nothing here yet.', loadMore: 'Load more', previous: 'Previous', next: 'Next', page: (n: number) => `Page ${n}`,
     columns: { when: 'When', what: 'What', to: 'To', amount: 'Amount', status: 'Status', receipt: 'Receipt' },
     direction: 'Direction', directions: { all: 'In and out', in: 'Money in', out: 'Money out' } as Record<string, string>,
+  },
+  bulk: {
+    title: 'Bulk send', safaricom: 'Bulk Task › Bulk Payment',
+    intro: 'One line per person: phone, amount, name, note. The first two are needed. Paste from a spreadsheet, or upload a CSV file. Nothing is sent until every line passes the check.',
+    newBatch: 'New batch', paste: 'The list', upload: 'Upload a file', template: 'Download a template', check: 'Check the list', checking: 'Checking…',
+    problems: (n: number) => `${n} line${n === 1 ? '' : 's'} need${n === 1 ? 's' : ''} fixing. Nothing was sent.`, ok: (n: number, total: string) => `${n} payment${n === 1 ? '' : 's'}, ${total} in total. Ready to send.`,
+    line: (n: number) => `Line ${n}:`, send: 'Send them all', confirm: (n: number, total: string) => `Send ${n} payments, ${total} in total?`, queued: 'Queued. Each row is sent in turn.',
+    batches: 'Batches', none: 'No batches yet.', batchName: (n: number, total: string) => `${n} payments, ${total}`, back: 'All batches',
+    status: { sending: 'Sending', done: 'Done', partly_done: 'Some failed' } as Record<string, string>, queuedRow: 'Queued',
+    retry: 'Try the failed rows again', confirmRetry: 'Send the failed rows again?', download: 'Download results',
+    columns: { phone: 'Phone', name: 'Name', amount: 'Amount', note: 'Note', status: 'Status' },
   },
   approvals: {
     title: 'Waiting for approval', safaricom: 'Review Transaction',

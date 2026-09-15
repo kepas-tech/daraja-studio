@@ -16,6 +16,7 @@ export interface RequestRow {
   result_at: Date | null; result_source: 'callback' | 'poll' | 'ack' | null; result_code: string | null; result_desc: string | null; meaning: string | null;
   retriable: boolean | null; receipt: string | null; raw_result_json: unknown; poll_attempts: number; last_poll_at: Date | null;
   checked_by: string | null; checked_at: Date | null; checked_note: string | null;
+  bulk_plan_id?: string | null;
 }
 
 export interface ParsedResult {

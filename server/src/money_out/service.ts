@@ -19,7 +19,7 @@ import { KINDS, MONEY_TYPES, type CallbackUrls, type RequestKind, type RequestRo
 import { failOperatorOnCredentialCode } from './operatorHealth.js';
 import { getRequest, listRequests, type Page, type RequestView } from './reads.js';
 
-export interface SendInput { phone: string; amountCents: number; commandId: 'BusinessPayment' | 'SalaryPayment' | 'PromotionPayment'; category?: string; remarks?: string; occasion?: string; confirmDuplicate?: boolean }
+export interface SendInput { phone: string; amountCents: number; commandId: 'BusinessPayment' | 'SalaryPayment' | 'PromotionPayment'; category?: string; remarks?: string; occasion?: string; confirmDuplicate?: boolean; /** M5: the batch this row belongs to; never accepted from a client. */ bulk?: { planId: string; index: number } }
 export interface Actor { personId: string; ip: string }
 export interface MoneyOutService {
   send(input: SendInput, actor: Actor): Promise<RequestView>;
@@ -332,9 +332,9 @@ export function createMoneyOutService(deps: { db: Db; settings: Settings; daraja
           if (dup.rows[0]) throw new HttpError(409, 'duplicate_recent', 'You sent this already. Send it again?', { requestId: dup.rows[0].id, at: dup.rows[0].created_at.toISOString() });
         }
         const { rows } = await c.query<RequestRow>(
-          `INSERT INTO requests(type, subtype, originator_conversation_id, status, amount_cents, currency, recipient_kind, recipient_value, remarks, payload_json, created_by, operator_id)
-           VALUES ($1,$2,$3,'pending',$4,'KES','phone',$5,$6,$7::jsonb,$8,$9) RETURNING *`,
-          [kind.type, commandId, randomUUID(), input.amountCents, phone, input.remarks ?? null, JSON.stringify({ occasion: input.occasion ?? null, category }), actor.personId, operatorId]);
+          `INSERT INTO requests(type, subtype, originator_conversation_id, status, amount_cents, currency, recipient_kind, recipient_value, remarks, payload_json, created_by, operator_id, bulk_plan_id)
+           VALUES ($1,$2,$3,'pending',$4,'KES','phone',$5,$6,$7::jsonb,$8,$9,$10) RETURNING *`,
+          [kind.type, commandId, randomUUID(), input.amountCents, phone, input.remarks ?? null, JSON.stringify({ occasion: input.occasion ?? null, category, ...(input.bulk ? { bulkIndex: input.bulk.index } : {}) }), actor.personId, operatorId, input.bulk?.planId ?? null]);
         const r = rows[0];
         await c.query(
           `INSERT INTO audit_log(person_id, action, target, before_json, after_json, ip) VALUES ($1,$2,$3,$4::jsonb,$5::jsonb,$6)`,

@@ -47,7 +47,7 @@ Status values are exactly `live`, `building`, or `planned`. One slice is `buildi
 | 1 | Home | `home` | live | — | shipped before 0.4.0 |
 | 2 | Balances | `balances` | live | — | shipped in 2A; merged into Home in 0.8.0 (no menu item, `/balances` opens Home) |
 | 3 | Send money | `send` | live | 2A | phone sends only; other send types tracked below |
-| 4 | Bulk send | `bulk` | planned | M5 | — |
+| 4 | Bulk send | `bulk` | live | M5 | 0.11.0, deployed 2026-09-16 |
 | 5 | Look up a payment | `lookup` | live | — | shipped in 2A; merged into History in 0.8.0 (no menu item, `/lookup` opens History) |
 | 6 | Reverse a payment | `reverse` | live | M3 | shipped 2026-09-14 |
 | 7 | Money in | `money-in` | live | M2 | 0.9.0, deployed 2026-09-16 |
@@ -63,7 +63,7 @@ Status values are exactly `live`, `building`, or `planned`. One slice is `buildi
 | 17 | Settings | `settings` | live | — | shipped before 0.4.0 |
 | 18 | Not possible via API | `not-possible` | live | — | 15 explanation cards |
 
-**13 of 18 live (two of them folded into Home and History). 5 to build.** Each slice below removes exactly one Coming soon label.
+**14 of 18 live (two of them folded into Home and History). 4 to build.** Each slice below removes exactly one Coming soon label.
 
 ## Send types inside Send money
 
@@ -154,10 +154,18 @@ operator then; `refuse` records who and why; `approvals_expire` refuses held row
 permission `send.approve` and the Approver role preset (migration 021); routes under
 /api/approvals; the Waiting for approval page and a count badge on the menu.
 
-### M5 — Bulk send · ours, over the existing phone send
+### M5 — Bulk send · ours, over the existing phone send — DONE 2026-09-16
 Payroll and supplier runs. A list is validated before anything is sent, then sent one at a time down
 the same path a single send uses. Every row is an ordinary request row from the start, so a batch is
 a grouping and never a special path that bypasses the duplicate guard or the send cap.
+
+What shipped: `money_out/bulkParse.ts` (phone, amount, name, note; comma or tab; quotes; header;
+in-batch duplicates; whole shillings) and `money_out/bulk.ts`; the `bulk_plans` table (migration
+022) holds the checked rows and each row's outcome; the `bulk_send` job sends rows in order through
+`moneyOut.send()` (duplicate guard, cap, approval hold and three-line errors are a single send's),
+records a refusal and goes on, and is safe to re-run; Retry re-queues rows refused before Safaricom
+for a passing reason; routes under /api/send/bulk; the Bulk send page (paste or upload, check,
+preview, one password) and the batch page with live per-row status and a results download.
 
 ### M6 — QR codes · `qr.generate` — DONE 2026-09-14
 A payload the customer scans to pay. Cheap, and genuinely useful at a counter or for a rider.

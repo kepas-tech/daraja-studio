@@ -15,6 +15,8 @@ export interface RequestView {
   createdBy: { id: string; displayName: string } | null;
   /** M4: who released or refused a held send. */
   approvedBy: { id: string; displayName: string } | null;
+  /** M5: the batch this send was part of. */
+  bulkPlanId: string | null;
 }
 
 export type ViewRow = RequestRow & { created_by_name?: string | null; checked_by_name?: string | null; approved_by_name?: string | null; approved_by?: string | null; created_cursor?: string };
@@ -77,6 +79,7 @@ export function toView(row: ViewRow, egressIps: string[] = []): RequestView {
     checked: row.checked_at ? { by: row.checked_by ? { id: row.checked_by, displayName: row.checked_by_name ?? '' } : null, at: row.checked_at.toISOString(), note: row.checked_note ?? '' } : null,
     createdBy: row.created_by ? { id: row.created_by, displayName: row.created_by_name ?? '' } : null,
     approvedBy: row.approved_by ? { id: row.approved_by, displayName: row.approved_by_name ?? '' } : null,
+    bulkPlanId: row.bulk_plan_id ?? null,
   };
 }
 
