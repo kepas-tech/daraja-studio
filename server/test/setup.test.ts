@@ -112,7 +112,9 @@ describe('setup wizard', () => {
     expect(st.body.passkeyProven).toBe(true);
     expect(st.body.step).toBe('operator');
 
-    expect((await h(request(app).post('/api/setup/complete'))).status).toBe(409);
+    const early = await h(request(app).post('/api/setup/complete'));
+    expect(early.status).toBe(409);
+    expect(early.body.error.details).toEqual({ step: 'operator' });
     await h(request(app).post('/api/setup/operator')).send({ name: 'KEPAS', credential: OPERATOR_CREDENTIAL });
     // The operator's own probe is asynchronous — it waits for a real balance callback, which is
     // operators.test.ts's job to exercise. Here only /complete's own gating is under test, so the

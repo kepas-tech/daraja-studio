@@ -292,7 +292,6 @@ export const copy = {
       password: 'Operator password',
       cert: 'Safaricom certificate (paste the .cer text)',
       add: 'Add and test',
-      skip: 'Skip for now',
       pending: 'Testing with a balance query…',
       verified: 'Verified. This operator can move money.',
       failed: 'Safaricom rejected this operator.',
@@ -308,7 +307,7 @@ export const copy = {
       hint: 'Change it only if people reach this studio through a different domain.',
       notThis: 'That address is not this studio. Enter the address you use to open this studio.',
     },
-    done: { title: 'All set', body: 'Your studio is ready.', finish: 'Finish' },
+    done: { title: 'All set', body: 'Your studio is ready.', finish: 'Finish', notYet: 'One step is not finished.', goFix: 'Go to that step' },
     next: 'Next', back: 'Back',
   },
   settings: {
