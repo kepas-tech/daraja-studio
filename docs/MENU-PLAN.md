@@ -4,7 +4,7 @@
 It is tracked in git and published, so any person, session or model can read it and know exactly
 where the project stands without asking anyone.
 
-Last updated 2026-09-15.
+Last updated 2026-09-16.
 
 ## The commitment
 
@@ -50,7 +50,7 @@ Status values are exactly `live`, `building`, or `planned`. One slice is `buildi
 | 4 | Bulk send | `bulk` | planned | M5 | — |
 | 5 | Look up a payment | `lookup` | live | — | shipped in 2A; merged into History in 0.8.0 (no menu item, `/lookup` opens History) |
 | 6 | Reverse a payment | `reverse` | live | M3 | shipped 2026-09-14 |
-| 7 | Money in | `money-in` | planned | M2 | — |
+| 7 | Money in | `money-in` | live | M2 | 0.9.0, deployed 2026-09-16 |
 | 8 | Ask a customer to pay | `stk` | live | M1 | shipped 2026-09-14 |
 | 9 | QR codes | `qr` | live | M6 | shipped 2026-09-14 |
 | 10 | Invoices | `invoices` | planned | M7 | — |
@@ -63,7 +63,7 @@ Status values are exactly `live`, `building`, or `planned`. One slice is `buildi
 | 17 | Settings | `settings` | live | — | shipped before 0.4.0 |
 | 18 | Not possible via API | `not-possible` | live | — | 15 explanation cards |
 
-**11 of 18 live (two of them folded into Home and History). 7 to build.** Each slice below removes exactly one Coming soon label.
+**12 of 18 live (two of them folded into Home and History). 6 to build.** Each slice below removes exactly one Coming soon label.
 
 ## Send types inside Send money
 
@@ -110,11 +110,18 @@ send route — nothing leaves the organisation's accounts.
 row waits for its callback or for a human. That is the honest state, not an oversight, and it is the
 first thing M2 should pick up.
 
-### M2 — Money in · `c2b.registerUrls`, C2B confirmations, `pull.query`
+### M2 — Money in · `c2b.registerUrls`, C2B confirmations, `pull.query` — DONE 2026-09-16
 Customers paying the shortcode directly by paybill or till, without being asked. Registering the
 confirmation address happens once per shortcode and must be idempotent and re-runnable, because
 Safaricom silently keeps the first registration. `pull.query` backfills anything a missed
 confirmation lost.
+
+What shipped: `server/src/money_in/` (record, service, routes) and `callbacks/c2b.ts`; the Money
+in page with Turn on (owner, step-up; registers the C2B addresses and the Pull address), Check
+for missed payments, and the latest twenty; `c2b_pull` every hour; History's direction filter.
+Every payment is accepted at validation (owner decision). One row per receipt whichever way it
+arrived: an advisory lock on the receipt serialises a callback racing the check. `c2b` is in
+`LEDGER_TYPES` only: never polled, never a send. Design: `docs/design/2026-09-16-planned-features-design.md`.
 
 ### M3 — Reverse a payment · `reversal.request` — DONE 2026-09-14
 One call; the care is entirely in the rules. A reversal is irreversible, needs the receipt of a

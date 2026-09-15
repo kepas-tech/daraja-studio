@@ -80,5 +80,9 @@ export interface RequestView {
   checked: { by: { id: string; displayName: string } | null; at: string; note: string } | null;
   createdBy: { id: string; displayName: string } | null;
 }
+export interface MoneyInView {
+  mode: 'sandbox' | 'production'; c2bRegisteredAt: string | null; pullRegisteredAt: string | null; pullCheckedAt: string | null;
+  nominatedNumber: string | null; publicVerified: boolean;
+}
 export interface BalanceView { workingCents: number | null; utilityCents: number | null; chargesPaidCents: number | null; queriedAt: string }
 export interface Page<T> { items: T[]; nextCursor: string | null }

@@ -16,6 +16,7 @@ import { createOperatorService } from './operators/service.js';
 import { createSettingsService } from './settings/service.js';
 import { createMoneyOutService } from './money_out/service.js';
 import { createCollectService } from './collect/service.js';
+import { createMoneyInService } from './money_in/service.js';
 import { createScheduler } from './scheduler/loop.js';
 import { ensureRecurring } from './db/jobs.js';
 import { buildHandlers } from './scheduler/handlers.js';
@@ -86,15 +87,17 @@ async function main() {
   const settingsService = createSettingsService({ db, config, settings, instance, cache, daraja, operators, orgs });
   const moneyOut = createMoneyOutService({ db, settings, daraja, events, config, orgs });
   const collect = createCollectService({ db, settings, daraja, events, config, orgs });
+  const moneyIn = createMoneyInService({ db, settings, daraja, events, orgs });
 
   await events.start();
   await ensureRecurring(db, 'money_out_sweep', 30);
   await ensureRecurring(db, 'housekeeping', 3600);
   await ensureRecurring(db, 'daily', 86400);
-  const scheduler = createScheduler(db, buildHandlers({ db, events, settings, moneyOut, operators }));
+  await ensureRecurring(db, 'c2b_pull', 3600);
+  const scheduler = createScheduler(db, buildHandlers({ db, events, settings, moneyOut, operators, moneyIn }));
   scheduler.start();
 
-  const app = buildApp({ config, db, keyring, orgs, settings, instance, cache, events, daraja, operators, settingsService, moneyOut, collect, fetchImpl, scheduler });
+  const app = buildApp({ config, db, keyring, orgs, settings, instance, cache, events, daraja, operators, settingsService, moneyOut, collect, moneyIn, fetchImpl, scheduler });
   const listenFallback = db.getFallbackOrg();
   const envLabel = listenFallback
     ? await withOrg(listenFallback, async () => (await settings.get('daraja.environment')) ?? 'sandbox')

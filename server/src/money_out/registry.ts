@@ -89,7 +89,9 @@ export const BILLABLE_SEND_TYPES: string[] = Object.entries(KINDS).filter(([, k]
 export const COLLECT_KINDS: Record<string, RequestKind> = { stk };
 export const COLLECT_TYPES: string[] = Object.keys(COLLECT_KINDS);
 /** Everything the tenant should see in History, whichever direction the money moved. */
-export const LEDGER_TYPES: string[] = [...MONEY_TYPES, ...COLLECT_TYPES];
+/** Money that arrives without a request from us (M2): read by History, never polled, never a send. */
+export const MONEY_IN_TYPES: string[] = ['c2b'];
+export const LEDGER_TYPES: string[] = [...MONEY_TYPES, ...COLLECT_TYPES, ...MONEY_IN_TYPES];
 
 /** Every kind that answers on one callback path, in either direction. The callback resolves the row
  * first, then checks the row's kind is actually one of these — a result posted to the wrong path is

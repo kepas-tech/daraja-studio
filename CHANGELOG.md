@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.0 — money in
+
+- Money in: customers paying your paybill or till from their own phone now land in History and on
+  the new Money in page. Turn on once (owner, password) to register the confirmation address with
+  Safaricom; the studio checks every hour for any payment whose confirmation never arrived, and a
+  button does the same on demand. New: `GET /api/money-in/status`, `GET /api/money-in/recent`,
+  `POST /api/money-in/register`, `POST /api/money-in/check`; callbacks `/cb/<secret>/c2b/validate`
+  and `/cb/<secret>/c2b/confirm`.
+- History has a direction filter: in and out, money in, money out.
+
 ## 0.8.1 — a wizard you can walk back through
 
 - Back keeps your answers: every step starts from what was saved (environment, what you need,

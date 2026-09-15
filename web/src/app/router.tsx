@@ -21,6 +21,7 @@ import { Qr } from '../pages/Qr';
 import { AskToPay } from '../pages/AskToPay';
 import { Reverse } from '../pages/Reverse';
 import { Account } from '../pages/Account';
+import { MoneyIn } from '../pages/MoneyIn';
 
 function Gate() {
   const s = useSession();
@@ -56,6 +57,7 @@ function Gate() {
         <Route path="/qr" element={<Qr />} />
         <Route path="/ask-to-pay" element={<AskToPay />} />
         <Route path="/reverse" element={<Reverse />} />
+        <Route path="/money-in" element={<MoneyIn />} />
         <Route path="/history" element={<History />} />
         <Route path="/requests/:id" element={<RequestDetail />} />
         {copy.nav.filter((e) => !e.available).map((e) => <Route key={e.key} path={e.path} element={<ComingSoon />} />)}

@@ -1,0 +1,83 @@
+import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { MoneyIn } from '../pages/MoneyIn';
+import { History } from '../pages/History';
+import { copy } from '../copy/en';
+
+class FakeEventSource {
+  listeners: Record<string, EventListener[]> = {};
+  onopen: (() => void) | null = null;
+  addEventListener(type: string, cb: EventListener) { (this.listeners[type] ??= []).push(cb); }
+  close() {}
+}
+vi.stubGlobal('EventSource', FakeEventSource);
+vi.mock('../app/session', () => ({ useSession: () => ({ status: 'ready', person: { id: 'p1', display_name: 'Owner', is_owner: true }, org: null, permissions: [], refresh: async () => {} }) }));
+afterEach(() => cleanup());
+
+const status = (over: Record<string, unknown> = {}) => ({ mode: 'sandbox', c2bRegisteredAt: null, pullRegisteredAt: null, pullCheckedAt: null, nominatedNumber: '254700000000', publicVerified: true, ...over });
+const row = { id: 'r1', type: 'c2b', subtype: 'Pay Bill', status: 'completed', amountCents: 25000, currency: 'KES', recipient: { kind: 'phone', value: '254700123456', name: 'Jane Doe' }, remarks: null, receipt: 'RC00000001', category: null, createdAt: '2026-09-16T07:15:30Z', sentAt: '2026-09-16T07:15:30Z', resultAt: '2026-09-16T07:15:31Z', resultSource: 'callback', safaricomSaid: 'Completed', meaning: null, whatToDo: null, retriable: false, pollAttempts: 0, checked: null, createdBy: null };
+
+function fetchFor(handlers: Record<string, (init?: RequestInit) => Response>) {
+  return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const key = `${init?.method ?? 'GET'} ${String(input)}`;
+    const h = handlers[key];
+    if (!h) throw new Error(`unexpected fetch ${key}`);
+    return h(init);
+  });
+}
+
+describe('Money in', () => {
+  it('shows not turned on, and Turn on asks for the password then posts the registration', async () => {
+    let posted: unknown = null;
+    vi.stubGlobal('fetch', fetchFor({
+      'GET /api/money-in/status': () => new Response(JSON.stringify(status()), { status: 200 }),
+      'GET /api/money-in/recent': () => new Response(JSON.stringify({ items: [], nextCursor: null }), { status: 200 }),
+      'POST /api/money-in/register': (init) => { posted = JSON.parse(String(init?.body)); return new Response(JSON.stringify(status({ c2bRegisteredAt: '2026-09-16T07:00:00Z', pullRegisteredAt: '2026-09-16T07:00:00Z' })), { status: 200 }); },
+    }));
+    render(<MemoryRouter><MoneyIn /></MemoryRouter>);
+    await screen.findByText(copy.moneyIn.notRegistered);
+    expect(screen.getByText(copy.moneyIn.empty)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: copy.moneyIn.turnOn }));
+    await screen.findByText(copy.moneyIn.confirmTurnOn);
+    fireEvent.change(screen.getByLabelText(copy.confirm.yourPassword), { target: { value: 'correct horse' } });
+    fireEvent.click(screen.getByRole('button', { name: copy.confirm.confirm }));
+    await waitFor(() => expect(posted).toEqual({ password: 'correct horse' }));
+    await screen.findByText(/On since/);
+    expect(screen.getByRole('button', { name: copy.moneyIn.turnOnAgain })).toBeInTheDocument();
+  });
+
+  it('once on, Check for missed payments posts and reports what it found, and the latest list shows payments', async () => {
+    vi.stubGlobal('fetch', fetchFor({
+      'GET /api/money-in/status': () => new Response(JSON.stringify(status({ c2bRegisteredAt: '2026-09-16T07:00:00Z', pullRegisteredAt: '2026-09-16T07:00:00Z' })), { status: 200 }),
+      'GET /api/money-in/recent': () => new Response(JSON.stringify({ items: [row], nextCursor: null }), { status: 200 }),
+      'POST /api/money-in/check': () => new Response(JSON.stringify({ found: 2, checkedAt: '2026-09-16T08:00:00Z' }), { status: 200 }),
+    }));
+    render(<MemoryRouter><MoneyIn /></MemoryRouter>);
+    await screen.findByText('Jane Doe');
+    expect(screen.getByText('RC00000001')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: copy.moneyIn.check }));
+    await screen.findByText(copy.moneyIn.found(2));
+  });
+
+  it('cannot be turned on until the public address is tested', async () => {
+    vi.stubGlobal('fetch', fetchFor({
+      'GET /api/money-in/status': () => new Response(JSON.stringify(status({ publicVerified: false })), { status: 200 }),
+      'GET /api/money-in/recent': () => new Response(JSON.stringify({ items: [], nextCursor: null }), { status: 200 }),
+    }));
+    render(<MemoryRouter><MoneyIn /></MemoryRouter>);
+    await screen.findByText(copy.moneyIn.needsAddress);
+    expect(screen.getByRole('button', { name: copy.moneyIn.turnOn })).toBeDisabled();
+  });
+});
+
+describe('History › direction', () => {
+  it('filters money in by type', async () => {
+    const urls: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => { urls.push(String(input)); return new Response(JSON.stringify({ items: [row], nextCursor: null }), { status: 200 }); }));
+    render(<MemoryRouter><History /></MemoryRouter>);
+    await screen.findByText(copy.request.type.c2b);
+    fireEvent.change(screen.getByLabelText(copy.history.direction), { target: { value: 'in' } });
+    await waitFor(() => expect(urls.some((u) => u.includes('type=c2b%2Cstk'))).toBe(true));
+  });
+});

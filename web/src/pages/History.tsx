@@ -16,10 +16,12 @@ import { money, phone, when } from '../format';
 
 const PAGE = 7;
 const STATUSES = ['completed', 'sent', 'failed', 'unknown', 'pending', 'cancelled'];
+/** Which way the money moved. Types are named here, not on the server, so the filter is one query param. */
+const DIRECTION_TYPES: Record<string, string> = { in: 'c2b,stk', out: 'b2c,reversal' };
 
 export function History() {
   const toast = useToast();
-  const [q, setQ] = useState(''); const [from, setFrom] = useState(''); const [to, setTo] = useState(''); const [status, setStatus] = useState('');
+  const [q, setQ] = useState(''); const [from, setFrom] = useState(''); const [to, setTo] = useState(''); const [status, setStatus] = useState(''); const [direction, setDirection] = useState('');
   const [items, setItems] = useState<RequestView[]>([]); const [next, setNext] = useState<string | null>(null); const [loaded, setLoaded] = useState(false);
   // Keyset paging is forward-only on the server; Previous is the stack of cursors we came through.
   const [stack, setStack] = useState<string[]>([]);
@@ -58,11 +60,11 @@ export function History() {
   const params = useCallback((c?: string | null) => {
     const p = new URLSearchParams();
     p.set('limit', String(PAGE));
-    if (q.trim()) p.set('q', q.trim()); if (from) p.set('from', from); if (to) p.set('to', to); if (status) p.set('status', status); if (c) p.set('cursor', c);
+    if (q.trim()) p.set('q', q.trim()); if (from) p.set('from', from); if (to) p.set('to', to); if (status) p.set('status', status); if (direction && DIRECTION_TYPES[direction]) p.set('type', DIRECTION_TYPES[direction]); if (c) p.set('cursor', c);
     return p.toString();
-  }, [q, from, to, status]);
+  }, [q, from, to, status, direction]);
   // A filter change starts again from the first page.
-  useEffect(() => { setStack([]); }, [q, from, to, status]);
+  useEffect(() => { setStack([]); }, [q, from, to, status, direction]);
   useEffect(() => {
     const t = setTimeout(() => { api.get<Page<RequestView>>(`/api/requests?${params(cursor)}`).then((r) => { setItems(r.items); setNext(r.nextCursor); setLoaded(true); }).catch(() => setLoaded(true)); }, 200);
     return () => clearTimeout(t);
@@ -76,6 +78,9 @@ export function History() {
           <input aria-label={copy.history.search} placeholder={copy.history.searchPlaceholder} className={`${control} min-w-52 flex-1`} value={q} onChange={(e) => setQ(e.target.value)} />
           <input aria-label={copy.history.from} type="date" className={control} value={from} onChange={(e) => setFrom(e.target.value)} />
           <input aria-label={copy.history.to} type="date" className={control} value={to} onChange={(e) => setTo(e.target.value)} />
+          <select aria-label={copy.history.direction} className={control} value={direction} onChange={(e) => setDirection(e.target.value)}>
+            {Object.entries(copy.history.directions).map(([k, label]) => <option key={k} value={k === 'all' ? '' : k}>{label}</option>)}
+          </select>
           <select aria-label={copy.history.status} className={control} value={status} onChange={(e) => setStatus(e.target.value)}>
             <option value="">{copy.history.any}</option>
             {STATUSES.map((s) => <option key={s} value={s}>{copy.request.status[s] ?? s}</option>)}

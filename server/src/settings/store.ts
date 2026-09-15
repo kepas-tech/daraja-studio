@@ -14,7 +14,9 @@ type EnvSlotKey = 'shortcode' | 'consumerKey' | 'consumerSecret' | 'credsVerifie
   // any other way: no read-only Daraja call uses it, so the only proof it is right is Safaricom
   // accepting a push. Until this is set, the passkey is stored but unproven, and nothing may claim
   // "Ask a customer to pay" works.
-  | 'passkeyProvenAt';
+  | 'passkeyProvenAt'
+  // Money in (M2): when the C2B addresses and the Pull address were registered, and the last check.
+  | 'c2bRegisteredAt' | 'pullRegisteredAt' | 'pullCheckedAt';
 export type EnvSettingKey = `env.${Env}.${EnvSlotKey}`;
 
 export type SettingKey =

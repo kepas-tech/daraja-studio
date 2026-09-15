@@ -32,6 +32,8 @@ export interface FakeSafaricom {
    * case, distinct from a transport failure. Persists across calls; cleared by `reset()`.
    */
   knowsShortcodeAs(name: string | null | false): void;
+  /** A customer pays the paybill. Posts the confirmation to the registered address unless `deliver` is false (a lost one, for the pull check to find). Returns the receipt. */
+  customerPays(p: { amount: number; phone: string; account: string; receipt?: string; deliver?: boolean }): Promise<string>;
   /**
    * The instant the fake reports as the payment's `TransactionDate` (Daraja sends East Africa Time
    * without a zone). `null` restores the default, twenty minutes before the callback is posted, so
@@ -81,6 +83,8 @@ export function createFakeSafaricom(opts: FakeSafaricomOptions): FakeSafaricom {
   // Keyed by OriginatorConversationID. `phone` is a B2C-only detail: a reversal's entry has none.
   const sent = new Map<string, { receipt: string; amount: number; phone?: number }>();
   const stk = new Map<string, { receipt: string; amount: number; phone: number }>();     // by CheckoutRequestID
+  let c2bConfirmUrl: string | null = null;
+  const paid: { receipt: string; amount: number; phone: string; account: string; at: Date }[] = [];
   const calls: FakeSafaricom['calls'] = [];
 
   const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
@@ -289,6 +293,22 @@ export function createFakeSafaricom(opts: FakeSafaricomOptions): FakeSafaricom {
       return json({ ConversationID: conv, OriginatorConversationID: oc, ResponseCode: '0', ResponseDescription: ACCEPTED });
     }
 
+    if (path.endsWith('/registerurl')) {
+      c2bConfirmUrl = pathOf(String(body.ConfirmationURL ?? ''));
+      return json({ OriginatorCoversationID: `fake-c2b-${n}`, ResponseCode: '0', ResponseDescription: 'Success' });
+    }
+    if (path.endsWith('/pulltransactions/v1/register')) {
+      return json({ ResponseRefID: `fake-pull-${n}`, 'Response Status': '1000', ShortCode: body.ShortCode, 'Response Description': 'Short Code registered successfully' });
+    }
+    if (path.endsWith('/pulltransactions/v1/query')) {
+      const offset = Number(body.OffSetValue ?? 0);
+      const rows = paid.slice(offset, offset + 100).map((p) => ({
+        transactionId: p.receipt, trxDate: p.at.toISOString().replace('T', ' ').slice(0, 19), msisdn: p.phone, sender: 'JANE DOE',
+        transactiontype: 'c2b-pay-bill-debit', billreference: p.account, amount: String(p.amount), organizationname: 'KEPAS',
+      }));
+      return json({ ResponseRefID: `fake-pq-${n}`, ResponseCode: '1000', ResponseMessage: 'Success', Response: [rows] });
+    }
+
     if (path.endsWith('/sfcverify/v1/query/info')) {
       if (orgInfoName === null) {
         return json({ requestId: `fake-${n}`, errorCode: '500.001.1001', errorMessage: 'Service unavailable' }, 500);
@@ -318,7 +338,22 @@ export function createFakeSafaricom(opts: FakeSafaricomOptions): FakeSafaricom {
     refusesV3() { v3Refused = true; },
     knowsShortcodeAs(name) { orgInfoName = name; },
     dateAt(at) { fixedDate = at; },
-    reset() { scenario = 'completes'; sync = null; syncLost = false; v3Refused = false; orgInfoName = 'KEPAS TECHNOLOGIES'; fixedDate = null; calls.length = 0; queue.length = 0; sent.clear(); stk.clear(); utility = 34392; },
+    async customerPays({ amount, phone, account, receipt, deliver = true }) {
+      n += 1;
+      const id = receipt ?? `RC${String(n).padStart(8, '0')}`;
+      paid.push({ receipt: id, amount, phone, account, at: new Date() });
+      if (deliver && c2bConfirmUrl) {
+        const at = new Date(Date.now() + 3 * 3_600_000); const p = (v: number) => String(v).padStart(2, '0');
+        const transTime = `${at.getUTCFullYear()}${p(at.getUTCMonth() + 1)}${p(at.getUTCDate())}${p(at.getUTCHours())}${p(at.getUTCMinutes())}${p(at.getUTCSeconds())}`;
+        utility += amount;
+        await opts.post(c2bConfirmUrl, {
+          TransactionType: 'Pay Bill', TransID: id, TransTime: transTime, TransAmount: String(amount), BusinessShortCode: '600999', BillRefNumber: account,
+          InvoiceNumber: '', OrgAccountBalance: String(utility), ThirdPartyTransID: '', MSISDN: phone, FirstName: 'Jane', MiddleName: '', LastName: 'Doe',
+        });
+      }
+      return id;
+    },
+    reset() { scenario = 'completes'; sync = null; syncLost = false; v3Refused = false; orgInfoName = 'KEPAS TECHNOLOGIES'; fixedDate = null; calls.length = 0; queue.length = 0; sent.clear(); stk.clear(); utility = 34392; paid.length = 0; c2bConfirmUrl = null; },
     async settle() { while (queue.length) { const fn = queue.shift()!; await fn().catch(() => {}); } },
   };
 }

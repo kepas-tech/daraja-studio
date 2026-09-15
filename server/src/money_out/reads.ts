@@ -38,6 +38,7 @@ const scopeOf = (type: string): DarajaScope | null => {
   if (kind) return kind.scope;
   if (type === 'status_query') return 'status';
   if (type === 'balance') return 'balance';
+  if (type === 'c2b') return 'c2b';
   return null;
 };
 

@@ -14,6 +14,7 @@ import { createOperatorService } from '../src/operators/service.js';
 import { createSettingsService } from '../src/settings/service.js';
 import { createMoneyOutService } from '../src/money_out/service.js';
 import { createCollectService } from '../src/collect/service.js';
+import { createMoneyInService } from '../src/money_in/service.js';
 import { hashPassword } from '../src/auth/password.js';
 import type { DarajaFactory } from '../src/sdk/client.js';
 
@@ -136,9 +137,10 @@ export function makeApp(extra: { fetchImpl?: typeof fetch; daraja?: DarajaFactor
   const settingsService = createSettingsService({ ...base, daraja, operators, fetchImpl: extra.fetchImpl });
   const moneyOut = createMoneyOutService({ ...base, daraja, events });
   const collect = createCollectService({ ...base, daraja, events });
+  const moneyIn = createMoneyInService({ ...base, daraja, events });
   const deps: AppDeps = {
     ...base,
-    events, daraja, operators, settingsService, moneyOut, collect, fetchImpl: extra.fetchImpl,
+    events, daraja, operators, settingsService, moneyOut, collect, moneyIn, fetchImpl: extra.fetchImpl,
   };
   const app = buildApp(deps);
   return { app, deps, close: async () => { await base.db.end(); } };

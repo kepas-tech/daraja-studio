@@ -7,6 +7,7 @@ import { HttpError } from '../util/errors.js';
 import { audit } from '../audit/log.js';
 import { PASSWORD_EXPIRY_DAYS, type OperatorService } from '../operators/service.js';
 import type { OrgStatus } from '../orgs/service.js';
+import type { MoneyInService } from '../money_in/service.js';
 import type { JobHandler } from './loop.js';
 
 export const REQUEST_TIMEOUT_MEANING = 'No answer from Safaricom within 5 minutes. Try again.';
@@ -146,9 +147,12 @@ export function buildHandlers(
   deps: {
     db: Db; events: EventHub; settings: Settings; moneyOut: Pick<MoneyOutService, 'sweep' | 'refreshBalance'>;
     operators: Pick<OperatorService, 'timeoutHandler'>;
+    moneyIn: Pick<MoneyInService, 'checkMissedIfRegistered'>;
   },
 ): Record<string, JobHandler> {
   return {
+    // Every hour: backfill any customer payment whose confirmation Safaricom never delivered.
+    c2b_pull: async () => { await forEachOrg(deps.db, () => deps.moneyIn.checkMissedIfRegistered()); },
     operator_probe_timeout: deps.operators.timeoutHandler,
     request_timeout: requestTimeoutHandler({ db: deps.db, events: deps.events }),
     money_out_sweep: sweepHandler({ db: deps.db, moneyOut: deps.moneyOut }),
