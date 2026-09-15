@@ -70,7 +70,7 @@ describe('invoices', () => {
     // The fake only refuses money/status calls on rejectsSync; a Bill Manager refusal is a non-200 rescode, so simulate via a broken key instead.
     await deps.settings.set('env.sandbox.billManagerAppKey', '');
     expect((await h(request(app).post('/api/invoices')).send(INV)).status).toBe(409);
-    expect((await deps.db.query('SELECT 1 FROM invoices')).length).toBe(1);
+    expect((await deps.db.query('SELECT 1 FROM customer_invoices')).length).toBe(1);
   });
 
   it('a payment push matches the open invoice by account, a repeat is a duplicate, partial then full', async () => {
@@ -118,7 +118,7 @@ describe('invoices', () => {
     await optIn();
     const bad = await h(request(app).post('/api/invoices/bulk')).send({ text: 'Jane,0700123456,Rent,HSE-1,Sep,2026-09-30,1500\nJohn,bad,Rent,HSE-2,Sep,2026-09-30,10' });
     expect(bad.status).toBe(400);
-    expect((await deps.db.query('SELECT 1 FROM invoices')).length).toBe(0);
+    expect((await deps.db.query('SELECT 1 FROM customer_invoices')).length).toBe(0);
     const ok = await h(request(app).post('/api/invoices/bulk')).send({ text: 'Jane,0700123456,Rent,HSE-1,Sep,2020-09-30,1500\nJohn,0700123457,Rent,HSE-2,Sep,2099-09-30,10' });
     expect(ok.status).toBe(201);
     expect(ok.body.count).toBe(2);

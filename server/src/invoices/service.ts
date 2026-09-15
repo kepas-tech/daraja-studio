@@ -48,7 +48,7 @@ interface Row {
   due_date: string; amount_cents: string; items: { name: string; amountCents: number }[]; status: 'sent' | 'partly_paid' | 'paid' | 'cancelled'; paid_cents: string;
   created_by: string | null; created_by_name?: string | null; sent_at: Date; paid_at: Date | null; cancelled_at: Date | null;
 }
-const SELECT = `SELECT i.*, to_char(i.due_date, 'YYYY-MM-DD') AS due_date, p.display_name AS created_by_name FROM invoices i LEFT JOIN people p ON p.id = i.created_by`;
+const SELECT = `SELECT i.*, to_char(i.due_date, 'YYYY-MM-DD') AS due_date, p.display_name AS created_by_name FROM customer_invoices i LEFT JOIN people p ON p.id = i.created_by`;
 const todayNairobi = () => new Date(Date.now() + 3 * 3_600_000).toISOString().slice(0, 10);
 
 /**
@@ -102,10 +102,10 @@ export function createInvoicesService(deps: { db: Db; settings: Settings; daraja
         `INSERT INTO requests(type, originator_conversation_id, status, amount_cents, currency, recipient_kind, recipient_value, recipient_name, account_reference, payload_json, sent_at, result_at, result_source, result_code, result_desc, receipt)
          VALUES ('invoice_payment', $1, 'completed', $2, 'KES', 'phone', $3, $4, $5, $6::jsonb, now(), now(), $7, '0', 'Completed', $8) RETURNING id`,
         [`invpay:${receipt}`, amountCents, extra.phone ?? null, extra.payer ?? null, extra.accountReference ?? null, JSON.stringify({ invoiceId, ...extra }), source === 'callback' ? 'callback' : 'poll', receipt]);
-      const inv = await c.query<{ amount_cents: string; paid_cents: string }>(`SELECT amount_cents, paid_cents FROM invoices WHERE id=$1 FOR UPDATE`, [invoiceId]);
+      const inv = await c.query<{ amount_cents: string; paid_cents: string }>(`SELECT amount_cents, paid_cents FROM customer_invoices WHERE id=$1 FOR UPDATE`, [invoiceId]);
       const paid = Number(inv.rows[0].paid_cents) + amountCents;
       const done = paid >= Number(inv.rows[0].amount_cents);
-      await c.query(`UPDATE invoices SET paid_cents=$2, status=$3, paid_at=CASE WHEN $3='paid' THEN now() ELSE paid_at END WHERE id=$1 AND status IN ('sent','partly_paid')`, [invoiceId, paid, done ? 'paid' : 'partly_paid']);
+      await c.query(`UPDATE customer_invoices SET paid_cents=$2, status=$3, paid_at=CASE WHEN $3='paid' THEN now() ELSE paid_at END WHERE id=$1 AND status IN ('sent','partly_paid')`, [invoiceId, paid, done ? 'paid' : 'partly_paid']);
       return ins.rows[0].id;
     });
   }
@@ -151,7 +151,7 @@ export function createInvoicesService(deps: { db: Db; settings: Settings; daraja
       // written only after Safaricom accepted the invoice: a refusal stores nothing.
       const id = await deps.db.tx(async (c) => {
         await c.query(`SELECT pg_advisory_xact_lock(hashtext('invoices'))`);
-        const seq = Number((await c.query<{ n: string }>(`SELECT COALESCE(max(seq),0)+1 AS n FROM invoices`)).rows[0].n);
+        const seq = Number((await c.query<{ n: string }>(`SELECT COALESCE(max(seq),0)+1 AS n FROM customer_invoices`)).rows[0].n);
         const reference = `INV-${String(seq).padStart(6, '0')}`;
         try {
           await client.billManager.sendInvoice({
@@ -161,7 +161,7 @@ export function createInvoicesService(deps: { db: Db; settings: Settings; daraja
           });
         } catch (e) { threeLines(e); }
         const ins = await c.query<{ id: string }>(
-          `INSERT INTO invoices(seq, external_reference, customer_name, customer_phone, invoice_name, account_reference, billed_period, due_date, amount_cents, items, created_by)
+          `INSERT INTO customer_invoices(seq, external_reference, customer_name, customer_phone, invoice_name, account_reference, billed_period, due_date, amount_cents, items, created_by)
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8::date,$9,$10::jsonb,$11) RETURNING id`,
           [seq, reference, input.customerName.trim(), phone, input.invoiceName.trim(), input.accountReference.trim(), input.billedPeriod.trim(), input.dueDate, input.amountCents, JSON.stringify(items), actor.personId]);
         await c.query(`INSERT INTO audit_log(person_id, action, target, before_json, after_json, ip) VALUES ($1,'invoice.sent',$2,NULL,$3::jsonb,$4)`, [actor.personId, ins.rows[0].id, JSON.stringify({ reference, amountCents: input.amountCents }), actor.ip]);
@@ -181,14 +181,14 @@ export function createInvoicesService(deps: { db: Db; settings: Settings; daraja
       const client = await deps.daraja.get();
       return deps.db.tx(async (c) => {
         await c.query(`SELECT pg_advisory_xact_lock(hashtext('invoices'))`);
-        let seq = Number((await c.query<{ n: string }>(`SELECT COALESCE(max(seq),0) AS n FROM invoices`)).rows[0].n);
+        let seq = Number((await c.query<{ n: string }>(`SELECT COALESCE(max(seq),0) AS n FROM customer_invoices`)).rows[0].n);
         const planned = c0.rows.map((r) => ({ ...r, seq: ++seq, reference: `INV-${String(seq).padStart(6, '0')}` }));
         try {
           await client.billManager.sendBulkInvoices({ appKey: key, invoices: planned.map((r) => ({ externalReference: r.reference, billedFullName: r.customerName, billedPhoneNumber: r.customerPhone, billedPeriod: r.billedPeriod, invoiceName: r.invoiceName, dueDate: r.dueDate, accountReference: r.accountReference, amount: r.amountCents / 100 })) });
         } catch (e) { threeLines(e); }
         for (const r of planned) {
           await c.query(
-            `INSERT INTO invoices(seq, external_reference, customer_name, customer_phone, invoice_name, account_reference, billed_period, due_date, amount_cents, created_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8::date,$9,$10)`,
+            `INSERT INTO customer_invoices(seq, external_reference, customer_name, customer_phone, invoice_name, account_reference, billed_period, due_date, amount_cents, created_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8::date,$9,$10)`,
             [r.seq, r.reference, r.customerName, r.customerPhone, r.invoiceName, r.accountReference, r.billedPeriod, r.dueDate, r.amountCents, actor.personId]);
         }
         await c.query(`INSERT INTO audit_log(person_id, action, target, before_json, after_json, ip) VALUES ($1,'invoice.bulk_sent',NULL,NULL,$2::jsonb,$3)`, [actor.personId, JSON.stringify({ count: planned.length, totalCents: c0.totalCents }), actor.ip]);
@@ -219,7 +219,7 @@ export function createInvoicesService(deps: { db: Db; settings: Settings; daraja
         if (open.length === 1) await client.billManager.cancelInvoice({ appKey: key, externalReference: open[0].external_reference });
         else await client.billManager.cancelBulkInvoices({ appKey: key, externalReferences: open.map((r) => r.external_reference) });
       } catch (e) { threeLines(e); }
-      await deps.db.query(`UPDATE invoices SET status='cancelled', cancelled_at=now() WHERE id = ANY($1::uuid[]) AND status='sent'`, [open.map((r) => r.id)]);
+      await deps.db.query(`UPDATE customer_invoices SET status='cancelled', cancelled_at=now() WHERE id = ANY($1::uuid[]) AND status='sent'`, [open.map((r) => r.id)]);
       await audit(deps.db, { personId: actor.personId, action: 'invoice.cancelled', after: { references: open.map((r) => r.external_reference) }, ip: actor.ip });
       return open.length;
     },
@@ -241,7 +241,7 @@ export function createInvoicesService(deps: { db: Db; settings: Settings; daraja
     async applyPush(p) {
       const receipt = String(p.transactionId).trim();
       const amountCents = Math.round(Number(p.paidAmount) * 100);
-      const [inv] = await deps.db.query<{ id: string }>(`SELECT id FROM invoices WHERE account_reference=$1 AND status IN ('sent','partly_paid') ORDER BY created_at ASC LIMIT 1`, [String(p.accountReference ?? '')]);
+      const [inv] = await deps.db.query<{ id: string }>(`SELECT id FROM customer_invoices WHERE account_reference=$1 AND status IN ('sent','partly_paid') ORDER BY created_at ASC LIMIT 1`, [String(p.accountReference ?? '')]);
       if (!inv) {
         // Kept, and listed under "Payments we could not match": money that arrived for no open invoice.
         const out = await deps.db.tx(async (c) => {

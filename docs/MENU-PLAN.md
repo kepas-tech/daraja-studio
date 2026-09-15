@@ -187,8 +187,9 @@ the open invoice by account reference, idempotent on the transaction id, recorde
 `invoice_payment` row in History, with unmatched pushes kept and listed; recording a payment made
 another way through `acknowledgePayment` so reminders stop; overdue derived at read time. The
 callback router lets a handler name its own acknowledgement body, which Bill Manager needs
-(`rescode 200`). Table `invoices` (migration 023); routes under /api/invoices; the Invoices page
-and Settings › Invoices.
+(`rescode 200`). Table `customer_invoices` (migration 023; not `invoices`, which an install that
+came through the hosted line already has for the host's own billing); routes under /api/invoices;
+the Invoices page and Settings › Invoices.
 
 ### M8 — Standing orders · `ratiba.create`
 A recurring debit. The scheduling rules must be shown honestly, including what Daraja will not let

@@ -123,7 +123,7 @@ export function testDeps(env: Record<string, string> = {}): { config: Config; db
 export async function resetTables(db?: Db) {
   void db; // resets are privileged; the caller's pool is studio_app and cannot TRUNCATE.
   await admin().query(
-    `TRUNCATE org_environment_verifications, people, permissions, sessions, login_attempts, rate_limits, operators, requests, bulk_plans, invoices, balances, callbacks_raw, jobs, cache, settings RESTART IDENTITY CASCADE`,
+    `TRUNCATE org_environment_verifications, people, permissions, sessions, login_attempts, rate_limits, operators, requests, bulk_plans, customer_invoices, balances, callbacks_raw, jobs, cache, settings RESTART IDENTITY CASCADE`,
   );
   await ensureTestOrg();
 }
