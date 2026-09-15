@@ -8,6 +8,7 @@ import { copy } from '../copy/en';
 import type { SettingsView } from '../api/types';
 import { EnvironmentTab } from './settings/EnvironmentTab';
 import { CategoriesSection } from './settings/CategoriesSection';
+import { ApprovalsSection } from './settings/ApprovalsSection';
 import { useStepUp } from './settings/useStepUp';
 import { Card } from '../components/Card';
 import { Loading } from '../components/Loading';
@@ -49,6 +50,7 @@ export function Settings() {
       <EnvironmentTab key={v.mode} env={v.mode} slot={v.environments[v.mode]} isActiveMode reload={load} stepUp={stepUp} />
 
       <div className="mt-6"><CategoriesSection items={v.sendCategories} reload={load} stepUp={stepUp} /></div>
+      <div className="mt-6"><ApprovalsSection view={v} reload={load} stepUp={stepUp} /></div>
 
       <PasswordConfirmDialog {...stepUp.dialogProps} />
     </>

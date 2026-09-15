@@ -15,6 +15,7 @@ const b2cApi = z.object({ version: z.enum(['auto', 'v1', 'v3']) });
 const octetsInRange = (ip: string) => ip.split('.').every((o) => Number(o) <= 255);
 const allow = z.object({ allowlist: z.array(z.string().regex(/^\d{1,3}(\.\d{1,3}){3}$/).refine(octetsInRange, 'Each number must be 0-255.')).min(1).max(50) });
 const pub = z.object({ url: z.string().url() });
+const threshold = z.object({ cents: z.number().int().min(0).max(1_000_000_000) });
 const categories = z.object({ items: z.array(z.object({ id: z.string().max(40).optional(), name: z.string().max(80), commandId: z.string().max(40) })).max(50) });
 const operatorAdd = z.object({ name: z.string().trim().min(1).max(40), operatorPassword: z.string().min(1).max(200).optional(), credential: z.string().min(1).optional(), certPem: z.string().max(16_384).optional() });
 const operatorRotate = z.object({ operatorPassword: z.string().min(1).max(200).optional(), credential: z.string().min(1).optional() });
@@ -47,6 +48,7 @@ export function settingsRoutes(deps: AppDeps): Router {
   r.put('/environments/:env/b2c-api', requireStepUp, async (req, res, next) => { try { await svc.setB2cApi(envParam(req), parse(b2cApi, req.body).version, a(req)); res.status(204).end(); } catch (e) { next(e); } });
   r.put('/allowlist', requireStepUp, async (req, res, next) => { try { await svc.setAllowlist(parse(allow, req.body).allowlist, a(req)); res.status(204).end(); } catch (e) { next(e); } });
   r.put('/send-categories', requireStepUp, async (req, res, next) => { try { res.json({ items: await svc.setSendCategories(parse(categories, req.body).items, a(req)) }); } catch (e) { next(e); } });
+  r.put('/approval-threshold', requireStepUp, async (req, res, next) => { try { await svc.setApprovalThreshold(parse(threshold, req.body).cents, a(req)); res.status(204).end(); } catch (e) { next(e); } });
   r.put('/public-url', requireStepUp, async (req, res, next) => { try { await svc.setPublicUrl(parse(pub, req.body).url, a(req)); res.status(204).end(); } catch (e) { next(e); } });
   r.post('/public-url/test', async (_req, res, next) => { try { res.json(await svc.testPublicUrl()); } catch (e) { next(e); } });
   r.get('/environments/:env/operators', async (req, res, next) => { try { res.json(await deps.operators.list(envParam(req))); } catch (e) { next(e); } });

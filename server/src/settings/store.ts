@@ -30,6 +30,8 @@ export type SettingKey =
   | 'use.payOut' | 'use.collect' | 'use.stk'
   // The business's own payment categories, a JSON list (see settings/categories.ts).
   | 'send.categories'
+  // M4: sends at or above this many cents wait for a second person. 0 or unset = off.
+  | 'send.approvalThresholdCents'
   | EnvSettingKey;
 
 const ENCRYPTED_SLOTS = ['consumerKey', 'consumerSecret', 'passkey', 'certPem'] as const;

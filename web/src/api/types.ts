@@ -39,7 +39,7 @@ export interface Me {
 }
 export interface SecretState { saved: boolean; last4: string | null }
 export type B2cApiSetting = 'auto' | 'v1' | 'v3';
-export type AssignableRole = 'operator' | 'viewer' | 'custom';
+export type AssignableRole = 'operator' | 'viewer' | 'approver' | 'custom';
 /** `GET /api/people` (spec 5.3). `isHostAdmin` is always false: there is no host console here. */
 export interface PersonView {
   id: string; username: string; displayName: string; email: string | null;
@@ -69,6 +69,8 @@ export interface SettingsView {
   stkEnabled: boolean; publicUrl: string | null; publicVerifiedAt: string | null; httpsSeen: boolean;
   allowlist: string[]; setupCompletedAt: string | null;
   sendCategories: SendCategory[];
+  /** M4: 0 = off. */
+  approvalThresholdCents: number;
 }
 export type RequestStatus = 'pending' | 'sent' | 'completed' | 'failed' | 'unknown' | 'cancelled' | 'rejected' | 'awaiting_approval';
 export interface RequestView {
@@ -79,6 +81,7 @@ export interface RequestView {
   safaricomSaid: string | null; meaning: string | null; whatToDo: string | null; retriable: boolean; pollAttempts: number;
   checked: { by: { id: string; displayName: string } | null; at: string; note: string } | null;
   createdBy: { id: string; displayName: string } | null;
+  approvedBy?: { id: string; displayName: string } | null;
 }
 export interface MoneyInView {
   mode: 'sandbox' | 'production'; c2bRegisteredAt: string | null; pullRegisteredAt: string | null; pullCheckedAt: string | null;

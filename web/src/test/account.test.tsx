@@ -26,7 +26,7 @@ const view = {
   org: { name: 'KEPAS TECHNOLOGIES', nominatedNumber: '254700000000', notificationPhone: '254700000000' },
   stkEnabled: false, publicUrl: 'https://darajastudio.com', publicVerifiedAt: '2026-09-08T04:00:00Z', httpsSeen: true,
   allowlist: ['196.201.214.200'], setupCompletedAt: '2026-09-01T09:00:00Z',
-  sendCategories: [],
+  sendCategories: [], approvalThresholdCents: 0,
 };
 
 function mount(handlers: (url: string, method: string, init?: RequestInit) => Response, data: unknown = view) {

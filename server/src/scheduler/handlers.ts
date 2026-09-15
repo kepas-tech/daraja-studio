@@ -145,13 +145,15 @@ export function dailyHandler(deps: { db: Db; settings: Settings; events: EventHu
  */
 export function buildHandlers(
   deps: {
-    db: Db; events: EventHub; settings: Settings; moneyOut: Pick<MoneyOutService, 'sweep' | 'refreshBalance'>;
+    db: Db; events: EventHub; settings: Settings; moneyOut: Pick<MoneyOutService, 'sweep' | 'refreshBalance' | 'expireApprovals'>;
     operators: Pick<OperatorService, 'timeoutHandler'>;
     moneyIn: Pick<MoneyInService, 'checkMissedIfRegistered'>;
   },
 ): Record<string, JobHandler> {
   return {
     // Every hour: backfill any customer payment whose confirmation Safaricom never delivered.
+    // Every 10 minutes: a held send nobody decided on within a day is refused by the clock (M4).
+    approvals_expire: async () => { await forEachOrg(deps.db, async () => { await deps.moneyOut.expireApprovals(); }); },
     c2b_pull: async () => { await forEachOrg(deps.db, () => deps.moneyIn.checkMissedIfRegistered()); },
     operator_probe_timeout: deps.operators.timeoutHandler,
     request_timeout: requestTimeoutHandler({ db: deps.db, events: deps.events }),

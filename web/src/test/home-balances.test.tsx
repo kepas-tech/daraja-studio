@@ -19,7 +19,7 @@ vi.stubGlobal('EventSource', FakeEventSource);
 afterEach(() => cleanup());
 const fresh = { workingCents: 1400, utilityCents: 3439200, chargesPaidCents: 2500, queriedAt: new Date().toISOString() };
 const slot = { shortcode: null, consumerKey: { saved: true, last4: '4f2a' }, consumerSecret: { saved: true, last4: null }, credsVerifiedAt: 'x', passkey: { saved: false, last4: null }, cert: { saved: false, last4: null }, operators: [], ready: { creds: true, operator: true }, b2cApi: { setting: 'auto', detected: null, detectedAt: null } };
-const settings = { mode: 'sandbox', environments: { sandbox: slot, production: slot }, org: { name: 'KEPAS', nominatedNumber: '', notificationPhone: '' }, publicVerifiedAt: 'x', stkEnabled: true, publicUrl: 'x', httpsSeen: true, allowlist: [], setupCompletedAt: 'x', sendCategories: [] };
+const settings = { mode: 'sandbox', environments: { sandbox: slot, production: slot }, org: { name: 'KEPAS', nominatedNumber: '', notificationPhone: '' }, publicVerifiedAt: 'x', stkEnabled: true, publicUrl: 'x', httpsSeen: true, allowlist: [], setupCompletedAt: 'x', sendCategories: [], approvalThresholdCents: 0 };
 
 function mount(latestRef: { value: unknown }, onRefresh: () => Response) {
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {

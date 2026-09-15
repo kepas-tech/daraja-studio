@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.10.0 — a second pair of eyes
+
+- Waiting for approval: Settings › Approvals holds any send at or above an amount you set until a
+  second person releases or refuses it. Applies to everyone, the owner included; nobody can approve
+  their own; a held send is refused after 24 hours. New Approver role in People, a count on the
+  menu, and the Waiting for approval page. New: `PUT /api/settings/approval-threshold`,
+  `GET /api/approvals`, `GET /api/approvals/count`, `POST /api/approvals/:id/release`,
+  `POST /api/approvals/:id/refuse`.
+
 ## 0.9.0 — money in
 
 - Money in: customers paying your paybill or till from their own phone now land in History and on

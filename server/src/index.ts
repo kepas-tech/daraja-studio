@@ -94,6 +94,7 @@ async function main() {
   await ensureRecurring(db, 'housekeeping', 3600);
   await ensureRecurring(db, 'daily', 86400);
   await ensureRecurring(db, 'c2b_pull', 3600);
+  await ensureRecurring(db, 'approvals_expire', 600);
   const scheduler = createScheduler(db, buildHandlers({ db, events, settings, moneyOut, operators, moneyIn }));
   scheduler.start();
 

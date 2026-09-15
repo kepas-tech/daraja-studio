@@ -35,7 +35,7 @@ const view = {
   org: { name: 'KEPAS', nominatedNumber: '254700000000', notificationPhone: '254700000000' },
   stkEnabled: false, publicUrl: 'https://x', publicVerifiedAt: null, httpsSeen: false,
   allowlist: ['1.1.1.1'], setupCompletedAt: 'x',
-  sendCategories: [],
+  sendCategories: [], approvalThresholdCents: 0,
 };
 
 async function renderAndWait() {

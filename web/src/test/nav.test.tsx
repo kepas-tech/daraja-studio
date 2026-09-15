@@ -1,8 +1,13 @@
 import { render, screen, within, cleanup, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { Nav } from '../app/Nav';
 import { copy } from '../copy/en';
+
+// The menu's approvals badge subscribes to live events and reads a count; neither is under test here.
+class FakeEventSource { onopen: (() => void) | null = null; addEventListener() {} close() {} }
+vi.stubGlobal('EventSource', FakeEventSource);
+vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ count: 0 }), { status: 200 })));
 
 afterEach(cleanup);
 

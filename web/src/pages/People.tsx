@@ -27,7 +27,7 @@ export function suggestPassword(): string {
   return Array.from(bytes, (b) => ALPHABET[b % ALPHABET.length]).join('');
 }
 
-const ROLES: AssignableRole[] = ['operator', 'viewer', 'custom'];
+const ROLES: AssignableRole[] = ['operator', 'viewer', 'approver', 'custom'];
 
 export function People() {
   const toast = useToast();
@@ -106,7 +106,7 @@ export function People() {
           <Questionnaire doneLabel={copy.people.addButton} onDone={addPerson} onCancel={() => setAdding(false)} intro={copy.people.addTitle} steps={[
             { key: 'name', question: copy.people.displayName, valid: form.displayName.trim().length > 0, render: () => <TextField label={copy.people.displayName} labelHidden value={form.displayName} onChange={(e) => setForm({ ...form, displayName: e.target.value })} autoFocus /> },
             { key: 'username', question: copy.people.usernameSingle, valid: form.username.trim().length > 0, render: () => <TextField label={copy.people.usernameSingle} labelHidden type="text" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} autoComplete="off" autoFocus /> },
-            { key: 'role', question: copy.people.role, valid: true, render: () => <Segmented name="role" label={copy.people.role} value={form.role} options={(['operator', 'viewer'] as AssignableRole[]).map((r) => ({ value: r, label: copy.people.roles[r] }))} onChange={(r) => setForm({ ...form, role: r })} /> },
+            { key: 'role', question: copy.people.role, valid: true, render: () => <Segmented name="role" label={copy.people.role} value={form.role} options={(['operator', 'viewer', 'approver'] as AssignableRole[]).map((r) => ({ value: r, label: copy.people.roles[r] }))} onChange={(r) => setForm({ ...form, role: r })} /> },
             { key: 'password', question: copy.people.temporaryPassword, hint: copy.people.tellThem, valid: form.temporaryPassword.length >= 12, render: () => (
               <div className="space-y-2">
                 <TextField label={copy.people.temporaryPassword} labelHidden value={form.temporaryPassword} onChange={(e) => setForm({ ...form, temporaryPassword: e.target.value })} autoComplete="off" autoFocus />

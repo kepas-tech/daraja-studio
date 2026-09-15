@@ -39,6 +39,7 @@ import { orgRoutes } from './orgs/routes.js';
 import { collectRoutes } from './collect/routes.js';
 import type { CollectService } from './collect/service.js';
 import { moneyInRoutes } from './money_in/routes.js';
+import { approvalRoutes } from './money_out/routes.js';
 import type { MoneyInService } from './money_in/service.js';
 import { c2bConfirmHandler, c2bValidateHandler } from './callbacks/c2b.js';
 import type { Scheduler } from './scheduler/loop.js';
@@ -118,6 +119,7 @@ export function buildApp(deps: AppDeps): express.Express {
   app.use('/api/send', reversalRoutes(deps));
   app.use('/api/collect', collectRoutes(deps));
   app.use('/api/money-in', moneyInRoutes(deps));
+  app.use('/api/approvals', approvalRoutes(deps));
   app.use('/api/requests', requestRoutes(deps));
   app.use('/api/balances', balanceRoutes(deps));
   app.use('/api/lookup', lookupRoutes(deps));

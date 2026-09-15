@@ -57,13 +57,13 @@ Status values are exactly `live`, `building`, or `planned`. One slice is `buildi
 | 11 | Standing orders | `standing-orders` | planned | M8 | — |
 | 12 | Express checkout | `express` | planned | M9 | — |
 | 13 | Bonga points | `bonga` | planned | M10 | — |
-| 14 | Waiting for approval | `approvals` | planned | M4 | — |
+| 14 | Waiting for approval | `approvals` | live | M4 | 0.10.0, deployed 2026-09-16 |
 | 15 | History | `history` | live | — | shipped in 2A |
 | 16 | People | `people` | live | — | shipped in 3B |
 | 17 | Settings | `settings` | live | — | shipped before 0.4.0 |
 | 18 | Not possible via API | `not-possible` | live | — | 15 explanation cards |
 
-**12 of 18 live (two of them folded into Home and History). 6 to build.** Each slice below removes exactly one Coming soon label.
+**13 of 18 live (two of them folded into Home and History). 5 to build.** Each slice below removes exactly one Coming soon label.
 
 ## Send types inside Send money
 
@@ -140,11 +140,19 @@ Open follow-ups, neither a blocker: `RequestDetail` has no Reverse link, and `fi
 binds `LEDGER_TYPES`, so a completed reversal is itself findable as a settled payment — safe only
 because the duplicate guard refuses it first.
 
-### M4 — Waiting for approval · ours, not Daraja's
+### M4 — Waiting for approval · ours, not Daraja's — DONE 2026-09-16
 A second person approves a send before it leaves, which is what makes Studio safe for a business with
 staff. The `awaiting_approval` status already exists in the schema. Above a threshold set in
 Settings, a send waits; an approver with a distinct permission releases or refuses it; the maker can
 never approve their own. Enforced server side, not in the UI.
+
+What shipped: `send.approvalThresholdCents` (Settings › Approvals, owner, step-up; 0 = off; applies
+to everyone, the owner included); the send service's post-insert path is `dispatch()`, shared by a
+direct send and a release, so a released send takes exactly the ordinary path; `release` flips the
+row from `awaiting_approval` to `pending` in one UPDATE (the double-press guard) and picks the
+operator then; `refuse` records who and why; `approvals_expire` refuses held rows after 24 hours;
+permission `send.approve` and the Approver role preset (migration 021); routes under
+/api/approvals; the Waiting for approval page and a count badge on the menu.
 
 ### M5 — Bulk send · ours, over the existing phone send
 Payroll and supplier runs. A list is validated before anything is sent, then sent one at a time down

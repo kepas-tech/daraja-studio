@@ -1,11 +1,22 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { NavLink } from 'react-router';
 import { useSession } from './session';
+import { api } from '../api/client';
+import { useEvents } from '../api/events';
 import { Icon } from '../components/Icon';
 import { StatusPill } from '../components/StatusPill';
 import { copy, type NavEntry } from '../copy/en';
 
-function Item({ e, onPick }: { e: NavEntry; onPick: () => void }) {
+/** M4: how many sends wait for a second person; any signed-in person may read it. */
+function useApprovalsCount(): number {
+  const [n, setN] = useState(0);
+  const load = useCallback(() => api.get<{ count: number }>('/api/approvals/count').then((r) => setN(r.count)).catch(() => {}), []);
+  useEffect(() => { void load(); }, [load]);
+  useEvents(useCallback((e) => { if (e.type === 'request.updated') void load(); }, [load]), typeof EventSource !== 'undefined');
+  return n;
+}
+
+function Item({ e, onPick, badge }: { e: NavEntry; onPick: () => void; badge?: number }) {
   return (
     <li>
       <NavLink to={e.path} end={e.path === '/'} onClick={onPick} title={e.safaricom ?? undefined} className={({ isActive }) => `flex min-h-10 items-center gap-3 border-l-2 px-3 py-2 text-base text-ink hover:no-underline ${isActive ? 'border-brand bg-surface font-semibold' : 'border-transparent hover:bg-surface/70'}`}>
@@ -13,6 +24,7 @@ function Item({ e, onPick }: { e: NavEntry; onPick: () => void }) {
         <span className={`min-w-0 truncate ${e.available ? '' : 'text-muted'}`}>{e.label}</span>
         {e.safaricom && <span className="sr-only">{e.safaricom}</span>}
         {!e.available && <StatusPill kind="muted">{copy.comingSoon.badge}</StatusPill>}
+        {!!badge && <StatusPill kind="warn">{badge}</StatusPill>}
       </NavLink>
     </li>
   );
@@ -29,6 +41,7 @@ export function Nav() {
   const [soonOpen, setSoonOpen] = useState(false);
   const pick = () => setOpen(false);
   const live = copy.nav.filter((e) => e.available);
+  const waiting = useApprovalsCount();
   const soon = copy.nav.filter((e) => !e.available);
   return (
     <nav aria-label={copy.app.navLabel} className="w-full shrink-0 border-b border-line bg-page md:w-60 md:overflow-y-auto md:border-r md:border-b-0">
@@ -40,7 +53,7 @@ export function Nav() {
         {org && <li className="px-3 pt-4 pb-2" title={org.name}><span className="block truncate text-sm font-semibold">{org.name}</span><span className="block text-xs text-muted">{copy.org.envLine[org.environment]}</span></li>}
         {live.filter((e) => e.group === 'home').map((e) => <Item key={e.key} e={e} onPick={pick} />)}
         <li className={heading}>{copy.nav.groups.money}</li>
-        {live.filter((e) => e.group === 'money').map((e) => <Item key={e.key} e={e} onPick={pick} />)}
+        {live.filter((e) => e.group === 'money').map((e) => <Item key={e.key} e={e} onPick={pick} badge={e.key === 'approvals' ? waiting : undefined} />)}
         <li className={heading}>{copy.nav.groups.manage}</li>
         {live.filter((e) => e.group === 'manage').map((e) => <Item key={e.key} e={e} onPick={pick} />)}
         <li className="pt-4">

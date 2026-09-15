@@ -13,16 +13,18 @@ export interface RequestView {
   safaricomSaid: string | null; meaning: string | null; whatToDo: string | null; retriable: boolean; pollAttempts: number;
   checked: { by: { id: string; displayName: string } | null; at: string; note: string } | null;
   createdBy: { id: string; displayName: string } | null;
+  /** M4: who released or refused a held send. */
+  approvedBy: { id: string; displayName: string } | null;
 }
 
-export type ViewRow = RequestRow & { created_by_name?: string | null; checked_by_name?: string | null; created_cursor?: string };
+export type ViewRow = RequestRow & { created_by_name?: string | null; checked_by_name?: string | null; approved_by_name?: string | null; approved_by?: string | null; created_cursor?: string };
 
 /** Every column the view needs, with the two display-name joins, plus a microsecond-exact text
  * rendering of created_at for cursor paging — a JS Date only holds milliseconds, so the
  * cursor must be built from this text column, never from row.created_at. Append WHERE/ORDER/LIMIT. */
-export const VIEW_SELECT = `SELECT r.*, p.display_name AS created_by_name, c.display_name AS checked_by_name,
+export const VIEW_SELECT = `SELECT r.*, p.display_name AS created_by_name, c.display_name AS checked_by_name, a.display_name AS approved_by_name,
   to_char(r.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_cursor
-  FROM requests r LEFT JOIN people p ON p.id = r.created_by LEFT JOIN people c ON c.id = r.checked_by`;
+  FROM requests r LEFT JOIN people p ON p.id = r.created_by LEFT JOIN people c ON c.id = r.checked_by LEFT JOIN people a ON a.id = r.approved_by`;
 
 export const UNKNOWN_WHAT_TO_DO = 'Do not send it again yet. Studio is checking with Safaricom; if it stays unknown, check the Safaricom portal, then Mark as checked.';
 export const POLL_FAILED_WHAT_TO_DO = "Safaricom's record is final. Send again if the money did not arrive; contact Safaricom API support if the portal statement disagrees.";
@@ -74,6 +76,7 @@ export function toView(row: ViewRow, egressIps: string[] = []): RequestView {
     retriable: row.retriable ?? false, pollAttempts: row.poll_attempts,
     checked: row.checked_at ? { by: row.checked_by ? { id: row.checked_by, displayName: row.checked_by_name ?? '' } : null, at: row.checked_at.toISOString(), note: row.checked_note ?? '' } : null,
     createdBy: row.created_by ? { id: row.created_by, displayName: row.created_by_name ?? '' } : null,
+    approvedBy: row.approved_by ? { id: row.approved_by, displayName: row.approved_by_name ?? '' } : null,
   };
 }
 

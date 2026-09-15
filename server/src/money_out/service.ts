@@ -15,9 +15,9 @@ import { HttpError } from '../util/errors.js';
 import { parseCategories } from '../settings/categories.js';
 import { enqueue } from '../db/jobs.js';
 import { PUBLIC_URL_UNVERIFIED } from './ready.js';
-import { KINDS, MONEY_TYPES, type CallbackUrls, type RequestRow } from './registry.js';
+import { KINDS, MONEY_TYPES, type CallbackUrls, type RequestKind, type RequestRow } from './registry.js';
 import { failOperatorOnCredentialCode } from './operatorHealth.js';
-import { getRequest, type RequestView } from './reads.js';
+import { getRequest, listRequests, type Page, type RequestView } from './reads.js';
 
 export interface SendInput { phone: string; amountCents: number; commandId: 'BusinessPayment' | 'SalaryPayment' | 'PromotionPayment'; category?: string; remarks?: string; occasion?: string; confirmDuplicate?: boolean }
 export interface Actor { personId: string; ip: string }
@@ -28,6 +28,12 @@ export interface MoneyOutService {
   markChecked(requestId: string, note: string, actor: Actor): Promise<RequestView>;
   refreshBalance(actor: Actor | null): Promise<{ requestId: string }>;
   lookup(receipt: string, actor: Actor): Promise<{ requestId: string }>;
+  /** M4: a second person sends a held row down the ordinary path. */
+  release(requestId: string, actor: Actor): Promise<RequestView>;
+  refuse(requestId: string, reason: string, actor: Actor): Promise<RequestView>;
+  listAwaiting(): Promise<Page<RequestView>>;
+  /** Held rows older than 24 hours are refused by the clock. Returns how many. */
+  expireApprovals(): Promise<number>;
 }
 
 export const UNCONFIRMED = 'We could not confirm Safaricom received this. Studio will check.';
@@ -35,6 +41,9 @@ export const B2C_QUEUE_TIMEOUT = "Safaricom's queue timed out before this paymen
 export const NO_ANSWER_AFTER_POLLS = 'No answer from Safaricom after 5 checks. Check the Safaricom portal, then Mark as checked.';
 export const AUTH_FAILED_MEANING = 'Safaricom did not accept the Daraja key and secret. Check them in Settings.';
 const DUP_WINDOW = "interval '5 minutes'";
+export const APPROVAL_EXPIRED = 'Not approved within 24 hours.';
+export const NOT_HELD = 'This send is not waiting for approval.';
+export const OWN_REQUEST = 'You cannot approve or refuse a send you made yourself.';
 const DUPLICATE_ID = 'Duplicate OriginatorConversationID';
 const MAX_POLLS = 5;
 
@@ -186,66 +195,11 @@ export function createMoneyOutService(deps: { db: Db; settings: Settings; daraja
     await deps.settings.set(`env.${env}.b2cApiDetectedAt`, new Date().toISOString());
   }
 
-  return {
-    async send(input, actor) {
-      const kind = KINDS.b2c;
-      let phone: string;
-      try { phone = normalizePhone(input.phone); } catch { throw new HttpError(400, 'bad_phone', 'Enter a Kenyan mobile number such as 0712 345 678.'); }
-      if (!Number.isInteger(input.amountCents) || input.amountCents <= 0) throw new HttpError(400, 'bad_amount', 'Enter an amount in shillings.');
-      if (kind.wholeShillings && input.amountCents % 100 !== 0) throw new HttpError(400, 'whole_shillings', 'Safaricom sends whole shillings to phones. Remove the cents.');
-      // A category is the business's own label; the Safaricom command underneath it is what is sent.
-      let commandId = input.commandId; let category: string | null = null;
-      if (input.category) {
-        const found = parseCategories(await deps.settings.get('send.categories')).find((c) => c.name.toLowerCase() === input.category!.trim().toLowerCase());
-        if (!found) throw new HttpError(400, 'unknown_category', 'That payment category no longer exists. Pick one from the list.');
-        commandId = found.commandId; category = found.name;
-      }
-      if (deps.config.maxSendCents !== null && input.amountCents > deps.config.maxSendCents) {
-        const cap = deps.config.maxSendCents;
-        throw new HttpError(409, 'over_cap', `This studio is capped at KES ${cap % 100 === 0 ? cap / 100 : (cap / 100).toFixed(2)} per send.`, { capCents: cap });
-      }
-      const cb = await urls();
-
-      // Operator first: a 409 here writes nothing. Then the pending row and its audit entry, in
-      // one transaction so a failing audit write never strands a row with no audit trail. The
-      // request exists before Safaricom hears of it (a crash between the ack and our update
-      // below leaves a visible row) — once the SDK sends our own OriginatorConversationID
-      // (1.5.0), the sweep resolves such a row by it; meanwhile the ack's own id is kept
-      // on the row so a human can still find it on the Safaricom side.
-      const client = await deps.daraja.getForOperator();
-      const operatorId = (await deps.db.query<{ id: string }>(`SELECT id FROM operators WHERE name=$1`, [client.config?.initiator ?? '']))[0]?.id ?? null;
-      // W3: the duplicate guard used to be a plain SELECT outside any transaction, so two
-      // concurrent identical sends could both see no prior row and both insert. The advisory
-      // lock below is taken first, inside the same transaction as the guard SELECT and the
-      // INSERT, keyed on exactly what the guard matches on — a second call for the same
-      // recipient/amount/type blocks here until the first call's transaction commits (or rolls
-      // back), then runs its own guard SELECT and correctly finds the first call's row. The lock
-      // is transaction-scoped, so it releases automatically at commit, before the SDK is called.
-      const row = await deps.db.tx(async (c) => {
-        // B0: the lock key and the guard's own comparison come from the kind, so the two can never
-        // disagree about what "the same request" means. `IS NOT DISTINCT FROM` rather than `=`
-        // because a kind with no recipient (a float transfer moves money between the organisation's
-        // own two accounts) stores NULL there, and SQL equality against NULL is never true — such a
-        // kind would otherwise have no duplicate protection at all while appearing to have it.
-        await c.query('SELECT pg_advisory_xact_lock(hashtext($1))', [kind.dupKey({ type: kind.type, recipient_value: phone, amount_cents: String(input.amountCents), payload_json: {} })]);
-        if (!input.confirmDuplicate) {
-          const dup = await c.query<{ id: string; created_at: Date }>(
-            `SELECT id, created_at FROM requests WHERE type=$1 AND recipient_value IS NOT DISTINCT FROM $2 AND amount_cents=$3
-               AND created_at > now() - ${DUP_WINDOW} AND status NOT IN ('failed','cancelled','rejected') ORDER BY created_at DESC LIMIT 1`,
-            [kind.type, phone, input.amountCents]);
-          if (dup.rows[0]) throw new HttpError(409, 'duplicate_recent', 'You sent this already. Send it again?', { requestId: dup.rows[0].id, at: dup.rows[0].created_at.toISOString() });
-        }
-        const { rows } = await c.query<RequestRow>(
-          `INSERT INTO requests(type, subtype, originator_conversation_id, status, amount_cents, currency, recipient_kind, recipient_value, remarks, payload_json, created_by, operator_id)
-           VALUES ($1,$2,$3,'pending',$4,'KES','phone',$5,$6,$7::jsonb,$8,$9) RETURNING *`,
-          [kind.type, commandId, randomUUID(), input.amountCents, phone, input.remarks ?? null, JSON.stringify({ occasion: input.occasion ?? null, category }), actor.personId, operatorId]);
-        const r = rows[0];
-        await c.query(
-          `INSERT INTO audit_log(person_id, action, target, before_json, after_json, ip) VALUES ($1,$2,$3,$4::jsonb,$5::jsonb,$6)`,
-          [actor.personId, 'request.created', r.id, null, JSON.stringify({ type: kind.type, subtype: commandId, category, amountCents: input.amountCents }), actor.ip]);
-        return r;
-      });
-
+  /**
+   * Everything after the row exists: the Safaricom call, the ack, and every way it can go wrong.
+   * Shared by send() and release() (M4) so a released send takes exactly the path a direct one does.
+   */
+  async function dispatch(kind: RequestKind, row: RequestRow, client: Daraja, cb: CallbackUrls, operatorId: string | null): Promise<RequestView> {
       const { version: initialVersion, setting: b2cApiSetting, env: b2cApiEnv } = await resolveB2cVersion();
       let versionUsed: 'v1' | 'v3' = initialVersion;
       let status: string;
@@ -326,6 +280,119 @@ export function createMoneyOutService(deps: { db: Db; settings: Settings; daraja
       }
       await deps.events.publish('request.updated', { id: row.id, status });
       return view(row.id);
+  }
+
+  return {
+    async send(input, actor) {
+      const kind = KINDS.b2c;
+      let phone: string;
+      try { phone = normalizePhone(input.phone); } catch { throw new HttpError(400, 'bad_phone', 'Enter a Kenyan mobile number such as 0712 345 678.'); }
+      if (!Number.isInteger(input.amountCents) || input.amountCents <= 0) throw new HttpError(400, 'bad_amount', 'Enter an amount in shillings.');
+      if (kind.wholeShillings && input.amountCents % 100 !== 0) throw new HttpError(400, 'whole_shillings', 'Safaricom sends whole shillings to phones. Remove the cents.');
+      // A category is the business's own label; the Safaricom command underneath it is what is sent.
+      let commandId = input.commandId; let category: string | null = null;
+      if (input.category) {
+        const found = parseCategories(await deps.settings.get('send.categories')).find((c) => c.name.toLowerCase() === input.category!.trim().toLowerCase());
+        if (!found) throw new HttpError(400, 'unknown_category', 'That payment category no longer exists. Pick one from the list.');
+        commandId = found.commandId; category = found.name;
+      }
+      if (deps.config.maxSendCents !== null && input.amountCents > deps.config.maxSendCents) {
+        const cap = deps.config.maxSendCents;
+        throw new HttpError(409, 'over_cap', `This studio is capped at KES ${cap % 100 === 0 ? cap / 100 : (cap / 100).toFixed(2)} per send.`, { capCents: cap });
+      }
+      const cb = await urls();
+
+      // Operator first: a 409 here writes nothing. Then the pending row and its audit entry, in
+      // one transaction so a failing audit write never strands a row with no audit trail. The
+      // request exists before Safaricom hears of it (a crash between the ack and our update
+      // below leaves a visible row) — once the SDK sends our own OriginatorConversationID
+      // (1.5.0), the sweep resolves such a row by it; meanwhile the ack's own id is kept
+      // on the row so a human can still find it on the Safaricom side.
+      const client = await deps.daraja.getForOperator();
+      const operatorId = (await deps.db.query<{ id: string }>(`SELECT id FROM operators WHERE name=$1`, [client.config?.initiator ?? '']))[0]?.id ?? null;
+      // W3: the duplicate guard used to be a plain SELECT outside any transaction, so two
+      // concurrent identical sends could both see no prior row and both insert. The advisory
+      // lock below is taken first, inside the same transaction as the guard SELECT and the
+      // INSERT, keyed on exactly what the guard matches on — a second call for the same
+      // recipient/amount/type blocks here until the first call's transaction commits (or rolls
+      // back), then runs its own guard SELECT and correctly finds the first call's row. The lock
+      // is transaction-scoped, so it releases automatically at commit, before the SDK is called.
+      const row = await deps.db.tx(async (c) => {
+        // B0: the lock key and the guard's own comparison come from the kind, so the two can never
+        // disagree about what "the same request" means. `IS NOT DISTINCT FROM` rather than `=`
+        // because a kind with no recipient (a float transfer moves money between the organisation's
+        // own two accounts) stores NULL there, and SQL equality against NULL is never true — such a
+        // kind would otherwise have no duplicate protection at all while appearing to have it.
+        await c.query('SELECT pg_advisory_xact_lock(hashtext($1))', [kind.dupKey({ type: kind.type, recipient_value: phone, amount_cents: String(input.amountCents), payload_json: {} })]);
+        if (!input.confirmDuplicate) {
+          const dup = await c.query<{ id: string; created_at: Date }>(
+            `SELECT id, created_at FROM requests WHERE type=$1 AND recipient_value IS NOT DISTINCT FROM $2 AND amount_cents=$3
+               AND created_at > now() - ${DUP_WINDOW} AND status NOT IN ('failed','cancelled','rejected') ORDER BY created_at DESC LIMIT 1`,
+            [kind.type, phone, input.amountCents]);
+          if (dup.rows[0]) throw new HttpError(409, 'duplicate_recent', 'You sent this already. Send it again?', { requestId: dup.rows[0].id, at: dup.rows[0].created_at.toISOString() });
+        }
+        const { rows } = await c.query<RequestRow>(
+          `INSERT INTO requests(type, subtype, originator_conversation_id, status, amount_cents, currency, recipient_kind, recipient_value, remarks, payload_json, created_by, operator_id)
+           VALUES ($1,$2,$3,'pending',$4,'KES','phone',$5,$6,$7::jsonb,$8,$9) RETURNING *`,
+          [kind.type, commandId, randomUUID(), input.amountCents, phone, input.remarks ?? null, JSON.stringify({ occasion: input.occasion ?? null, category }), actor.personId, operatorId]);
+        const r = rows[0];
+        await c.query(
+          `INSERT INTO audit_log(person_id, action, target, before_json, after_json, ip) VALUES ($1,$2,$3,$4::jsonb,$5::jsonb,$6)`,
+          [actor.personId, 'request.created', r.id, null, JSON.stringify({ type: kind.type, subtype: commandId, category, amountCents: input.amountCents }), actor.ip]);
+        return r;
+      });
+
+      // M4: at or above the owner's threshold the row waits for a second person. The operator was
+      // still required above (a studio with none refuses before writing anything), but the held
+      // row drops it and picks one at release, so a rotation in between cannot strand it.
+      const threshold = Number((await deps.settings.get('send.approvalThresholdCents')) ?? 0) || 0;
+      if (threshold > 0 && input.amountCents >= threshold) {
+        await deps.db.query(`UPDATE requests SET status='awaiting_approval', operator_id=NULL WHERE id=$1 AND status='pending'`, [row.id]);
+        await audit(deps.db, { personId: actor.personId, action: 'request.held', target: row.id, ip: actor.ip });
+        await deps.events.publish('request.updated', { id: row.id, status: 'awaiting_approval' });
+        return view(row.id);
+      }
+      return dispatch(kind, row, client, cb, operatorId);
+    },
+
+    async release(requestId, actor) {
+      const [held] = await deps.db.query<RequestRow>(`SELECT * FROM requests WHERE id=$1`, [requestId]);
+      if (!held) throw new HttpError(404, 'not_found', 'That request does not exist.');
+      if (held.status !== 'awaiting_approval') throw new HttpError(409, 'not_held', NOT_HELD);
+      if (held.created_by === actor.personId) throw new HttpError(403, 'own_request', OWN_REQUEST);
+      const kind = KINDS[held.type];
+      if (!kind) throw new HttpError(409, 'not_held', NOT_HELD);
+      const cb = await urls();
+      const client = await deps.daraja.getForOperator();
+      const operatorId = (await deps.db.query<{ id: string }>(`SELECT id FROM operators WHERE name=$1`, [client.config?.initiator ?? '']))[0]?.id ?? null;
+      // The atomic flip is the double-press guard: a second Release finds no held row and stops.
+      const [row] = await deps.db.query<RequestRow>(
+        `UPDATE requests SET status='pending', approved_by=$2, operator_id=$3 WHERE id=$1 AND status='awaiting_approval' RETURNING *`, [requestId, actor.personId, operatorId]);
+      if (!row) throw new HttpError(409, 'not_held', NOT_HELD);
+      await audit(deps.db, { personId: actor.personId, action: 'request.released', target: requestId, ip: actor.ip });
+      return dispatch(kind, row, client, cb, operatorId);
+    },
+
+    async refuse(requestId, reason, actor) {
+      const [held] = await deps.db.query<{ created_by: string | null; status: string }>(`SELECT created_by, status FROM requests WHERE id=$1`, [requestId]);
+      if (!held) throw new HttpError(404, 'not_found', 'That request does not exist.');
+      if (held.status !== 'awaiting_approval') throw new HttpError(409, 'not_held', NOT_HELD);
+      if (held.created_by === actor.personId) throw new HttpError(403, 'own_request', OWN_REQUEST);
+      const [row] = await deps.db.query<{ id: string }>(
+        `UPDATE requests SET status='rejected', approved_by=$2, result_at=now(), result_desc=$3, meaning=$3 WHERE id=$1 AND status='awaiting_approval' RETURNING id`, [requestId, actor.personId, reason]);
+      if (!row) throw new HttpError(409, 'not_held', NOT_HELD);
+      await audit(deps.db, { personId: actor.personId, action: 'request.refused', target: requestId, after: { reason }, ip: actor.ip });
+      await deps.events.publish('request.updated', { id: requestId, status: 'rejected' });
+      return view(requestId);
+    },
+
+    async listAwaiting() { return listRequests(deps.db, { status: 'awaiting_approval', limit: 100 }, deps.config.egressIps); },
+
+    async expireApprovals() {
+      const rows = await deps.db.query<{ id: string }>(
+        `UPDATE requests SET status='rejected', result_at=now(), result_desc=$1, meaning=$1 WHERE status='awaiting_approval' AND created_at < now() - interval '24 hours' RETURNING id`, [APPROVAL_EXPIRED]);
+      for (const r of rows) await deps.events.publish('request.updated', { id: r.id, status: 'rejected' });
+      return rows.length;
     },
 
     async sweep() {

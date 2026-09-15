@@ -141,3 +141,31 @@ export function lookupRoutes(deps: AppDeps): Router {
   });
   return r;
 }
+
+/**
+ * M4. The list and both decisions need `send.approve`; the count is for the menu badge and any
+ * signed-in person may read it. Release takes the password, as any send does; refuse does not,
+ * because nothing moves.
+ */
+export function approvalRoutes(deps: AppDeps): Router {
+  const r = Router();
+  const refuseSchema = z.object({ reason: z.string().trim().min(1).max(200) });
+  r.get('/', requireAuth(deps.db), requirePermission(deps.db, 'send.approve'), async (_req, res, next) => { try { res.json(await deps.moneyOut.listAwaiting()); } catch (e) { next(e); } });
+  r.get('/count', requireAuth(deps.db), async (_req, res, next) => {
+    try { res.json({ count: (await deps.db.query<{ n: number }>(`SELECT count(*)::int AS n FROM requests WHERE status='awaiting_approval'`))[0].n }); } catch (e) { next(e); }
+  });
+  r.post('/:id/release', requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'send.approve'), requireMoneyReady(deps), requireStepUp(deps.db), async (req, res, next) => {
+    try {
+      if (!isUuid(String(req.params.id))) throw new HttpError(404, 'not_found', 'That request does not exist.');
+      res.status(201).json(await deps.moneyOut.release(String(req.params.id), { personId: req.person!.id, ip: clientIp(req) }));
+    } catch (e) { next(e); }
+  });
+  r.post('/:id/refuse', requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'send.approve'), async (req, res, next) => {
+    try {
+      if (!isUuid(String(req.params.id))) throw new HttpError(404, 'not_found', 'That request does not exist.');
+      const b = parse(refuseSchema, req.body);
+      res.json(await deps.moneyOut.refuse(String(req.params.id), b.reason, { personId: req.person!.id, ip: clientIp(req) }));
+    } catch (e) { next(e); }
+  });
+  return r;
+}

@@ -26,6 +26,8 @@ export function RequestCard({ request: r, children }: { request: RequestView; ch
         {r.remarks && <><dt className="text-muted">{copy.send.phone.remarks}</dt><dd>{r.remarks}</dd></>}
       </dl>
       {r.status === 'sent' && <p className="text-base text-muted">{copy.request.waiting}</p>}
+      {r.status === 'awaiting_approval' && <p className="text-base text-muted">{copy.request.held}</p>}
+      {r.status === 'rejected' && r.approvedBy && <p className="text-sm text-muted">{copy.request.decidedBy(r.approvedBy.displayName)}{r.meaning ? `: ${r.meaning}` : ''}</p>}
       {explained && <ErrorCard error={explained} />}
       {r.status === 'failed' && !explained && <ErrorCard error={new Error(r.meaning ?? r.safaricomSaid ?? copy.error.generic)} />}
       {r.status === 'unknown' && (

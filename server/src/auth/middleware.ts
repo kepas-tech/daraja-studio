@@ -7,7 +7,7 @@ import { HttpError } from '../util/errors.js';
 import { verifyPassword } from './password.js';
 import { clearFailures, recordAttempt } from './lockout.js';
 
-export type PersonRole = 'owner' | 'operator' | 'viewer' | 'custom';
+export type PersonRole = 'owner' | 'operator' | 'viewer' | 'approver' | 'custom';
 
 export interface Person {
   id: string; username: string; display_name: string; is_owner: boolean;

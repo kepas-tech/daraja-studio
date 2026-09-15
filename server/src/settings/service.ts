@@ -43,6 +43,8 @@ export interface SettingsView {
   stkEnabled: boolean; publicUrl: string | null; publicVerifiedAt: string | null; httpsSeen: boolean;
   allowlist: string[]; setupCompletedAt: string | null;
   sendCategories: SendCategory[];
+  /** M4: 0 = off. */
+  approvalThresholdCents: number;
 }
 export interface SettingsService {
   view(): Promise<SettingsView>;
@@ -54,6 +56,7 @@ export interface SettingsService {
   setB2cApi(env: Env, version: B2cApiSetting, actor: Actor): Promise<void>;
   setAllowlist(list: string[], actor: Actor): Promise<void>;
   setPublicUrl(url: string, actor: Actor): Promise<void>;
+  setApprovalThreshold(cents: number, actor: Actor): Promise<void>;
   testPublicUrl(): Promise<{ ok: boolean; detail: string }>;
   revealInstallSecret(actor: Actor): Promise<string>;
   getSendCategories(): Promise<SendCategory[]>;
@@ -82,7 +85,7 @@ export function createSettingsService(deps: { db: Db; config: Config; settings: 
     async view() {
       const shared = await deps.settings.getMany([
         'org.name', 'org.nominatedNumber', 'org.notificationPhone', 'daraja.environment',
-        'public.url', 'public.verifiedAt', 'callbacks.allowlist', 'setup.completedAt', 'send.categories',
+        'public.url', 'public.verifiedAt', 'callbacks.allowlist', 'setup.completedAt', 'send.categories', 'send.approvalThresholdCents',
       ]);
       // Install-wide, not per-organisation : lives in instance_settings, not settings.
       const httpsSeen = (await deps.instance.get('https.seen')) === 'true';
@@ -118,9 +121,14 @@ export function createSettingsService(deps: { db: Db; config: Config; settings: 
         allowlist: parseAllowlist(shared['callbacks.allowlist']),
         setupCompletedAt: shared['setup.completedAt'],
         sendCategories: parseCategories(shared['send.categories']),
+        approvalThresholdCents: Number(shared['send.approvalThresholdCents'] ?? 0) || 0,
       };
     },
 
+    async setApprovalThreshold(cents, actor) {
+      await deps.settings.set('send.approvalThresholdCents', String(cents));
+      await audit(deps.db, { personId: actor.personId, action: 'settings.approval_threshold', after: { cents }, ip: actor.ip });
+    },
     async getSendCategories() { return parseCategories(await deps.settings.get('send.categories')); },
     async setSendCategories(items, actor) {
       const list = validateCategories(items);

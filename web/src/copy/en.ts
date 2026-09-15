@@ -53,7 +53,7 @@ export const copy = {
     { key: 'standing-orders', label: 'Standing orders', safaricom: 'M-Pesa Ratiba', path: '/standing-orders', icon: 'calendar', group: 'money', phase: 4, available: false },
     { key: 'express', label: 'Express checkout', safaricom: 'B2B Express Checkout', path: '/express', icon: 'speed', group: 'money', phase: 4, available: false },
     { key: 'bonga', label: 'Bonga points', safaricom: 'Lipa na Bonga', path: '/bonga', icon: 'star', group: 'money', phase: 3, available: false },
-    { key: 'approvals', label: 'Waiting for approval', safaricom: 'Review Transaction', path: '/approvals', icon: 'clipboard-check', group: 'money', phase: 5, available: false },
+    { key: 'approvals', label: 'Waiting for approval', safaricom: 'Review Transaction', path: '/approvals', icon: 'clipboard-check', group: 'money', phase: 5, available: true },
     { key: 'history', label: 'History', safaricom: 'Account Statement', path: '/history', icon: 'list', group: 'money', phase: 2, available: true },
     { key: 'people', label: 'People', safaricom: 'Organization Operator', path: '/people', icon: 'account', group: 'manage', phase: 5, available: true },
     { key: 'settings', label: 'Settings', safaricom: 'My Preference', path: '/settings', icon: 'cog', group: 'manage', phase: 1, available: true },
@@ -84,7 +84,7 @@ export const copy = {
     // The row selects get a name of their own: two controls labelled "What may they do?" on one
     // page (the add form and a row) would be ambiguous to a screen reader and to a test.
     roleFor: (name: string) => `What may ${name} do?`,
-    roles: { owner: 'Owner — everything', operator: 'Operator — can send money', viewer: 'Viewer — can only look', custom: 'Custom — editing coming soon' } as Record<string, string>,
+    roles: { owner: 'Owner — everything', operator: 'Operator — can send money', viewer: 'Viewer — can only look', approver: 'Approver — can release or refuse held sends', custom: 'Custom — editing coming soon' } as Record<string, string>,
     temporaryPassword: 'A temporary password for them',
     regenerate: 'Suggest another',
     addButton: 'Add them',
@@ -126,6 +126,7 @@ export const copy = {
     to: 'To', amount: 'Amount', receipt: 'Receipt', when: 'When', by: 'By', category: 'Category',
     checkedBy: (name: string, note: string) => `Checked by ${name}: ${note}`,
     sendAgain: 'Send again', tryAgain: 'Try again', checkNow: 'Check with Safaricom now', reverseThis: 'Reverse this payment',
+    held: 'Held for a second person to approve. Nothing has left your account.', decidedBy: (name: string) => `Decided by ${name}`,
     checkSent: 'Check sent. The answer will show here within a few minutes.',
     markChecked: 'Mark as checked', markedChecked: 'Marked as checked.', markCheckedNote: 'What did you find? (for example: "Paid, seen in the portal")', markCheckedConfirm: 'Mark this as checked?',
     waiting: 'Waiting for Safaricom…', notFound: 'That request does not exist.', notFoundTitle: 'Request not found',
@@ -217,6 +218,13 @@ export const copy = {
     empty: 'Nothing here yet.', loadMore: 'Load more', previous: 'Previous', next: 'Next', page: (n: number) => `Page ${n}`,
     columns: { when: 'When', what: 'What', to: 'To', amount: 'Amount', status: 'Status', receipt: 'Receipt' },
     direction: 'Direction', directions: { all: 'In and out', in: 'Money in', out: 'Money out' } as Record<string, string>,
+  },
+  approvals: {
+    title: 'Waiting for approval', safaricom: 'Review Transaction',
+    intro: 'Sends at or above the threshold in Settings wait here for a second person. Nothing has left the account yet.',
+    empty: 'Nothing is waiting.', madeBy: 'Made by', release: 'Release', refuse: 'Refuse', reason: 'Why?', reasonHint: 'The person who made it will see this.',
+    released: 'Released. Safaricom is sending it.', refused: 'Refused.', confirmRelease: (amount: string) => `Send ${amount} now?`,
+    own: 'Your own send: someone else must release or refuse it.',
   },
   moneyIn: {
     title: 'Money in', safaricom: 'C2B',
@@ -340,6 +348,11 @@ export const copy = {
     org: 'Your organization', daraja: 'Daraja app', passkey: 'STK passkey', publicUrl: 'Public address', operatorsTitle: 'API operators', allowlist: 'Safaricom callback addresses', advanced: 'Advanced',
     change: 'Change', replace: 'Replace', test: 'Test', addOperator: 'Add operator', hidden: 'Hidden',
     appearance: { title: 'Appearance', system: 'System', light: 'Light', dark: 'Dark' },
+    approvals: {
+      title: 'Approvals', label: 'Second person', off: 'Off', holdFrom: (amount: string) => `Hold sends of ${amount} or more`,
+      field: 'Hold sends of this amount or more', hint: 'Whole shillings. 0 turns it off.', confirm: 'Change the approval threshold?',
+      note: 'Applies to everyone, the owner included. Give somebody the Approver role in People, or nothing can be released. A held send is refused after 24 hours.',
+    },
     envSettings: (env: string) => `${env === 'production' ? 'Production' : 'Sandbox'} settings`,
     categories: {
       title: 'Payment categories', intro: 'Your own names for a send. Each one goes to Safaricom as one of its three kinds.',

@@ -17,6 +17,7 @@ export const PERMISSIONS = [
   { key: 'bonga.redeem', label: 'Can redeem Bonga points', role: null },
   { key: 'money_in.view', label: 'Can see money coming in', role: null },
   { key: 'bulk.send', label: 'Can do bulk sends', role: 'ORG B2C API Initiator' },
+  { key: 'send.approve', label: 'Can approve sends others made', role: null },
   { key: 'history.export', label: 'Can export history', role: null },
 ] as const;
 

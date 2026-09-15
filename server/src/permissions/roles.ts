@@ -7,16 +7,18 @@ import type { PermissionKey } from './catalog.js';
  * `owner` is not here — `requirePermission` short-circuits on `is_owner`, so an owner needs no rows.
  * `custom` is not here either — it means "whatever the checkboxes set", so nothing is written.
  */
-export const ROLE_PRESETS: Record<'operator' | 'viewer', PermissionKey[]> = {
+export const ROLE_PRESETS: Record<'operator' | 'viewer' | 'approver', PermissionKey[]> = {
   /** Staff who send. */
   operator: ['balances.view', 'send.phone', 'send.pochi', 'pay.paybill', 'pay.till', 'lookup.view', 'money_in.view', 'history.export'],
   /** An accountant or an auditor. */
   viewer: ['balances.view', 'lookup.view', 'money_in.view', 'history.export'],
+  /** A second pair of eyes (M4): looks, and releases or refuses held sends; never sends. */
+  approver: ['balances.view', 'lookup.view', 'money_in.view', 'history.export', 'send.approve'],
 };
 
 /** What an owner may hand out. `owner` is not one of them: one per organisation, and it is the
  * person who signed up (people_single_owner is the index that says so). */
-export const ASSIGNABLE_ROLES = ['operator', 'viewer', 'custom'] as const;
+export const ASSIGNABLE_ROLES = ['operator', 'viewer', 'approver', 'custom'] as const;
 export type AssignableRole = (typeof ASSIGNABLE_ROLES)[number];
 
 /**
