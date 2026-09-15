@@ -10,7 +10,7 @@ import { clientIp } from '../util/ip.js';
 import { inAllowlist, parseAllowlist } from './allowlist.js';
 import { sha256 } from '../crypto/secrets.js';
 
-export type CallbackVerdict = { verdict: 'applied' | 'unmatched' | 'duplicate' | 'applied_direct' | 'unmatched_final' | 'off_range'; requestId?: string };
+export type CallbackVerdict = { verdict: 'applied' | 'unmatched' | 'duplicate' | 'applied_direct' | 'unmatched_final' | 'off_range'; requestId?: string; /** A body the provider wants back instead of the generic ack (Bill Manager wants `rescode 200`). */ ack?: unknown };
 /** Always invoked from inside `withOrg(org.id)` by the router below — never call one directly
  * outside that context, or its matches run against whatever organisation happens to be ambient. */
 export type CallbackHandler = (ctx: {
@@ -77,6 +77,7 @@ export function callbackRoutes(deps: RouteDeps): Router {
       // logged (by path, never body — it may carry phone numbers or receipts). The handler is
       // awaited to completion before the ack is sent so the write it makes is visible to anyone
       // observing the response (e.g. our own tests, or a caller polling right after the ack).
+      let ack: unknown = ACK;
       try {
         if (!ok) {
           await deps.events.publish('alert', { kind: 'callback_off_range', ip, path: sub });
@@ -84,6 +85,7 @@ export function callbackRoutes(deps: RouteDeps): Router {
           const h = Object.hasOwn(deps.handlers, sub) ? deps.handlers[sub] : undefined;
           if (h) {
             const outcome = await h({ db: deps.db, cache: deps.cache, events: deps.events, body: req.body, rawId: raw.id, sourcePolicy: { inAllowlist: inList, environment } });
+            if (outcome.ack !== undefined) ack = outcome.ack;
             const finalVerdict = sub === 'selftest' && outcome.verdict === 'applied' ? 'selftest' : outcome.verdict;
             await deps.db.query('UPDATE callbacks_raw SET verdict=$2, matched_request_id=$3 WHERE id=$1', [raw.id, finalVerdict, outcome.requestId ?? null]);
             if (outcome.verdict === 'off_range') await deps.events.publish('alert', { kind: 'callback_off_range', ip, path: sub });
@@ -95,7 +97,7 @@ export function callbackRoutes(deps: RouteDeps): Router {
         console.error('callback handler failed', sub, e instanceof Error ? e.message : e);
         try { await deps.events.publish('alert', { kind: 'callback_handler_failed', path: sub }); } catch { /* best effort */ }
       }
-      res.status(200).json(ACK);
+      res.status(200).json(ack);
     });
   });
   return r;

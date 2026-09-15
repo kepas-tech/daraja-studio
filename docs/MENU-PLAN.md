@@ -53,7 +53,7 @@ Status values are exactly `live`, `building`, or `planned`. One slice is `buildi
 | 7 | Money in | `money-in` | live | M2 | 0.9.0, deployed 2026-09-16 |
 | 8 | Ask a customer to pay | `stk` | live | M1 | shipped 2026-09-14 |
 | 9 | QR codes | `qr` | live | M6 | shipped 2026-09-14 |
-| 10 | Invoices | `invoices` | planned | M7 | — |
+| 10 | Invoices | `invoices` | live | M7 | 0.12.0, deployed 2026-09-16 |
 | 11 | Standing orders | `standing-orders` | planned | M8 | — |
 | 12 | Express checkout | `express` | planned | M9 | — |
 | 13 | Bonga points | `bonga` | planned | M10 | — |
@@ -63,7 +63,7 @@ Status values are exactly `live`, `building`, or `planned`. One slice is `buildi
 | 17 | Settings | `settings` | live | — | shipped before 0.4.0 |
 | 18 | Not possible via API | `not-possible` | live | — | 15 explanation cards |
 
-**14 of 18 live (two of them folded into Home and History). 4 to build.** Each slice below removes exactly one Coming soon label.
+**15 of 18 live (two of them folded into Home and History). 3 to build.** Each slice below removes exactly one Coming soon label.
 
 ## Send types inside Send money
 
@@ -174,9 +174,21 @@ Synchronous, so no callback, sweep or payment row. The response handling is the 
 the returned image is validated as a real PNG by magic bytes, header and IEND and bounded in size,
 so a URL, HTML or SVG from upstream can never reach the page or a download.
 
-### M7 — Invoices · `billManager.optIn`, `sendInvoice`, `cancelInvoice`, `acknowledgePayment`
+### M7 — Invoices · `billManager.optIn`, `sendInvoice`, `cancelInvoice`, `acknowledgePayment` — DONE 2026-09-16
 Invoices your customers can pay. Several calls plus an opt-in lifecycle, so the first genuinely
 large slice.
+
+What shipped, all of Bill Manager: opt in once per environment (owner, step-up; the app key is
+kept encrypted in `env.<env>.billManagerAppKey` and never echoed; opting in again is
+`updateOptIn`); single invoices with optional line items and a minted `INV-000001` reference,
+written only after Safaricom accepted; bulk invoices from a pasted or uploaded list in one call;
+cancel (single or many, unpaid only); the payment push on `/cb/<secret>/billmanager` matched to
+the open invoice by account reference, idempotent on the transaction id, recorded as a
+`invoice_payment` row in History, with unmatched pushes kept and listed; recording a payment made
+another way through `acknowledgePayment` so reminders stop; overdue derived at read time. The
+callback router lets a handler name its own acknowledgement body, which Bill Manager needs
+(`rescode 200`). Table `invoices` (migration 023); routes under /api/invoices; the Invoices page
+and Settings › Invoices.
 
 ### M8 — Standing orders · `ratiba.create`
 A recurring debit. The scheduling rules must be shown honestly, including what Daraja will not let

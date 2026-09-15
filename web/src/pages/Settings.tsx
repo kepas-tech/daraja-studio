@@ -9,6 +9,7 @@ import type { SettingsView } from '../api/types';
 import { EnvironmentTab } from './settings/EnvironmentTab';
 import { CategoriesSection } from './settings/CategoriesSection';
 import { ApprovalsSection } from './settings/ApprovalsSection';
+import { InvoicesSection } from './settings/InvoicesSection';
 import { useStepUp } from './settings/useStepUp';
 import { Card } from '../components/Card';
 import { Loading } from '../components/Loading';
@@ -51,6 +52,7 @@ export function Settings() {
 
       <div className="mt-6"><CategoriesSection items={v.sendCategories} reload={load} stepUp={stepUp} /></div>
       <div className="mt-6"><ApprovalsSection view={v} reload={load} stepUp={stepUp} /></div>
+      <div className="mt-6"><InvoicesSection stepUp={stepUp} /></div>
 
       <PasswordConfirmDialog {...stepUp.dialogProps} />
     </>

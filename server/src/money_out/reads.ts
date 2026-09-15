@@ -43,6 +43,7 @@ const scopeOf = (type: string): DarajaScope | null => {
   if (type === 'status_query') return 'status';
   if (type === 'balance') return 'balance';
   if (type === 'c2b') return 'c2b';
+  if (type === 'invoice_payment') return 'billmanager';
   return null;
 };
 

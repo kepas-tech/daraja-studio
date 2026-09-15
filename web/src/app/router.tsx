@@ -24,6 +24,7 @@ import { Account } from '../pages/Account';
 import { MoneyIn } from '../pages/MoneyIn';
 import { Approvals } from '../pages/Approvals';
 import { Bulk, BulkDetail } from '../pages/Bulk';
+import { Invoices, InvoiceDetail } from '../pages/Invoices';
 
 function Gate() {
   const s = useSession();
@@ -63,6 +64,8 @@ function Gate() {
         <Route path="/approvals" element={<Approvals />} />
         <Route path="/bulk" element={<Bulk />} />
         <Route path="/bulk/:id" element={<BulkDetail />} />
+        <Route path="/invoices" element={<Invoices />} />
+        <Route path="/invoices/:id" element={<InvoiceDetail />} />
         <Route path="/history" element={<History />} />
         <Route path="/requests/:id" element={<RequestDetail />} />
         {copy.nav.filter((e) => !e.available).map((e) => <Route key={e.key} path={e.path} element={<ComingSoon />} />)}

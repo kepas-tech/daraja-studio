@@ -43,6 +43,9 @@ import { approvalRoutes, bulkRoutes } from './money_out/routes.js';
 import type { BulkService } from './money_out/bulk.js';
 import type { MoneyInService } from './money_in/service.js';
 import { c2bConfirmHandler, c2bValidateHandler } from './callbacks/c2b.js';
+import { billManagerHandler } from './callbacks/billmanager.js';
+import { invoiceRoutes } from './invoices/routes.js';
+import type { InvoicesService } from './invoices/service.js';
 import type { Scheduler } from './scheduler/loop.js';
 
 export interface AppDeps {
@@ -64,6 +67,8 @@ export interface AppDeps {
   moneyIn: MoneyInService;
   /** M5: batches over ordinary sends. */
   bulk: BulkService;
+  /** M7: Safaricom Bill Manager. */
+  invoices: InvoicesService;
   /** Present at boot; absent in tests that build the app without a scheduler. */
   scheduler?: Pick<Scheduler, 'lastTickAt'>;
   /** The fetch every Safaricom-facing call goes through. Set only by the local demo and the tests. */
@@ -94,7 +99,7 @@ export function buildApp(deps: AppDeps): express.Express {
   app.use(
     '/cb',
     express.json({ limit: '256kb', verify: (req, _res, buf) => { (req as Request).rawBody = buf.toString('utf8'); } }),
-    callbackRoutes({ ...deps, handlers: { selftest: selftestHandler, balance: balanceHandler, b2c: b2cHandler, 'b2c/timeout': b2cTimeoutHandler, status: statusHandler, stk: stkHandler, reversal: reversalHandler, 'reversal/timeout': reversalTimeoutHandler, 'c2b/validate': c2bValidateHandler, 'c2b/confirm': c2bConfirmHandler } }),
+    callbackRoutes({ ...deps, handlers: { selftest: selftestHandler, balance: balanceHandler, b2c: b2cHandler, 'b2c/timeout': b2cTimeoutHandler, status: statusHandler, stk: stkHandler, reversal: reversalHandler, 'reversal/timeout': reversalTimeoutHandler, 'c2b/validate': c2bValidateHandler, 'c2b/confirm': c2bConfirmHandler, billmanager: billManagerHandler(deps.invoices) } }),
     callbackErrorHandler(deps),
   );
   app.use(express.json({ limit: '256kb' }));
@@ -124,6 +129,7 @@ export function buildApp(deps: AppDeps): express.Express {
   app.use('/api/money-in', moneyInRoutes(deps));
   app.use('/api/approvals', approvalRoutes(deps));
   app.use('/api/send/bulk', bulkRoutes(deps));
+  app.use('/api/invoices', invoiceRoutes(deps));
   app.use('/api/requests', requestRoutes(deps));
   app.use('/api/balances', balanceRoutes(deps));
   app.use('/api/lookup', lookupRoutes(deps));

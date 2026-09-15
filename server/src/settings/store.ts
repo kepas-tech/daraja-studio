@@ -16,7 +16,9 @@ type EnvSlotKey = 'shortcode' | 'consumerKey' | 'consumerSecret' | 'credsVerifie
   // "Ask a customer to pay" works.
   | 'passkeyProvenAt'
   // Money in (M2): when the C2B addresses and the Pull address were registered, and the last check.
-  | 'c2bRegisteredAt' | 'pullRegisteredAt' | 'pullCheckedAt';
+  | 'c2bRegisteredAt' | 'pullRegisteredAt' | 'pullCheckedAt'
+  // Invoices (M7): Bill Manager's app key (encrypted) and the opt-in details.
+  | 'billManagerAppKey' | 'billManagerOptedInAt' | 'billManagerEmail' | 'billManagerPhone' | 'billManagerReminders';
 export type EnvSettingKey = `env.${Env}.${EnvSlotKey}`;
 
 export type SettingKey =
@@ -34,7 +36,7 @@ export type SettingKey =
   | 'send.approvalThresholdCents'
   | EnvSettingKey;
 
-const ENCRYPTED_SLOTS = ['consumerKey', 'consumerSecret', 'passkey', 'certPem'] as const;
+const ENCRYPTED_SLOTS = ['consumerKey', 'consumerSecret', 'passkey', 'certPem', 'billManagerAppKey'] as const;
 export const ENCRYPTED_KEYS: ReadonlySet<SettingKey> = new Set<SettingKey>(
   ENVS.flatMap((e) => ENCRYPTED_SLOTS.map((k) => `env.${e}.${k}` as SettingKey)),
 );

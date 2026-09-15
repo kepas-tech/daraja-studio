@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.12.0 — invoices
+
+- Invoices, through Safaricom Bill Manager: set up once (owner, password), then send an invoice
+  by SMS with a pay prompt, one at a time or many from a list; cancel unpaid ones; see payments
+  land against them the moment Safaricom reports them, and in History; record a payment made
+  another way so reminders stop; open, overdue, paid and cancelled views. New: routes under
+  `/api/invoices`; callback `/cb/<secret>/billmanager`; Settings › Invoices.
+
 ## 0.11.0 — bulk send
 
 - Bulk send: paste a list or upload a CSV (phone, amount, name, note), check it, and send it with

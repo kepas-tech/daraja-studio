@@ -34,6 +34,8 @@ export interface FakeSafaricom {
   knowsShortcodeAs(name: string | null | false): void;
   /** A customer pays the paybill. Posts the confirmation to the registered address unless `deliver` is false (a lost one, for the pull check to find). Returns the receipt. */
   customerPays(p: { amount: number; phone: string; account: string; receipt?: string; deliver?: boolean }): Promise<string>;
+  /** A customer pays a Bill Manager invoice: posts the payment push to the opt-in's callback address. Returns the transaction id. */
+  customerPaysInvoice(p: { account: string; amount: number; phone?: string; transactionId?: string }): Promise<string>;
   /**
    * The instant the fake reports as the payment's `TransactionDate` (Daraja sends East Africa Time
    * without a zone). `null` restores the default, twenty minutes before the callback is posted, so
@@ -84,6 +86,7 @@ export function createFakeSafaricom(opts: FakeSafaricomOptions): FakeSafaricom {
   const sent = new Map<string, { receipt: string; amount: number; phone?: number }>();
   const stk = new Map<string, { receipt: string; amount: number; phone: number }>();     // by CheckoutRequestID
   let c2bConfirmUrl: string | null = null;
+  let billManagerUrl: string | null = null;
   const paid: { receipt: string; amount: number; phone: string; account: string; at: Date }[] = [];
   const calls: FakeSafaricom['calls'] = [];
 
@@ -293,6 +296,13 @@ export function createFakeSafaricom(opts: FakeSafaricomOptions): FakeSafaricom {
       return json({ ConversationID: conv, OriginatorConversationID: oc, ResponseCode: '0', ResponseDescription: ACCEPTED });
     }
 
+    if (path.includes('/billmanager-invoice/')) {
+      if (path.endsWith('/optin') || path.endsWith('/change-optin-details')) {
+        billManagerUrl = pathOf(String(body.callbackurl ?? ''));
+        return json({ rescode: '200', resmsg: 'Success', app_key: 'fake-app-key' });
+      }
+      return json({ rescode: '200', resmsg: 'Success', Status_Message: 'Invoice sent successfully' });
+    }
     if (path.endsWith('/registerurl')) {
       c2bConfirmUrl = pathOf(String(body.ConfirmationURL ?? ''));
       return json({ OriginatorCoversationID: `fake-c2b-${n}`, ResponseCode: '0', ResponseDescription: 'Success' });
@@ -338,6 +348,12 @@ export function createFakeSafaricom(opts: FakeSafaricomOptions): FakeSafaricom {
     refusesV3() { v3Refused = true; },
     knowsShortcodeAs(name) { orgInfoName = name; },
     dateAt(at) { fixedDate = at; },
+    async customerPaysInvoice({ account, amount, phone = '254700123456', transactionId }) {
+      n += 1;
+      const id = transactionId ?? `BM${String(n).padStart(8, '0')}`;
+      if (billManagerUrl) await opts.post(billManagerUrl, { transactionId: id, paidAmount: amount, msisdn: phone, dateCreated: new Date().toISOString(), accountReference: account, shortCode: '600999' });
+      return id;
+    },
     async customerPays({ amount, phone, account, receipt, deliver = true }) {
       n += 1;
       const id = receipt ?? `RC${String(n).padStart(8, '0')}`;
@@ -353,7 +369,7 @@ export function createFakeSafaricom(opts: FakeSafaricomOptions): FakeSafaricom {
       }
       return id;
     },
-    reset() { scenario = 'completes'; sync = null; syncLost = false; v3Refused = false; orgInfoName = 'KEPAS TECHNOLOGIES'; fixedDate = null; calls.length = 0; queue.length = 0; sent.clear(); stk.clear(); utility = 34392; paid.length = 0; c2bConfirmUrl = null; },
+    reset() { scenario = 'completes'; sync = null; syncLost = false; v3Refused = false; orgInfoName = 'KEPAS TECHNOLOGIES'; fixedDate = null; calls.length = 0; queue.length = 0; sent.clear(); stk.clear(); utility = 34392; paid.length = 0; c2bConfirmUrl = null; billManagerUrl = null; },
     async settle() { while (queue.length) { const fn = queue.shift()!; await fn().catch(() => {}); } },
   };
 }
