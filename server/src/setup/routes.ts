@@ -214,10 +214,12 @@ export function setupRoutes(deps: AppDeps): Router {
     try {
       const v = await svc.view();
       const uses = await readUses();
-      if (!v.environments[v.mode].ready.creds) throw new HttpError(409, 'incomplete', 'Add the Daraja key and secret first.');
-      if (!v.publicVerifiedAt) throw new HttpError(409, 'incomplete', 'Test your public address first.');
-      if (uses.payOut && !v.environments[v.mode].ready.operator) throw new HttpError(409, 'incomplete', 'Add a working API operator first.');
-      if (uses.stk && !(await deps.settings.get(`env.${v.mode}.passkeyProvenAt`))) throw new HttpError(409, 'incomplete', 'Prove your passkey first.');
+      // `details.step` names the wizard step to return to, so the Done page can send the owner
+      // straight there instead of stating a problem with no way to fix it.
+      if (!v.environments[v.mode].ready.creds) throw new HttpError(409, 'incomplete', 'Add the Daraja key and secret first.', { step: 'daraja' });
+      if (!v.publicVerifiedAt) throw new HttpError(409, 'incomplete', 'Test your public address first.', { step: 'public-url' });
+      if (uses.payOut && !v.environments[v.mode].ready.operator) throw new HttpError(409, 'incomplete', 'Add a working API operator first.', { step: 'operator' });
+      if (uses.stk && !(await deps.settings.get(`env.${v.mode}.passkeyProvenAt`))) throw new HttpError(409, 'incomplete', 'Prove your passkey first.', { step: 'passkey' });
       await deps.settings.set('setup.completedAt', new Date().toISOString());
       // Mirrors what migration 007 did once, by hand, for the live organisation: the wizard is the
       // only route that ever moves a boot-created organisation (single mode's own, or a hosted

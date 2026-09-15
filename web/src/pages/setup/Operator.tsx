@@ -55,8 +55,9 @@ export function Operator({ onDone, onBack }: { onDone: () => void; onBack: () =>
           <span>{o.name}</span>
           <span className="flex items-center gap-2"><StatusPill kind={tone[o.status]}>{copy.settings.operatorStatus[o.status]}</StatusPill>{o.lastError && <span className="text-sm text-danger">{o.lastError}</span>}</span>
         </li>))}</ul>
+      {/* No Skip: the business said it sends money, and /complete refuses without a working
+          operator. Back (and unticking Send on "What you need") is the honest way out. */}
       <StepFooter onBack={onBack}>
-        <Button type="button" variant="secondary" onClick={onDone}>{copy.setup.operator.skip}</Button>
         <Button type="button" onClick={onDone} disabled={!ops.some((o) => o.status === 'verified')}>{copy.setup.next}</Button>
       </StepFooter>
     </div>
