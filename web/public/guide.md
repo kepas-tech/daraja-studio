@@ -16,8 +16,8 @@ This is the copy for AI agents and scripts. The page people see at /guide has th
 - Get paid
 - Pay out
 - Settings
+- Organisation
 - People
-- Account
 - Reading a result
 - What still has to be done on Safaricom’s site
 - For AI agents and scripts
@@ -184,7 +184,7 @@ The first person to open a new Studio becomes the owner and walks through up to 
 Who: Owner · Route: /setup
 
 1. Owner: your name, a username and a password of 12 or more characters. You can change the name on the "Owner account created" screen; the username stays.
-2. Environment: Sandbox or Production. Start with Sandbox if you are still trying things out; you can switch later under Account.
+2. Environment: Sandbox or Production. Start with Sandbox if you are still trying things out; when Safaricom has approved your app for real money, Organisation › Go live takes you across.
 3. What you need: tick "Receive money from customers", "Send money to people or businesses", or both. A separate tick, "Prompt a customer’s phone to pay", is the one thing that needs the passkey. Your ticks decide which of the later steps appear.
 4. Your organization: business name, nominated number and notification phone (starting 2547). Shown in the menu and on receipts.
 5. Shortcode: your paybill or till number. Studio checks it with Safaricom and shows the name Safaricom holds for it.
@@ -232,7 +232,7 @@ Who: Anyone with a login · Route: /login
 2. Home and History come first. Then Get paid (Ask a customer to pay, Money in, QR codes, Invoices), Pay out (Send money, and Waiting for approval while approvals are on), and Manage (Settings, Advanced).
 3. Advanced opens a page of cards for things you set up once or use now and then: Standing orders, Express checkout, Bonga points, Bulk send, Reverse a payment.
 4. Below the line: How to use (this page) and Not possible via API.
-5. Your name at the top right opens the account menu: Organisation & shortcodes, Change password, Log out.
+5. Your name at the top right opens the account menu: Organisation, Change password, Log out.
 
 ## Home
 
@@ -494,70 +494,92 @@ Safaricom calls this: Reversal · Where: Manage → Advanced → Reverse a payme
 
 ## Settings
 
-Every value is shown as it is. Press Change or Replace to edit it; saving asks for the owner’s password.
+How Studio behaves. Every value is shown as it is; press Change or Replace to edit it, and saving asks for the owner’s password.
 
-### Organisation
+### What is on Settings
 
 Safaricom calls this: My Preference · Where: Manage → Settings · Who: Owner changes things; anyone logged in can look · Route: /settings · Permission: owner
 
-1. Business name and contacts: the name in the menu and on receipts, the nominated number and the notification phone.
+1. Appearance: System, Light or Dark.
 2. Public address: the web address Safaricom sends payment news to. Test it after any change.
-3. Safaricom verification: for Sandbox and for Production, whether the number, the app codes and a working portal user are in place.
-4. Who can log in: Manage people opens the People page.
-5. Safaricom callback addresses: the Safaricom addresses Studio accepts payment news from. Change only if Safaricom publishes new ones.
-6. Callback secret: part of the address Safaricom sends to. Show the callback secret asks for your password; treat it like a password.
-7. Appearance: System, Light or Dark.
+3. Payment categories: your own names for a send (Personal use, Rent, …); each goes to Safaricom as Business payment, Salary or Promotion. Add, Edit, Delete; keep at least one.
+4. Approvals: Second person, Off or "Hold sends of KES … or more". Change, type the amount, save with your password.
+5. Invoices: whether invoicing is set up and whether reminders are on. Set it up from the Invoices page.
+6. Advanced, folded shut: the B2C version for the mode in use (leave it on Automatic), Safaricom’s callback addresses (change only if Safaricom publishes new ones), and the callback secret (Show asks for your password; treat it like a password).
 
 | Method | Path | Who |
 |---|---|---|
 | GET | `/api/settings` | owner |
-| PUT | `/api/settings/org` | owner, password |
 | PUT | `/api/settings/public-url` | owner, password |
 | POST | `/api/settings/public-url/test` | owner |
+| PUT | `/api/settings/send-categories` | owner, password |
+| PUT | `/api/settings/approval-threshold` | owner, password; body { cents } |
+| PUT | `/api/settings/environments/:env/b2c-api` | owner, password |
 | PUT | `/api/settings/allowlist` | owner, password |
 | POST | `/api/settings/install-secret/reveal` | owner, password |
 
-### Sandbox settings and Production settings
+## Organisation
 
-Where: Manage → Settings · Who: Owner · Permission: owner
+Your business, the mode you are in, your number and Safaricom details for each mode, who can log in. Opened from your name at the top right.
 
-1. Studio shows the settings of the mode you are in. Switch modes under Account.
-2. Daraja app: the "Consumer Key" (last four shown) and "Consumer Secret"; Replace tests the new pair before saving it. See Getting things from Safaricom.
-3. B2C API version: leave it on Automatic (recommended).
-4. STK passkey: Replace; the new one is tested with a KES 1 prompt to your phone.
-5. Certificate: Safaricom’s certificate text, needed only when adding a portal user by password.
-6. API operators: your portal users. Add operator (by password and certificate, or by "Security Credential"), Test again (a balance check), New password or New credential, Turn off. The date Safaricom set for the password to expire is shown.
+### What is on Organisation
+
+Where: your name, top right → Organisation · Who: Owner · Route: /account · Permission: owner
+
+1. Business: the name in the menu and on receipts, the nominated number and the notification phone.
+2. Mode: Sandbox for practice, or Production for real money. Switching a finished Studio to Production asks you to type your paybill or till number back, then your password. While you are in Sandbox, a Go live card sits under it (next task).
+3. Sandbox and Production, one card each, the one in use first and open, the other behind Show. The top line says Ready or what is still needed. Then: your paybill or till number (Change; Check the name with Safaricom), the Daraja app codes (Replace, with the Safaricom clicks), the passkey (Replace), the certificate, and your API operators (Add operator, Test again, New credential, Turn off). Each form shows "Where to get it".
+4. Who can log in: Manage people opens the People page.
+5. Delete this studio, at the bottom: removes the business, its people, its Safaricom details and its history, and returns Studio to first-run setup. It asks for your password and the business name typed exactly. It cannot be undone.
 
 | Method | Path | Who |
 |---|---|---|
+| PUT | `/api/settings/org` | owner, password |
+| PUT | `/api/settings/mode` | owner, password |
+| PUT | `/api/settings/environments/:env/shortcode` | owner, password |
+| POST | `/api/settings/environments/:env/shortcode/verify` | owner |
 | POST | `/api/settings/environments/:env/daraja` | owner, password |
-| PUT | `/api/settings/environments/:env/b2c-api` | owner, password |
 | POST | `/api/settings/environments/:env/passkey` | owner, password |
 | GET | `/api/settings/environments/:env/operators` | owner |
 | POST | `/api/settings/environments/:env/operators` | owner, password |
 | POST | `/api/settings/operators/:id/probe` | owner |
 | POST | `/api/settings/operators/:id/rotate` | owner, password |
 | POST | `/api/settings/operators/:id/disable` | owner, password |
+| PUT | `/api/auth/display-name` | signed in |
+| POST | `/api/org/wipe` | owner, password, name typed |
 
-### Payment categories, Approvals, Invoices
+### Go live: from pretend money to real money
 
-Where: Manage → Settings · Who: Owner · Permission: owner
+Safaricom calls this: Go Live · Where: your name, top right → Organisation → Go live · Who: Owner · Route: /go-live · Permission: owner
 
-1. Payment categories: your own names for a send (Personal use, Rent, …); each goes to Safaricom as Business payment, Salary or Promotion. Add, Edit, Delete; keep at least one.
-2. Approvals: Second person, Off or "Hold sends of KES … or more". Change, type the amount, save with your password.
-3. Invoices: whether invoicing is set up and whether reminders are on. Set it up from the Invoices page.
+1. Before Studio can help, Safaricom must have approved your app for real money: Go Live on the Daraja portal (button below). Studio then shows the steps that apply to you, and asks your password once.
+2. Your paybill or till number. Studio checks it with Safaricom and shows the name it holds.
+3. The Consumer Key and Consumer Secret from your Production app card. Studio tests them at once.
+4. Switch to real money: type the number back. From here Studio talks to your real M-Pesa account.
+5. Passkey (only if you prompt customers’ phones): paste it and give your own phone number; Studio sends one KES 1 prompt you can cancel.
+6. API operator (only if you send money out): the portal user’s name and password with the certificate, or a Security Credential. Studio keeps it only once Safaricom accepts it.
+7. Done. Home now shows your real balances. Every step saves as you go, so you can stop and come back; steps already done just say so.
+
+- [Open Go Live on the Daraja portal](https://developer.safaricom.co.ke/dashboard/golive) — then: Daraja portal → Log In → Go Live → Verification Type: Short Code → Organization ShortCode → Organization Name → M-PESA Username → tick the Terms and Conditions → Next → type the code sent by SMS
+- [Open My Apps on the Daraja portal](https://developer.safaricom.co.ke/dashboard/myapps) — then: Daraja portal → Log In → My Apps → your app card → the copy icon next to Consumer Key → then the one next to Consumer Secret
+- [Open My Apps on the Daraja portal](https://developer.safaricom.co.ke/dashboard/myapps) — then: Daraja portal → Log In → My Apps → your Production app card → the copy icon next to Passkey
+- [Open the M-Pesa business portal](https://org.ke.m-pesa.com) — then: M-Pesa business portal → Log in (paybill or till number, username, password, the code on screen, then the code sent by SMS) → Search → Organization Operator → the … next to Organization Short Code → type your number → Search → Confirm → Search → + Create (only a Business Administrator sees it live) → Username → Access Channel: API → Rule Profile: Web Operator Rule Profile → Roles: ORG B2C API initiator, Balance Query ORG API, Transaction Status query ORG API → the person’s details → Submit
 
 | Method | Path | Who |
 |---|---|---|
-| PUT | `/api/settings/send-categories` | owner, password |
+| PUT | `/api/settings/environments/production/shortcode` | owner, password |
+| POST | `/api/settings/environments/production/daraja` | owner, password |
+| PUT | `/api/settings/mode` | owner, password; body { environment: "production", confirmShortcode } |
+| POST | `/api/settings/environments/production/passkey/prove` | owner, password; body { passkey, phone }; the mode in use must be production |
+| POST | `/api/settings/environments/production/operators` | owner, password |
 
 ## People
 
 ### Who can log in
 
-Safaricom calls this: Organization Operator · Where: Manage → Settings → Who can log in → Manage people · Who: Owner · Route: /people · Permission: owner
+Safaricom calls this: Organization Operator · Where: your name, top right → Organisation → Who can log in → Manage people · Who: Owner · Route: /people · Permission: owner
 
-1. Open Settings, then Who can log in, then Manage people.
+1. Press your name at the top right, then Organisation, then Manage people under Who can log in.
 2. Add somebody: their name, a username, what they may do, and a temporary password (Suggest another gives a new one). Add them, then your password.
 3. Tell them the temporary password yourself; Studio shows it once. They must change it at first login.
 4. Roles: Owner does everything. Operator can send money and ask customers to pay. Viewer can only look. Approver can release or refuse held sends.
@@ -573,26 +595,6 @@ Safaricom calls this: Organization Operator · Where: Manage → Settings → Wh
 | POST | `/api/people/:id/reset-password` | owner, password |
 | POST | `/api/people/:id/suspend` | owner, password |
 | POST | `/api/people/:id/resume` | owner, password |
-
-## Account
-
-### Organisation & shortcodes
-
-Where: your name, top right → Organisation & shortcodes · Who: Owner · Route: /account · Permission: owner
-
-1. Press your name at the top right, then Organisation & shortcodes.
-2. Mode: Sandbox for practice, or Production for real money. Switching a finished Studio to Production asks you to type your paybill or till number back, then your password.
-3. Shortcodes: the paybill or till number for each mode, with Change. Check the name with Safaricom fetches the name Safaricom holds and whether it is a paybill or a till.
-4. Change password, from the same menu: your current password, then the new one twice.
-5. Delete this studio, at the bottom: removes the business, its people, its Safaricom details and its history, and returns Studio to first-run setup. It asks for your password and the business name typed exactly. It cannot be undone.
-
-| Method | Path | Who |
-|---|---|---|
-| PUT | `/api/settings/mode` | owner, password |
-| PUT | `/api/settings/environments/:env/shortcode` | owner, password |
-| POST | `/api/settings/environments/:env/shortcode/verify` | owner |
-| PUT | `/api/auth/display-name` | signed in |
-| POST | `/api/org/wipe` | owner, password, name typed |
 
 ## Reading a result
 

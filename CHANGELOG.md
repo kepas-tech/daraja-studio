@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.15.0 — Organisation, a calmer Settings, and Go live
+
+- The account menu opens Organisation: Business (name and contacts), Mode, one card each for
+  Sandbox and Production (the one in use first, the other behind Show) with a status line and
+  the number, Daraja app, passkey, certificate and API operators inside, Who can log in, and
+  Delete this studio. Every form there carries "Where to get it" for Safaricom.
+- Settings keeps only how Studio behaves: Appearance, Public address, Payment categories,
+  Approvals, Invoices, and an Advanced fold (closed by default) for the B2C version, Safaricom's
+  callback addresses and the callback secret.
+- Go live, for a Sandbox studio: Organisation › Go live (and a line on Home) walks the owner
+  from pretend money to real money one screen at a time, asking the password once: the number,
+  the Consumer Key and Secret, the switch with the number typed back, then the passkey and the
+  API operator only if the business uses them. Steps already done say so. New:
+  `POST /api/settings/environments/:env/passkey/prove`; `GET /api/settings` carries `uses` and
+  each environment's `passkeyProven`.
+
 ## 0.14.4 — the M-Pesa business portal, as it really is
 
 - The API operator trail now matches the live M-Pesa business portal: Search › Organization

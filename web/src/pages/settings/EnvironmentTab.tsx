@@ -13,11 +13,10 @@ import { copy } from '../../copy/en';
 import { SafaricomHow } from '../../components/SafaricomHow';
 import { how } from '../../copy/guide';
 import { when } from '../../format';
-import type { B2cApiSetting, Env, EnvSlotView, SecretState } from '../../api/types';
+import type { Env, EnvSlotView, SecretState } from '../../api/types';
 import type { StepUp } from './useStepUp';
 
 type OpMode = 'modePassword' | 'modeCredential';
-const B2C_VERSIONS: B2cApiSetting[] = ['auto', 'v1', 'v3'];
 const textarea = 'min-h-24 w-full rounded-md border border-line bg-surface p-2 font-mono text-xs text-ink shadow-inner focus:outline-2 focus:-outline-offset-1 focus:outline-brand';
 
 function ModeChoice({ name, mode, onChange }: { name: string; mode: OpMode; onChange: (m: OpMode) => void }) {
@@ -39,12 +38,22 @@ function keyStatusText(slot: EnvSlotView): string {
   return `${secretText(slot.consumerKey)} · ${copy.settings.secret.verifiedAt(when(slot.credsVerifiedAt))}`;
 }
 
+/** What one environment still lacks before it can move money, in the person's words. */
+export function envMissing(slot: EnvSlotView): string[] {
+  const m: string[] = [];
+  if (!slot.shortcode) m.push(copy.account.env.needNumber);
+  if (!slot.ready.creds) m.push(copy.account.env.needCreds);
+  if (!slot.ready.operator) m.push(copy.account.env.needOperator);
+  return m;
+}
+
 export function EnvironmentTab({ env, slot, isActiveMode, reload, stepUp }: { env: Env; slot: EnvSlotView; isActiveMode: boolean; reload: () => Promise<unknown>; stepUp: StepUp }) {
   const toast = useToast();
+  const [shortcode, setShortcode] = useState(slot.shortcode ?? '');
+  const missing = envMissing(slot);
 
   const [creds, setCreds] = useState({ consumerKey: '', consumerSecret: '' });
   const [pk, setPk] = useState('');
-  const [b2cApi, setB2cApi] = useState<B2cApiSetting>(slot.b2cApi.setting);
 
   const [adding, setAdding] = useState(false);
   const [newOp, setNewOp] = useState({ name: '', operatorPassword: '', certPem: '', credential: '' });
@@ -59,6 +68,36 @@ export function EnvironmentTab({ env, slot, isActiveMode, reload, stepUp }: { en
   return (
     <div className="space-y-6">
       <Card bodyClassName="p-0">
+        <div data-testid={`env-status-${env}`} className="flex flex-wrap items-center gap-2 px-4 py-3">
+          <StatusPill kind={missing.length === 0 ? 'ok' : 'muted'}>{missing.length === 0 ? copy.account.env.ready : copy.account.env.notReady}</StatusPill>
+          {isActiveMode && <StatusPill kind="ok">{copy.account.env.inUse}</StatusPill>}
+          {missing.length > 0 && <span className="text-sm text-muted">{copy.account.env.missing(missing)}</span>}
+        </div>
+        <SettingRow testId={`shortcode-${env}`} label={copy.org.numberLabel(slot.shortcodeKind)} value={<><span>{slot.shortcode ?? copy.settings.secret.notSet}</span>{slot.safaricomName && <span className="block text-sm text-muted">{copy.settings.organisation.knownAs} {slot.safaricomName}</span>}</>}>
+          {(close) => (
+            <>
+              <SafaricomHow links={[how.number]} />
+              <TextField label={copy.settings.shortcode.label} inputMode="numeric" value={shortcode} onChange={(ev) => setShortcode(ev.target.value)} />
+              <div className="flex flex-wrap gap-2">
+                <Button variant="secondary" disabled={!slot.shortcode} onClick={async () => {
+                  try {
+                    const r = await api.post<{ verifiedName: string | null; verifyError: string | null }>(`/api/settings/environments/${env}/shortcode/verify`);
+                    if (r.verifiedName) toast.success(copy.settings.shortcode.knownAs(r.verifiedName)); else toast.info(r.verifyError ?? copy.settings.organisation.noName);
+                    await reload();
+                  } catch (err) { toast.error(toastText(err)); }
+                }}>{copy.settings.organisation.checkName}</Button>
+                <Button disabled={!shortcode} onClick={() => stepUp.ask(copy.settings.confirm.saveShortcode, async (password) => {
+                  const r = await api.put<{ verifiedName: string | null; verifyError: string | null }>(`/api/settings/environments/${env}/shortcode`, { shortcode, password });
+                  if (r.verifiedName) toast.success(copy.settings.shortcode.knownAs(r.verifiedName));
+                  else if (r.verifyError) toast.info(`${copy.settings.saved} ${r.verifyError}`);
+                  else toast.info(copy.settings.shortcode.unverified);
+                  await reload();
+                  close();
+                })}>{copy.settings.save}</Button>
+              </div>
+            </>
+          )}
+        </SettingRow>
         <SettingRow testId="setting-daraja" label={copy.settings.daraja} changeLabel={copy.settings.replace} value={
           <><span>{copy.setup.daraja.key}: {keyStatusText(slot)}</span><span className="block text-sm text-muted">{copy.setup.daraja.secret}: {secretText(slot.consumerSecret)}</span></>
         }>
@@ -75,30 +114,6 @@ export function EnvironmentTab({ env, slot, isActiveMode, reload, stepUp }: { en
               { key: 'key', question: copy.setup.daraja.key, valid: creds.consumerKey.length > 0, render: () => <TextField label={copy.setup.daraja.key} labelHidden value={creds.consumerKey} onChange={(e) => setCreds({ ...creds, consumerKey: e.target.value })} autoComplete="off" autoFocus /> },
               { key: 'secret', question: copy.setup.daraja.secret, valid: creds.consumerSecret.length > 0, render: () => <TextField label={copy.setup.daraja.secret} labelHidden type="password" value={creds.consumerSecret} onChange={(e) => setCreds({ ...creds, consumerSecret: e.target.value })} autoComplete="off" autoFocus /> },
             ]} /></>
-          )}
-        </SettingRow>
-
-        <SettingRow testId="setting-b2c-api" label={copy.settings.b2cApi.title} value={
-          <><span>{copy.settings.b2cApi[slot.b2cApi.setting]}</span>{slot.b2cApi.detected && <span className="block text-sm text-muted">{copy.settings.b2cApi.detected(slot.b2cApi.detected, when(slot.b2cApi.detectedAt))}</span>}</>
-        }>
-          {(close) => (
-            <>
-              <div role="radiogroup" aria-label={copy.settings.b2cApi.title} className="space-y-2">
-                {B2C_VERSIONS.map((v) => (
-                  <label key={v} className="flex items-start gap-3">
-                    <input type="radio" name={`b2c-api-${env}`} className="mt-1 size-4" checked={b2cApi === v} onChange={() => setB2cApi(v)} />
-                    <span><span className="block">{copy.settings.b2cApi[v]}</span><span className="block text-sm text-muted">{copy.settings.b2cApi[`${v}Hint`]}</span></span>
-                  </label>
-                ))}
-              </div>
-              {slot.b2cApi.detected && <p className="text-sm text-muted">{copy.settings.b2cApi.detected(slot.b2cApi.detected, when(slot.b2cApi.detectedAt))}</p>}
-              <Button disabled={b2cApi === slot.b2cApi.setting} onClick={() => stepUp.ask(copy.settings.confirm.saveB2cApi, async (password) => {
-                await api.put(`/api/settings/environments/${env}/b2c-api`, { version: b2cApi, password });
-                toast.success(copy.settings.b2cApi.saved);
-                await reload();
-                close();
-              })}>{copy.settings.save}</Button>
-            </>
           )}
         </SettingRow>
 

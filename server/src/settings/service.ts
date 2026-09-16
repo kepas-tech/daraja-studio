@@ -33,7 +33,7 @@ export interface EnvSlotView {
   /** The name Safaricom returned when the shortcode was checked, and whether it answered as a paybill or a till. */
   safaricomName: string | null; shortcodeKind: 'paybill' | 'till' | null;
   consumerKey: SecretState; consumerSecret: SecretState; credsVerifiedAt: string | null;
-  passkey: SecretState; cert: SecretState;
+  passkey: SecretState; passkeyProven: boolean; cert: SecretState;
   operators: OperatorView[];
   ready: { creds: boolean; operator: boolean };
   b2cApi: { setting: B2cApiSetting; detected: 'v1' | 'v3' | null; detectedAt: string | null };
@@ -47,6 +47,8 @@ export interface SettingsView {
   sendCategories: SendCategory[];
   /** M4: 0 = off. */
   approvalThresholdCents: number;
+  /** What the business said it needs at setup; decides which Go live steps apply. */
+  uses: { payOut: boolean; collect: boolean; stk: boolean };
 }
 export interface SettingsService {
   view(): Promise<SettingsView>;
@@ -90,13 +92,14 @@ export function createSettingsService(deps: { db: Db; config: Config; settings: 
       const shared = await deps.settings.getMany([
         'org.name', 'org.nominatedNumber', 'org.notificationPhone', 'daraja.environment',
         'public.url', 'public.verifiedAt', 'callbacks.allowlist', 'setup.completedAt', 'send.categories', 'send.approvalThresholdCents',
+        'use.payOut', 'use.collect', 'use.stk',
       ]);
       // Install-wide, not per-organisation : lives in instance_settings, not settings.
       const httpsSeen = (await deps.instance.get('https.seen')) === 'true';
       const mode = ((shared['daraja.environment'] as Env) ?? 'sandbox');
       const environments = {} as Record<Env, EnvSlotView>;
       for (const e of ENVS) {
-        const s = await deps.settings.getMany([`env.${e}.shortcode`, `env.${e}.consumerKey`, `env.${e}.consumerSecret`, `env.${e}.credsVerifiedAt`, `env.${e}.passkey`, `env.${e}.certPem`, `env.${e}.b2cApi`, `env.${e}.b2cApiDetected`, `env.${e}.b2cApiDetectedAt`, `env.${e}.safaricomName`, `env.${e}.shortcodeKind`]);
+        const s = await deps.settings.getMany([`env.${e}.shortcode`, `env.${e}.consumerKey`, `env.${e}.consumerSecret`, `env.${e}.credsVerifiedAt`, `env.${e}.passkey`, `env.${e}.certPem`, `env.${e}.b2cApi`, `env.${e}.b2cApiDetected`, `env.${e}.b2cApiDetectedAt`, `env.${e}.safaricomName`, `env.${e}.shortcodeKind`, `env.${e}.passkeyProvenAt`]);
         const consumerKey = s[`env.${e}.consumerKey`];
         const { creds, operator, operators } = await envReady(e, { consumerKey, consumerSecret: s[`env.${e}.consumerSecret`], credsVerifiedAt: s[`env.${e}.credsVerifiedAt`] });
         const b2cApiSetting = s[`env.${e}.b2cApi`];
@@ -108,6 +111,7 @@ export function createSettingsService(deps: { db: Db; config: Config; settings: 
           consumerSecret: { saved: !!s[`env.${e}.consumerSecret`], last4: null },
           credsVerifiedAt: s[`env.${e}.credsVerifiedAt`],
           passkey: { saved: !!s[`env.${e}.passkey`], last4: null },
+          passkeyProven: !!s[`env.${e}.passkeyProvenAt`],
           cert: { saved: !!s[`env.${e}.certPem`], last4: null },
           operators,
           ready: { creds, operator },
@@ -128,6 +132,7 @@ export function createSettingsService(deps: { db: Db; config: Config; settings: 
         setupCompletedAt: shared['setup.completedAt'],
         sendCategories: parseCategories(shared['send.categories']),
         approvalThresholdCents: Number(shared['send.approvalThresholdCents'] ?? 0) || 0,
+        uses: { payOut: shared['use.payOut'] === 'true', collect: shared['use.collect'] === 'true', stk: shared['use.stk'] === 'true' },
       };
     },
 

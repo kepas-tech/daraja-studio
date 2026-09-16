@@ -5,12 +5,14 @@ import type { Env } from './store.js';
 import { requireAuth, requireCsrf, requireOwner, requireStepUp as stepUp } from '../auth/middleware.js';
 import { clientIp } from '../util/ip.js';
 import { HttpError } from '../util/errors.js';
+import { provePasskey } from './passkeyProof.js';
 
 const org = z.object({ name: z.string().trim().min(1).max(120), nominatedNumber: z.string().trim().regex(/^254\d{9}$/), notificationPhone: z.string().trim().regex(/^254\d{9}$/) });
 const shortcodeSchema = z.object({ shortcode: z.string().trim().regex(/^\d{5,7}$/) });
 const mode = z.object({ environment: z.enum(['sandbox','production']), confirmShortcode: z.string().optional() });
 const creds = z.object({ consumerKey: z.string().min(1).max(200), consumerSecret: z.string().min(1).max(200) });
 const passkey = z.object({ passkey: z.string().min(1).max(200) });
+const passkeyProve = z.object({ passkey: z.string().trim().min(1).max(200), phone: z.string().trim().regex(/^254\d{9}$/, 'Enter your own number as 254… so we can send you the test.') });
 const b2cApi = z.object({ version: z.enum(['auto', 'v1', 'v3']) });
 const octetsInRange = (ip: string) => ip.split('.').every((o) => Number(o) <= 255);
 const allow = z.object({ allowlist: z.array(z.string().regex(/^\d{1,3}(\.\d{1,3}){3}$/).refine(octetsInRange, 'Each number must be 0-255.')).min(1).max(50) });
@@ -46,6 +48,13 @@ export function settingsRoutes(deps: AppDeps): Router {
   r.put('/mode', requireStepUp, async (req, res, next) => { try { const b = parse(mode, req.body); res.json(await svc.setMode(b.environment, b.confirmShortcode, a(req))); } catch (e) { next(e); } });
   r.post('/environments/:env/daraja', requireStepUp, async (req, res, next) => { try { const b = parse(creds, req.body); res.json(await svc.setDarajaCreds(envParam(req), b.consumerKey, b.consumerSecret, a(req))); } catch (e) { next(e); } });
   r.post('/environments/:env/passkey', requireStepUp, async (req, res, next) => { try { await svc.setPasskey(envParam(req), parse(passkey, req.body).passkey, a(req)); res.status(204).end(); } catch (e) { next(e); } });
+  // Go live: save the passkey and prove it with the KES 1 prompt, as the setup wizard does.
+  r.post('/environments/:env/passkey/prove', requireStepUp, async (req, res, next) => {
+    try {
+      const b = parse(passkeyProve, req.body);
+      res.json(await provePasskey(deps, envParam(req), b, { personId: req.person!.id, ip: clientIp(req) }, 'settings.passkey_prove'));
+    } catch (e) { next(e); }
+  });
   r.put('/environments/:env/b2c-api', requireStepUp, async (req, res, next) => { try { await svc.setB2cApi(envParam(req), parse(b2cApi, req.body).version, a(req)); res.status(204).end(); } catch (e) { next(e); } });
   r.put('/allowlist', requireStepUp, async (req, res, next) => { try { await svc.setAllowlist(parse(allow, req.body).allowlist, a(req)); res.status(204).end(); } catch (e) { next(e); } });
   r.put('/send-categories', requireStepUp, async (req, res, next) => { try { res.json({ items: await svc.setSendCategories(parse(categories, req.body).items, a(req)) }); } catch (e) { next(e); } });

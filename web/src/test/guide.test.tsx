@@ -60,7 +60,7 @@ describe('How to use', () => {
   });
 
   it('every step names a page that exists, so the manual cannot point at a route that is gone', () => {
-    const routes = new Set([...copy.nav.map((e) => e.path), '/setup', '/login', '/send/phone', '/requests/:id', '/account', '/people']);
+    const routes = new Set([...copy.nav.map((e) => e.path), '/setup', '/login', '/send/phone', '/requests/:id', '/account', '/people', '/go-live']);
     for (const s of guide) for (const t of s.tasks) if (t.path) expect(routes.has(t.path), `${t.key} → ${t.path}`).toBe(true);
   });
 

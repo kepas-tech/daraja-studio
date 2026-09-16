@@ -30,6 +30,7 @@ import { Express } from '../pages/collect/Express';
 import { Bonga } from '../pages/collect/Bonga';
 import { Advanced } from '../pages/Advanced';
 import { Guide } from '../pages/Guide';
+import { GoLive } from '../pages/GoLive';
 
 function Gate() {
   const s = useSession();
@@ -56,6 +57,7 @@ function Gate() {
         <Route path="/settings" element={<Settings />} />
         <Route path="/account" element={<Account />} />
         <Route path="/account/password" element={<VoluntaryPasswordChange />} />
+        <Route path="/go-live" element={<GoLive />} />
         <Route path="/people" element={<People />} />
         <Route path="/not-possible" element={<NotPossible />} />
         <Route path="/send" element={<SendHub />} />

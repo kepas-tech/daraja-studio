@@ -48,6 +48,24 @@ describe('settings routes', () => {
     }
   });
 
+  it('view carries what the business said it needs, and whether each passkey is proven', async () => {
+    await deps.settings.set('use.payOut', 'true'); await deps.settings.set('use.stk', 'true');
+    await deps.settings.set('env.sandbox.passkeyProvenAt', new Date().toISOString());
+    const r = await request(app).get('/api/settings').set('Cookie', cookie);
+    expect(r.body.uses).toEqual({ payOut: true, collect: false, stk: true });
+    expect(r.body.environments.sandbox.passkeyProven).toBe(true);
+    expect(r.body.environments.production.passkeyProven).toBe(false);
+  });
+
+  it('proving a passkey needs the password and the mode in use; a refused push leaves it unproven', async () => {
+    const no = await request(app).post('/api/settings/environments/sandbox/passkey/prove').set('Cookie', cookie).set('x-csrf-token', csrf).send({ passkey: 'pk', phone: '254700123456' });
+    expect(no.status).toBe(403);
+    const wrong = await request(app).post('/api/settings/environments/production/passkey/prove').set('Cookie', cookie).set('x-csrf-token', csrf).send({ passkey: 'pk', phone: '254700123456', password: 'correct horse' });
+    expect(wrong.status).toBe(409);
+    expect(wrong.body.error.code).toBe('wrong_mode');
+    expect(await deps.settings.get('env.production.passkey')).toBeNull();
+  });
+
   it('stores daraja creds after oauth check, requires step-up', async () => {
     const no = await request(app).post('/api/settings/environments/sandbox/daraja').set('Cookie', cookie).set('x-csrf-token', csrf).send({ consumerKey: 'k', consumerSecret: 's' });
     expect(no.status).toBe(403);

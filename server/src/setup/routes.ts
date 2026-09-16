@@ -7,6 +7,7 @@ import { requireAuth, requireCsrf, requireOwner } from '../auth/middleware.js';
 import { hashPassword, MIN_PASSWORD_LENGTH } from '../auth/password.js';
 import { cookieHeader, createSession } from '../auth/sessions.js';
 import { clientIp } from '../util/ip.js';
+import { provePasskey } from '../settings/passkeyProof.js';
 import { HttpError } from '../util/errors.js';
 import { audit } from '../audit/log.js';
 
@@ -198,15 +199,9 @@ export function setupRoutes(deps: AppDeps): Router {
     try {
       const env = await currentMode();
       const b = parse(passkeySchema, req.body);
-      await svc.setPasskey(env, b.passkey, a(req));
-      const v = await deps.collect.askToPay(
-        { phone: b.phone, amountCents: 100, accountReference: 'SETUP', description: 'Studio test', confirmDuplicate: true },
-        { personId: req.person!.id, ip: clientIp(req) },
-      );
-      const proven = !!(await deps.settings.get(`env.${env}.passkeyProvenAt`));
-      await audit(deps.db, { personId: req.person!.id, action: 'setup.passkey', ip: clientIp(req), after: { proven } });
-      if (proven) await step((await readUses()).payOut ? 'operator' : 'done');
-      res.json({ proven, requestId: v.id });
+      const out = await provePasskey(deps, env, b, { personId: req.person!.id, ip: clientIp(req) }, 'setup.passkey');
+      if (out.proven) await step((await readUses()).payOut ? 'operator' : 'done');
+      res.json(out);
     } catch (e) { next(e); }
   });
   r.post('/operator', async (req, res, next) => { try { const b = parse(operatorSchema, req.body); const out = await deps.operators.add(await currentMode(), { name: b.name, password: b.operatorPassword, certPem: b.certPem, credential: b.credential }, a(req)); res.status(201).json(out); } catch (e) { next(e); } });

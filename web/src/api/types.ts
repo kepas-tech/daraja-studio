@@ -57,7 +57,7 @@ export interface OperatorView {
 export interface EnvSlotView {
   shortcode: string | null; safaricomName?: string | null; shortcodeKind?: 'paybill' | 'till' | null;
   consumerKey: SecretState; consumerSecret: SecretState; credsVerifiedAt: string | null;
-  passkey: SecretState; cert: SecretState;
+  passkey: SecretState; passkeyProven?: boolean; cert: SecretState;
   operators: OperatorView[];
   ready: { creds: boolean; operator: boolean };
   b2cApi: { setting: B2cApiSetting; detected: 'v1' | 'v3' | null; detectedAt: string | null };
@@ -73,6 +73,7 @@ export interface SettingsView {
   sendCategories: SendCategory[];
   /** M4: 0 = off. */
   approvalThresholdCents: number;
+  uses?: { payOut: boolean; collect: boolean; stk: boolean };
 }
 export type RequestStatus = 'pending' | 'sent' | 'completed' | 'failed' | 'unknown' | 'cancelled' | 'rejected' | 'awaiting_approval';
 export interface RequestView {

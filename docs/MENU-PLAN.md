@@ -63,6 +63,7 @@ Status values are exactly `live`, `building`, or `planned`. One slice is `buildi
 | 17 | Settings | `settings` | live | — | shipped before 0.4.0 |
 | 18 | Not possible via API | `not-possible` | live | — | 15 explanation cards |
 | 19 | How to use | `guide` | live | — | 0.14.0, deployed 2026-09-16; the same text at `/guide.md` for AI agents |
+| 20 | Organisation (account menu) and Go live | — | live | — | 0.15.0, deployed 2026-09-16; Settings holds app behaviour only |
 
 **19 of 19 live (two of them folded into Home and History). Nothing left to build; the send types below are the remaining work.** Each slice below removes exactly one Coming soon label.
 

@@ -66,6 +66,11 @@ export function Home() {
       <ErrorCardSlot error={balances.err} />
       <BalanceHero balance={balance} message={balances.msg} className="mb-2" action={<Button type="button" variant="secondary" onClick={() => void balances.refresh()} disabled={balances.busy}>{balances.busy ? copy.balances.refreshing : copy.balances.refresh}</Button>} />
       {alerts.length === 0 && v && <p className="mb-6 text-sm text-muted">{copy.home.connected}</p>}
+      {isOwner && v?.mode === 'sandbox' && (
+        <Flash tone="neutral" className="mb-6" data-testid="sandbox-banner">
+          <p>{copy.home.sandboxBanner} <Link to="/go-live">{copy.home.goLive}</Link></p>
+        </Flash>
+      )}
       <div className="my-6 grid gap-3 sm:grid-cols-3">
         {QUICK.map(({ key, to }) => {
           const e = copy.nav.find((n) => n.key === key);

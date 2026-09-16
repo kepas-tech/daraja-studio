@@ -6,17 +6,22 @@ import { PageHeader } from '../components/PageHeader';
 import { PasswordConfirmDialog } from '../components/PasswordConfirmDialog';
 import { copy } from '../copy/en';
 import type { SettingsView } from '../api/types';
-import { EnvironmentTab } from './settings/EnvironmentTab';
 import { CategoriesSection } from './settings/CategoriesSection';
 import { ApprovalsSection } from './settings/ApprovalsSection';
 import { InvoicesSection } from './settings/InvoicesSection';
-import { OrganisationSection } from './settings/OrganisationSection';
+import { PublicAddressCard } from './settings/PublicAddressRow';
+import { AdvancedSection } from './settings/AdvancedSection';
 import { useStepUp } from './settings/useStepUp';
 import { Card } from '../components/Card';
 import { Loading } from '../components/Loading';
 import { Segmented } from '../components/Segmented';
 import { useTheme, type Theme } from '../app/theme';
 
+/**
+ * How Studio behaves: look, its own address, payment categories, approvals, invoicing, and the
+ * rarely-touched Advanced fold. Everything about the organisation itself (business name, mode,
+ * numbers, Safaricom credentials, operators, people) lives on the Organisation page.
+ */
 export function Settings() {
   const [v, setV] = useState<SettingsView | null>(null);
   const [err, setErr] = useState<Error | Explained | null>(null);
@@ -30,10 +35,6 @@ export function Settings() {
     return d;
   }, []);
   useEffect(() => { load().catch((e) => setErr(explainApiError(e))); }, [load]);
-
-  // A live operator update anywhere in the org can affect either tab's list — refresh the whole
-  // view. Each section keeps its own in-progress edits in local state, so this never clobbers
-  // something the owner is mid-typing (see settings/OrganisationSection.tsx and EnvironmentTab.tsx).
   useEvents(useCallback((e) => { if (e.type === 'operator.updated') load().catch(() => {}); }, [load]));
 
   if (err && !v) return <><PageHeader title={copy.settings.title} /><ErrorCard error={err} /></>;
@@ -44,18 +45,15 @@ export function Settings() {
       <PageHeader title={copy.settings.title} safaricom={copy.nav.find((n) => n.key === 'settings')?.safaricom ?? null} />
       <ErrorCard error={err} />
 
-      <div className="mb-6"><OrganisationSection view={v} reload={load} stepUp={stepUp} /></div>
-
       <Card id="appearance" title={copy.settings.appearance.title} className="mb-6" bodyClassName="p-4">
         <div className="max-w-sm"><Segmented name="theme" label={copy.settings.appearance.title} value={theme} options={themes} onChange={setTheme} /></div>
       </Card>
 
-      <h2 className="mb-3 text-xl font-semibold">{copy.settings.envSettings(v.mode)}</h2>
-      <EnvironmentTab key={v.mode} env={v.mode} slot={v.environments[v.mode]} isActiveMode reload={load} stepUp={stepUp} />
-
-      <div className="mt-6"><CategoriesSection items={v.sendCategories} reload={load} stepUp={stepUp} /></div>
-      <div className="mt-6"><ApprovalsSection view={v} reload={load} stepUp={stepUp} /></div>
-      <div className="mt-6"><InvoicesSection stepUp={stepUp} /></div>
+      <PublicAddressCard view={v} reload={load} stepUp={stepUp} />
+      <div className="mb-6"><CategoriesSection items={v.sendCategories} reload={load} stepUp={stepUp} /></div>
+      <div className="mb-6"><ApprovalsSection view={v} reload={load} stepUp={stepUp} /></div>
+      <div className="mb-6"><InvoicesSection stepUp={stepUp} /></div>
+      <AdvancedSection view={v} reload={load} stepUp={stepUp} />
 
       <PasswordConfirmDialog {...stepUp.dialogProps} />
     </>

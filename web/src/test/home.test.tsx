@@ -46,6 +46,9 @@ describe('Home', () => {
     expect(screen.getByText(copy.home.recent)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /0700 123 456/ })).toHaveAttribute('href', '/requests/r1');
     expect(screen.getByText(copy.home.connected)).toBeInTheDocument();
+    // Sandbox: the owner sees the way to real money.
+    expect(screen.getByTestId('sandbox-banner')).toHaveTextContent(copy.home.sandboxBanner);
+    expect(screen.getByRole('link', { name: copy.home.goLive })).toHaveAttribute('href', '/go-live');
   });
 });
 
