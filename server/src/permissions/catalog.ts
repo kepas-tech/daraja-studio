@@ -19,6 +19,7 @@ export const PERMISSIONS = [
   { key: 'bulk.send', label: 'Can do bulk sends', role: 'ORG B2C API Initiator' },
   { key: 'send.approve', label: 'Can approve sends others made', role: null },
   { key: 'history.export', label: 'Can export history', role: null },
+  { key: 'contacts.manage', label: 'Can keep the contact list', role: null },
 ] as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[number]['key'];

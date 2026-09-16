@@ -45,6 +45,8 @@ function fetchFor(handlers: Record<string, (init?: RequestInit) => Response>) {
   return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const key = `${init?.method ?? 'GET'} ${String(input)}`;
     if (key === 'GET /api/send/categories') return new Response(JSON.stringify({ items: [{ id: 'business', name: 'Business payment', commandId: 'BusinessPayment' }, { id: 'salary', name: 'Salary', commandId: 'SalaryPayment' }] }), { status: 200 });
+    // The saved-contact picker reads the list on every visit; its own tests live in contacts.test.tsx.
+    if (key === 'GET /api/contacts?kind=phone') return new Response(JSON.stringify({ items: [] }), { status: 200 });
     const h = handlers[key];
     if (!h && key === 'POST /api/send/name-check') return new Response(JSON.stringify({ available: false, reason: 'not_enabled', said: null }), { status: 200 });
     if (!h) throw new Error(`unexpected fetch ${key}`);

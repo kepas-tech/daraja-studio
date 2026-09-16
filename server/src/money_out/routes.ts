@@ -19,6 +19,9 @@ const sendPhone = z.object({
   remarks: z.string().trim().max(100).optional(),
   occasion: z.string().trim().max(100).optional(),
   confirmDuplicate: z.boolean().optional(),
+  // Feature 1: a saved phone contact the operator picked on the review screen. The phone above is
+  // still the number that will be dialled; the service refuses the pair when they disagree.
+  contactId: z.string().uuid().optional(),
 });
 
 // A YYYY-MM-DD that fails to round-trip through Date (2026-02-30, 2026-13-45, ...) is calendar-

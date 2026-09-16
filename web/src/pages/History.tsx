@@ -118,7 +118,10 @@ export function History() {
                 <tr key={r.id} className="border-t border-line">
                   <td className="px-4 py-3 whitespace-nowrap">{when(r.createdAt)}</td>
                   <td className="px-4 py-3">{r.category ?? copy.request.subtype[r.subtype ?? ''] ?? copy.request.type[r.type] ?? r.type}</td>
-                  <td className="px-4 py-3"><Link to={`/requests/${r.id}`}>{r.recipient.kind === 'phone' ? phone(r.recipient.value) : r.recipient.value ?? '—'}</Link>{r.recipient.name && <span className="block text-sm text-muted">{r.recipient.name}</span>}</td>
+                  <td className="px-4 py-3"><Link to={`/requests/${r.id}`}>{r.recipient.kind === 'phone' ? phone(r.recipient.value) : r.recipient.value ?? '—'}</Link>
+                    {/* The saved name is the owner's own label, so it is named; otherwise Safaricom's name stands alone. */}
+                    {r.contactName ? <span className="block text-sm text-muted">{copy.history.fromContact} {r.contactName}</span> : r.recipient.name && <span className="block text-sm text-muted">{r.recipient.name}</span>}
+                  </td>
                   <td className="px-4 py-3 whitespace-nowrap">{money(r.amountCents)}</td>
                   <td className="px-4 py-3"><StatusPill kind={STATUS_TONE[r.status] ?? 'muted'}>{copy.request.status[r.status] ?? r.status}</StatusPill></td>
                   <td className="px-4 py-3"><code className="text-sm">{r.receipt ?? '—'}</code></td>

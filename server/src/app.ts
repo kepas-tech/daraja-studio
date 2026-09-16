@@ -46,6 +46,7 @@ import { c2bConfirmHandler, c2bValidateHandler } from './callbacks/c2b.js';
 import { billManagerHandler } from './callbacks/billmanager.js';
 import { expressHandler, ratibaHandler } from './callbacks/collectKinds.js';
 import { invoiceRoutes } from './invoices/routes.js';
+import { contactsRoutes } from './contacts/routes.js';
 import type { InvoicesService } from './invoices/service.js';
 import type { Scheduler } from './scheduler/loop.js';
 
@@ -131,6 +132,8 @@ export function buildApp(deps: AppDeps): express.Express {
   app.use('/api/approvals', approvalRoutes(deps));
   app.use('/api/send/bulk', bulkRoutes(deps));
   app.use('/api/invoices', invoiceRoutes(deps));
+  // Feature 1: the saved contact book, read by Send to phone and Bulk send.
+  app.use('/api/contacts', contactsRoutes(deps));
   app.use('/api/requests', requestRoutes(deps));
   app.use('/api/balances', balanceRoutes(deps));
   app.use('/api/lookup', lookupRoutes(deps));

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { api, ApiError } from '../../api/client';
 import { useEvents } from '../../api/events';
-import type { BalanceView, NameCheck, RequestView, SendCategory } from '../../api/types';
+import type { BalanceView, ContactView, NameCheck, RequestView, SendCategory } from '../../api/types';
 import { useSession } from '../../app/session';
 import { Button } from '../../components/Button';
 import { TextField } from '../../components/TextField';
@@ -30,6 +30,12 @@ export function SendPhone() {
   const [to, setTo] = useState(''); const [cents, setCents] = useState<number | null>(null); const [kind, setKind] = useState(''); const [remarks, setRemarks] = useState('');
   const [categories, setCategories] = useState<SendCategory[]>([]);
   useEffect(() => { api.get<{ items: SendCategory[] }>('/api/send/categories').then((r) => { setCategories(r.items); setKind((k) => k || r.items[0]?.name || ''); }).catch(() => {}); }, []);
+  // The saved phone contacts, for the picker. Reading them needs no permission: the picker must
+  // work for whoever may send (design 2026-09-16). `null` until the answer arrives, so a
+  // ?contact= prefill waits for the list instead of guessing.
+  const [contacts, setContacts] = useState<ContactView[] | null>(null);
+  const [contactId, setContactId] = useState<string | null>(null);
+  useEffect(() => { api.get<{ items: ContactView[] }>('/api/contacts?kind=phone').then((r) => setContacts(r.items)).catch(() => setContacts([])); }, []);
   const [balance, setBalance] = useState<BalanceView | null | undefined>(undefined);
   const [cap, setCap] = useState<number | null>(null);
   const [confirm, setConfirm] = useState(false); const [busy, setBusy] = useState(false); const [dialogError, setDialogError] = useState<Error | null>(null);
@@ -74,6 +80,16 @@ export function SendPhone() {
     }).catch(() => { setAgainUnavailable(true); }).finally(() => { setSearch((p) => { p.delete('again'); return p; }, { replace: true }); });
   }, [search, setSearch]);
 
+  // ?contact=<id> arrives from the Contacts page: fill the number as well as the id, then drop the
+  // param so a reload does not re-apply a number the operator has since changed.
+  useEffect(() => {
+    const id = search.get('contact');
+    if (!id || !contacts) return;
+    const picked = contacts.find((c) => c.id === id);
+    if (picked) { setContactId(picked.id); setTo(picked.phone ?? ''); }
+    setSearch((p) => { p.delete('contact'); return p; }, { replace: true });
+  }, [search, contacts, setSearch]);
+
   const reload = useCallback((id: string) => api.get<RequestView>(`/api/requests/${id}`).then((r) => {
     setRequest((prev) => {
       if (prev && prev.status !== r.status) {
@@ -103,7 +119,7 @@ export function SendPhone() {
   const submit = async (password: string) => {
     setBusy(true); setDialogError(null); setErr(null);
     try {
-      const r = await api.post<RequestView>('/api/send/phone', { phone: to, amountCents: cents, category: kind || undefined, remarks: remarks || undefined, confirmDuplicate: confirmDuplicate || undefined, password });
+      const r = await api.post<RequestView>('/api/send/phone', { phone: to, amountCents: cents, category: kind || undefined, remarks: remarks || undefined, contactId: contactId ?? undefined, confirmDuplicate: confirmDuplicate || undefined, password });
       setRequest(r); setConfirm(false); setDuplicate(null); setConfirmDuplicate(false); setStep('result');
       const resultCopy = copy.send.phone.result as Record<string, string>;
       toast.show(r.status === 'completed' ? 'success' : r.status === 'failed' ? 'error' : 'info', resultCopy[r.status] ?? r.status);
@@ -113,9 +129,11 @@ export function SendPhone() {
     } finally { setBusy(false); }
   };
 
-  const reset = () => { setRound((n) => n + 1); setStep('form'); setTo(''); setCents(null); setRemarks(''); setRequest(null); setDuplicate(null); setConfirmDuplicate(false); setErr(null); };
-  const again = () => { if (request) { setTo(request.recipient.value ?? ''); setCents(request.amountCents); if (request.category) setKind(request.category); setRemarks(request.remarks ?? ''); setConfirmDuplicate(true); setRequest(null); setStep('review'); } };
+  const reset = () => { setRound((n) => n + 1); setStep('form'); setTo(''); setCents(null); setRemarks(''); setContactId(null); setRequest(null); setDuplicate(null); setConfirmDuplicate(false); setErr(null); };
+  // An earlier request carries no contact id, so sending it again is an unlinked send.
+  const again = () => { if (request) { setTo(request.recipient.value ?? ''); setCents(request.amountCents); if (request.category) setKind(request.category); setRemarks(request.remarks ?? ''); setContactId(null); setConfirmDuplicate(true); setRequest(null); setStep('review'); } };
 
+  const pickedContact = contacts?.find((c) => c.id === contactId) ?? null;
   const utilityAfter = balance?.utilityCents != null && cents !== null ? balance.utilityCents - cents : null;
   const short = utilityAfter !== null && utilityAfter < 0;
   const overCap = cap !== null && cents !== null && cents > cap;
@@ -129,7 +147,27 @@ export function SendPhone() {
         <>
           {againUnavailable && <Flash tone="neutral" role="alert" className="mb-4 max-w-xl">{copy.send.phone.againUnavailable}</Flash>}
           <Questionnaire key={round} intro={copy.send.phoneIntro} doneLabel={copy.send.phone.next} onDone={() => { if (valid) setStep('review'); }} steps={[
-            { key: 'phone', question: copy.send.phone.recipient, valid: !!normalised, render: () => <PhoneInput label={copy.send.phone.recipient} labelHidden value={to} onChange={setTo} autoFocus /> },
+            { key: 'phone', question: copy.send.phone.recipient, valid: !!normalised, render: () => (
+              <div className="space-y-3">
+                {(contacts?.length ?? 0) > 0 && (
+                  <div>
+                    <label htmlFor="send-contact" className="mb-1 block text-base font-semibold">{copy.send.phone.fromContacts.label}</label>
+                    <select
+                      id="send-contact" aria-label={copy.send.phone.fromContacts.label}
+                      className="min-h-11 w-full rounded-md border border-line bg-surface px-3 text-base text-ink"
+                      value={contactId ?? ''}
+                      onChange={(e) => { const picked = contacts?.find((c) => c.id === e.target.value) ?? null; setContactId(picked?.id ?? null); if (picked) setTo(picked.phone ?? ''); }}
+                    >
+                      <option value="">{copy.send.phone.fromContacts.pick}</option>
+                      {(contacts ?? []).map((c) => <option key={c.id} value={c.id}>{c.name} · {phone(c.phone)}</option>)}
+                    </select>
+                  </div>
+                )}
+                {contacts?.length === 0 && <p className="text-sm"><Link to="/contacts">{copy.send.phone.fromContacts.manage}</Link></p>}
+                {/* Typing a number is the operator's own choice: the saved id no longer applies. */}
+                <PhoneInput label={copy.send.phone.recipient} labelHidden value={to} onChange={(v) => { setTo(v); setContactId(null); }} autoFocus />
+              </div>
+            ) },
             { key: 'amount', question: copy.send.phone.amount, valid: cents !== null && cents % 100 === 0, render: () => <MoneyInput label={copy.send.phone.amount} labelHidden valueCents={cents} onChange={setCents} wholeShillings autoFocus /> },
             { key: 'kind', question: copy.send.phone.kind, valid: categories.length === 0 || !!kind, render: () => (
               <div>
@@ -152,7 +190,11 @@ export function SendPhone() {
           >
             <h2 className="text-xl font-semibold">{copy.send.phone.review.title}</h2>
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-base">
-              <dt className="text-muted">{copy.request.to}</dt><dd>{phone(normalised)}<span className="block text-sm text-muted">{nameLine}</span></dd>
+              <dt className="text-muted">{copy.request.to}</dt>
+              <dd>{phone(normalised)}
+                {pickedContact && <span className="block text-sm text-muted">{copy.send.phone.fromContacts.saved(pickedContact.name)}</span>}
+                <span className="block text-sm text-muted">{nameLine}</span>
+              </dd>
               <dt className="text-muted">{copy.request.amount}</dt><dd>{money(cents)}<span className="block text-sm text-muted">{copy.send.phone.review.feeNote}</span></dd>
               <dt className="text-muted">{copy.send.phone.kind}</dt><dd>{kind}</dd>
               <dt className="text-muted">{copy.send.phone.review.balanceNow}</dt>

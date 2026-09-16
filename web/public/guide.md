@@ -424,6 +424,27 @@ Safaricom calls this: Lipa na Bonga · Where: Manage → Advanced → Bonga poin
 
 Money leaving your accounts. Every send asks for your password.
 
+### Keep a list of people you pay
+
+Where: Pay out → Contacts · Who: Anyone signed in can look; the owner, or a role given the permission, keeps the list · Route: /contacts · Permission: contacts.manage
+
+1. Open Contacts in the menu. Three tabs: Phone, Till and Paybill.
+2. Add a contact: a name, and the number you pay. A phone number is saved in the 2547… form however you type it, so 0712 345 678 and 254712345678 are the same person.
+3. A paybill contact can also keep the account reference the paybill asks for. A note is optional on any of them.
+4. Edit changes a contact. Delete retires it: the list stops showing it, History keeps the name it was paid under, and the same name can be used again.
+5. Pay on a phone contact opens Send money with the number already filled in, and the payment keeps that contact on its record. Paying a till or a paybill is not built yet.
+6. On the Send page, picking a name fills the number in; typing a different number drops the contact, and the money goes to the number you typed.
+7. Bulk send has the same list: tick the people to pay, give each an amount, and Add them to the list writes the phone, amount and name lines for you.
+
+- Only a phone contact can be paid today, so the Phone tab is the one with a Pay button.
+
+| Method | Path | Who |
+|---|---|---|
+| GET | `/api/contacts` | signed in; kind and q narrow the list |
+| POST | `/api/contacts` | contacts.manage; body { kind, name, phone?, shortcode?, accountReference?, note? } |
+| PUT | `/api/contacts/:id` | contacts.manage; the same body, a full replace |
+| DELETE | `/api/contacts/:id` | contacts.manage; retires the contact, History keeps the name |
+
 ### Send money to a phone
 
 Safaricom calls this: Initiate Transaction › Business Payment to Customer · Where: Pay out → Send money → To a phone · Who: Owner or Operator · Route: /send/phone · Permission: send.phone
@@ -447,7 +468,7 @@ Safaricom calls this: Initiate Transaction › Business Payment to Customer · W
 |---|---|---|
 | GET | `/api/send/categories` | signed in |
 | POST | `/api/send/name-check` | send.phone; body { phone }; answers { available: true, name } or { available: false, reason: "not_found" | "not_enabled" | "unavailable", said } |
-| POST | `/api/send/phone` | send.phone, password; body { phone, amountCents, category, remarks? } |
+| POST | `/api/send/phone` | send.phone, password; body { phone, amountCents, category, remarks?, contactId? } |
 
 ### Bulk send
 

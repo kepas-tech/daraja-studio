@@ -2,12 +2,13 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { api, ApiError } from '../api/client';
 import { useEvents } from '../api/events';
-import type { BulkCheck, BulkPlanView, SendCategory } from '../api/types';
+import type { BulkCheck, BulkPlanView, ContactView, SendCategory } from '../api/types';
 import { Button } from '../components/Button';
 import { Card, cardRow } from '../components/Card';
 import { ErrorCard, explainApiError, type Explained } from '../components/ErrorCard';
 import { Flash } from '../components/Flash';
 import { Loading } from '../components/Loading';
+import { MoneyInput } from '../components/MoneyInput';
 import { PageHeader } from '../components/PageHeader';
 import { PasswordConfirmDialog } from '../components/PasswordConfirmDialog';
 import { Segmented } from '../components/Segmented';
@@ -36,13 +37,28 @@ export function Bulk() {
   const [category, setCategory] = useState('');
   const [err, setErr] = useState<Error | Explained | null>(null);
   const [busy, setBusy] = useState(false);
+  // The saved phone contacts, so a batch can be built from names. Reading them needs no permission:
+  // the picker must work for whoever may send (design 2026-09-16).
+  const [contacts, setContacts] = useState<ContactView[] | null>(null);
+  const [chosen, setChosen] = useState<string[]>([]);
+  const [amounts, setAmounts] = useState<Record<string, number | null>>({});
 
   const load = useCallback(() => api.get<{ items: Omit<BulkPlanView, 'rows'>[] }>('/api/send/bulk').then((r) => setItems(r.items)), []);
   useEffect(() => { load().catch((e) => setErr(explainApiError(e))); }, [load]);
   useEffect(() => { api.get<{ items: SendCategory[] }>('/api/send/categories').then((r) => { setCategories(r.items); setCategory((k) => k || r.items[0]?.name || ''); }).catch(() => {}); }, []);
+  useEffect(() => { api.get<{ items: ContactView[] }>('/api/contacts?kind=phone').then((r) => setContacts(r.items)).catch(() => setContacts([])); }, []);
   useEvents(useCallback((e) => { if (e.type === 'bulk.updated') void load().catch(() => {}); }, [load]));
 
   const onFile = async (f: File | null) => { if (f) setText(await f.text()); };
+  const lineFor = (x: ContactView) => { const cents = amounts[x.id]; return cents == null ? null : [x.phone, cents / 100, x.name].join(','); };
+  const pickedLines = (contacts ?? []).filter((x) => chosen.includes(x.id)).map(lineFor).filter((l): l is string => l !== null);
+  // The pasted list stays the one input a batch comes from: this only appends lines to it, so the
+  // check and send paths below are unchanged.
+  const appendPicked = () => {
+    if (pickedLines.length === 0) return;
+    setText((t) => (t.trim() ? t.replace(/\s+$/, '') + '\n' : '') + pickedLines.join('\n'));
+    setChosen([]); setAmounts({}); setCheck(null);
+  };
   const run = async () => {
     setBusy(true); setErr(null); setCheck(null);
     try { setCheck(await api.post<BulkCheck>('/api/send/bulk/check', { text })); }
@@ -60,6 +76,23 @@ export function Bulk() {
     <>
       <PageHeader title={c.title} safaricom={c.safaricom} />
       <div className="space-y-6">
+        {contacts && contacts.length > 0 && (
+          <Card title={c.fromContacts.title} bodyClassName="space-y-3 p-4">
+            <p className="text-base text-muted">{c.fromContacts.intro}</p>
+            <ul className="space-y-3">
+              {contacts.map((x) => (
+                <li key={x.id} className="flex flex-wrap items-end gap-3">
+                  <label className="flex min-h-11 items-center gap-2 text-base">
+                    <input type="checkbox" className="size-5" checked={chosen.includes(x.id)} onChange={(e) => setChosen((ids) => (e.target.checked ? [...ids, x.id] : ids.filter((id) => id !== x.id)))} />
+                    <span>{x.name}<span className="block text-sm text-muted">{phone(x.phone)}</span></span>
+                  </label>
+                  <MoneyInput label={c.fromContacts.amountFor(x.name)} labelHidden wholeShillings valueCents={amounts[x.id] ?? null} onChange={(v) => setAmounts((a) => ({ ...a, [x.id]: v }))} />
+                </li>
+              ))}
+            </ul>
+            <Button type="button" variant="secondary" disabled={pickedLines.length === 0} onClick={appendPicked}>{c.fromContacts.add}</Button>
+          </Card>
+        )}
         <Card title={c.newBatch} bodyClassName="space-y-4 p-4">
           <p className="text-base text-muted">{c.intro}</p>
           <label className="block">

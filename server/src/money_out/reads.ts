@@ -17,16 +17,20 @@ export interface RequestView {
   approvedBy: { id: string; displayName: string } | null;
   /** M5: the batch this send was part of. */
   bulkPlanId: string | null;
+  /** Feature 1: the name the owner saved for this recipient, when the send named a contact. Shown
+   * beside Safaricom's own `recipient.name`, which is left exactly as Safaricom returned it. */
+  contactName: string | null;
 }
 
-export type ViewRow = RequestRow & { created_by_name?: string | null; checked_by_name?: string | null; approved_by_name?: string | null; approved_by?: string | null; created_cursor?: string };
+export type ViewRow = RequestRow & { created_by_name?: string | null; checked_by_name?: string | null; approved_by_name?: string | null; approved_by?: string | null; contact_name?: string | null; created_cursor?: string };
 
 /** Every column the view needs, with the two display-name joins, plus a microsecond-exact text
  * rendering of created_at for cursor paging — a JS Date only holds milliseconds, so the
  * cursor must be built from this text column, never from row.created_at. Append WHERE/ORDER/LIMIT. */
-export const VIEW_SELECT = `SELECT r.*, p.display_name AS created_by_name, c.display_name AS checked_by_name, a.display_name AS approved_by_name,
+export const VIEW_SELECT = `SELECT r.*, p.display_name AS created_by_name, c.display_name AS checked_by_name, a.display_name AS approved_by_name, ct.name AS contact_name,
   to_char(r.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_cursor
-  FROM requests r LEFT JOIN people p ON p.id = r.created_by LEFT JOIN people c ON c.id = r.checked_by LEFT JOIN people a ON a.id = r.approved_by`;
+  FROM requests r LEFT JOIN people p ON p.id = r.created_by LEFT JOIN people c ON c.id = r.checked_by LEFT JOIN people a ON a.id = r.approved_by
+  LEFT JOIN contacts ct ON ct.id = r.contact_id`;
 
 export const UNKNOWN_WHAT_TO_DO = 'Do not send it again yet. Studio is checking with Safaricom; if it stays unknown, check the Safaricom portal, then Mark as checked.';
 export const POLL_FAILED_WHAT_TO_DO = "Safaricom's record is final. Send again if the money did not arrive; contact Safaricom API support if the portal statement disagrees.";
@@ -81,6 +85,7 @@ export function toView(row: ViewRow, egressIps: string[] = []): RequestView {
     createdBy: row.created_by ? { id: row.created_by, displayName: row.created_by_name ?? '' } : null,
     approvedBy: row.approved_by ? { id: row.approved_by, displayName: row.approved_by_name ?? '' } : null,
     bulkPlanId: row.bulk_plan_id ?? null,
+    contactName: row.contact_name ?? null,
   };
 }
 

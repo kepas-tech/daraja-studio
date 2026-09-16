@@ -12,7 +12,7 @@
  */
 import links from './safaricomLinks.json' with { type: 'json' };
 
-export type GuideApi = { method: 'GET' | 'POST' | 'PUT'; path: string; who: string };
+export type GuideApi = { method: 'GET' | 'POST' | 'PUT' | 'DELETE'; path: string; who: string };
 /** A place on a Safaricom site: the button opens it, the trail says what to click once there. */
 export type GuideLink = { label: string; href: string; trail: string[] };
 export type GuideTask = {
@@ -540,6 +540,30 @@ export const guide: GuideSection[] = [
     intro: 'Money leaving your accounts. Every send asks for your password.',
     tasks: [
       {
+        key: 'contacts',
+        title: 'Keep a list of people you pay',
+        where: ['Pay out', 'Contacts'],
+        who: 'Anyone signed in can look; the owner, or a role given the permission, keeps the list',
+        path: '/contacts',
+        permission: 'contacts.manage',
+        steps: [
+          'Open Contacts in the menu. Three tabs: Phone, Till and Paybill.',
+          'Add a contact: a name, and the number you pay. A phone number is saved in the 2547… form however you type it, so 0712 345 678 and 254712345678 are the same person.',
+          'A paybill contact can also keep the account reference the paybill asks for. A note is optional on any of them.',
+          'Edit changes a contact. Delete retires it: the list stops showing it, History keeps the name it was paid under, and the same name can be used again.',
+          'Pay on a phone contact opens Send money with the number already filled in, and the payment keeps that contact on its record. Paying a till or a paybill is not built yet.',
+          'On the Send page, picking a name fills the number in; typing a different number drops the contact, and the money goes to the number you typed.',
+          'Bulk send has the same list: tick the people to pay, give each an amount, and Add them to the list writes the phone, amount and name lines for you.',
+        ],
+        notes: ['Only a phone contact can be paid today, so the Phone tab is the one with a Pay button.'],
+        api: [
+          { method: 'GET', path: '/api/contacts', who: 'signed in; kind and q narrow the list' },
+          { method: 'POST', path: '/api/contacts', who: 'contacts.manage; body { kind, name, phone?, shortcode?, accountReference?, note? }' },
+          { method: 'PUT', path: '/api/contacts/:id', who: 'contacts.manage; the same body, a full replace' },
+          { method: 'DELETE', path: '/api/contacts/:id', who: 'contacts.manage; retires the contact, History keeps the name' },
+        ],
+      },
+      {
         key: 'send-phone',
         title: 'Send money to a phone',
         safaricom: 'Initiate Transaction › Business Payment to Customer',
@@ -566,7 +590,7 @@ export const guide: GuideSection[] = [
         api: [
           { method: 'GET', path: '/api/send/categories', who: 'signed in' },
           { method: 'POST', path: '/api/send/name-check', who: 'send.phone; body { phone }; answers { available: true, name } or { available: false, reason: "not_found" | "not_enabled" | "unavailable", said }' },
-          { method: 'POST', path: '/api/send/phone', who: 'send.phone, password; body { phone, amountCents, category, remarks? }' },
+          { method: 'POST', path: '/api/send/phone', who: 'send.phone, password; body { phone, amountCents, category, remarks?, contactId? }' },
         ],
       },
       {

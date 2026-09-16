@@ -25,5 +25,7 @@ export const api = {
   get: <T>(p: string) => call<T>('GET', p),
   post: <T>(p: string, b?: unknown) => call<T>('POST', p, b ?? {}),
   put: <T>(p: string, b?: unknown) => call<T>('PUT', p, b ?? {}),
+  /** Answers 204 with no body, like every DELETE in this app (contacts, 2026-09-16). */
+  del: (p: string) => call<void>('DELETE', p),
   setCsrf(t: string) { csrf = t; },
 };

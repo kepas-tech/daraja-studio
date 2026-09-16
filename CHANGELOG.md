@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.17.0 — Contacts, so a repeat payment is a name you pick
+
+- Pay out › Contacts: save the people and businesses you pay. A contact is a name and one of three
+  things: a phone number, a till number, or a paybill number with the account reference the paybill
+  asks for. Send money to a phone and Bulk send pick from the list, so the number is not retyped
+  and mistyped. History shows your own name for the person beside Safaricom's own.
+- Anyone signed in may read the list, because the pickers have to work for whoever may send.
+  Adding, changing and deleting take the new `contacts.manage` permission: the owner, or a role
+  given it. Deleting retires a contact rather than erasing it, so History keeps the name the money
+  was paid under, and the name can be used again.
+- `POST /api/send/phone` takes an optional `contactId`. The number being dialled is still the one
+  on the review screen, and Studio refuses a pair that disagrees (400 `contact_mismatch`) instead
+  of guessing which one you meant. Bulk rows are matched to a saved contact by phone.
+- Table `contacts` (migration 024), `requests.contact_id`, routes under `/api/contacts`. The
+  manual has a new task, "Keep a list of people you pay".
+
 ## 0.16.3 — Safaricom's reference on a refused invoicing set-up
 
 - When Safaricom refuses the Bill Manager set-up with "not allowed", the page now shows

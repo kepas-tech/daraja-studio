@@ -17,7 +17,7 @@ import type { OrgStatus } from './service.js';
  * const of string literals in this file — every value is still bound with `$1`.
  */
 export const CLOSED_CHILD_TABLES = [
-  'sessions', 'permissions', 'callbacks_raw', 'balances', 'requests', 'bulk_plans', 'customer_invoices', 'operators', 'settings', 'people',
+  'sessions', 'permissions', 'callbacks_raw', 'balances', 'requests', 'bulk_plans', 'customer_invoices', 'contacts', 'operators', 'settings', 'people',
 ] as const;
 
 /**

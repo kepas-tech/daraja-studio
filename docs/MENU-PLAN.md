@@ -4,7 +4,7 @@
 It is tracked in git and published, so any person, session or model can read it and know exactly
 where the project stands without asking anyone.
 
-Last updated 2026-09-16.
+Last updated 2026-09-17.
 
 ## The commitment
 
@@ -64,8 +64,9 @@ Status values are exactly `live`, `building`, or `planned`. One slice is `buildi
 | 18 | Not possible via API | `not-possible` | live | — | 15 explanation cards |
 | 19 | How to use | `guide` | live | — | 0.14.0, deployed 2026-09-16; the same text at `/guide.md` for AI agents |
 | 20 | Organisation (account menu) and Go live | — | live | — | 0.15.0, deployed 2026-09-16; Settings holds app behaviour only |
+| 21 | Contacts | `contacts` | live | F1 | 0.17.0, deployed 2026-09-17; the KEPAS Pay borrow list, item 1 |
 
-**19 of 19 live (two of them folded into Home and History). Nothing left to build; the send types below are the remaining work.** Each slice below removes exactly one Coming soon label.
+**20 of 20 live (two of them folded into Home and History). Nothing left to build; the send types below are the remaining work.** Each slice below removes exactly one Coming soon label.
 
 ## Send types inside Send money
 

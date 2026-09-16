@@ -1,5 +1,5 @@
 import type { Config } from '../config.js';
-import type { Db } from '../db/pool.js';
+import { currentOrgId, type Db } from '../db/pool.js';
 import { enqueue } from '../db/jobs.js';
 import type { EventHub } from '../events/hub.js';
 import type { Settings } from '../settings/store.js';
@@ -107,13 +107,23 @@ export function createBulkService(deps: { db: Db; settings: Settings; config: Co
     async drain(planId) {
       const p = await load(planId);
       if (p.status !== 'sending') return;
+      // Feature 1: one query for the whole batch resolves each row's phone to this organisation's
+      // live phone contacts, so a bulk row carries the same contact_id a single send would store.
+      // The phone still decides the destination; a row that matches nothing simply carries none.
+      const orgId = currentOrgId();
+      const phones = [...new Set(p.rows.map((r) => r.phone))];
+      const matched = orgId && phones.length > 0
+        ? await deps.db.query<{ id: string; phone: string }>(
+            `SELECT id, phone FROM contacts WHERE org_id=$1 AND kind='phone' AND deleted_at IS NULL AND phone = ANY($2)`, [orgId, phones])
+        : [];
+      const contactIdByPhone = new Map(matched.map((c) => [c.phone, c.id]));
       const results = { ...p.results };
       const actor = { personId: p.created_by ?? '', ip: 'bulk' };
       for (let i = 0; i < p.rows.length; i++) {
         if (results[String(i)]) continue;
         const r = p.rows[i];
         try {
-          const v = await deps.moneyOut.send({ phone: r.phone, amountCents: r.amountCents, commandId: 'BusinessPayment', category: p.category ?? undefined, remarks: r.note ?? undefined, bulk: { planId, index: i } }, actor);
+          const v = await deps.moneyOut.send({ phone: r.phone, amountCents: r.amountCents, commandId: 'BusinessPayment', category: p.category ?? undefined, remarks: r.note ?? undefined, contactId: contactIdByPhone.get(r.phone), bulk: { planId, index: i } }, actor);
           results[String(i)] = { requestId: v.id, status: v.status };
         } catch (e) {
           // A refusal before Safaricom (duplicate of an earlier single send, cap, no operator): the

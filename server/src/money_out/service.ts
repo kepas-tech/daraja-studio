@@ -19,7 +19,7 @@ import { KINDS, MONEY_TYPES, type CallbackUrls, type RequestKind, type RequestRo
 import { failOperatorOnCredentialCode } from './operatorHealth.js';
 import { getRequest, listRequests, type Page, type RequestView } from './reads.js';
 
-export interface SendInput { phone: string; amountCents: number; commandId: 'BusinessPayment' | 'SalaryPayment' | 'PromotionPayment'; category?: string; remarks?: string; occasion?: string; confirmDuplicate?: boolean; /** M5: the batch this row belongs to; never accepted from a client. */ bulk?: { planId: string; index: number } }
+export interface SendInput { phone: string; amountCents: number; commandId: 'BusinessPayment' | 'SalaryPayment' | 'PromotionPayment'; category?: string; remarks?: string; occasion?: string; confirmDuplicate?: boolean; /** Feature 1: the saved phone contact this send is labelled with; checked below. */ contactId?: string; /** M5: the batch this row belongs to; never accepted from a client. */ bulk?: { planId: string; index: number } }
 export interface Actor { personId: string; ip: string }
 /**
  * What Safaricom says about the person behind a phone number, asked before a send (B2C
@@ -334,6 +334,21 @@ export function createMoneyOutService(deps: { db: Db; settings: Settings; daraja
         const cap = deps.config.maxSendCents;
         throw new HttpError(409, 'over_cap', `This studio is capped at KES ${cap % 100 === 0 ? cap / 100 : (cap / 100).toFixed(2)} per send.`, { capCents: cap });
       }
+      // Feature 1: a send may name a saved contact. The row stores it so History can show the name
+      // the owner gave this person; the phone above is still the destination, so a contact whose
+      // saved number no longer matches the number being dialled is refused rather than guessed at.
+      // Both checks run before anything is written, so a refusal leaves no request row behind.
+      let savedContactId: string | null = null;
+      if (input.contactId) {
+        const [contact] = await deps.db.query<{ id: string; phone: string | null }>(
+          `SELECT id, phone FROM contacts WHERE id=$1 AND org_id=$2 AND kind='phone' AND deleted_at IS NULL`,
+          [input.contactId, requireOrg()]);
+        if (!contact || !contact.phone) throw new HttpError(400, 'unknown_contact', 'That saved contact is gone. Pick them again.');
+        let savedPhone: string | null;
+        try { savedPhone = normalizePhone(contact.phone); } catch { savedPhone = null; }
+        if (savedPhone !== phone) throw new HttpError(400, 'contact_mismatch', 'That number is not the one saved for this contact. Pick the contact again, or send without it.');
+        savedContactId = contact.id;
+      }
       const cb = await urls();
 
       // Operator first: a 409 here writes nothing. Then the pending row and its audit entry, in
@@ -366,9 +381,9 @@ export function createMoneyOutService(deps: { db: Db; settings: Settings; daraja
           if (dup.rows[0]) throw new HttpError(409, 'duplicate_recent', 'You sent this already. Send it again?', { requestId: dup.rows[0].id, at: dup.rows[0].created_at.toISOString() });
         }
         const { rows } = await c.query<RequestRow>(
-          `INSERT INTO requests(type, subtype, originator_conversation_id, status, amount_cents, currency, recipient_kind, recipient_value, remarks, payload_json, created_by, operator_id, bulk_plan_id)
-           VALUES ($1,$2,$3,'pending',$4,'KES','phone',$5,$6,$7::jsonb,$8,$9,$10) RETURNING *`,
-          [kind.type, commandId, randomUUID(), input.amountCents, phone, input.remarks ?? null, JSON.stringify({ occasion: input.occasion ?? null, category, ...(input.bulk ? { bulkIndex: input.bulk.index } : {}) }), actor.personId, operatorId, input.bulk?.planId ?? null]);
+          `INSERT INTO requests(type, subtype, originator_conversation_id, status, amount_cents, currency, recipient_kind, recipient_value, remarks, payload_json, created_by, operator_id, bulk_plan_id, contact_id)
+           VALUES ($1,$2,$3,'pending',$4,'KES','phone',$5,$6,$7::jsonb,$8,$9,$10,$11) RETURNING *`,
+          [kind.type, commandId, randomUUID(), input.amountCents, phone, input.remarks ?? null, JSON.stringify({ occasion: input.occasion ?? null, category, ...(input.bulk ? { bulkIndex: input.bulk.index } : {}) }), actor.personId, operatorId, input.bulk?.planId ?? null, savedContactId]);
         const r = rows[0];
         await c.query(
           `INSERT INTO audit_log(person_id, action, target, before_json, after_json, ip) VALUES ($1,$2,$3,$4::jsonb,$5::jsonb,$6)`,

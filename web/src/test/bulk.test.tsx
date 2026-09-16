@@ -16,6 +16,8 @@ afterEach(() => cleanup());
 function fetchFor(handlers: Record<string, (init?: RequestInit) => Response>) {
   return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const key = `${init?.method ?? 'GET'} ${String(input)}`;
+    // The saved-contact picker reads the list on every visit; nothing in these tests picks from it.
+    if (key === 'GET /api/contacts?kind=phone') return new Response(JSON.stringify({ items: [] }), { status: 200 });
     const h = handlers[key];
     if (!h) throw new Error(`unexpected fetch ${key}`);
     return h(init);

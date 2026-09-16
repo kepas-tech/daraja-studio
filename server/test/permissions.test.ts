@@ -10,8 +10,8 @@ const deps = testDeps();
 afterAll(() => deps.db.end());
 
 describe('permissions', () => {
-  it('catalog has the 20 keys with labels and roles', () => {
-    expect(PERMISSIONS.length).toBe(20);
+  it('catalog has the 21 keys with labels and roles', () => {
+    expect(PERMISSIONS.length).toBe(21);
     expect(PERMISSIONS.find((p) => p.key === 'send.phone')?.role).toBe('ORG B2C API Initiator');
     expect(isPermissionKey('send.phone')).toBe(true);
     expect(isPermissionKey('nope')).toBe(false);

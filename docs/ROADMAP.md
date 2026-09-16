@@ -7,7 +7,7 @@ truth — read it first. This file is a short index alongside it.
 
 Every menu item: Balances, Send money (phone), Look up a payment, History, People, Settings, Not
 possible via API, Ask a customer to pay, Reverse a payment, QR codes, Money in, Waiting for
-approval, Bulk send, Invoices, Standing orders, Express checkout, Bonga points.
+approval, Bulk send, Contacts, Invoices, Standing orders, Express checkout, Bonga points.
 
 ## Next
 

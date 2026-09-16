@@ -80,6 +80,8 @@ export interface RequestView {
   id: string; type: string; subtype: string | null; status: RequestStatus | string; amountCents: number | null; currency: 'KES';
   recipient: { kind: string | null; value: string | null; name: string | null }; remarks: string | null; receipt: string | null;
   category: string | null;
+  /** The saved contact's own name, when this payment came from one. Safaricom's `recipient.name` is untouched beside it. */
+  contactName: string | null;
   createdAt: string; sentAt: string | null; resultAt: string | null; resultSource: 'callback' | 'poll' | 'ack' | null;
   safaricomSaid: string | null; meaning: string | null; whatToDo: string | null; retriable: boolean; pollAttempts: number;
   checked: { by: { id: string; displayName: string } | null; at: string; note: string } | null;
@@ -112,4 +114,10 @@ export type NameCheck =
   | { available: true; name: string }
   | { available: false; reason: 'not_found' | 'not_enabled' | 'unavailable'; said: string | null };
 export interface BalanceView { workingCents: number | null; utilityCents: number | null; chargesPaidCents: number | null; queriedAt: string }
+/** `GET /api/contacts` (design 2026-09-16). Only what the page shows; the row's own id is the handle. */
+export interface ContactView {
+  id: string; kind: 'phone' | 'till' | 'paybill';
+  name: string; phone: string | null; shortcode: string | null;
+  accountReference: string | null; note: string | null; createdAt: string;
+}
 export interface Page<T> { items: T[]; nextCursor: string | null }
