@@ -45,14 +45,30 @@ export function Invoices() {
   const loadList = useCallback(() => api.get<{ items: InvoiceView[] }>(`/api/invoices?filter=${filter}${q.trim() ? `&q=${encodeURIComponent(q.trim())}` : ''}`).then((r) => setItems(r.items)), [filter, q]);
   useEffect(() => { loadSettings().catch((e) => setErr(explainApiError(e))); }, [loadSettings]);
   useEffect(() => { const t = setTimeout(() => { loadList().catch((e) => setErr(explainApiError(e))); }, 200); return () => clearTimeout(t); }, [loadList]);
-  useEvents(useCallback((e) => { if (e.type === 'invoice.updated' || e.type === 'request.updated') void loadList().catch(() => {}); }, [loadList]));
+  useEvents(useCallback((e) => {
+    if (e.type === 'invoice.updated' || e.type === 'request.updated') void loadList().catch(() => {});
+    if (e.type === 'invoice.updated') void loadSettings().catch(() => {});
+  }, [loadList, loadSettings]));
+  // While Safaricom is being told, re-read every few seconds in case the event stream is down.
+  useEffect(() => {
+    if (!settings?.registering) return;
+    const t = setInterval(() => { void loadSettings().catch(() => {}); }, 3000);
+    return () => clearInterval(t);
+  }, [settings?.registering, loadSettings]);
 
   if (!settings) return <><PageHeader title={c.title} safaricom={c.safaricom} />{err ? <ErrorCard error={err} /> : <Loading />}</>;
   if (!settings.optedIn) {
     return (
       <>
         <PageHeader title={c.title} safaricom={c.safaricom} />
-        {person?.is_owner ? <OptIn settings={settings} stepUp={stepUp} onDone={() => { void loadSettings(); }} /> : <p className="text-base text-muted">{c.ownerOptsIn}</p>}
+        {settings.registering && <Flash tone="neutral" role="status" className="mb-4">{c.optIn.registering}</Flash>}
+        {!settings.registering && settings.lastError && (
+          <Flash tone="danger" role="alert" className="mb-4">
+            <p className="font-semibold">{c.optIn.failed}</p>
+            {settings.lastError.split('\n').map((line, i) => <p key={i}>{line}</p>)}
+          </Flash>
+        )}
+        {person?.is_owner ? (settings.registering ? null : <OptIn settings={settings} stepUp={stepUp} onDone={() => { void loadSettings(); }} />) : <p className="text-base text-muted">{c.ownerOptsIn}</p>}
         <PasswordConfirmDialog {...stepUp.dialogProps} />
       </>
     );

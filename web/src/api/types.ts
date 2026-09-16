@@ -102,7 +102,7 @@ export interface InvoiceView {
   createdBy: { id: string; displayName: string } | null; sentAt: string; paidAt: string | null; cancelledAt: string | null;
   payments: { id: string; amountCents: number; receipt: string | null; at: string; source: 'callback' | 'manual' }[];
 }
-export interface InvoicesSettingsView { mode: 'sandbox' | 'production'; optedIn: boolean; optedInAt: string | null; email: string | null; phone: string | null; reminders: boolean; publicVerified: boolean }
+export interface InvoicesSettingsView { mode: 'sandbox' | 'production'; optedIn: boolean; optedInAt: string | null; email: string | null; phone: string | null; reminders: boolean; publicVerified: boolean; registering?: boolean; lastError?: string | null }
 export interface MoneyInView {
   mode: 'sandbox' | 'production'; c2bRegisteredAt: string | null; pullRegisteredAt: string | null; pullCheckedAt: string | null;
   nominatedNumber: string | null; publicVerified: boolean;

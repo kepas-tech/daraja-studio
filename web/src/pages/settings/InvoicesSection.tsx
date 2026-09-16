@@ -40,7 +40,9 @@ export function InvoicesSection({ stepUp }: { stepUp: StepUp }) {
           </>
         ) : undefined}
       </SettingRow>
-      {!v.optedIn && <p className="px-4 py-3 text-sm text-muted">{c.hint}</p>}
+      {v.registering && <p className="px-4 py-3 text-sm text-muted" role="status">{copy.invoices.optIn.registering}</p>}
+      {!v.registering && v.lastError && <p className="px-4 py-3 text-sm text-danger">{copy.invoices.optIn.failed} {v.lastError.split('\n')[0]}</p>}
+      {!v.optedIn && !v.registering && <p className="px-4 py-3 text-sm text-muted">{c.hint}</p>}
     </Card>
   );
 }

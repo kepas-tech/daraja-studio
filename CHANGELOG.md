@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.15.1 — invoicing set-up you can watch
+
+- Set up invoicing answers at once and tells Safaricom in the background; the page says it is
+  doing so, re-reads every few seconds, and then shows either the set-up done or Safaricom's own
+  refusal in three lines, with the form ready to try again. Before this, a slow answer from
+  Safaricom let the proxy in front of Studio give up first, and the browser saw only "Something
+  went wrong on our side". `POST /api/invoices/opt-in` answers 202; `GET /api/invoices/settings`
+  carries `registering` and `lastError`.
+- A reply that never came from Studio (a dropped connection, a proxy page) now says so instead
+  of blaming Studio.
+
 ## 0.15.0 — Organisation, a calmer Settings, and Go live
 
 - The account menu opens Organisation: Business (name and contacts), Mode, one card each for

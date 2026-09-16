@@ -300,6 +300,8 @@ export function createFakeSafaricom(opts: FakeSafaricomOptions): FakeSafaricom {
 
     if (path.includes('/billmanager-invoice/')) {
       if (path.endsWith('/optin') || path.endsWith('/change-optin-details')) {
+        // A queued synchronous rejection refuses the opt-in too, in Bill Manager's own shape.
+        if (sync) { const { code, desc } = sync; sync = null; return json({ rescode: code, resmsg: desc }); }
         billManagerUrl = pathOf(String(body.callbackurl ?? ''));
         return json({ rescode: '200', resmsg: 'Success', app_key: 'fake-app-key' });
       }

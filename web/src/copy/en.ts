@@ -128,7 +128,7 @@ export const copy = {
     },
   },
   confirm: { yourPassword: 'Your password', confirm: 'Confirm', cancel: 'Cancel', yes: 'Yes', no: 'No', why: 'Your password is needed for anything that moves money or changes who can.' },
-  error: { safaricomSaid: 'Safaricom said', meaning: 'What it means', whatToDo: 'What to do now', generic: 'Something went wrong on our side. Try again in a moment.', tryAgain: 'Try again in a moment. If it keeps happening, check Settings.' },
+  error: { safaricomSaid: 'Safaricom said', meaning: 'What it means', whatToDo: 'What to do now', generic: 'Something went wrong on our side. Try again in a moment.', noReply: 'Studio’s answer did not arrive. Check your connection and try again in a moment.', tryAgain: 'Try again in a moment. If it keeps happening, check Settings.' },
   home: {
     finishSetup: 'Finish setting up',
     sandboxBanner: 'You are practising with pretend money.', goLive: 'Ready for real money? Go live',
@@ -288,6 +288,7 @@ export const copy = {
       intro: 'Safaricom sends each invoice to the customer by SMS with a pay prompt, and reports payments back here. Set this up once for this environment.',
       email: 'Business email', contact: 'Official contact phone', reminders: 'Should Safaricom send payment reminders?', remindersHint: 'Reminders go to the customer before the due date.',
       button: 'Set up invoicing', confirm: 'Set up invoicing with Safaricom?',
+      registering: 'Telling Safaricom about your business. This can take up to a minute; this page updates on its own.', failed: 'Safaricom did not accept it.', tryAgain: 'Try again',
     },
     form: {
       intro: 'The customer gets an SMS from Safaricom with the amount and a pay prompt.',

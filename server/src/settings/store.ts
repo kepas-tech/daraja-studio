@@ -20,7 +20,8 @@ type EnvSlotKey = 'shortcode' | 'consumerKey' | 'consumerSecret' | 'credsVerifie
   // Money in (M2): when the C2B addresses and the Pull address were registered, and the last check.
   | 'c2bRegisteredAt' | 'pullRegisteredAt' | 'pullCheckedAt' | 'c2bRegisterStartedAt' | 'c2bRegisterError' | 'c2bAlreadyRegistered'
   // Invoices (M7): Bill Manager's app key (encrypted) and the opt-in details.
-  | 'billManagerAppKey' | 'billManagerOptedInAt' | 'billManagerEmail' | 'billManagerPhone' | 'billManagerReminders';
+  | 'billManagerAppKey' | 'billManagerOptedInAt' | 'billManagerEmail' | 'billManagerPhone' | 'billManagerReminders'
+  | 'billManagerOptInStartedAt' | 'billManagerOptInError';
 export type EnvSettingKey = `env.${Env}.${EnvSlotKey}`;
 
 export type SettingKey =

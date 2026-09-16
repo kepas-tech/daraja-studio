@@ -33,7 +33,7 @@ describe('Invoices', () => {
     vi.stubGlobal('fetch', fetchFor({
       'GET /api/invoices/settings': () => new Response(JSON.stringify(settings({ optedIn: false, email: null, phone: null, reminders: false })), { status: 200 }),
       'GET /api/invoices': () => new Response(JSON.stringify({ items: [] }), { status: 200 }),
-      'POST /api/invoices/opt-in': (init) => { posted = JSON.parse(String(init?.body)); return new Response(JSON.stringify(settings()), { status: 200 }); },
+      'POST /api/invoices/opt-in': (init) => { posted = JSON.parse(String(init?.body)); return new Response(JSON.stringify(settings({ optedIn: false, registering: true })), { status: 202 }); },
     }));
     render(<MemoryRouter><Invoices /></MemoryRouter>);
     await screen.findByText(copy.invoices.optIn.intro);

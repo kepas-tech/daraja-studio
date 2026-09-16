@@ -1,5 +1,5 @@
 import { DarajaAPIError, DarajaAuthError, DarajaConnectionError, normalizePhone, type BillManagerPayment } from '@kepas/daraja-js';
-import type { Db } from '../db/pool.js';
+import { currentOrgId, withOrg, type Db } from '../db/pool.js';
 import type { Settings, Env } from '../settings/store.js';
 import type { DarajaFactory } from '../sdk/client.js';
 import type { EventHub } from '../events/hub.js';
@@ -24,10 +24,18 @@ export interface InvoiceView {
   createdBy: { id: string; displayName: string } | null; sentAt: string; paidAt: string | null; cancelledAt: string | null;
   payments: { id: string; amountCents: number; receipt: string | null; at: string; source: 'callback' | 'manual' }[];
 }
-export interface InvoicesSettingsView { mode: Env; optedIn: boolean; optedInAt: string | null; email: string | null; phone: string | null; reminders: boolean; publicVerified: boolean }
+export interface InvoicesSettingsView {
+  mode: Env; optedIn: boolean; optedInAt: string | null; email: string | null; phone: string | null; reminders: boolean; publicVerified: boolean;
+  /** The opt-in is in flight (started within the last two minutes and not yet finished). */
+  registering: boolean;
+  /** Safaricom's refusal, three lines joined, from the last attempt; null once it worked. */
+  lastError: string | null;
+}
 export interface InvoicesService {
   settings(): Promise<InvoicesSettingsView>;
   optIn(input: OptInInput, actor: Actor): Promise<InvoicesSettingsView>;
+  /** The Safaricom call behind optIn; runs after optIn has answered. */
+  runOptIn(input: OptInInput, actor: Actor): Promise<void>;
   create(input: InvoiceInput, actor: Actor): Promise<InvoiceView>;
   checkBulk(text: string): { rows: InvoiceRow[]; errors: InvoiceRowError[]; count: number; totalCents: number };
   createBulk(text: string, actor: Actor): Promise<{ count: number }>;
@@ -113,19 +121,49 @@ export function createInvoicesService(deps: { db: Db; settings: Settings; daraja
   const svc: InvoicesService = {
     async settings() {
       const env = await mode();
-      const s = await deps.settings.getMany([`env.${env}.billManagerAppKey`, `env.${env}.billManagerOptedInAt`, `env.${env}.billManagerEmail`, `env.${env}.billManagerPhone`, `env.${env}.billManagerReminders`, 'public.verifiedAt']);
-      return { mode: env, optedIn: !!s[`env.${env}.billManagerAppKey`], optedInAt: s[`env.${env}.billManagerOptedInAt`], email: s[`env.${env}.billManagerEmail`], phone: s[`env.${env}.billManagerPhone`], reminders: s[`env.${env}.billManagerReminders`] === '1', publicVerified: !!s['public.verifiedAt'] };
+      const s = await deps.settings.getMany([`env.${env}.billManagerAppKey`, `env.${env}.billManagerOptedInAt`, `env.${env}.billManagerEmail`, `env.${env}.billManagerPhone`, `env.${env}.billManagerReminders`, `env.${env}.billManagerOptInStartedAt`, `env.${env}.billManagerOptInError`, 'public.verifiedAt']);
+      const started = s[`env.${env}.billManagerOptInStartedAt`];
+      const registering = !!started && Date.now() - Date.parse(started) < 2 * 60_000;
+      return {
+        mode: env, optedIn: !!s[`env.${env}.billManagerAppKey`], optedInAt: s[`env.${env}.billManagerOptedInAt`], email: s[`env.${env}.billManagerEmail`], phone: s[`env.${env}.billManagerPhone`],
+        reminders: s[`env.${env}.billManagerReminders`] === '1', publicVerified: !!s['public.verifiedAt'], registering, lastError: registering ? null : s[`env.${env}.billManagerOptInError`],
+      };
     },
     async optIn(input, actor) {
       const env = await mode();
-      const s = await deps.settings.getMany(['public.url', 'public.verifiedAt', `env.${env}.billManagerAppKey`]);
+      const s = await deps.settings.getMany(['public.url', 'public.verifiedAt']);
       if (!s['public.url'] || !s['public.verifiedAt']) throw new HttpError(409, 'public_url_unverified', PUBLIC_URL_UNVERIFIED);
       let phone: string;
       try { phone = normalizePhone(input.officialContact); } catch { throw new HttpError(400, 'bad_phone', 'Enter a Kenyan mobile number such as 0712 345 678.'); }
-      const urls = callbackUrls(s['public.url'], await currentCallbackSecret(deps.orgs));
-      const client = await deps.daraja.get();
-      const body = { email: input.email.trim(), officialContact: phone, sendReminders: input.sendReminders, logo: input.logo, callbackUrl: urls.billManager };
+      // Safaricom can take long enough here that a proxy in front of the studio gives up first, and
+      // the page would then see a cut connection rather than an answer. So the work runs after this
+      // reply, and the page reads its outcome from settings(): registering, then opted in or an error.
+      await deps.settings.set(`env.${env}.billManagerEmail`, input.email.trim());
+      await deps.settings.set(`env.${env}.billManagerPhone`, phone);
+      await deps.settings.set(`env.${env}.billManagerReminders`, input.sendReminders ? '1' : '0');
+      await deps.settings.set(`env.${env}.billManagerOptInStartedAt`, new Date().toISOString());
+      await deps.settings.delete(`env.${env}.billManagerOptInError`);
+      const orgId = currentOrgId();
+      setImmediate(() => {
+        const run = () => svc.runOptIn({ ...input, officialContact: phone }, actor);
+        (orgId ? withOrg(orgId, run) : run()).catch((e) => console.error('invoicing opt-in failed', e instanceof Error ? e.name : 'error'));
+      });
+      return svc.settings();
+    },
+    async runOptIn(input, actor) {
+      const env = await mode();
+      const s = await deps.settings.getMany(['public.url', `env.${env}.billManagerAppKey`]);
+      const finish = async (error: string | null) => {
+        await deps.settings.delete(`env.${env}.billManagerOptInStartedAt`);
+        if (error) await deps.settings.set(`env.${env}.billManagerOptInError`, error.slice(0, 600));
+        else await deps.settings.delete(`env.${env}.billManagerOptInError`);
+        await deps.events.publish('invoice.updated', { settings: true, environment: env, ok: !error });
+      };
+      const startedAt = Date.now();
       try {
+        const urls = callbackUrls(s['public.url'] ?? '', await currentCallbackSecret(deps.orgs));
+        const client = await deps.daraja.get();
+        const body = { email: input.email.trim(), officialContact: input.officialContact, sendReminders: input.sendReminders, logo: input.logo, callbackUrl: urls.billManager };
         if (s[`env.${env}.billManagerAppKey`]) await client.billManager.updateOptIn(body);
         else {
           const r = await client.billManager.optIn(body);
@@ -133,12 +171,19 @@ export function createInvoicesService(deps: { db: Db; settings: Settings; daraja
           await deps.settings.set(`env.${env}.billManagerAppKey`, r.appKey);
           await deps.settings.set(`env.${env}.billManagerOptedInAt`, new Date().toISOString());
         }
-      } catch (e) { threeLines(e); }
-      await deps.settings.set(`env.${env}.billManagerEmail`, body.email);
-      await deps.settings.set(`env.${env}.billManagerPhone`, phone);
-      await deps.settings.set(`env.${env}.billManagerReminders`, input.sendReminders ? '1' : '0');
-      await audit(deps.db, { personId: actor.personId, action: 'invoices.opted_in', after: { environment: env, email: body.email }, ip: actor.ip });
-      return svc.settings();
+        await audit(deps.db, { personId: actor.personId, action: 'invoices.opted_in', after: { environment: env, email: body.email }, ip: actor.ip });
+        console.log('invoicing opt-in ok', env, `${Date.now() - startedAt}ms`);
+        await finish(null);
+      } catch (e) {
+        let message: string;
+        try { threeLines(e); message = 'Something went wrong on our side.'; } catch (h) {
+          const he = h as HttpError;
+          const d = he.details as { safaricomSaid?: string; meaning?: string; whatToDo?: string } | undefined;
+          message = d?.safaricomSaid ? [d.safaricomSaid, d.meaning, d.whatToDo].filter(Boolean).join('\n') : he.message;
+        }
+        console.error('invoicing opt-in failed', env, e instanceof Error ? e.name : 'error', `${Date.now() - startedAt}ms`);
+        await finish(message);
+      }
     },
     async create(input, actor) {
       const key = await appKey();

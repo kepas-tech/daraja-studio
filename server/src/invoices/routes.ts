@@ -33,7 +33,8 @@ export function invoiceRoutes(deps: AppDeps): Router {
   const a = (req: Parameters<typeof clientIp>[0] & { person?: { id: string } }) => ({ personId: req.person!.id, ip: clientIp(req) });
   const can = requirePermission(deps.db, 'invoices.manage');
   r.get('/settings', requireAuth(deps.db), can, async (_req, res, next) => { try { res.json(await deps.invoices.settings()); } catch (e) { next(e); } });
-  r.post('/opt-in', requireAuth(deps.db), requireCsrf, requireOwner, requireStepUp(deps.db), async (req, res, next) => { try { res.json(await deps.invoices.optIn(parse(optIn, req.body), a(req))); } catch (e) { next(e); } });
+  // 202: the Safaricom call runs after this reply; the page reads its outcome from GET /settings.
+  r.post('/opt-in', requireAuth(deps.db), requireCsrf, requireOwner, requireStepUp(deps.db), async (req, res, next) => { try { res.status(202).json(await deps.invoices.optIn(parse(optIn, req.body), a(req))); } catch (e) { next(e); } });
   r.get('/', requireAuth(deps.db), can, async (req, res, next) => { try { const q = parse(listQuery, req.query); res.json({ items: await deps.invoices.list(q.filter, q.q) }); } catch (e) { next(e); } });
   r.get('/unmatched', requireAuth(deps.db), can, async (_req, res, next) => { try { res.json({ items: await deps.invoices.unmatched() }); } catch (e) { next(e); } });
   r.post('/', requireAuth(deps.db), requireCsrf, can, async (req, res, next) => { try { res.status(201).json(await deps.invoices.create(parse(invoice, req.body), a(req))); } catch (e) { next(e); } });

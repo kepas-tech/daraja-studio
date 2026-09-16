@@ -13,7 +13,7 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
   const text = await r.text();
   let data: unknown = null;
   if (text) {
-    try { data = JSON.parse(text); } catch { throw new ApiError(r.status, 'bad_response', copy.error.generic); }
+    try { data = JSON.parse(text); } catch { throw new ApiError(r.status, 'bad_response', copy.error.noReply); }
   }
   if (!r.ok) {
     const e = (data as { error?: { code: string; message: string; details?: unknown } } | null)?.error ?? { code: 'http_' + r.status, message: copy.error.generic };

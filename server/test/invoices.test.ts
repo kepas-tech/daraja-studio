@@ -38,7 +38,18 @@ describe('invoices', () => {
   let cookie: string; let csrf: string;
   beforeEach(async () => { await resetTables(deps.db); ({ cookie, csrf } = await loginAsOwner(app, deps)); await ready(); fake.reset(); });
   const h = (r: request.Test) => r.set('Cookie', cookie).set('x-csrf-token', csrf);
-  const optIn = () => h(request(app).post('/api/invoices/opt-in')).send({ email: 'bills@kepas.example', officialContact: '0700000000', sendReminders: true, password: 'correct horse' });
+  // Opting in answers 202 and finishes in the background; wait for settings() to settle.
+  const optInWith = async (body: object) => {
+    const r = await h(request(app).post('/api/invoices/opt-in')).send(body);
+    if (r.status !== 202) return r;
+    for (let i = 0; i < 100; i++) {
+      const st = await request(app).get('/api/invoices/settings').set('Cookie', cookie);
+      if (!st.body.registering) return { status: 200, body: st.body } as typeof r;
+      await new Promise((res) => setTimeout(res, 20));
+    }
+    throw new Error('opt-in never settled');
+  };
+  const optIn = () => optInWith({ email: 'bills@kepas.example', officialContact: '0700000000', sendReminders: true, password: 'correct horse' });
 
   it('opting in stores the app key encrypted and never echoes it; sending needs it first', async () => {
     expect((await h(request(app).post('/api/invoices')).send(INV)).status).toBe(409);
@@ -51,9 +62,21 @@ describe('invoices', () => {
     expect(row.value).not.toContain('fake-app-key');
     expect(fake.calls.find((c) => c.path.endsWith('/optin'))!.body.callbackurl).toBe('https://studio.example/cb/sekret/billmanager');
     // Opting in again updates the details and keeps the key.
-    const again = await h(request(app).post('/api/invoices/opt-in')).send({ email: 'other@kepas.example', officialContact: '0700000001', sendReminders: false, password: 'correct horse' });
+    const again = await optInWith({ email: 'other@kepas.example', officialContact: '0700000001', sendReminders: false, password: 'correct horse' });
     expect(again.body).toMatchObject({ optedIn: true, email: 'other@kepas.example', reminders: false });
     expect(fake.calls.some((c) => c.path.endsWith('/change-optin-details'))).toBe(true);
+  });
+
+  it('a refusal from Safaricom lands on settings() as lastError, with nothing stored, and the next try clears it', async () => {
+    fake.rejectsSync('400', 'Organisation not allowed on Bill Manager');
+    const r = await optIn();
+    expect(r.body.optedIn).toBe(false);
+    expect(r.body.registering).toBe(false);
+    expect(typeof r.body.lastError).toBe('string');
+    expect(await deps.settings.get('env.sandbox.billManagerAppKey')).toBeNull();
+    fake.reset();
+    const ok = await optIn();
+    expect(ok.body).toMatchObject({ optedIn: true, lastError: null });
   });
 
   it('sends an invoice with a minted reference, refuses when items do not add up, and stores nothing on a refusal', async () => {
