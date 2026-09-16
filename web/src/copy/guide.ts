@@ -70,6 +70,7 @@ export const how = {
   number: { label: 'Open the M-Pesa business portal', href: links.orgPortal, trail: [...ORG, 'Search', 'My Organization', 'the number and name at the top of the page'] },
   businessEmail: { label: 'Email Safaricom’s business team', href: links.businessEmail, trail: ['a new email opens'] },
   apiSupport: { label: 'Email Safaricom’s API support', href: links.apiSupportEmail, trail: ['a new email opens'] },
+  updateApp: { label: 'Open My Apps on the Daraja portal', href: links.darajaMyApps, trail: [...DARAJA, 'My Apps', 'your Production app card', 'the ⋮ menu', 'Update App', 'tick Bill Manager', 'Save'] },
 } satisfies Record<string, GuideLink>;
 
 export const guide: GuideSection[] = [
@@ -458,7 +459,8 @@ export const guide: GuideSection[] = [
           'Open an invoice to see its payments. Cancel this invoice stops it; tick several to cancel them together.',
           'Record a payment made another way (cash, bank): when, how much, a reference, who paid. Safaricom is told, so reminders stop.',
         ],
-        notes: ['Payments through M-Pesa land against the invoice the moment Safaricom reports them, and in History as "Invoice paid".'],
+        notes: ['Payments through M-Pesa land against the invoice the moment Safaricom reports them, and in History as "Invoice paid".', 'If Safaricom answers "not allowed" to the set-up, Bill Manager is not enabled for your app or number: tick it under Update App on the Daraja portal, or ask Safaricom’s API support to enable it for your paybill.'],
+        links: [how.updateApp, how.apiSupport],
         api: [
           { method: 'GET', path: '/api/invoices/settings', who: 'invoices.manage' },
           { method: 'POST', path: '/api/invoices/opt-in', who: 'owner, password' },

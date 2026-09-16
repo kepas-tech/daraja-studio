@@ -49,6 +49,11 @@ export interface InvoicesService {
 }
 
 export const NOT_OPTED_IN = 'Set up invoicing with Safaricom first, under Invoices.';
+export const BILL_MANAGER_NOT_ALLOWED = {
+  safaricomSaid: 'Safaricom answered "not allowed" (HTTP 401) to the Bill Manager set-up.',
+  meaning: 'Your Daraja key works for everything else, so Safaricom is refusing Bill Manager for this app or this paybill, not the key.',
+  whatToDo: 'On the Daraja portal open My Apps, your Production app, then Update App, and make sure Bill Manager is ticked. If it already is, email apisupport@safaricom.co.ke with your paybill number asking for Bill Manager to be enabled, then press Set up invoicing again.',
+};
 export const ALREADY_PAID = 'A paid invoice cannot be cancelled.';
 
 interface Row {
@@ -68,7 +73,9 @@ export function createInvoicesService(deps: { db: Db; settings: Settings; daraja
   const mode = async (): Promise<Env> => ((await deps.settings.get('daraja.environment')) as Env) ?? 'sandbox';
   const threeLines = (e: unknown): never => {
     if (e instanceof HttpError) throw e;
-    if (e instanceof DarajaAuthError) throw new HttpError(502, 'auth_failed', 'Safaricom refused the Daraja key and secret. Check them in Settings.');
+    // The same key works for balances, payments and prompts, so a 401 here is Safaricom refusing
+    // Bill Manager for this app or this number, not the key. Seen live on 2026-09-16.
+    if (e instanceof DarajaAuthError) throw new HttpError(502, 'not_allowed', BILL_MANAGER_NOT_ALLOWED.safaricomSaid, BILL_MANAGER_NOT_ALLOWED);
     if (e instanceof DarajaConnectionError) throw new HttpError(502, 'unreachable', 'Safaricom could not be reached. Try again in a moment.');
     if (e instanceof DarajaAPIError) {
       const { code, desc } = syncRejection(e);

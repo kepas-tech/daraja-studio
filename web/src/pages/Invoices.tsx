@@ -8,6 +8,8 @@ import { Button } from '../components/Button';
 import { Card, cardRow } from '../components/Card';
 import { ErrorCard, explainApiError, type Explained } from '../components/ErrorCard';
 import { Flash } from '../components/Flash';
+import { SafaricomHow } from '../components/SafaricomHow';
+import { how } from '../copy/guide';
 import { Loading } from '../components/Loading';
 import { MoneyInput } from '../components/MoneyInput';
 import { PageHeader } from '../components/PageHeader';
@@ -66,6 +68,7 @@ export function Invoices() {
           <Flash tone="danger" role="alert" className="mb-4">
             <p className="font-semibold">{c.optIn.failed}</p>
             {settings.lastError.split('\n').map((line, i) => <p key={i}>{line}</p>)}
+            <SafaricomHow links={[how.updateApp, how.apiSupport]} />
           </Flash>
         )}
         {person?.is_owner ? (settings.registering ? null : <OptIn settings={settings} stepUp={stepUp} onDone={() => { void loadSettings(); }} />) : <p className="text-base text-muted">{c.ownerOptsIn}</p>}

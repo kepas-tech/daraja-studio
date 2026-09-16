@@ -79,6 +79,15 @@ describe('invoices', () => {
     expect(ok.body).toMatchObject({ optedIn: true, lastError: null });
   });
 
+  it('a 401 from Safaricom on the set-up is explained as Bill Manager not allowed, never as a bad key', async () => {
+    fake.credentialError();
+    const r = await optIn();
+    expect(r.body.optedIn).toBe(false);
+    expect(r.body.lastError).toContain('Bill Manager');
+    expect(r.body.lastError).toContain('apisupport@safaricom.co.ke');
+    expect(r.body.lastError).not.toContain('key and secret');
+  });
+
   it('sends an invoice with a minted reference, refuses when items do not add up, and stores nothing on a refusal', async () => {
     await optIn();
     const bad = await h(request(app).post('/api/invoices')).send({ ...INV, items: [{ name: 'Rent', amountCents: 100000 }] });

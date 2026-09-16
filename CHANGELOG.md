@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.15.2 — "not allowed" on Bill Manager says what it is
+
+- When Safaricom answers HTTP 401 to the invoicing set-up while the same key works everywhere
+  else, Studio no longer says the key and secret were refused. It says Bill Manager is not
+  allowed for this app or number, and shows the two ways out with the clicks: tick Bill Manager
+  under Update App on the Daraja portal, or ask Safaricom's API support to enable it for the
+  paybill. The manual carries the same note.
+
 ## 0.15.1 — invoicing set-up you can watch
 
 - Set up invoicing answers at once and tells Safaricom in the background; the page says it is

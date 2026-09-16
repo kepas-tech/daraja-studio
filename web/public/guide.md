@@ -352,6 +352,10 @@ Safaricom calls this: Bill Manager · Where: Get paid → Invoices · Who: Owner
 6. Record a payment made another way (cash, bank): when, how much, a reference, who paid. Safaricom is told, so reminders stop.
 
 - Payments through M-Pesa land against the invoice the moment Safaricom reports them, and in History as "Invoice paid".
+- If Safaricom answers "not allowed" to the set-up, Bill Manager is not enabled for your app or number: tick it under Update App on the Daraja portal, or ask Safaricom’s API support to enable it for your paybill.
+
+- [Open My Apps on the Daraja portal](https://developer.safaricom.co.ke/dashboard/myapps) — then: Daraja portal → Log In → My Apps → your Production app card → the ⋮ menu → Update App → tick Bill Manager → Save
+- [Email Safaricom’s API support](mailto:apisupport@safaricom.co.ke) — then: a new email opens
 
 | Method | Path | Who |
 |---|---|---|
