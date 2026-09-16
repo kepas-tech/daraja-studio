@@ -22,6 +22,8 @@ const sendPhone = z.object({
   // Feature 1: a saved phone contact the operator picked on the review screen. The phone above is
   // still the number that will be dialled; the service refuses the pair when they disagree.
   contactId: z.string().uuid().optional(),
+  // Feature 2: which business this send belongs to. Optional, so nothing that worked before changes.
+  businessId: z.string().uuid().optional(),
 });
 
 // A YYYY-MM-DD that fails to round-trip through Date (2026-02-30, 2026-13-45, ...) is calendar-
@@ -38,6 +40,8 @@ const listSchema = z.object({
   type: z.string().optional(), status: z.enum(['pending', 'sent', 'completed', 'failed', 'unknown', 'cancelled', 'rejected', 'awaiting_approval']).optional(),
   from: dayString.optional(), to: dayString.optional(),
   q: z.string().trim().max(60).optional(), limit: z.coerce.number().int().min(1).max(100).default(25), cursor: z.string().max(200).optional(),
+  // Feature 2: History and Money in narrow by business, and a customer link narrows to one customer.
+  businessId: z.string().uuid().optional(), customerId: z.string().uuid().optional(),
 }).refine((v) => !v.from || !v.to || v.from <= v.to, { message: 'The end date must be on or after the start date.', path: ['to'] });
 const checkedSchema = z.object({ note: z.string().trim().min(1).max(500) });
 const isUuid = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
@@ -188,10 +192,10 @@ export function approvalRoutes(deps: AppDeps): Router {
 export function bulkRoutes(deps: AppDeps): Router {
   const r = Router();
   const text = z.object({ text: z.string().max(200_000) });
-  const create = text.extend({ category: z.string().trim().min(1).max(40).optional() });
+  const create = text.extend({ category: z.string().trim().min(1).max(40).optional(), businessId: z.string().uuid().optional() });
   r.post('/check', requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'bulk.send'), async (req, res, next) => { try { res.json(deps.bulk.check(parse(text, req.body).text)); } catch (e) { next(e); } });
   r.post('/', requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'bulk.send'), requireMoneyReady(deps), requireStepUp(deps.db), async (req, res, next) => {
-    try { const b = parse(create, req.body); res.status(201).json(await deps.bulk.create(b.text, b.category, { personId: req.person!.id, ip: clientIp(req) })); } catch (e) { next(e); }
+    try { const b = parse(create, req.body); res.status(201).json(await deps.bulk.create(b.text, b.category, { personId: req.person!.id, ip: clientIp(req) }, b.businessId)); } catch (e) { next(e); }
   });
   r.get('/', requireAuth(deps.db), requirePermission(deps.db, 'bulk.send'), async (_req, res, next) => { try { res.json({ items: await deps.bulk.list() }); } catch (e) { next(e); } });
   r.get('/:id', requireAuth(deps.db), requirePermission(deps.db, 'bulk.send'), async (req, res, next) => {

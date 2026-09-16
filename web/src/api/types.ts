@@ -82,6 +82,12 @@ export interface RequestView {
   category: string | null;
   /** The saved contact's own name, when this payment came from one. Safaricom's `recipient.name` is untouched beside it. */
   contactName: string | null;
+  /** What the payer typed on their phone (c2b) or the reference the request carried. */
+  accountReference: string | null;
+  /** Feature 2: the business and customer this row belongs to, when routing named one. */
+  businessName: string | null; customerName: string | null;
+  /** Feature 2: the customer's id, so Money in can offer History filtered to that customer. Optional until the server sends it. */
+  customerId?: string | null;
   createdAt: string; sentAt: string | null; resultAt: string | null; resultSource: 'callback' | 'poll' | 'ack' | null;
   safaricomSaid: string | null; meaning: string | null; whatToDo: string | null; retriable: boolean; pollAttempts: number;
   checked: { by: { id: string; displayName: string } | null; at: string; note: string } | null;
@@ -120,4 +126,25 @@ export interface ContactView {
   name: string; phone: string | null; shortcode: string | null;
   accountReference: string | null; note: string | null; createdAt: string;
 }
+/** `GET /api/businesses` (design 2026-09-16, feature 2). Routing by the first three digits. */
+export interface BusinessView { id: string; code: string; name: string; active: boolean; customerCount: number; createdAt: string }
+/** `GET /api/businesses/:id/customers`. `display` is the minted number zero-padded to three digits; `accountNumber` is what the payer types. */
+export interface CustomerView {
+  id: string; businessId: string; number: number; display: string; accountNumber: string;
+  name: string; phone: string | null; note: string | null; createdAt: string;
+}
+/** `GET /api/businesses/summary`: one row per business for the day, in cents. History, never cash. */
+export interface BusinessSummaryRow { businessId: string; code: string; name: string; inCents: number; outCents: number }
+/**
+ * `GET /api/money-in/unmatched`: a c2b row that needs a decision. The three optional fields are what
+ * the one-click fix needs to name itself (which business, which customer number was typed); the page
+ * falls back to the business name and the first three digits when an older server does not send them.
+ */
+export type UnmatchedView = RequestView & {
+  reason: 'no_business' | 'no_customer';
+  businessId?: string | null;
+  /** The business the first three digits name, when the server sends it as its own object. */
+  business?: { id: string; code: string; name: string } | null;
+  customerNumber?: number | null;
+};
 export interface Page<T> { items: T[]; nextCursor: string | null }

@@ -12,6 +12,8 @@ describe('History', () => {
     const urls: string[] = [];
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input); urls.push(url);
+      // Feature 2: the business filter is its own read; it must not be mistaken for the list.
+      if (url.includes('/api/businesses')) return new Response(JSON.stringify({ items: [], lastUsedId: null }), { status: 200 });
       if (url.includes('cursor=c1')) return new Response(JSON.stringify({ items: [row('3', 'failed')], nextCursor: null }), { status: 200 });
       if (url.includes('status=failed')) return new Response(JSON.stringify({ items: [row('3', 'failed')], nextCursor: null }), { status: 200 });
       return new Response(JSON.stringify({ items: [row('1', 'completed'), row('2', 'sent')], nextCursor: 'c1' }), { status: 200 });
@@ -20,7 +22,7 @@ describe('History', () => {
     render(<MemoryRouter><History /></MemoryRouter>);
     await screen.findByText('RI1');
     expect(screen.getAllByRole('row')).toHaveLength(3);
-    expect(urls[0]).toContain('limit=7');
+    expect(urls.find((u) => u.includes('/api/requests'))).toContain('limit=7');
     expect(screen.getByText(copy.history.page(1))).toBeInTheDocument();
     expect(screen.getByRole('button', { name: copy.history.previous })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: copy.history.next }));

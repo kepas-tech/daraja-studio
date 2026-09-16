@@ -325,6 +325,36 @@ Safaricom calls this: C2B · Where: Get paid → Money in · Who: Owner turns it
 | POST | `/api/money-in/register` | owner, password; answers 202 and works in the background |
 | POST | `/api/money-in/check` | money_in.view |
 
+### Run more than one business on one number
+
+Where: Manage → Businesses · Who: Anyone signed in can look; the owner, or a role given the permission, changes them · Route: /businesses · Permission: businesses.manage
+
+1. Open Businesses in the menu. With one business, routing is off: every payment belongs to it, and the page says so.
+2. Add a business: a name, and a three-digit code from 000 to 999. Studio offers the next free one; you can type your own.
+3. From the day there are two, payers must start the account number with the business code. Tell them: pay your number, account 001007.
+4. Open a business and press Add a customer. Studio gives the customer the next number and shows the whole account number to give the payer.
+5. A payment arrives with the code and the customer number. Money in shows which customer it belongs to, and History filters by business or by one customer.
+6. A payment whose account number names no business, or a number no customer holds, waits in Money in under Payments we could not sort. Assign a business, or create the customer the payer typed, in one press.
+7. Send money and Bulk send ask which business the money is from once there are two; the last one you used is the default.
+8. Ask a customer to pay, QR codes and Invoices can pick a saved customer, and Studio fills the account reference with their account number.
+
+- A business is switched off, never deleted, so an old account number keeps meaning what it meant. A customer number is never reused either.
+- One business means nothing is stripped from the account number and nothing is unmatched.
+- Balances stay one pool: M-Pesa holds one balance per paybill. The line per business on Home is that business own history, not cash.
+
+| Method | Path | Who |
+|---|---|---|
+| GET | `/api/businesses` | signed in |
+| POST | `/api/businesses` | businesses.manage; body { name, code? } |
+| PUT | `/api/businesses/:id` | businesses.manage; body { name, active } |
+| GET | `/api/businesses/:id/customers` | signed in; q narrows by name or number |
+| POST | `/api/businesses/:id/customers` | businesses.manage; Studio mints the next number |
+| POST | `/api/businesses/:id/customers/claim` | businesses.manage; body { number, name }; claims the number the payer typed |
+| PUT | `/api/customers/:id` | businesses.manage |
+| DELETE | `/api/customers/:id` | businesses.manage; retires the number |
+| POST | `/api/businesses/assign/:requestId` | businesses.manage; body { businessId, customerId? } |
+| GET | `/api/businesses/summary` | signed in; per business in and out for the day |
+
 ### QR codes
 
 Safaricom calls this: Dynamic QR · Where: Get paid → QR codes · Who: Owner or Operator · Route: /qr · Permission: qr.generate

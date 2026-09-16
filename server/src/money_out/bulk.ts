@@ -13,13 +13,16 @@ export interface Actor { personId: string; ip: string }
 export interface BulkResult { requestId?: string; status: string; error?: string; retriable?: boolean }
 export interface BulkPlanView {
   id: string; category: string | null; rowCount: number; totalCents: number; status: 'sending' | 'done' | 'partly_done';
+  /** Feature 2: the business every row of this batch is sent under. */
+  businessId: string | null;
   createdAt: string; finishedAt: string | null; createdBy: { id: string; displayName: string } | null;
   rows: (BulkRow & { index: number; result: BulkResult | null; receipt: string | null; liveStatus: string | null })[];
 }
 export interface BulkCheck { rows: BulkRow[]; errors: BulkError[]; count: number; totalCents: number }
 export interface BulkService {
   check(text: string): BulkCheck;
-  create(text: string, category: string | undefined, actor: Actor): Promise<BulkPlanView>;
+  /** The business is the operator's choice for the whole batch; every row carries it. */
+  create(text: string, category: string | undefined, actor: Actor, businessId?: string): Promise<BulkPlanView>;
   list(): Promise<Omit<BulkPlanView, 'rows'>[]>;
   get(id: string): Promise<BulkPlanView>;
   /** The job: sends every row not yet decided, one at a time, in order. Safe to re-run. */
@@ -29,7 +32,7 @@ export interface BulkService {
 }
 
 interface PlanRow {
-  id: string; created_by: string | null; category: string | null; row_count: number; total_cents: string; status: 'sending' | 'done' | 'partly_done';
+  id: string; created_by: string | null; category: string | null; row_count: number; total_cents: string; status: 'sending' | 'done' | 'partly_done'; business_id: string | null;
   rows: BulkRow[]; results: Record<string, BulkResult>; created_at: Date; finished_at: Date | null; created_by_name?: string | null;
 }
 const SELECT = `SELECT b.*, p.display_name AS created_by_name FROM bulk_plans b LEFT JOIN people p ON p.id = b.created_by`;
@@ -53,7 +56,7 @@ export function createBulkService(deps: { db: Db; settings: Settings; config: Co
 
   async function toView(p: PlanRow, withRows: boolean): Promise<BulkPlanView> {
     const base = {
-      id: p.id, category: p.category, rowCount: p.row_count, totalCents: Number(p.total_cents), status: p.status,
+      id: p.id, category: p.category, rowCount: p.row_count, totalCents: Number(p.total_cents), status: p.status, businessId: p.business_id ?? null,
       createdAt: p.created_at.toISOString(), finishedAt: p.finished_at?.toISOString() ?? null,
       createdBy: p.created_by ? { id: p.created_by, displayName: p.created_by_name ?? '' } : null,
     };
@@ -79,7 +82,17 @@ export function createBulkService(deps: { db: Db; settings: Settings; config: Co
   const svc: BulkService = {
     check: checkText,
 
-    async create(text, category, actor) {
+    async create(text, category, actor, businessId) {
+      // Feature 2: the whole batch is sent under one business. Refused here, before the plan row
+      // exists, for the same reasons a single send refuses it.
+      let chosenBusiness: string | null = null;
+      if (businessId) {
+        const [business] = await deps.db.query<{ id: string; active: boolean }>(
+          `SELECT id, active FROM businesses WHERE id=$1 AND org_id=$2`, [businessId, currentOrgId()]);
+        if (!business) throw new HttpError(400, 'unknown_business', 'That business does not exist. Pick one from the list.');
+        if (!business.active) throw new HttpError(409, 'business_inactive', 'That business is switched off. Switch it on to send under it.');
+        chosenBusiness = business.id;
+      }
       const c = checkText(text);
       if (c.errors.length) throw new HttpError(400, 'bulk_invalid', 'Fix the rows marked in red first.', { errors: c.errors });
       if (c.rows.length === 0) throw new HttpError(400, 'bulk_empty', 'Paste or upload at least one row.');
@@ -90,8 +103,8 @@ export function createBulkService(deps: { db: Db; settings: Settings; config: Co
         cat = found.name;
       }
       const [p] = await deps.db.query<{ id: string }>(
-        `INSERT INTO bulk_plans(created_by, category, row_count, total_cents, rows) VALUES ($1,$2,$3,$4,$5::jsonb) RETURNING id`,
-        [actor.personId, cat, c.rows.length, c.totalCents, JSON.stringify(c.rows)]);
+        `INSERT INTO bulk_plans(created_by, category, row_count, total_cents, rows, business_id) VALUES ($1,$2,$3,$4,$5::jsonb,$6) RETURNING id`,
+        [actor.personId, cat, c.rows.length, c.totalCents, JSON.stringify(c.rows), chosenBusiness]);
       await audit(deps.db, { personId: actor.personId, action: 'bulk.created', target: p.id, after: { rows: c.rows.length, totalCents: c.totalCents, category: cat }, ip: actor.ip });
       await enqueue(deps.db, 'bulk_send', { planId: p.id }, { maxAttempts: 3 });
       return svc.get(p.id);
@@ -123,7 +136,7 @@ export function createBulkService(deps: { db: Db; settings: Settings; config: Co
         if (results[String(i)]) continue;
         const r = p.rows[i];
         try {
-          const v = await deps.moneyOut.send({ phone: r.phone, amountCents: r.amountCents, commandId: 'BusinessPayment', category: p.category ?? undefined, remarks: r.note ?? undefined, contactId: contactIdByPhone.get(r.phone), bulk: { planId, index: i } }, actor);
+          const v = await deps.moneyOut.send({ phone: r.phone, amountCents: r.amountCents, commandId: 'BusinessPayment', category: p.category ?? undefined, remarks: r.note ?? undefined, contactId: contactIdByPhone.get(r.phone), businessId: p.business_id ?? undefined, bulk: { planId, index: i } }, actor);
           results[String(i)] = { requestId: v.id, status: v.status };
         } catch (e) {
           // A refusal before Safaricom (duplicate of an earlier single send, cap, no operator): the

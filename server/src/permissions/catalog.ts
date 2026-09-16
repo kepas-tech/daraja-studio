@@ -20,6 +20,7 @@ export const PERMISSIONS = [
   { key: 'send.approve', label: 'Can approve sends others made', role: null },
   { key: 'history.export', label: 'Can export history', role: null },
   { key: 'contacts.manage', label: 'Can keep the contact list', role: null },
+  { key: 'businesses.manage', label: 'Can set up businesses and customers', role: null },
 ] as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[number]['key'];

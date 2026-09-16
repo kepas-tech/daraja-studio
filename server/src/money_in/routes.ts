@@ -13,6 +13,11 @@ export function moneyInRoutes(deps: AppDeps): Router {
   const r = Router();
   r.get('/status', requireAuth(deps.db), requirePermission(deps.db, 'money_in.view'), async (_req, res, next) => { try { res.json(await deps.moneyIn.status()); } catch (e) { next(e); } });
   r.get('/recent', requireAuth(deps.db), requirePermission(deps.db, 'money_in.view'), async (_req, res, next) => { try { res.json(await listRequests(deps.db, { type: ['c2b'], limit: 20 }, deps.config.egressIps)); } catch (e) { next(e); } });
+  // Feature 2: payments whose account number names no business, or a customer number nobody holds.
+  // Each one carries the reason and enough for the page to offer its own one-click fix.
+  r.get('/unmatched', requireAuth(deps.db), requirePermission(deps.db, 'money_in.view'), async (_req, res, next) => {
+    try { res.json({ items: await deps.businesses.unmatched() }); } catch (e) { next(e); }
+  });
   r.post('/register', requireAuth(deps.db), requireCsrf, requireOwner, requireStepUp(deps.db), async (req, res, next) => {
     try { res.status(202).json(await deps.moneyIn.register({ personId: req.person!.id, ip: clientIp(req) })); } catch (e) { next(e); }
   });

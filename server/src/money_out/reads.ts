@@ -9,6 +9,9 @@ export interface RequestView {
   recipient: { kind: string | null; value: string | null; name: string | null }; remarks: string | null; receipt: string | null;
   /** The business's own payment category name, when the send was made with one. */
   category: string | null;
+  /** The account number the payer typed on a money-in row (Safaricom's billRefNumber); null on a
+   * money-out row, which has no account number. Feature 2 reads the business code out of it. */
+  accountReference: string | null;
   createdAt: string; sentAt: string | null; resultAt: string | null; resultSource: 'callback' | 'poll' | 'ack' | null;
   safaricomSaid: string | null; meaning: string | null; whatToDo: string | null; retriable: boolean; pollAttempts: number;
   checked: { by: { id: string; displayName: string } | null; at: string; note: string } | null;
@@ -20,17 +23,30 @@ export interface RequestView {
   /** Feature 1: the name the owner saved for this recipient, when the send named a contact. Shown
    * beside Safaricom's own `recipient.name`, which is left exactly as Safaricom returned it. */
   contactName: string | null;
+  /** Feature 2: the business this row belongs to, and the customer whose account number it named.
+   * The ids are the raw columns, so Money in can link to History filtered by either one. */
+  businessId: string | null;
+  customerId: string | null;
+  businessName: string | null;
+  customerName: string | null;
 }
 
-export type ViewRow = RequestRow & { created_by_name?: string | null; checked_by_name?: string | null; approved_by_name?: string | null; approved_by?: string | null; contact_name?: string | null; created_cursor?: string };
+export type ViewRow = RequestRow & {
+  created_by_name?: string | null; checked_by_name?: string | null; approved_by_name?: string | null; approved_by?: string | null;
+  contact_name?: string | null; business_name?: string | null; customer_name?: string | null; created_cursor?: string;
+  /** Feature 2: columns selected by r.* that the base RequestRow predates. */
+  account_reference?: string | null; business_id?: string | null; customer_id?: string | null;
+};
 
 /** Every column the view needs, with the two display-name joins, plus a microsecond-exact text
  * rendering of created_at for cursor paging — a JS Date only holds milliseconds, so the
  * cursor must be built from this text column, never from row.created_at. Append WHERE/ORDER/LIMIT. */
 export const VIEW_SELECT = `SELECT r.*, p.display_name AS created_by_name, c.display_name AS checked_by_name, a.display_name AS approved_by_name, ct.name AS contact_name,
+  bz.name AS business_name, cu.name AS customer_name,
   to_char(r.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_cursor
   FROM requests r LEFT JOIN people p ON p.id = r.created_by LEFT JOIN people c ON c.id = r.checked_by LEFT JOIN people a ON a.id = r.approved_by
-  LEFT JOIN contacts ct ON ct.id = r.contact_id`;
+  LEFT JOIN contacts ct ON ct.id = r.contact_id
+  LEFT JOIN businesses bz ON bz.id = r.business_id LEFT JOIN customers cu ON cu.id = r.customer_id`;
 
 export const UNKNOWN_WHAT_TO_DO = 'Do not send it again yet. Studio is checking with Safaricom; if it stays unknown, check the Safaricom portal, then Mark as checked.';
 export const POLL_FAILED_WHAT_TO_DO = "Safaricom's record is final. Send again if the money did not arrive; contact Safaricom API support if the portal statement disagrees.";
@@ -70,6 +86,7 @@ export function toView(row: ViewRow, egressIps: string[] = []): RequestView {
     recipient: { kind: row.recipient_kind, value: row.recipient_value, name: row.recipient_name },
     remarks: row.remarks, receipt: row.receipt,
     category: typeof (row.payload_json as { category?: unknown }).category === 'string' ? (row.payload_json as { category: string }).category : null,
+    accountReference: row.account_reference ?? null,
     createdAt: row.created_at.toISOString(), sentAt: row.sent_at?.toISOString() ?? null, resultAt: row.result_at?.toISOString() ?? null, resultSource: row.result_source,
     safaricomSaid: row.result_desc, meaning: row.meaning ?? ex?.meaning ?? null,
     whatToDo: row.status === 'failed'
@@ -86,6 +103,10 @@ export function toView(row: ViewRow, egressIps: string[] = []): RequestView {
     approvedBy: row.approved_by ? { id: row.approved_by, displayName: row.approved_by_name ?? '' } : null,
     bulkPlanId: row.bulk_plan_id ?? null,
     contactName: row.contact_name ?? null,
+    businessId: row.business_id ?? null,
+    customerId: row.customer_id ?? null,
+    businessName: row.business_name ?? null,
+    customerName: row.customer_name ?? null,
   };
 }
 
@@ -94,7 +115,7 @@ export async function getRequest(db: Db, id: string, egressIps: string[] = []): 
   return rows[0] ? toView(rows[0], egressIps) : null;
 }
 
-export interface ListQuery { type?: string[]; status?: string; from?: string; to?: string; q?: string; limit: number; cursor?: string }
+export interface ListQuery { type?: string[]; status?: string; from?: string; to?: string; q?: string; limit: number; cursor?: string; /** Feature 2: History and Money in filter by business, and a customer link narrows to one customer. */ businessId?: string; customerId?: string }
 export interface Page<T> { items: T[]; nextCursor: string | null }
 
 // Matches exactly what VIEW_SELECT's created_cursor column produces — a UTC, microsecond-exact
@@ -130,6 +151,8 @@ export async function listRequests(db: Db, query: ListQuery, egressIps: string[]
   // it; the ledger the operator reads is `LEDGER_TYPES`.
   const params: unknown[] = [query.type?.length ? query.type : LEDGER_TYPES];
   if (query.status) { params.push(query.status); where.push(`r.status = $${params.length}`); }
+  if (query.businessId) { params.push(query.businessId); where.push(`r.business_id = $${params.length}`); }
+  if (query.customerId) { params.push(query.customerId); where.push(`r.customer_id = $${params.length}`); }
   // Day bounds are the operator's own calendar day (Africa/Nairobi, M2), not the server's UTC day.
   if (query.from) { params.push(query.from); where.push(`(r.created_at AT TIME ZONE 'Africa/Nairobi')::date >= $${params.length}::date`); }
   if (query.to) { params.push(query.to); where.push(`(r.created_at AT TIME ZONE 'Africa/Nairobi')::date <= $${params.length}::date`); }

@@ -13,6 +13,7 @@ import { ErrorCard } from '../components/ErrorCard';
 import { Flash } from '../components/Flash';
 import { TaskCard } from '../components/TaskCard';
 import { Questionnaire } from '../components/Questionnaire';
+import { CustomerPicker } from '../components/CustomerPicker';
 import { useToast } from '../components/Toast';
 import { copy } from '../copy/en';
 import { money, normalizeKe, phone, when } from '../format';
@@ -95,7 +96,13 @@ export function AskToPay() {
         <Questionnaire key={round} intro={copy.askToPay.intro} doneLabel={copy.askToPay.next} onDone={() => { if (valid) setStep('review'); }} steps={[
           { key: 'phone', question: copy.askToPay.phone, valid: !!normalised, render: () => <PhoneInput label={copy.askToPay.phone} labelHidden value={to} onChange={setTo} autoFocus /> },
           { key: 'amount', question: copy.askToPay.amount, valid: cents !== null && cents % 100 === 0, render: () => <MoneyInput label={copy.askToPay.amount} labelHidden valueCents={cents} onChange={setCents} wholeShillings autoFocus /> },
-          { key: 'reference', question: copy.askToPay.reference, hint: copy.askToPay.referenceHint, valid: reference.trim().length > 0, render: () => <TextField label={copy.askToPay.reference} labelHidden value={reference} onChange={(e) => setReference(e.target.value)} maxLength={12} autoFocus /> },
+          { key: 'reference', question: copy.askToPay.reference, hint: copy.askToPay.referenceHint, valid: reference.trim().length > 0, render: () => (
+            <div className="space-y-3">
+              <CustomerPicker label={copy.askToPay.pickCustomer} onPick={(x) => setReference(x.accountNumber)} />
+              <p className="text-sm text-muted">{copy.askToPay.pickCustomerHint}</p>
+              <TextField label={copy.askToPay.reference} labelHidden value={reference} onChange={(e) => setReference(e.target.value)} maxLength={12} autoFocus />
+            </div>
+          ) },
           { key: 'description', question: copy.askToPay.description, hint: copy.askToPay.descriptionHint, optional: true, valid: true, empty: !description, render: () => <TextField label={copy.askToPay.description} labelHidden value={description} onChange={(e) => setDescription(e.target.value)} maxLength={13} autoFocus /> },
         ]} />
       )}

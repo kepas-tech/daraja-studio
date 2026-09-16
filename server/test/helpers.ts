@@ -17,6 +17,7 @@ import { createCollectService } from '../src/collect/service.js';
 import { createMoneyInService } from '../src/money_in/service.js';
 import { createBulkService } from '../src/money_out/bulk.js';
 import { createInvoicesService } from '../src/invoices/service.js';
+import { createBusinessesService } from '../src/businesses/service.js';
 import { hashPassword } from '../src/auth/password.js';
 import type { DarajaFactory } from '../src/sdk/client.js';
 
@@ -123,7 +124,7 @@ export function testDeps(env: Record<string, string> = {}): { config: Config; db
 export async function resetTables(db?: Db) {
   void db; // resets are privileged; the caller's pool is studio_app and cannot TRUNCATE.
   await admin().query(
-    `TRUNCATE org_environment_verifications, contacts, people, permissions, sessions, login_attempts, rate_limits, operators, requests, bulk_plans, customer_invoices, balances, callbacks_raw, jobs, cache, settings RESTART IDENTITY CASCADE`,
+    `TRUNCATE org_environment_verifications, contacts, customers, businesses, people, permissions, sessions, login_attempts, rate_limits, operators, requests, bulk_plans, customer_invoices, balances, callbacks_raw, jobs, cache, settings RESTART IDENTITY CASCADE`,
   );
   await ensureTestOrg();
 }
@@ -142,9 +143,10 @@ export function makeApp(extra: { fetchImpl?: typeof fetch; daraja?: DarajaFactor
   const moneyIn = createMoneyInService({ ...base, daraja, events });
   const bulk = createBulkService({ ...base, events, moneyOut, pauseMs: 0 });
   const invoices = createInvoicesService({ ...base, daraja, events });
+  const businesses = createBusinessesService({ ...base, events, egressIps: base.config.egressIps });
   const deps: AppDeps = {
     ...base,
-    events, daraja, operators, settingsService, moneyOut, collect, moneyIn, bulk, invoices, fetchImpl: extra.fetchImpl,
+    events, daraja, operators, settingsService, moneyOut, collect, moneyIn, bulk, invoices, businesses, fetchImpl: extra.fetchImpl,
   };
   const app = buildApp(deps);
   return { app, deps, close: async () => { await base.db.end(); } };

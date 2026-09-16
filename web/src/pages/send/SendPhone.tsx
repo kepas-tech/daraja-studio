@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { api, ApiError } from '../../api/client';
 import { useEvents } from '../../api/events';
-import type { BalanceView, ContactView, NameCheck, RequestView, SendCategory } from '../../api/types';
+import type { BalanceView, BusinessView, ContactView, NameCheck, RequestView, SendCategory } from '../../api/types';
 import { useSession } from '../../app/session';
 import { Button } from '../../components/Button';
 import { TextField } from '../../components/TextField';
@@ -28,6 +28,17 @@ export function SendPhone() {
   const [step, setStep] = useState<Step>('form');
   const { person } = useSession();
   const [to, setTo] = useState(''); const [cents, setCents] = useState<number | null>(null); const [kind, setKind] = useState(''); const [remarks, setRemarks] = useState('');
+  // Feature 2: which business the money is from. Nothing to choose while there is one, so the
+  // question is only asked from the second business on; the last one used is the default.
+  const [businesses, setBusinesses] = useState<BusinessView[]>([]);
+  const [businessId, setBusinessId] = useState('');
+  useEffect(() => {
+    api.get<{ items: BusinessView[]; lastUsedId: string | null }>('/api/businesses').then((r) => {
+      const live = r.items.filter((b) => b.active);
+      setBusinesses(live);
+      setBusinessId((id) => id || (live.some((b) => b.id === r.lastUsedId) ? (r.lastUsedId as string) : (live[0]?.id ?? '')));
+    }).catch(() => {});
+  }, []);
   const [categories, setCategories] = useState<SendCategory[]>([]);
   useEffect(() => { api.get<{ items: SendCategory[] }>('/api/send/categories').then((r) => { setCategories(r.items); setKind((k) => k || r.items[0]?.name || ''); }).catch(() => {}); }, []);
   // The saved phone contacts, for the picker. Reading them needs no permission: the picker must
@@ -119,7 +130,7 @@ export function SendPhone() {
   const submit = async (password: string) => {
     setBusy(true); setDialogError(null); setErr(null);
     try {
-      const r = await api.post<RequestView>('/api/send/phone', { phone: to, amountCents: cents, category: kind || undefined, remarks: remarks || undefined, contactId: contactId ?? undefined, confirmDuplicate: confirmDuplicate || undefined, password });
+      const r = await api.post<RequestView>('/api/send/phone', { phone: to, amountCents: cents, category: kind || undefined, remarks: remarks || undefined, contactId: contactId ?? undefined, businessId: businessId || undefined, confirmDuplicate: confirmDuplicate || undefined, password });
       setRequest(r); setConfirm(false); setDuplicate(null); setConfirmDuplicate(false); setStep('result');
       const resultCopy = copy.send.phone.result as Record<string, string>;
       toast.show(r.status === 'completed' ? 'success' : r.status === 'failed' ? 'error' : 'info', resultCopy[r.status] ?? r.status);
@@ -147,6 +158,14 @@ export function SendPhone() {
         <>
           {againUnavailable && <Flash tone="neutral" role="alert" className="mb-4 max-w-xl">{copy.send.phone.againUnavailable}</Flash>}
           <Questionnaire key={round} intro={copy.send.phoneIntro} doneLabel={copy.send.phone.next} onDone={() => { if (valid) setStep('review'); }} steps={[
+            ...(businesses.length > 1 ? [{
+              key: 'business', question: copy.send.phone.business, valid: !!businessId,
+              render: () => (
+                <select aria-label={copy.send.phone.business} className="min-h-11 w-full rounded-md border border-line bg-surface px-3 text-base text-ink" value={businessId} onChange={(e) => setBusinessId(e.target.value)}>
+                  {businesses.map((b) => <option key={b.id} value={b.id}>{b.code} · {b.name}</option>)}
+                </select>
+              ),
+            }] : []),
             { key: 'phone', question: copy.send.phone.recipient, valid: !!normalised, render: () => (
               <div className="space-y-3">
                 {(contacts?.length ?? 0) > 0 && (
@@ -197,6 +216,7 @@ export function SendPhone() {
               </dd>
               <dt className="text-muted">{copy.request.amount}</dt><dd>{money(cents)}<span className="block text-sm text-muted">{copy.send.phone.review.feeNote}</span></dd>
               <dt className="text-muted">{copy.send.phone.kind}</dt><dd>{kind}</dd>
+              {businesses.length > 1 && <><dt className="text-muted">{copy.businesses.title}</dt><dd>{businesses.find((b) => b.id === businessId)?.name ?? '—'}</dd></>}
               <dt className="text-muted">{copy.send.phone.review.balanceNow}</dt>
               <dd>{balance === undefined ? copy.app.loading : balance === null || balance.utilityCents === null ? copy.send.phone.review.balanceMissing : money(balance.utilityCents)}
                 {stale && balance?.queriedAt && <span className="block text-sm text-muted">{copy.send.phone.review.balanceStale(when(balance.queriedAt))}</span>}</dd>

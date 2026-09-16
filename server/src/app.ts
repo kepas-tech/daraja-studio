@@ -47,6 +47,8 @@ import { billManagerHandler } from './callbacks/billmanager.js';
 import { expressHandler, ratibaHandler } from './callbacks/collectKinds.js';
 import { invoiceRoutes } from './invoices/routes.js';
 import { contactsRoutes } from './contacts/routes.js';
+import { businessesRoutes, customersRoutes } from './businesses/routes.js';
+import type { BusinessesService } from './businesses/service.js';
 import type { InvoicesService } from './invoices/service.js';
 import type { Scheduler } from './scheduler/loop.js';
 
@@ -71,6 +73,8 @@ export interface AppDeps {
   bulk: BulkService;
   /** M7: Safaricom Bill Manager. */
   invoices: InvoicesService;
+  /** Feature 2: the businesses one paybill serves, their customers, and the unmatched fixes. */
+  businesses: BusinessesService;
   /** Present at boot; absent in tests that build the app without a scheduler. */
   scheduler?: Pick<Scheduler, 'lastTickAt'>;
   /** The fetch every Safaricom-facing call goes through. Set only by the local demo and the tests. */
@@ -134,6 +138,10 @@ export function buildApp(deps: AppDeps): express.Express {
   app.use('/api/invoices', invoiceRoutes(deps));
   // Feature 1: the saved contact book, read by Send to phone and Bulk send.
   app.use('/api/contacts', contactsRoutes(deps));
+  // Feature 2: businesses and their customers. The customer routes sit at their own address,
+  // because a customer id already names its business; the design's paths are exactly these.
+  app.use('/api/businesses', businessesRoutes(deps));
+  app.use('/api/customers', customersRoutes(deps));
   app.use('/api/requests', requestRoutes(deps));
   app.use('/api/balances', balanceRoutes(deps));
   app.use('/api/lookup', lookupRoutes(deps));

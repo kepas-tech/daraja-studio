@@ -14,7 +14,7 @@ import { StatusPill } from '../components/StatusPill';
 import { STATUS_TONE } from '../components/RequestCard';
 import { copy } from '../copy/en';
 import { money, phone } from '../format';
-import type { BalanceView, Page, RequestView, SettingsView } from '../api/types';
+import type { BalanceView, BusinessSummaryRow, Page, RequestView, SettingsView } from '../api/types';
 
 const RELOAD_ON: readonly string[] = ['operator.updated', 'setup.updated', 'balance.updated'];
 // The three things a business does most, as tiles above the fold.
@@ -25,6 +25,9 @@ export function Home() {
   const [v, setV] = useState<SettingsView | null>(null);
   const [balance, setBalance] = useState<BalanceView | null | undefined>(undefined);
   const [recent, setRecent] = useState<RequestView[]>([]);
+  // Feature 2: one line per business once there is more than one. Their own history, never cash:
+  // M-Pesa holds one pool per shortcode.
+  const [byBusiness, setByBusiness] = useState<BusinessSummaryRow[]>([]);
   // These callbacks depend on primitives, never on the whole person object: SessionProvider sets a
   // new person object on every refresh, and depending on it changed the event handler and
   // reloadAll identity, so useEvents closed and reopened the stream whose own open refreshes the
@@ -36,6 +39,7 @@ export function Home() {
     if (!personId) return;
     api.get<BalanceView | null>('/api/balances/latest').then(setBalance).catch(() => setBalance(null));
     api.get<Page<RequestView>>('/api/requests?limit=5').then((p) => setRecent(p.items)).catch(() => setRecent([]));
+    api.get<{ items: BusinessSummaryRow[] }>('/api/businesses/summary').then((r) => setByBusiness(r.items)).catch(() => setByBusiness([]));
   }, [personId]);
   useEffect(load, [load]);
   useEffect(loadMoney, [loadMoney]);
@@ -83,6 +87,18 @@ export function Home() {
           );
         })}
       </div>
+      {byBusiness.length > 1 && (
+        <Card className="mb-6" title={copy.home.byBusiness} bodyClassName="p-0">
+          <ul>
+            {byBusiness.map((b) => (
+              <li key={b.businessId} data-testid={'home-business-' + b.businessId} className={cardRow + ' flex flex-wrap items-center justify-between gap-3 text-base'}>
+                <span className="min-w-0"><code>{b.code}</code> · {b.name}</span>
+                <span className="text-sm"><span className="text-muted">{copy.home.in} </span>{money(b.inCents)}<span className="text-muted"> · {copy.home.out} </span>{money(b.outCents)}</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
       <Card title={copy.home.recent} bodyClassName="p-0" actions={<Link to="/history" className="text-sm">{copy.home.viewAll}</Link>}>
         {recent.length === 0 ? <p className="p-4 text-base text-muted">{copy.home.noRecent}</p> : (
           <ul>

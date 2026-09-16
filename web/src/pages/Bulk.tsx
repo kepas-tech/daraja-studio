@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { api, ApiError } from '../api/client';
 import { useEvents } from '../api/events';
-import type { BulkCheck, BulkPlanView, ContactView, SendCategory } from '../api/types';
+import type { BulkCheck, BulkPlanView, BusinessView, ContactView, SendCategory } from '../api/types';
 import { Button } from '../components/Button';
 import { Card, cardRow } from '../components/Card';
 import { ErrorCard, explainApiError, type Explained } from '../components/ErrorCard';
@@ -33,6 +33,16 @@ export function Bulk() {
   const [items, setItems] = useState<Omit<BulkPlanView, 'rows'>[] | null>(null);
   const [text, setText] = useState('');
   const [check, setCheck] = useState<BulkCheck | null>(null);
+  // Feature 2: the business the batch belongs to. Hidden while there is one; the last used is default.
+  const [businesses, setBusinesses] = useState<BusinessView[]>([]);
+  const [businessId, setBusinessId] = useState('');
+  useEffect(() => {
+    api.get<{ items: BusinessView[]; lastUsedId: string | null }>('/api/businesses').then((r) => {
+      const live = r.items.filter((b) => b.active);
+      setBusinesses(live);
+      setBusinessId((id) => id || (live.some((b) => b.id === r.lastUsedId) ? (r.lastUsedId as string) : (live[0]?.id ?? '')));
+    }).catch(() => {});
+  }, []);
   const [categories, setCategories] = useState<SendCategory[]>([]);
   const [category, setCategory] = useState('');
   const [err, setErr] = useState<Error | Explained | null>(null);
@@ -66,7 +76,7 @@ export function Bulk() {
     finally { setBusy(false); }
   };
   const send = () => check && stepUp.ask(c.confirm(check.count, money(check.totalCents)), async (password) => {
-    const plan = await api.post<BulkPlanView>('/api/send/bulk', { text, category: category || undefined, password });
+    const plan = await api.post<BulkPlanView>('/api/send/bulk', { text, category: category || undefined, businessId: businessId || undefined, password });
     toast.success(c.queued);
     nav(`/bulk/${plan.id}`);
   });
@@ -123,6 +133,14 @@ export function Bulk() {
                 </div>
               )}
               {ready && categories.length > 0 && <Segmented name="bulk-category" label={copy.send.phone.kind} value={category} options={categories.map((k) => ({ value: k.name, label: k.name }))} onChange={setCategory} />}
+              {ready && businesses.length > 1 && (
+                <label className="block">
+                  <span className="mb-1 block text-base font-medium">{c.business}</span>
+                  <select aria-label={c.business} className="min-h-11 w-full rounded-md border border-line bg-surface px-3 text-base text-ink" value={businessId} onChange={(e) => setBusinessId(e.target.value)}>
+                    {businesses.map((b) => <option key={b.id} value={b.id}>{b.code} · {b.name}</option>)}
+                  </select>
+                </label>
+              )}
               {ready && <Button type="button" onClick={send}>{c.send}</Button>}
             </div>
           )}

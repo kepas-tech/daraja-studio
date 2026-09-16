@@ -16,6 +16,7 @@ import { PageHeader } from '../components/PageHeader';
 import { PasswordConfirmDialog } from '../components/PasswordConfirmDialog';
 import { PhoneInput } from '../components/PhoneInput';
 import { Questionnaire } from '../components/Questionnaire';
+import { CustomerPicker } from '../components/CustomerPicker';
 import { Segmented } from '../components/Segmented';
 import { StatusPill } from '../components/StatusPill';
 import { TextField } from '../components/TextField';
@@ -163,7 +164,13 @@ function NewInvoice({ onCancel, onDone }: { onCancel: () => void; onDone: (inv: 
         { key: 'name', question: c.customerName, valid: f.customerName.trim().length > 0, render: () => <TextField label={c.customerName} labelHidden value={f.customerName} onChange={(e) => setF({ ...f, customerName: e.target.value })} autoFocus /> },
         { key: 'phone', question: c.customerPhone, valid: !!normalizeKe(f.customerPhone), render: () => <PhoneInput label={c.customerPhone} labelHidden value={f.customerPhone} onChange={(v) => setF({ ...f, customerPhone: v })} autoFocus /> },
         { key: 'invoice', question: c.invoiceName, valid: f.invoiceName.trim().length > 0, render: () => <TextField label={c.invoiceName} labelHidden value={f.invoiceName} onChange={(e) => setF({ ...f, invoiceName: e.target.value })} autoFocus /> },
-        { key: 'account', question: c.accountReference, hint: c.accountHint, valid: f.accountReference.trim().length > 0 && f.accountReference.trim().length <= 20, render: () => <TextField label={c.accountReference} labelHidden value={f.accountReference} onChange={(e) => setF({ ...f, accountReference: e.target.value })} autoFocus /> },
+        { key: 'account', question: c.accountReference, hint: c.accountHint, valid: f.accountReference.trim().length > 0 && f.accountReference.trim().length <= 20, render: () => (
+          <div className="space-y-3">
+            <CustomerPicker label={c.pickCustomer} onPick={(x) => setF((prev) => ({ ...prev, accountReference: x.accountNumber, customerName: prev.customerName.trim() || x.name, customerPhone: prev.customerPhone.trim() || (x.phone ?? '') }))} />
+            <p className="text-sm text-muted">{c.pickCustomerHint}</p>
+            <TextField label={c.accountReference} labelHidden value={f.accountReference} onChange={(e) => setF({ ...f, accountReference: e.target.value })} autoFocus />
+          </div>
+        ) },
         { key: 'period', question: c.billedPeriod, valid: f.billedPeriod.trim().length > 0, render: () => <TextField label={c.billedPeriod} labelHidden value={f.billedPeriod} onChange={(e) => setF({ ...f, billedPeriod: e.target.value })} autoFocus /> },
         { key: 'due', question: c.dueDate, valid: /^\d{4}-\d{2}-\d{2}$/.test(f.dueDate), render: () => <TextField label={c.dueDate} labelHidden type="date" value={f.dueDate} onChange={(e) => setF({ ...f, dueDate: e.target.value })} autoFocus /> },
         { key: 'items', question: c.items, hint: c.itemsHint, optional: true, valid: itemsOk, empty: f.items.trim().length === 0, render: () => <label className="block"><span className="sr-only">{c.items}</span><textarea aria-label={c.items} className="min-h-28 w-full rounded-md border border-line bg-surface p-3 text-base text-ink focus:outline-2 focus:-outline-offset-1 focus:outline-brand" value={f.items} onChange={(e) => setF({ ...f, items: e.target.value })} placeholder={c.itemsPlaceholder} autoFocus /></label> },

@@ -6,6 +6,7 @@ import { ErrorCard, type Explained } from '../components/ErrorCard';
 import { Card } from '../components/Card';
 import { Flash } from '../components/Flash';
 import { Questionnaire } from '../components/Questionnaire';
+import { CustomerPicker } from '../components/CustomerPicker';
 import { Segmented } from '../components/Segmented';
 import { MoneyInput } from '../components/MoneyInput';
 import { PageHeader } from '../components/PageHeader';
@@ -66,7 +67,12 @@ export function Qr() {
       {details && (
         <Questionnaire doneLabel={busy ? text.generating : text.generate} busy={busy} intro={<>{text.payee}: <strong className="text-ink">{details.merchantName}</strong> · {text.shortcode}: {details.shortcode}</>} onDone={() => void generate()} steps={[
           { key: 'type', question: text.type, valid: true, render: () => <Segmented name="trxCode" label={text.type} value={trxCode} options={[{ value: 'PB', label: text.paybill }, { value: 'BG', label: text.till }]} onChange={(v) => { changed(); setTrxCode(v); }} /> },
-          { key: 'reference', question: text.reference, hint: text.referenceHint, valid: reference.trim().length > 0 && reference.trim().length <= 32, render: () => <TextField label={text.reference} labelHidden value={reference} maxLength={32} onChange={(e) => { changed(); setReference(e.target.value); }} autoFocus /> },
+          { key: 'reference', question: text.reference, hint: text.referenceHint, valid: reference.trim().length > 0 && reference.trim().length <= 32, render: () => (
+            <div className="space-y-3">
+              <CustomerPicker label={text.pickCustomer} onPick={(x) => { changed(); setReference(x.accountNumber); }} />
+              <TextField label={text.reference} labelHidden value={reference} maxLength={32} onChange={(e) => { changed(); setReference(e.target.value); }} autoFocus />
+            </div>
+          ) },
           { key: 'who', question: text.who, valid: true, render: () => <Segmented name="who" label={text.who} value={customerAmount ? 'customer' : 'fixed'} options={[{ value: 'fixed', label: text.fixed }, { value: 'customer', label: text.customerAmount }]} onChange={(v) => { changed(); setCustomerAmount(v === 'customer'); }} /> },
           ...(customerAmount ? [] : [{ key: 'amount', question: text.amount, valid: amount !== null && Number.isSafeInteger(amount) && amount > 0, render: () => <MoneyInput label={text.amount} labelHidden valueCents={amount} onChange={(v) => { changed(); setAmount(v); }} autoFocus /> }]),
         ]} />

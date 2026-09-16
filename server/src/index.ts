@@ -19,6 +19,7 @@ import { createCollectService } from './collect/service.js';
 import { createMoneyInService } from './money_in/service.js';
 import { createBulkService } from './money_out/bulk.js';
 import { createInvoicesService } from './invoices/service.js';
+import { createBusinessesService } from './businesses/service.js';
 import { createScheduler } from './scheduler/loop.js';
 import { ensureRecurring } from './db/jobs.js';
 import { buildHandlers } from './scheduler/handlers.js';
@@ -92,6 +93,9 @@ async function main() {
   const moneyIn = createMoneyInService({ db, settings, daraja, events, orgs });
   const bulk = createBulkService({ db, settings, config, events, moneyOut });
   const invoices = createInvoicesService({ db, settings, daraja, events, orgs });
+  // Feature 2: businesses and customers. Needs the settings store for the last business used, so the
+  // pickers can default to it, and the egress IPs for the rows the unmatched fixes hand back.
+  const businesses = createBusinessesService({ db, settings, events, egressIps: config.egressIps });
 
   await events.start();
   await ensureRecurring(db, 'money_out_sweep', 30);
@@ -102,7 +106,7 @@ async function main() {
   const scheduler = createScheduler(db, buildHandlers({ db, events, settings, moneyOut, operators, moneyIn, bulk }));
   scheduler.start();
 
-  const app = buildApp({ config, db, keyring, orgs, settings, instance, cache, events, daraja, operators, settingsService, moneyOut, collect, moneyIn, bulk, invoices, fetchImpl, scheduler });
+  const app = buildApp({ config, db, keyring, orgs, settings, instance, cache, events, daraja, operators, settingsService, moneyOut, collect, moneyIn, bulk, invoices, businesses, fetchImpl, scheduler });
   const listenFallback = db.getFallbackOrg();
   const envLabel = listenFallback
     ? await withOrg(listenFallback, async () => (await settings.get('daraja.environment')) ?? 'sandbox')

@@ -37,6 +37,8 @@ export type SettingKey =
   | 'send.categories'
   // M4: sends at or above this many cents wait for a second person. 0 or unset = off.
   | 'send.approvalThresholdCents'
+  // Feature 2: the business the last send was made under, so the pickers default to it.
+  | 'send.lastBusinessId'
   | EnvSettingKey;
 
 const ENCRYPTED_SLOTS = ['consumerKey', 'consumerSecret', 'passkey', 'certPem', 'billManagerAppKey'] as const;

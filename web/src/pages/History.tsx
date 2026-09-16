@@ -3,9 +3,9 @@ import { useEvents } from '../api/events';
 import { ErrorCard, explainApiError, type Explained } from '../components/ErrorCard';
 import { Flash } from '../components/Flash';
 import { useToast } from '../components/Toast';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { api } from '../api/client';
-import type { Page, RequestView } from '../api/types';
+import type { BusinessView, Page, RequestView } from '../api/types';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { StatusPill } from '../components/StatusPill';
@@ -23,6 +23,13 @@ export function History() {
   const toast = useToast();
   const [q, setQ] = useState(''); const [from, setFrom] = useState(''); const [to, setTo] = useState(''); const [status, setStatus] = useState(''); const [direction, setDirection] = useState('');
   const [items, setItems] = useState<RequestView[]>([]); const [next, setNext] = useState<string | null>(null); const [loaded, setLoaded] = useState(false);
+  // Feature 2: a business narrows every list; a single customer arrives as a link from Money in.
+  const [businesses, setBusinesses] = useState<BusinessView[]>([]);
+  const [business, setBusiness] = useState('');
+  const [search, setSearch] = useSearchParams();
+  const customerId = search.get('customer') ?? '';
+  const customerName = search.get('customerName') ?? '';
+  useEffect(() => { api.get<{ items: BusinessView[] }>('/api/businesses').then((r) => setBusinesses(r.items)).catch(() => setBusinesses([])); }, []);
   // Keyset paging is forward-only on the server; Previous is the stack of cursors we came through.
   const [stack, setStack] = useState<string[]>([]);
   const cursor = stack[stack.length - 1] ?? null;
@@ -60,11 +67,11 @@ export function History() {
   const params = useCallback((c?: string | null) => {
     const p = new URLSearchParams();
     p.set('limit', String(PAGE));
-    if (q.trim()) p.set('q', q.trim()); if (from) p.set('from', from); if (to) p.set('to', to); if (status) p.set('status', status); if (direction && DIRECTION_TYPES[direction]) p.set('type', DIRECTION_TYPES[direction]); if (c) p.set('cursor', c);
+    if (q.trim()) p.set('q', q.trim()); if (from) p.set('from', from); if (to) p.set('to', to); if (status) p.set('status', status); if (direction && DIRECTION_TYPES[direction]) p.set('type', DIRECTION_TYPES[direction]); if (business) p.set('businessId', business); if (customerId) p.set('customerId', customerId); if (c) p.set('cursor', c);
     return p.toString();
-  }, [q, from, to, status, direction]);
+  }, [q, from, to, status, direction, business, customerId]);
   // A filter change starts again from the first page.
-  useEffect(() => { setStack([]); }, [q, from, to, status, direction]);
+  useEffect(() => { setStack([]); }, [q, from, to, status, direction, business, customerId]);
   useEffect(() => {
     const t = setTimeout(() => { api.get<Page<RequestView>>(`/api/requests?${params(cursor)}`).then((r) => { setItems(r.items); setNext(r.nextCursor); setLoaded(true); }).catch(() => setLoaded(true)); }, 200);
     return () => clearTimeout(t);
@@ -85,7 +92,19 @@ export function History() {
             <option value="">{copy.history.any}</option>
             {STATUSES.map((s) => <option key={s} value={s}>{copy.request.status[s] ?? s}</option>)}
           </select>
+          {businesses.length > 0 && (
+            <select aria-label={copy.history.business} className={control} value={business} onChange={(e) => setBusiness(e.target.value)}>
+              <option value="">{copy.history.anyBusiness}</option>
+              {businesses.map((b) => <option key={b.id} value={b.id}>{b.code} · {b.name}</option>)}
+            </select>
+          )}
         </div>
+        {customerId && (
+          <div className="flex flex-wrap items-center gap-3 border-b border-line bg-page px-4 py-2 text-sm">
+            <span>{copy.history.oneCustomer(customerName || customerId)}</span>
+            <button type="button" className="cursor-pointer text-brand underline" onClick={() => { const p = new URLSearchParams(search); p.delete('customer'); p.delete('customerName'); setSearch(p); }}>{copy.history.clearCustomer}</button>
+          </div>
+        )}
         {notHere && (
           <div className="border-b border-line p-4">
             <Flash tone="neutral">

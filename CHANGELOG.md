@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.18.0 — several businesses on one paybill, sorted by what the payer types
+
+- One paybill can serve more than one business. Each business gets a three-digit code, 000 to 999,
+  and each customer gets a number Studio gives them, so the account number a payer types reads as
+  <business code><customer number>: 000123 is business 000, customer 123. Money in sorts itself
+  from that number, so a payment keeps a name instead of a bare reference.
+- Pay out: Send money to a phone and Bulk send ask which business the money is for, and the answer
+  defaults to the last one used. A business's customers can be picked on Ask a customer to pay, QR
+  codes and Invoices, and Studio fills the account reference with that customer's account number.
+- Money in gains an "Unmatched payments" card for anything Studio could not place, with one click
+  to assign a business or to take the number the payer typed as a new customer. Nothing is ever
+  rerouted: an assign only labels the row and writes an audit entry.
+- History filters by business, and by customer through the link Money in offers. Home shows one
+  line per business, in and out for the day, once there is more than one.
+- With a single business nothing changes: routing is off, every payment belongs to it, and the
+  page says so until a second business exists. A business is switched off, never deleted, so a
+  code is never reused; a customer is retired and their number is never given to anyone else.
+- New permission `businesses.manage`. Reading the lists needs only a session, because the
+  pickers have to work for whoever may send.
+
 ## 0.17.0 — Contacts, so a repeat payment is a name you pick
 
 - Pay out › Contacts: save the people and businesses you pay. A contact is a name and one of three

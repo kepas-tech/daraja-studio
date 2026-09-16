@@ -17,6 +17,7 @@ import { History } from '../pages/History';
 import { RequestDetail } from '../pages/RequestDetail';
 import { People } from '../pages/People';
 import { Contacts } from '../pages/Contacts';
+import { Businesses } from '../pages/Businesses';
 import { ChangePassword } from '../pages/ChangePassword';
 import { Qr } from '../pages/Qr';
 import { AskToPay } from '../pages/AskToPay';
@@ -61,6 +62,7 @@ function Gate() {
         <Route path="/go-live" element={<GoLive />} />
         <Route path="/people" element={<People />} />
         <Route path="/contacts" element={<Contacts />} />
+        <Route path="/businesses" element={<Businesses />} />
         <Route path="/not-possible" element={<NotPossible />} />
         <Route path="/send" element={<SendHub />} />
         <Route path="/send/phone" element={<SendPhone />} />

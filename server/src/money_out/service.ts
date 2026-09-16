@@ -19,7 +19,7 @@ import { KINDS, MONEY_TYPES, type CallbackUrls, type RequestKind, type RequestRo
 import { failOperatorOnCredentialCode } from './operatorHealth.js';
 import { getRequest, listRequests, type Page, type RequestView } from './reads.js';
 
-export interface SendInput { phone: string; amountCents: number; commandId: 'BusinessPayment' | 'SalaryPayment' | 'PromotionPayment'; category?: string; remarks?: string; occasion?: string; confirmDuplicate?: boolean; /** Feature 1: the saved phone contact this send is labelled with; checked below. */ contactId?: string; /** M5: the batch this row belongs to; never accepted from a client. */ bulk?: { planId: string; index: number } }
+export interface SendInput { phone: string; amountCents: number; commandId: 'BusinessPayment' | 'SalaryPayment' | 'PromotionPayment'; category?: string; remarks?: string; occasion?: string; confirmDuplicate?: boolean; /** Feature 1: the saved phone contact this send is labelled with; checked below. */ contactId?: string; /** Feature 2: the business this send belongs to. Checked below; the last one used becomes the pickers' default. */ businessId?: string; /** M5: the batch this row belongs to; never accepted from a client. */ bulk?: { planId: string; index: number } }
 export interface Actor { personId: string; ip: string }
 /**
  * What Safaricom says about the person behind a phone number, asked before a send (B2C
@@ -349,6 +349,17 @@ export function createMoneyOutService(deps: { db: Db; settings: Settings; daraja
         if (savedPhone !== phone) throw new HttpError(400, 'contact_mismatch', 'That number is not the one saved for this contact. Pick the contact again, or send without it.');
         savedContactId = contact.id;
       }
+      // Feature 2: the business this send belongs to is the operator's own choice (B2C has no
+      // account number to read it from). A business that is gone, another organisation's, or
+      // switched off is refused here, before anything is written.
+      let savedBusinessId: string | null = null;
+      if (input.businessId) {
+        const [business] = await deps.db.query<{ id: string; active: boolean }>(
+          `SELECT id, active FROM businesses WHERE id=$1 AND org_id=$2`, [input.businessId, requireOrg()]);
+        if (!business) throw new HttpError(400, 'unknown_business', 'That business does not exist. Pick one from the list.');
+        if (!business.active) throw new HttpError(409, 'business_inactive', 'That business is switched off. Switch it on to send under it.');
+        savedBusinessId = business.id;
+      }
       const cb = await urls();
 
       // Operator first: a 409 here writes nothing. Then the pending row and its audit entry, in
@@ -381,15 +392,19 @@ export function createMoneyOutService(deps: { db: Db; settings: Settings; daraja
           if (dup.rows[0]) throw new HttpError(409, 'duplicate_recent', 'You sent this already. Send it again?', { requestId: dup.rows[0].id, at: dup.rows[0].created_at.toISOString() });
         }
         const { rows } = await c.query<RequestRow>(
-          `INSERT INTO requests(type, subtype, originator_conversation_id, status, amount_cents, currency, recipient_kind, recipient_value, remarks, payload_json, created_by, operator_id, bulk_plan_id, contact_id)
-           VALUES ($1,$2,$3,'pending',$4,'KES','phone',$5,$6,$7::jsonb,$8,$9,$10,$11) RETURNING *`,
-          [kind.type, commandId, randomUUID(), input.amountCents, phone, input.remarks ?? null, JSON.stringify({ occasion: input.occasion ?? null, category, ...(input.bulk ? { bulkIndex: input.bulk.index } : {}) }), actor.personId, operatorId, input.bulk?.planId ?? null, savedContactId]);
+          `INSERT INTO requests(type, subtype, originator_conversation_id, status, amount_cents, currency, recipient_kind, recipient_value, remarks, payload_json, created_by, operator_id, bulk_plan_id, contact_id, business_id)
+           VALUES ($1,$2,$3,'pending',$4,'KES','phone',$5,$6,$7::jsonb,$8,$9,$10,$11,$12) RETURNING *`,
+          [kind.type, commandId, randomUUID(), input.amountCents, phone, input.remarks ?? null, JSON.stringify({ occasion: input.occasion ?? null, category, ...(input.bulk ? { bulkIndex: input.bulk.index } : {}) }), actor.personId, operatorId, input.bulk?.planId ?? null, savedContactId, savedBusinessId]);
         const r = rows[0];
         await c.query(
           `INSERT INTO audit_log(person_id, action, target, before_json, after_json, ip) VALUES ($1,$2,$3,$4::jsonb,$5::jsonb,$6)`,
           [actor.personId, 'request.created', r.id, null, JSON.stringify({ type: kind.type, subtype: commandId, category, amountCents: input.amountCents }), actor.ip]);
         return r;
       });
+
+      // Feature 2: the pickers default to the last business used. A failure to remember it never
+      // fails the send — the row is written and the money is about to move either way.
+      if (savedBusinessId) await deps.settings.set('send.lastBusinessId', savedBusinessId).catch(() => {});
 
       // M4: at or above the owner's threshold the row waits for a second person. The operator was
       // still required above (a studio with none refuses before writing anything), but the held
