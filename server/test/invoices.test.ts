@@ -86,6 +86,7 @@ describe('invoices', () => {
     expect(r.body.lastError).toContain('Bill Manager');
     expect(r.body.lastError).toContain('apisupport@safaricom.co.ke');
     expect(r.body.lastError).not.toContain('key and secret');
+    expect(r.body.lastError).toContain('HTTP 401');
   });
 
   it('sends an invoice with a minted reference, refuses when items do not add up, and stores nothing on a refusal', async () => {
