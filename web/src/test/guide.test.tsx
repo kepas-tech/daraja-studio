@@ -6,6 +6,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { Guide } from '../pages/Guide';
 import { copy } from '../copy/en';
 import { agentSection, guide } from '../copy/guide';
+import links from '../copy/safaricomLinks.json' with { type: 'json' };
 import { renderGuide, renderLlms } from '../../scripts/guide-md.mjs';
 
 afterEach(() => cleanup());
@@ -20,10 +21,12 @@ describe('How to use', () => {
     expect(screen.queryByRole('link', { name: copy.guidePage.login })).toBeNull();
   });
 
-  it('shows people nothing meant for machines: no API calls, no agent rules, no mention of guide.md', () => {
+  it('shows people nothing meant for machines: no routes, no permission keys, no API calls, no agent rules, no mention of guide.md', () => {
     const { container } = render(<MemoryRouter><Guide /></MemoryRouter>);
     const text = container.textContent ?? '';
     expect(text).not.toContain('/api/');
+    expect(text).not.toMatch(/Route:|Permission:|\b(stk|send|bulk|money_in|invoices|lookup|reverse|qr|bonga|express|standing_orders)\.[a-z_]+\b/);
+    for (const s of guide) for (const t of s.tasks) if (t.path) expect(text).not.toContain(`Page: ${t.path}`);
     expect(text).not.toContain('guide.md');
     expect(text).not.toContain(agentSection.title);
     expect(text).not.toMatch(/never moves money/);
@@ -41,6 +44,19 @@ describe('How to use', () => {
     const help = copy.nav.filter((e) => e.group === 'help').map((e) => e.key);
     expect(help).toEqual(['guide', 'not-possible']);
     expect(copy.nav.find((e) => e.key === 'guide')?.path).toBe('/guide');
+  });
+
+  it('every task that needs something from Safaricom links to the right site and spells out the clicks', () => {
+    render(<MemoryRouter><Guide /></MemoryRouter>);
+    const withLinks = guide.flatMap((s) => s.tasks).filter((t) => t.links?.length);
+    expect(withLinks.map((t) => t.key)).toEqual(expect.arrayContaining(['keys', 'passkey', 'operator', 'certificate', 'security-credential', 'number', 'go-live']));
+    for (const t of withLinks) for (const l of t.links!) {
+      const a = screen.getAllByRole('link', { name: l.label }).find((el) => el.getAttribute('href') === l.href);
+      expect(a, `${t.key}: ${l.label}`).toBeDefined();
+      expect(l.trail.length).toBeGreaterThan(0);
+    }
+    expect(screen.getAllByText(/Then: .+ → /).length).toBeGreaterThan(5);
+    for (const t of withLinks) for (const l of t.links!) expect(Object.values(links)).toContain(l.href);
   });
 
   it('every step names a page that exists, so the manual cannot point at a route that is gone', () => {

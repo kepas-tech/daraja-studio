@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.14.2 — the manual in everyday words, with Safaricom’s clicks
+
+- How to use is rewritten for people who are not technical: no routes, codes or permission
+  names, and every screen named as it appears. A new section, Getting things from Safaricom,
+  walks through each item Studio asks for (a Daraja account and app, the Consumer Key and
+  Secret, Go Live, the Passkey, the M-Pesa business portal administrator, a portal user for
+  Studio, the certificate file, a Security Credential, the paybill or till number) with a button
+  to the right Safaricom page and the clicks once there, written as a trail (a → b → c). Each
+  task also says where it is in Studio’s menu and who can do it.
+
 ## 0.14.1 — the manual, tidied
 
 - The How to use page shows the tasks and steps only. The Markdown copy at `/guide.md` is for

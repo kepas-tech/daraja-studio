@@ -18,11 +18,12 @@ export function renderGuide() {
     if (s.intro) out.push(s.intro, '');
     for (const t of s.tasks) {
       out.push(`### ${t.title}`, '');
-      const meta = [t.safaricom && `Safaricom calls this: ${t.safaricom}`, t.path && `Page: ${t.path}`, t.who && `Who: ${t.who}`].filter(Boolean);
+      const meta = [t.safaricom && `Safaricom calls this: ${t.safaricom}`, t.where && `Where: ${t.where.join(' → ')}`, t.who && `Who: ${t.who}`, t.path && `Route: ${t.path}`, t.permission && `Permission: ${t.permission}`].filter(Boolean);
       if (meta.length) out.push(meta.join(' · '), '');
       t.steps.forEach((step, i) => out.push(`${i + 1}. ${step}`));
       out.push('');
       if (t.notes?.length) { for (const n of t.notes) out.push(`- ${n}`); out.push(''); }
+      if (t.links?.length) { for (const l of t.links) out.push(`- [${l.label}](${l.href}) — then: ${l.trail.join(' → ')}`); out.push(''); }
       if (t.api?.length) {
         out.push('| Method | Path | Who |', '|---|---|---|');
         for (const a of t.api) out.push(`| ${a.method} | \`${a.path}\` | ${a.who} |`);

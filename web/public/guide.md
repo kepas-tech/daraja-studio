@@ -1,13 +1,14 @@
 # How to use Daraja Studio
 
-Every page, in the order you meet them, from the first run to the last card. Each task is numbered the way the screens go.
+Every page, in the order you meet them. Each task is numbered the way the screens go, and wherever you need something from Safaricom there is a link and the exact clicks.
 
-This is the copy for AI agents and scripts. The page people see at /guide has the same tasks without the API calls or the agent rules.
+This is the copy for AI agents and scripts. The page people see at /guide has the same tasks in everyday words, without the routes, permission keys, API calls or the agent rules.
 
 ## Contents
 
 - What Daraja Studio is
 - Before you start: what to have ready
+- Getting things from Safaricom
 - First-run setup
 - Logging in and finding your way
 - Home
@@ -18,52 +19,167 @@ This is the copy for AI agents and scripts. The page people see at /guide has th
 - People
 - Account
 - Reading a result
-- What the API cannot do
+- What still has to be done on Safaricom’s site
 - For AI agents and scripts
 
 ## What Daraja Studio is
 
-A console for one M-Pesa paybill or till, in plain English. One install is one organisation and one number.
+Your M-Pesa paybill or till, on one screen, in everyday words. One Studio is one business and one number.
 
 ### The idea
 
-1. Studio mirrors the Safaricom organisation portal wherever the Daraja API allows, and lists what the API cannot do.
-2. Every page title carries Safaricom’s own name for the thing in grey underneath, so you can find it in Safaricom’s portal or documents.
-3. Sandbox is Safaricom’s practice area with pretend money. Production is your real M-Pesa account. The menu says which one you are in.
-4. Every form asks one question per screen, with Back and Continue. The last button says Review, then the verb (Send, Ask for payment, Create).
-5. Your password is asked for anything that moves money or changes who can.
+1. Studio does the things you would otherwise do on Safaricom’s business website, and tells you plainly which things still have to be done there.
+2. Under every page title, in grey, is the name Safaricom uses for the same thing, so you can find it on Safaricom’s site or ask their support about it.
+3. Sandbox is Safaricom’s practice area with pretend money. Production is your real M-Pesa account. The menu always says which one you are in.
+4. Every form asks one question per screen, with Back and Continue. The last button says Review, then the action (Send, Ask for payment, Create).
+5. Studio asks for your password before anything that moves money or changes who can log in.
 
 ## Before you start: what to have ready
 
-Everything comes from Safaricom. Gather it once; the setup asks for it in this order.
+Everything on this list comes from Safaricom. The next section shows where each one is and what to click.
 
-### From Safaricom
+### The list
 
-1. Your paybill or till number, as on your Safaricom letter.
-2. A Daraja app: the consumer key and consumer secret from the Daraja developer portal, under My Apps.
-3. A public https address for this studio (the one you open in your browser). Safaricom posts payment results to it.
-4. If you will send money out: an API operator from the Safaricom portal, plus either its password and the Safaricom certificate (.cer), or a Security Credential generated on the Daraja portal.
-5. If you will prompt a customer’s phone to pay: the STK passkey from the Daraja portal, under Lipa Na M-Pesa Online for this number.
+1. Your paybill or till number.
+2. A Daraja app on Safaricom’s developer site, with its two codes: the "Consumer Key" and the "Consumer Secret".
+3. The web address people use to open this Studio. Safaricom sends payment news to it, so it must open from anywhere, not only inside your office.
+4. If you will send money out: a Safaricom portal user made for Studio (Safaricom calls it an operator), with its username, and either its password plus Safaricom’s certificate file, or a "Security Credential" made on the Daraja site.
+5. If you will prompt a customer’s phone to pay: the "Passkey" for your number.
 
-- Creating operators, giving them roles and resetting their portal passwords happen only in the Safaricom portal. See "Not possible via API".
+- Sandbox needs none of the real ones: Safaricom gives practice codes on the Daraja site, and Studio works with those until you switch to Production.
+
+## Getting things from Safaricom
+
+Two Safaricom sites matter. The Daraja portal is where apps, codes and the passkey live. The M-Pesa business portal is where your organisation and its users live. Each task below has a button to the right site and the clicks once you are there.
+
+### A Daraja account and an app
+
+Who: Owner
+
+1. Open the Daraja portal and press Sign Up (or Log In if you already have an account). Sign up with your email; Safaricom sends a confirmation.
+2. Once logged in, open Dashboard, then My Apps, then Add a new app.
+3. Give the app a name (your business name is fine), tick the products you will use, and press Create.
+4. For the phone prompt, tick "Lipa Na M-Pesa Sandbox" as well; that is the product the passkey belongs to.
+
+- A new app starts in Sandbox. Real money needs the Go Live step further down.
+
+- [Open the Daraja portal](https://developer.safaricom.co.ke/) — then: Daraja portal → Log In (or Sign Up the first time) → Dashboard → My Apps → Add a new app
+
+### The Consumer Key and Consumer Secret
+
+Who: Owner
+
+1. On the Daraja portal, open Dashboard, then My Apps, then press your app.
+2. The two codes are on the app’s page: "Consumer Key" and "Consumer Secret". Press the copy or show button next to each.
+3. Paste them into Studio’s "Daraja app" screen (during setup, or later under Settings). Studio checks them with Safaricom at once.
+
+- Sandbox and Production have different codes. After Go Live, the app’s page shows a second set for Production; use those in Production mode.
+- Safaricom’s own answer: "log in to Daraja, click on your app and you'll find the details".
+
+- [Open the Daraja portal](https://developer.safaricom.co.ke/) — then: Daraja portal → Log In (or Sign Up the first time) → Dashboard → My Apps → your app → Consumer Key / Consumer Secret
+
+### Go Live: switching your app to real money
+
+Who: Owner
+
+1. On the Daraja portal, open Dashboard, then My Apps, then your app, then Go Live.
+2. Fill in the form: your paybill or till number, the organisation name as Safaricom knows it, and the products you need (Receive money, Send money, and the phone prompt if you use it).
+3. Send it. Safaricom answers within 24 working hours (Monday to Friday, 8am to 5pm).
+4. When approved, the app’s page shows Production codes, and Safaricom emails the production "Passkey" if you asked for the phone prompt.
+
+- [Open the Daraja portal](https://developer.safaricom.co.ke/) — then: Daraja portal → Log In (or Sign Up the first time) → Dashboard → My Apps → your app → Go Live
+
+### The Passkey (for prompting a customer’s phone)
+
+Who: Owner
+
+1. Sandbox: on the Daraja portal open APIs, then "M-Pesa Express(Prompt)", then Simulate. The practice "Passkey" is shown there; copy it.
+2. Production: Safaricom emails the passkey to the app owner when Go Live is approved with the phone prompt product. Search your email for "passkey".
+3. Paste it into Studio’s "STK passkey" screen with your own phone number. Studio sends one KES 1 prompt to your phone as the test; cancel it on the phone, nothing is taken.
+
+- Safaricom’s own answer: you only need a passkey if your app has the Lipa na M-Pesa or M-Pesa Express product.
+- Lost the production passkey? Email Safaricom’s API support from the address on the Daraja portal, quoting your paybill or till number.
+
+- [Open the Daraja portal](https://developer.safaricom.co.ke/apis) — then: Daraja portal → Log In (or Sign Up the first time) → APIs → M-Pesa Express(Prompt) → Simulate → Passkey
+
+### The M-Pesa business portal and its administrator
+
+Who: Owner
+
+1. The M-Pesa business portal is where Safaricom keeps your organisation, its bank details and its users. You need an administrator login for it.
+2. If nobody in your business has one yet, Safaricom sets it up from a signed and stamped letter on your letterhead. The letter lists: your paybill or till number, the organisation name, the administrator’s username, first, middle and last name, ID type and number with a scan of both sides, nationality, date of birth, email and phone number.
+3. Email the letter to M-PESABusiness@Safaricom.co.ke (the button below opens a new email).
+4. Safaricom sends the login details. Log in at the portal; the first login asks you to set your own password.
+
+- [Open the M-Pesa business portal](https://org.ke.m-pesa.com) — then: M-Pesa business portal → Log in as the administrator
+- [Email Safaricom about an administrator](mailto:M-PESABusiness@Safaricom.co.ke) — then: New email → attach the signed letter and ID scans
+
+### A portal user for Studio (Safaricom calls it an operator)
+
+Who: Owner
+
+1. Log in to the M-Pesa business portal as the administrator.
+2. Go to Search, then Organization Operator, then Create.
+3. Fill in a username for Studio (for example your business name), the person responsible, and choose "API" as the access channel. Save.
+4. The new user needs the rights to send money and to check balances. Safaricom adds those on request: email M-PESABusiness@Safaricom.co.ke with your paybill or till number and the username, asking for the operator roles for sending money to phones and for balance checks.
+5. Safaricom sends the user’s password. Type the username and password into Studio’s "API operator" screen, together with the certificate (next task). Studio tests them by asking Safaricom for your balance, and keeps the user only if Safaricom accepts it.
+
+- Studio never keeps the password itself. It keeps a scrambled version made with Safaricom’s certificate, which is all Safaricom needs.
+- Safaricom’s own answer for roles: "To add operator roles, write an email to M-PESABusiness@Safaricom.co.ke for an operator role to be added under your short code."
+
+- [Open the M-Pesa business portal](https://org.ke.m-pesa.com) — then: M-Pesa business portal → Search → Organization Operator → Create → access channel: API
+- [Email Safaricom about operator rights](mailto:M-PESABusiness@Safaricom.co.ke) — then: New email → paybill or till number → username → the rights you need
+
+### Safaricom’s certificate file
+
+Who: Owner
+
+1. Press the button for the certificate you need: Sandbox for practice, Production for real money. A small file ending in .cer downloads.
+2. Open the file with a plain text program: Notepad on Windows, TextEdit on a Mac (right-click the file, Open With). It is a block of letters between a BEGIN line and an END line.
+3. Select all of it, copy, and paste into Studio’s "Certificate" field (during setup on the "API operator" screen, or later under Settings).
+
+- Safaricom’s own answer: "Log in to Daraja, click on Docs, scroll down on the left side and you'll find it there."
+
+- [Download the Sandbox certificate](https://developer.safaricom.co.ke/certificates/SandboxCertificate.cer) — then: downloads SandboxCertificate.cer
+- [Download the Production certificate](https://developer.safaricom.co.ke/certificates/ProductionCertificate.cer) — then: downloads ProductionCertificate.cer
+
+### A "Security Credential" (instead of the password and certificate)
+
+Who: Owner
+
+1. This is the same scrambled password Studio would make for you, made on Safaricom’s site instead. Use it if you would rather not type the portal user’s password into Studio.
+2. On the Daraja portal open APIs, then "Business To Customer (B2C)", then the Simulate page. Find the box named "Security Credential" (some pages call it "Initiator Security Password").
+3. Choose Sandbox or Production, type the portal user’s password, press Generate, and copy the long text it gives you.
+4. In Studio’s "API operator" screen choose "I already generated a Security Credential on the Daraja portal" and paste it.
+
+- [Open the Daraja portal](https://developer.safaricom.co.ke/apis) — then: Daraja portal → Log In (or Sign Up the first time) → APIs → Business To Customer (B2C) → Simulate → Security Credential → Generate
+
+### Your paybill or till number
+
+Who: Owner
+
+1. It is on the letter or email Safaricom sent when the number was opened, and on the M-Pesa business portal under My Organization.
+2. Type it into Studio’s "Shortcode" screen. Studio asks Safaricom for the name held against the number and shows it, so you can see you typed the right one.
+
+- [Open the M-Pesa business portal](https://org.ke.m-pesa.com) — then: M-Pesa business portal → Search → My Organization → Details
 
 ## First-run setup
 
-The first person to open a new install becomes the owner and walks through up to ten steps. Back keeps your answers. Every step saves before moving on, so you can stop and come back.
+The first person to open a new Studio becomes the owner and walks through up to ten steps. Back keeps your answers, and every step saves before moving on, so you can stop and come back later.
 
 ### The steps
 
-Page: /setup · Who: Owner
+Who: Owner · Route: /setup
 
-1. Owner: your name, a username and a password of 12 or more characters. The name can be changed on the "Owner account created" screen; the username stays.
-2. Environment: Sandbox or Production. Start with Sandbox if you are still testing; switch later in Account.
-3. What you need: tick Receive money from customers, Send money to people or businesses, or both. A separate tick, "Prompt a customer’s phone to pay", is the one thing that needs a passkey. Your ticks decide which of the later steps appear.
-4. Your organization: business name, nominated number and notification phone (2547…). Shown in the menu and on receipts.
+1. Owner: your name, a username and a password of 12 or more characters. You can change the name on the "Owner account created" screen; the username stays.
+2. Environment: Sandbox or Production. Start with Sandbox if you are still trying things out; you can switch later under Account.
+3. What you need: tick "Receive money from customers", "Send money to people or businesses", or both. A separate tick, "Prompt a customer’s phone to pay", is the one thing that needs the passkey. Your ticks decide which of the later steps appear.
+4. Your organization: business name, nominated number and notification phone (starting 2547). Shown in the menu and on receipts.
 5. Shortcode: your paybill or till number. Studio checks it with Safaricom and shows the name Safaricom holds for it.
-6. Daraja app: consumer key and secret. Studio tests them at once; "accepted" means Safaricom said yes.
-7. Public address: found from your browser’s address bar and shown read-only. Press Change only if people reach this studio through another domain. Test this address proves Safaricom can reach it.
-8. STK passkey (only if you ticked the phone prompt): paste it and give your own phone number. Studio sends one KES 1 prompt to your phone; you may cancel it. Safaricom accepting the request is the proof.
-9. API operator (only if you send money): the operator username as in the Safaricom portal, then either its password plus the certificate text, or a Security Credential. Studio tests it with a balance query and keeps it only if Safaricom accepts it. A refused one is removed and the name is free to try again.
+6. Daraja app: paste the "Consumer Key" and "Consumer Secret" (see Getting things from Safaricom). Studio tests them at once; "accepted" means Safaricom said yes.
+7. Public address: Studio reads the address from your browser and shows it. Press Change only if people open Studio through a different address. Press "Test this address" so Safaricom can prove it reaches you.
+8. STK passkey (only if you ticked the phone prompt): paste the passkey and give your own phone number. Studio sends one KES 1 prompt to your phone; cancel it, nothing is taken.
+9. API operator (only if you send money): the portal user’s username, then either its password plus the certificate text, or a "Security Credential". Studio tests it with a balance check and keeps it only if Safaricom accepts it. A refused one is removed and the name is free to try again.
 10. Done: says "All set", or names the step still missing and takes you there. Finish opens Home.
 
 | Method | Path | Who |
@@ -85,11 +201,11 @@ Page: /setup · Who: Owner
 
 ### Log in
 
-Page: /login · Who: Anyone with an account
+Who: Anyone with a login · Route: /login
 
 1. Type your username and password and press Log in.
-2. A temporary password (the one the owner gave you) must be replaced first: type it, then your new password of 12 or more characters, twice.
-3. Too many wrong tries locks the account for 15 minutes.
+2. If the owner gave you a temporary password, Studio asks you to choose your own first: type the temporary one, then your new password of 12 or more characters, twice.
+3. Too many wrong tries locks the login for 15 minutes.
 
 | Method | Path | Who |
 |---|---|---|
@@ -100,24 +216,24 @@ Page: /login · Who: Anyone with an account
 
 ### The menu
 
-1. The left menu shows your business name, your paybill or till number and the environment in use.
+1. The left menu shows your business name, your paybill or till number and whether you are in Sandbox or Production.
 2. Home and History come first. Then Get paid (Ask a customer to pay, Money in, QR codes, Invoices), Pay out (Send money, and Waiting for approval while approvals are on), and Manage (Settings, Advanced).
-3. Advanced opens a page of cards for things set up once or used now and then: Standing orders, Express checkout, Bonga points, Bulk send, Reverse a payment.
-4. Below the rule: How to use (this page) and Not possible via API.
-5. The account menu, top right under your name, has Organisation & shortcodes, Change password and Log out.
+3. Advanced opens a page of cards for things you set up once or use now and then: Standing orders, Express checkout, Bonga points, Bulk send, Reverse a payment.
+4. Below the line: How to use (this page) and Not possible via API.
+5. Your name at the top right opens the account menu: Organisation & shortcodes, Change password, Log out.
 
 ## Home
 
-### Balances and the day’s shortcuts
+### Your balances and the day’s shortcuts
 
-Page: / · Who: Anyone signed in
+Where: Home · Who: Anyone logged in · Route: /
 
-1. The heading is the name Safaricom holds for your number, with the number, the environment and your own business name on the line under it.
-2. Utility account pays phones; Safaricom’s fees come from it. Working account holds customer payments and pays paybills and tills.
+1. The heading is the name Safaricom holds for your number. Under it: the number, Sandbox or Production, and your own business name.
+2. Utility account is the money you pay out to phones; Safaricom’s fees come from it too. Working account is where customer payments land; it also pays other paybills and tills.
 3. Refresh asks Safaricom for today’s balance. "As of" says when it was last read; "Charges paid" is the fees so far. A balance more than a day old is flagged.
-4. Three tiles open the most used pages: Send money, Ask a customer to pay, History.
+4. Three tiles open the pages used most: Send money, Ask a customer to pay, History.
 5. Recent requests shows the last five; View all opens History.
-6. If something is still missing, Home says so at the top: no API operator (you cannot send yet), public address not tested (Safaricom cannot reach you), STK passkey not set (Ask a customer to pay is off).
+6. If something is still missing, Home says so at the top: no portal user (you cannot send yet), address not tested (Safaricom cannot reach you), passkey not set (Ask a customer to pay is off).
 
 | Method | Path | Who |
 |---|---|---|
@@ -129,12 +245,12 @@ Page: / · Who: Anyone signed in
 
 ### Find a payment
 
-Safaricom calls this: Account Statement · Page: /history · Who: Anyone signed in
+Safaricom calls this: Account Statement · Where: History · Who: Anyone logged in · Route: /history · Permission: lookup.view
 
 1. Type a phone number, a name or an M-Pesa receipt in the search box.
-2. Narrow by date (from, to), by direction (In and out, Money in, Money out) and by status (Paid, Waiting, Failed, Needs a check, Preparing, Cancelled).
+2. Narrow it down by date (from, to), by direction (In and out, Money in, Money out) and by status (Paid, Waiting, Failed, Needs a check, Preparing, Cancelled).
 3. Seven rows a page; Previous and Next at the bottom.
-4. Press a row to open the request page: amount, who, receipt, when, and the timeline (Created, Sent, Result) with where the result came from.
+4. Press a row to open the payment’s own page: amount, who, receipt, when, and the timeline (Created, Sent, Result) with where the result came from.
 5. A receipt that was not sent from here shows "This receipt was not sent from here" and a button, Ask Safaricom about this receipt. The answer lands on the same page within a few minutes.
 
 | Method | Path | Who |
@@ -143,13 +259,13 @@ Safaricom calls this: Account Statement · Page: /history · Who: Anyone signed 
 | GET | `/api/requests/:id` | lookup.view |
 | POST | `/api/lookup` | lookup.view; body { receipt } |
 
-### On a request page
+### On a payment’s page
 
-Page: /requests/:id
+Where: History → a row · Route: /requests/:id
 
 1. Needs a check means Safaricom never answered. Press Check with Safaricom now; Studio also checks on its own five times.
-2. Mark as checked records what you found by other means (for example, "Paid, seen in the portal").
-3. Send again reopens Send money with the same details (nothing is sent until you go through Review again). Reverse this payment opens Reverse with the receipt filled in, for a paid customer payment.
+2. Mark as checked records what you found out another way (for example, "Paid, seen on Safaricom’s site").
+3. Send again reopens Send money with the same details; nothing goes out until you go through Review again. Reverse this payment opens Reverse with the receipt filled in, for a customer payment that was paid.
 
 | Method | Path | Who |
 |---|---|---|
@@ -158,21 +274,21 @@ Page: /requests/:id
 
 ## Get paid
 
-Money coming in. Nothing here takes money from your accounts.
+Money coming in. Nothing here takes money out of your accounts.
 
 ### Ask a customer to pay
 
-Safaricom calls this: STK Push · Page: /ask-to-pay · Who: Owner, Operator (stk.request)
+Safaricom calls this: STK Push · Where: Get paid → Ask a customer to pay · Who: Owner or Operator · Route: /ask-to-pay · Permission: stk.request
 
 1. Customer’s phone number.
 2. Amount in KES, whole shillings.
-3. What is this for? An invoice or order number, shown to the customer and on your statement.
-4. Short description, optional, up to 13 characters, shown on the prompt.
+3. What is this for? An invoice or order number; the customer sees it, and so does your statement.
+4. Short description, optional, up to 13 characters, shown on the customer’s phone.
 5. Review, then Ask for payment. The customer has about a minute to enter their M-Pesa PIN.
 6. The page waits and then says Paid or Not paid; the receipt goes to History. Ask someone else starts over.
 
 - Asking the same number for the same amount twice in a row is questioned first: "You asked for this already at … Ask again?"
-- Needs the STK passkey (Settings). Without it the page is off and Home says so.
+- Needs the passkey (Settings). Without it the page is off and Home says so.
 
 | Method | Path | Who |
 |---|---|---|
@@ -180,15 +296,15 @@ Safaricom calls this: STK Push · Page: /ask-to-pay · Who: Owner, Operator (stk
 
 ### Money in
 
-Safaricom calls this: C2B · Page: /money-in · Who: Owner turns it on; anyone signed in reads it
+Safaricom calls this: C2B · Where: Get paid → Money in · Who: Owner turns it on; anyone logged in can look · Route: /money-in · Permission: money_in.view
 
-1. Turn on once. Studio tells Safaricom where to post customer payments; the page re-reads on its own and then says "On since …" or shows Safaricom’s refusal in three lines.
-2. If Safaricom says the addresses were already on record, that counts as on. Should a payment then never show, an older address may be on record; Safaricom API support can reset it.
-3. Every customer payment to your number then shows here and in History the moment Safaricom reports it.
-4. Check for missed payments asks Safaricom for anything whose report never arrived. Studio does the same every hour on its own.
+1. Turn on once. Studio tells Safaricom where to send news of customer payments; the page updates on its own and then says "On since …" or shows Safaricom’s refusal in three lines.
+2. If Safaricom says the addresses were already on record, that counts as on. Should a payment then never show, an older address may be on record at Safaricom; their API support can reset it.
+3. From then on every customer payment to your number shows here and in History the moment Safaricom reports it.
+4. Check for missed payments asks Safaricom for anything whose news never arrived. Studio does the same every hour on its own.
 
 - Every payment is accepted. Safaricom only asks Studio to approve payments if its support team has switched that on for your number.
-- Test the public address in Settings first; Safaricom must be able to reach this studio.
+- Test the address in Settings first; Safaricom must be able to reach Studio.
 
 | Method | Path | Who |
 |---|---|---|
@@ -199,7 +315,7 @@ Safaricom calls this: C2B · Page: /money-in · Who: Owner turns it on; anyone s
 
 ### QR codes
 
-Safaricom calls this: Dynamic QR · Page: /qr · Who: Owner, Operator (qr.generate)
+Safaricom calls this: Dynamic QR · Where: Get paid → QR codes · Who: Owner or Operator · Route: /qr · Permission: qr.generate
 
 1. How customers pay: Pay Bill or Buy Goods (till).
 2. Payment reference: an order or account reference, up to 32 characters.
@@ -214,13 +330,13 @@ Safaricom calls this: Dynamic QR · Page: /qr · Who: Owner, Operator (qr.genera
 
 ### Invoices
 
-Safaricom calls this: Bill Manager · Page: /invoices · Who: Owner sets it up; Owner, Operator (invoices.manage) send and cancel
+Safaricom calls this: Bill Manager · Where: Get paid → Invoices · Who: Owner sets it up; Owner or Operator sends and cancels · Route: /invoices · Permission: invoices.manage
 
-1. Set up once per environment (owner): business email, official contact phone, whether Safaricom should send payment reminders, then your password.
+1. Set up once for Sandbox and once for Production (owner): business email, official contact phone, whether Safaricom should send payment reminders, then your password.
 2. New invoice: customer name, customer phone, what the invoice is for, account reference (up to 20 characters; payments are matched by it), billed period, due date, line items (optional, one per line: name, amount), amount. Send the invoice: the customer gets an SMS with a pay prompt.
-3. Many at once: one line per invoice (name, phone, invoice name, account, period, due date as YYYY-MM-DD, amount). Studio checks every line, then Send them all.
+3. Many at once: one line per invoice (name, phone, invoice name, account, period, due date as year-month-day, amount). Studio checks every line, then Send them all.
 4. Show Open, Overdue, Paid, Cancelled or All; search by name, reference or account.
-5. Open an invoice to see its payments. Cancel this invoice stops it; select several to Cancel them together.
+5. Open an invoice to see its payments. Cancel this invoice stops it; tick several to cancel them together.
 6. Record a payment made another way (cash, bank): when, how much, a reference, who paid. Safaricom is told, so reminders stop.
 
 - Payments through M-Pesa land against the invoice the moment Safaricom reports them, and in History as "Invoice paid".
@@ -240,10 +356,10 @@ Safaricom calls this: Bill Manager · Page: /invoices · Who: Owner sets it up; 
 
 ### Standing orders
 
-Safaricom calls this: M-Pesa Ratiba · Page: /standing-orders · Who: Owner, Operator (standing_orders.manage)
+Safaricom calls this: M-Pesa Ratiba · Where: Manage → Advanced → Standing orders · Who: Owner or Operator · Route: /standing-orders · Permission: standing_orders.manage
 
 1. Press New standing order.
-2. A name for this order (shown to the customer; one name per customer).
+2. A name for this order (the customer sees it; one name per customer).
 3. Customer’s phone number.
 4. Amount each time, in KES.
 5. How often: once, every day, week, month, two months, three months, six months or year.
@@ -260,7 +376,7 @@ Safaricom calls this: M-Pesa Ratiba · Page: /standing-orders · Who: Owner, Ope
 
 ### Express checkout
 
-Safaricom calls this: B2B Express Checkout · Page: /express · Who: Owner, Operator (express.checkout)
+Safaricom calls this: B2B Express Checkout · Where: Manage → Advanced → Express checkout · Who: Owner or Operator · Route: /express · Permission: express.checkout
 
 1. Their till or paybill number: the business that is paying you.
 2. Amount in KES.
@@ -274,9 +390,9 @@ Safaricom calls this: B2B Express Checkout · Page: /express · Who: Owner, Oper
 
 ### Bonga points
 
-Safaricom calls this: Lipa na Bonga · Page: /bonga · Who: Owner, Operator (bonga.redeem)
+Safaricom calls this: Lipa na Bonga · Where: Manage → Advanced → Bonga points · Who: Owner or Operator · Route: /bonga · Permission: bonga.redeem
 
-1. How many points? Studio shows what they are worth at Safaricom’s current rate.
+1. How many points? Studio shows what they are worth at Safaricom’s rate today.
 2. Customer’s phone number.
 3. What is this for? An order or invoice number; the payment is matched to it.
 4. Review, then Send the prompt. The customer enters their M-Pesa PIN to pay with points.
@@ -294,19 +410,19 @@ Money leaving your accounts. Every send asks for your password.
 
 ### Send money to a phone
 
-Safaricom calls this: Initiate Transaction › Business Payment to Customer · Page: /send/phone · Who: Owner, Operator (send.phone)
+Safaricom calls this: Initiate Transaction › Business Payment to Customer · Where: Pay out → Send money → To a phone · Who: Owner or Operator · Route: /send/phone · Permission: send.phone
 
 1. Open Send money and press To a phone. (The other kinds, to a business wallet, a paybill, a till, float moves, top-ups and KRA, say Coming soon.)
 2. Phone number.
 3. Amount in KES, whole shillings.
-4. What kind of payment is this? One of your own categories (Settings › Payment categories); each maps to Safaricom’s Business payment, Salary or Promotion.
+4. What kind of payment is this? One of your own categories (Settings › Payment categories); each is one of Safaricom’s three kinds, Business payment, Salary or Promotion.
 5. Note, optional.
 6. Review: Utility balance now and after, the fee note, and the per-send cap if one is set. Safaricom cannot check the name before sending, so check the number.
 7. Send, then your password. The page says Sent, then Paid or Not paid; the receipt goes to History.
 
 - The same amount to the same number twice in a row is questioned first: "You sent this already at … Send again?"
-- When Settings › Approvals is on and the amount is at or above the threshold, the send is held for a second person instead of going out. Nothing leaves your account until it is released.
-- Needs a working API operator (Settings). Without one Home says you cannot send yet.
+- When Settings › Approvals is on and the amount is at or above the limit, the send waits for a second person instead of going out. Nothing leaves your account until it is released.
+- Needs a working portal user (Settings). Without one Home says you cannot send yet.
 
 | Method | Path | Who |
 |---|---|---|
@@ -315,12 +431,12 @@ Safaricom calls this: Initiate Transaction › Business Payment to Customer · P
 
 ### Bulk send
 
-Safaricom calls this: Bulk Task › Bulk Payment · Page: /bulk · Who: Owner, Operator (bulk.send)
+Safaricom calls this: Bulk Task › Bulk Payment · Where: Manage → Advanced → Bulk send · Who: Owner or Operator · Route: /bulk · Permission: bulk.send
 
-1. Paste the list into The list, one line per person: phone, amount, name, note (the first two are needed), or Upload a file (CSV). Download a template gives the layout.
+1. Paste the list into The list, one line per person: phone, amount, name, note (the first two are needed), or Upload a file (a spreadsheet saved as CSV). Download a template gives the layout.
 2. Check the list. Every line is checked before anything moves; lines that need fixing are named. Nothing is sent until all pass.
-3. Send them all, then your password. Each row goes out in turn as an ordinary send, so the duplicate guard, the cap and the approval hold all apply; a failed row never stops the rest.
-4. The batch page shows every row live. Try the failed rows again resends only rows Studio refused before Safaricom. Download results gives a CSV.
+3. Send them all, then your password. Each row goes out in turn as an ordinary send, so the duplicate check, the cap and the approval hold all apply; a failed row never stops the rest.
+4. The batch page shows every row live. Try the failed rows again resends only rows Studio stopped before Safaricom. Download results gives a file for your records.
 5. Batches lists every earlier batch.
 
 | Method | Path | Who |
@@ -333,7 +449,7 @@ Safaricom calls this: Bulk Task › Bulk Payment · Page: /bulk · Who: Owner, O
 
 ### Waiting for approval
 
-Safaricom calls this: Review Transaction · Page: /approvals · Who: Approver (send.approve) releases or refuses; anyone signed in sees the count
+Safaricom calls this: Review Transaction · Where: Pay out → Waiting for approval · Who: An Approver releases or refuses; anyone logged in sees the count · Route: /approvals · Permission: send.approve
 
 1. Turn it on in Settings › Approvals: hold sends of this amount or more (0 turns it off). It applies to everyone, the owner included.
 2. Give somebody the Approver role in People, or nothing can be released.
@@ -351,9 +467,9 @@ Safaricom calls this: Review Transaction · Page: /approvals · Who: Approver (s
 
 ### Reverse a payment
 
-Safaricom calls this: Reversal · Page: /reverse · Who: Owner, Operator (reverse.request)
+Safaricom calls this: Reversal · Where: Manage → Advanced → Reverse a payment · Who: Owner or Operator · Route: /reverse · Permission: reverse.request
 
-1. Type the M-Pesa receipt (10 letters and numbers) and press Find that payment. Only a payment that settled here can be reversed.
+1. Type the M-Pesa receipt (10 letters and numbers) and press Find that payment. Only a payment that landed here can be reversed.
 2. Check the amount and the receipt: a reversal cannot be undone.
 3. Reverse, then your password. Safaricom takes the money back from the customer; the page says Reversed or Not reversed, and the reversal shows in History.
 
@@ -366,18 +482,18 @@ Safaricom calls this: Reversal · Page: /reverse · Who: Owner, Operator (revers
 
 ## Settings
 
-Every value is shown read-only. Press Change or Replace to edit it; saving asks for the owner’s password.
+Every value is shown as it is. Press Change or Replace to edit it; saving asks for the owner’s password.
 
 ### Organisation
 
-Safaricom calls this: My Preference · Page: /settings · Who: Owner edits; anyone signed in reads
+Safaricom calls this: My Preference · Where: Manage → Settings · Who: Owner changes things; anyone logged in can look · Route: /settings · Permission: owner
 
 1. Business name and contacts: the name in the menu and on receipts, the nominated number and the notification phone.
-2. Public address: the https address Safaricom posts to. Test it after any change.
-3. Safaricom verification: for Sandbox and Production, whether the number, the Daraja key and secret, and a working API operator are in place.
+2. Public address: the web address Safaricom sends payment news to. Test it after any change.
+3. Safaricom verification: for Sandbox and for Production, whether the number, the app codes and a working portal user are in place.
 4. Who can log in: Manage people opens the People page.
-5. Safaricom callback addresses: the Safaricom IP addresses Studio accepts payment reports from. Change only if Safaricom publishes new ones.
-6. Callback secret: part of the address Safaricom posts to. Show the callback secret asks for your password; treat it like a password.
+5. Safaricom callback addresses: the Safaricom addresses Studio accepts payment news from. Change only if Safaricom publishes new ones.
+6. Callback secret: part of the address Safaricom sends to. Show the callback secret asks for your password; treat it like a password.
 7. Appearance: System, Light or Dark.
 
 | Method | Path | Who |
@@ -391,14 +507,14 @@ Safaricom calls this: My Preference · Page: /settings · Who: Owner edits; anyo
 
 ### Sandbox settings and Production settings
 
-Who: Owner
+Where: Manage → Settings · Who: Owner · Permission: owner
 
-1. Studio shows the settings of the environment you are in. Switch environments in Account.
-2. Daraja app: consumer key (last four shown) and secret; Replace tests the new pair before saving it.
-3. B2C API version: Automatic (recommended), v1 or v3.
+1. Studio shows the settings of the mode you are in. Switch modes under Account.
+2. Daraja app: the "Consumer Key" (last four shown) and "Consumer Secret"; Replace tests the new pair before saving it. See Getting things from Safaricom.
+3. B2C API version: leave it on Automatic (recommended).
 4. STK passkey: Replace; the new one is tested with a KES 1 prompt to your phone.
-5. Certificate: the Safaricom .cer text, needed only when adding an operator by password.
-6. API operators: Add operator (by password and certificate, or by Security Credential), Test again (a balance query), New password or New credential, Turn off. The password expiry date Safaricom set is shown.
+5. Certificate: Safaricom’s certificate text, needed only when adding a portal user by password.
+6. API operators: your portal users. Add operator (by password and certificate, or by "Security Credential"), Test again (a balance check), New password or New credential, Turn off. The date Safaricom set for the password to expire is shown.
 
 | Method | Path | Who |
 |---|---|---|
@@ -413,7 +529,7 @@ Who: Owner
 
 ### Payment categories, Approvals, Invoices
 
-Who: Owner
+Where: Manage → Settings · Who: Owner · Permission: owner
 
 1. Payment categories: your own names for a send (Personal use, Rent, …); each goes to Safaricom as Business payment, Salary or Promotion. Add, Edit, Delete; keep at least one.
 2. Approvals: Second person, Off or "Hold sends of KES … or more". Change, type the amount, save with your password.
@@ -427,15 +543,15 @@ Who: Owner
 
 ### Who can log in
 
-Safaricom calls this: Organization Operator · Page: /people · Who: Owner
+Safaricom calls this: Organization Operator · Where: Manage → Settings → Who can log in → Manage people · Who: Owner · Route: /people · Permission: owner
 
-1. Open Settings › Who can log in › Manage people, or go to /people.
+1. Open Settings, then Who can log in, then Manage people.
 2. Add somebody: their name, a username, what they may do, and a temporary password (Suggest another gives a new one). Add them, then your password.
 3. Tell them the temporary password yourself; Studio shows it once. They must change it at first login.
 4. Roles: Owner does everything. Operator can send money and ask customers to pay. Viewer can only look. Approver can release or refuse held sends.
 5. On each person: change what they may do, New temporary password, Switch off (they cannot log in) and Switch on.
 
-- These are Studio logins. Safaricom portal operators are separate and are managed in the Safaricom portal.
+- These are Studio logins. Users of Safaricom’s business portal are separate and are managed there.
 
 | Method | Path | Who |
 |---|---|---|
@@ -450,13 +566,13 @@ Safaricom calls this: Organization Operator · Page: /people · Who: Owner
 
 ### Organisation & shortcodes
 
-Page: /account · Who: Owner
+Where: your name, top right → Organisation & shortcodes · Who: Owner · Route: /account · Permission: owner
 
-1. Open the account menu (top right) and press Organisation & shortcodes.
-2. Mode: Sandbox for testing, or Production. Switching a finished studio to Production asks you to type the paybill or till number back, then your password.
-3. Shortcodes: the paybill or till number for each environment, with Change. Check the name with Safaricom fetches the name Safaricom holds and whether it is a paybill or a till.
+1. Press your name at the top right, then Organisation & shortcodes.
+2. Mode: Sandbox for practice, or Production for real money. Switching a finished Studio to Production asks you to type your paybill or till number back, then your password.
+3. Shortcodes: the paybill or till number for each mode, with Change. Check the name with Safaricom fetches the name Safaricom holds and whether it is a paybill or a till.
 4. Change password, from the same menu: your current password, then the new one twice.
-5. Delete this studio, at the bottom: removes the organisation, its people, credentials and history and returns the install to first-run setup. It asks for your password and the organisation name typed exactly. It cannot be undone.
+5. Delete this studio, at the bottom: removes the business, its people, its Safaricom details and its history, and returns Studio to first-run setup. It asks for your password and the business name typed exactly. It cannot be undone.
 
 | Method | Path | Who |
 |---|---|---|
@@ -482,19 +598,21 @@ Page: /account · Who: Owner
 ### When something is refused
 
 1. Safaricom said: Safaricom’s own words, unchanged.
-2. What it means: the plain-English meaning from the Daraja catalogue.
-3. What to do now: the next step, for example add an operator, top up Utility, or try again in a moment.
+2. What it means: the same thing in everyday words.
+3. What to do now: the next step, for example add a portal user, top up Utility, or try again in a moment.
 
 - "Something went wrong on our side" is Studio, not Safaricom: try again in a moment, and check Settings if it keeps happening.
 
-## What the API cannot do
+## What still has to be done on Safaricom’s site
 
 ### Portal-only tasks
 
-Page: /not-possible
+Where: Not possible via API · Route: /not-possible
 
-1. Withdrawing to the bank, moving float from Utility to Working, creating operators and roles, resetting portal passwords, KYC, bank accounts, tills, settlement plans, closing the organisation, Safaricom’s own statement, changing registered paybill URLs and the portal audit log all live in the Safaricom portal.
-2. Not possible via API lists each one with why, where in the portal, and the USSD code where one exists.
+1. Withdrawing to the bank, moving float from Utility to Working, creating portal users and their rights, resetting portal passwords, KYC, bank accounts, tills, settlement plans, closing the organisation, Safaricom’s own statement, changing where paybill news is sent after the first time, and the portal’s own audit log all live on Safaricom’s business portal.
+2. Not possible via API lists each one with why, where on the portal, and the phone code (*234#) where one exists.
+
+- [Open the M-Pesa business portal](https://org.ke.m-pesa.com) — then: M-Pesa business portal → Log in
 
 ## For AI agents and scripts
 
@@ -507,7 +625,7 @@ Studio is a web app over a JSON API. An agent can read everything a signed-in pe
 3. GET /api/auth/me tells you who you are, your permissions, the organisation, its number and the environment in use (sandbox or production).
 4. GET /api/events is a server-sent events stream: request.updated, money_in.updated, invoice.updated, bulk.updated. Re-read the page or the record when one arrives.
 5. Errors are JSON: { error: { code, message, details? } }. A Safaricom refusal carries details.safaricomSaid, details.meaning and details.whatToDo. Show all three lines, never merged.
-6. Every page route above is a browser route; the API paths beside each task are what the page calls.
+6. Every page route above is a browser route; the API paths beside each task are what the page calls. "Where" is the menu trail a person follows; "permission" is the key the route checks.
 
 ### Rules
 

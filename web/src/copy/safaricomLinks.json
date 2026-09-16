@@ -1,0 +1,10 @@
+{
+  "_comment": "Hyperlinks for people, opened in a browser. Nothing in Studio calls these addresses; every call to Safaricom goes through @kepas/daraja-js.",
+  "daraja": "https://developer.safaricom.co.ke/",
+  "darajaApis": "https://developer.safaricom.co.ke/apis",
+  "darajaFaqs": "https://developer.safaricom.co.ke/faqs",
+  "certificateSandbox": "https://developer.safaricom.co.ke/certificates/SandboxCertificate.cer",
+  "certificateProduction": "https://developer.safaricom.co.ke/certificates/ProductionCertificate.cer",
+  "orgPortal": "https://org.ke.m-pesa.com",
+  "businessEmail": "mailto:M-PESABusiness@Safaricom.co.ke"
+}
