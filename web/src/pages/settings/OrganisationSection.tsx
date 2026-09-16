@@ -34,6 +34,7 @@ export function OrganisationSection({ view, reload, stepUp }: { view: SettingsVi
       <SettingRow testId="setting-org" label={copy.settings.org} value={
         <>
           <span className="font-semibold">{name}</span>
+          {name === 'My organisation' && <span className="block text-sm text-muted">{c.defaultName}</span>}
           {(view.org.nominatedNumber || view.org.notificationPhone) && <span className="block text-sm text-muted">{copy.settings.nominated}: {view.org.nominatedNumber || c.none} · {copy.settings.notify}: {view.org.notificationPhone || c.none}</span>}
           {session?.createdAt && <span className="block text-sm text-muted">{copy.org.signedUp}: {when(session.createdAt)}{session.verifiedAt && <> · {copy.org.verifiedOn}: {when(session.verifiedAt)}</>}</span>}
         </>
@@ -92,7 +93,7 @@ export function OrganisationSection({ view, reload, stepUp }: { view: SettingsVi
               <li key={e} data-testid={`verification-${e}`} className="flex flex-wrap items-center gap-2">
                 <span>{copy.settings.tabs[e]}</span>
                 <StatusPill kind={verified ? 'ok' : 'muted'}>{verified ? c.verifiedWith : c.notVerifiedWith}</StatusPill>
-                <span className="text-sm text-muted">{c.shortcode}: {slot.shortcode ?? c.none} · {c.creds}: {slot.credsVerifiedAt ? when(slot.credsVerifiedAt) : c.none} · {c.operator}: {slot.ready.operator ? copy.settings.operatorStatus.verified : c.none}</span>
+                <span className="text-sm text-muted">{c.shortcode}: {slot.shortcode ?? c.none} · {c.creds}: {slot.credsVerifiedAt ? when(slot.credsVerifiedAt) : c.none} · {c.operator}: {slot.ready.operator ? copy.settings.operatorStatus.verified : c.none}{slot.safaricomName ? ` · ${c.knownAs} ${slot.safaricomName}` : ''}</span>
               </li>
             );
           })}

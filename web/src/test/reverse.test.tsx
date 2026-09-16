@@ -2,7 +2,7 @@ import { render, screen, fireEvent, cleanup, waitFor, within } from '@testing-li
 import { MemoryRouter } from 'react-router';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { Reverse } from '../pages/Reverse';
-import { Nav } from '../app/Nav';
+import { Advanced } from '../pages/Advanced';
 import { copy } from '../copy/en';
 
 class FakeEventSource {
@@ -118,9 +118,10 @@ describe('Reverse', () => {
   });
 
   // The label is the ground truth (docs/MENU-PLAN.md), and the menu is where the owner sees it.
-  it('no longer says Coming soon in the menu', () => {
-    render(<MemoryRouter><Nav /></MemoryRouter>);
+  it('is finished: available, and reached from the Advanced page rather than labelled Coming soon', () => {
+    render(<MemoryRouter><Advanced /></MemoryRouter>);
     const link = document.querySelector<HTMLAnchorElement>('a[href="/reverse"]')!;
+    expect(link).not.toBeNull();
     expect(within(link).queryByText('Coming soon')).not.toBeInTheDocument();
     expect(copy.nav.find((e) => e.key === 'reverse')!.available).toBe(true);
   });

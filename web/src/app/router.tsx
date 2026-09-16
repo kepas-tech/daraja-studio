@@ -28,6 +28,7 @@ import { Invoices, InvoiceDetail } from '../pages/Invoices';
 import { StandingOrders } from '../pages/collect/StandingOrders';
 import { Express } from '../pages/collect/Express';
 import { Bonga } from '../pages/collect/Bonga';
+import { Advanced } from '../pages/Advanced';
 
 function Gate() {
   const s = useSession();
@@ -72,6 +73,7 @@ function Gate() {
         <Route path="/standing-orders" element={<StandingOrders />} />
         <Route path="/express" element={<Express />} />
         <Route path="/bonga" element={<Bonga />} />
+        <Route path="/advanced" element={<Advanced />} />
         <Route path="/history" element={<History />} />
         <Route path="/requests/:id" element={<RequestDetail />} />
         {copy.nav.filter((e) => !e.available).map((e) => <Route key={e.key} path={e.path} element={<ComingSoon />} />)}

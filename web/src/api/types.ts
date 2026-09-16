@@ -14,7 +14,7 @@ export interface OrgSummary {
   /** From `GET /api/auth/me`. Optional so a page rendered without a session still type-checks. */
   createdAt?: string | null;
   /** The environment in use: its shortcode and the name Safaricom holds for it, when checked. */
-  shortcode?: string | null; safaricomName?: string | null;
+  shortcode?: string | null; safaricomName?: string | null; /** The working API operator for that environment. */ operatorName?: string | null;
   verifiedAt?: string | null;
 }
 /** `GET /api/setup/status`. */
@@ -55,7 +55,7 @@ export interface OperatorView {
 }
 /** `GET /api/signup/status` — the whole of what the wizard resumes from (spec 4.2). */
 export interface EnvSlotView {
-  shortcode: string | null;
+  shortcode: string | null; safaricomName?: string | null;
   consumerKey: SecretState; consumerSecret: SecretState; credsVerifiedAt: string | null;
   passkey: SecretState; cert: SecretState;
   operators: OperatorView[];

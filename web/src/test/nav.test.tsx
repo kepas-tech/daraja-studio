@@ -23,7 +23,7 @@ describe('Nav', () => {
   });
   it('renders every destination without needing the menu to be opened first', () => {
     const { container } = render(<MemoryRouter><Nav /></MemoryRouter>);
-    for (const e of copy.nav) {
+    for (const e of copy.nav.filter((x) => !x.advanced)) {
       expect(container.querySelector(`a[href="${e.path}"]`)).not.toBeNull();
     }
   });
@@ -51,28 +51,13 @@ describe('Nav', () => {
   // The `available` flag is the ground truth for what is finished (docs/MENU-PLAN.md), so this
   // reads it rather than repeating a list of paths that goes stale the moment a slice ships — and
   // went stale silently, because a hardcoded list only fails once somebody edits it.
-  it('folds the rarely used destinations under Advanced, grouped like the rest, and opens on an advanced page', () => {
-    localStorage.removeItem('studio.nav.advanced');
-    const { unmount } = render(<MemoryRouter initialEntries={['/']}><Nav /></MemoryRouter>);
-    const toggle = screen.getByRole('button', { name: copy.nav.advanced });
-    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+  it('keeps the rarely used destinations off the everyday menu and offers Advanced as a plain link to them', () => {
+    render(<MemoryRouter initialEntries={['/']}><Nav /></MemoryRouter>);
     const advanced = copy.nav.filter((e) => e.advanced);
     expect(advanced.map((e) => e.key)).toEqual(['standing-orders', 'express', 'bonga', 'bulk', 'reverse']);
-    // Folded links are in the document but hidden; the everyday ones are not inside the fold.
-    const fold = document.getElementById('nav-advanced')!;
-    expect(fold.className).toContain('hidden');
-    for (const e of advanced) expect(fold.querySelector(`a[href="${e.path}"]`)).not.toBeNull();
-    expect(fold.querySelector('a[href="/send"]')).toBeNull();
-    expect(fold.querySelector('a[href="/approvals"]')).toBeNull();
-    fireEvent.click(toggle);
-    expect(toggle.getAttribute('aria-expanded')).toBe('true');
-    expect(fold.className).not.toContain('hidden');
-    expect(within(fold).getAllByText(copy.nav.groups.in!).length).toBe(1);
-    expect(within(fold).getAllByText(copy.nav.groups.out!).length).toBe(1);
-    unmount();
-    localStorage.removeItem('studio.nav.advanced');
-    render(<MemoryRouter initialEntries={['/bulk']}><Nav /></MemoryRouter>);
-    expect(screen.getByRole('button', { name: copy.nav.advanced }).getAttribute('aria-expanded')).toBe('true');
+    for (const e of advanced) expect(document.querySelector(`a[href="${e.path}"]`)).toBeNull();
+    expect(screen.getByRole('link', { name: /Advanced/ })).toHaveAttribute('href', '/advanced');
+    expect(screen.queryByRole('button', { name: 'Advanced' })).toBeNull();
   });
 
   it('marks unfinished destinations without marking available pages', () => {
@@ -85,7 +70,7 @@ describe('Nav', () => {
       const link = document.querySelector<HTMLAnchorElement>(`a[href="${e.path}"]`)!;
       expect(within(link).getByText('Coming soon')).toBeInTheDocument();
     }
-    for (const e of finished) {
+    for (const e of finished.filter((x) => !x.advanced)) {
       const link = document.querySelector<HTMLAnchorElement>(`a[href="${e.path}"]`)!;
       expect(within(link).queryByText('Coming soon')).not.toBeInTheDocument();
     }
@@ -100,12 +85,13 @@ describe('Nav', () => {
   });
   it('renders every nav entry with its Safaricom name', () => {
     render(<MemoryRouter><Nav /></MemoryRouter>);
-    for (const e of copy.nav) {
+    // Advanced destinations live on the Advanced page (advanced.test.tsx), not in the menu.
+    for (const e of copy.nav.filter((x) => !x.advanced)) {
       expect(screen.getByText(e.label)).toBeInTheDocument();
       if (e.safaricom) expect(screen.getByText(e.safaricom)).toBeInTheDocument();
     }
     expect(copy.nav.map((e) => e.key)).toEqual([
-      'home','history','stk','money-in','qr','invoices','standing-orders','express','bonga','send','bulk','approvals','reverse','people','settings','not-possible',
+      'home','history','stk','money-in','qr','invoices','standing-orders','express','bonga','send','bulk','approvals','reverse','settings','advanced','not-possible',
     ]);
   });
 });

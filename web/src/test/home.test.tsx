@@ -88,7 +88,7 @@ describe('Home header', () => {
     const { unmount } = mountHome(state);
     await screen.findByRole('heading', { level: 1, name: 'KEPAS TECHNOLOGIES' });
     expect(screen.getByText(copy.home.shortcodeLine('700111', 'production', 'One Ltd'))).toBeInTheDocument();
-    expect(copy.home.shortcodeLine('700111', 'production', 'One Ltd')).toBe('Shortcode 700111 · Real money · Production · One Ltd');
+    expect(copy.home.shortcodeLine('700111', 'production', 'One Ltd')).toBe('Shortcode 700111 · Production · One Ltd');
     unmount();
   });
   it('falls back to the business name and says when no shortcode is set', async () => {

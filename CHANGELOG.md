@@ -6,6 +6,16 @@
   checked), with the shortcode, the environment in use and your own business name on the line
   below. `GET /api/auth/me` carries `shortcode` and `safaricomName` for the active environment.
 
+## 0.13.4 — Advanced is a page
+
+- Advanced is a plain menu item under Manage that opens a page of cards, grouped Get paid and Pay
+  out: Standing orders, Express checkout, Bonga points, Bulk send, Reverse a payment. Each card
+  opens the real page. The fold from 0.13.2 is gone.
+- People leaves the menu; it is reached from Settings › Organisation › Who can log in.
+- Settings › Organisation shows the name Safaricom holds for each shortcode and says when the
+  business name is still the starting one. Environment labels read Sandbox and Production, without
+  "test money" or "real money".
+
 ## 0.13.2 — an Advanced fold in the menu
 
 - Five destinations used rarely or set up once (Standing orders, Express checkout, Bonga points,

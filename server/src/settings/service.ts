@@ -30,6 +30,8 @@ export interface SecretState { saved: boolean; last4: string | null }
 export type B2cApiSetting = 'auto' | 'v1' | 'v3';
 export interface EnvSlotView {
   shortcode: string | null;
+  /** The name Safaricom returned when the shortcode was checked. */
+  safaricomName: string | null;
   consumerKey: SecretState; consumerSecret: SecretState; credsVerifiedAt: string | null;
   passkey: SecretState; cert: SecretState;
   operators: OperatorView[];
@@ -92,12 +94,13 @@ export function createSettingsService(deps: { db: Db; config: Config; settings: 
       const mode = ((shared['daraja.environment'] as Env) ?? 'sandbox');
       const environments = {} as Record<Env, EnvSlotView>;
       for (const e of ENVS) {
-        const s = await deps.settings.getMany([`env.${e}.shortcode`, `env.${e}.consumerKey`, `env.${e}.consumerSecret`, `env.${e}.credsVerifiedAt`, `env.${e}.passkey`, `env.${e}.certPem`, `env.${e}.b2cApi`, `env.${e}.b2cApiDetected`, `env.${e}.b2cApiDetectedAt`]);
+        const s = await deps.settings.getMany([`env.${e}.shortcode`, `env.${e}.consumerKey`, `env.${e}.consumerSecret`, `env.${e}.credsVerifiedAt`, `env.${e}.passkey`, `env.${e}.certPem`, `env.${e}.b2cApi`, `env.${e}.b2cApiDetected`, `env.${e}.b2cApiDetectedAt`, `env.${e}.safaricomName`]);
         const consumerKey = s[`env.${e}.consumerKey`];
         const { creds, operator, operators } = await envReady(e, { consumerKey, consumerSecret: s[`env.${e}.consumerSecret`], credsVerifiedAt: s[`env.${e}.credsVerifiedAt`] });
         const b2cApiSetting = s[`env.${e}.b2cApi`];
         environments[e] = {
           shortcode: s[`env.${e}.shortcode`],
+          safaricomName: s[`env.${e}.safaricomName`],
           consumerKey: { saved: !!consumerKey, last4: consumerKey ? consumerKey.slice(-4) : null },
           consumerSecret: { saved: !!s[`env.${e}.consumerSecret`], last4: null },
           credsVerifiedAt: s[`env.${e}.credsVerifiedAt`],

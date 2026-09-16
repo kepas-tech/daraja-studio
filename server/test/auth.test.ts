@@ -34,7 +34,9 @@ describe('auth', () => {
     await deps.settings.set('env.sandbox.shortcode', '600999');
     await deps.settings.set('env.sandbox.safaricomName', 'KEPAS TECHNOLOGIES');
     const again = await request(app).get('/api/auth/me').set('Cookie', cookie);
-    expect(again.body.org).toMatchObject({ shortcode: '600999', safaricomName: 'KEPAS TECHNOLOGIES' });
+    expect(again.body.org).toMatchObject({ shortcode: '600999', safaricomName: 'KEPAS TECHNOLOGIES', operatorName: null });
+    await deps.db.query(`INSERT INTO operators(name, credential_enc, status, environment, verified_at) VALUES ('KEPAS API', 'x', 'verified', 'sandbox', now())`);
+    expect((await request(app).get('/api/auth/me').set('Cookie', cookie)).body.org.operatorName).toBe('KEPAS API');
   });
 
   it('rejects wrong password and locks after 5 failures', async () => {
