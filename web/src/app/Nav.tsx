@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { NavLink } from 'react-router';
+import { NavLink, useLocation } from 'react-router';
 import { useSession } from './session';
 import { api } from '../api/client';
 import { useEvents } from '../api/events';
@@ -40,7 +40,14 @@ export function Nav() {
   const [open, setOpen] = useState(false);
   const pick = () => setOpen(false);
   const live = copy.nav.filter((e) => e.available);
+  const advanced = live.filter((e) => e.advanced);
   const waiting = useApprovalsCount();
+  // Advanced stays folded unless the person opened it (remembered) or is on one of its pages.
+  const { pathname } = useLocation();
+  const onAdvancedPage = advanced.some((e) => pathname === e.path || pathname.startsWith(`${e.path}/`));
+  const [advancedPref, setAdvancedPref] = useState<boolean>(() => { try { return localStorage.getItem('studio.nav.advanced') === 'open'; } catch { return false; } });
+  const advancedOpen = advancedPref || onAdvancedPage;
+  const setAdvanced = (open: boolean) => { setAdvancedPref(open); try { localStorage.setItem('studio.nav.advanced', open ? 'open' : 'closed'); } catch { /* private window */ } };
   return (
     <nav aria-label={copy.app.navLabel} className="w-full shrink-0 border-b border-line bg-page md:w-60 md:overflow-y-auto md:border-r md:border-b-0">
       <button type="button" aria-expanded={open} aria-controls="nav-entries" onClick={() => setOpen((v) => !v)} className="flex min-h-11 w-full cursor-pointer items-center gap-2 px-4 text-base font-semibold md:hidden">
@@ -53,9 +60,26 @@ export function Nav() {
         {(['in', 'out', 'manage'] as const).map((g) => (
           <li key={g}>
             <div className={heading}>{copy.nav.groups[g]}</div>
-            <ul>{live.filter((e) => e.group === g).map((e) => <Item key={e.key} e={e} onPick={pick} badge={e.key === 'approvals' ? waiting : undefined} />)}</ul>
+            <ul>{live.filter((e) => e.group === g && !e.advanced).map((e) => <Item key={e.key} e={e} onPick={pick} badge={e.key === 'approvals' ? waiting : undefined} />)}</ul>
           </li>
         ))}
+        {advanced.length > 0 && (
+          <li className="pt-4">
+            <button type="button" aria-expanded={advancedOpen} aria-controls="nav-advanced" onClick={() => setAdvanced(!advancedOpen)} className="flex min-h-10 w-full cursor-pointer items-center gap-3 px-3 text-left text-sm font-semibold text-muted hover:text-ink">
+              <Icon name={advancedOpen ? 'chevron-up' : 'chevron-down'} className="size-4" />
+              <span>{copy.nav.advanced}</span>
+            </button>
+            <ul id="nav-advanced" className={advancedOpen ? 'block' : 'hidden'}>
+              <li className="px-3 pb-1 text-xs text-muted">{copy.nav.advancedHint}</li>
+              {(['in', 'out'] as const).filter((g) => advanced.some((e) => e.group === g)).map((g) => (
+                <li key={g}>
+                  <div className={`${heading} pt-2`}>{copy.nav.groups[g]}</div>
+                  <ul>{advanced.filter((e) => e.group === g).map((e) => <Item key={e.key} e={e} onPick={pick} />)}</ul>
+                </li>
+              ))}
+            </ul>
+          </li>
+        )}
         <li className="mt-4 border-t border-line pt-2"><ul>{live.filter((e) => e.group === 'help').map((e) => <Item key={e.key} e={e} onPick={pick} />)}</ul></li>
       </ul>
     </nav>

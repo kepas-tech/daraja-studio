@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.13.2 — an Advanced fold in the menu
+
+- Five destinations used rarely or set up once (Standing orders, Express checkout, Bonga points,
+  Bulk send, Reverse a payment) fold under Advanced at the bottom of the menu, grouped as Get paid
+  and Pay out inside it. The fold remembers whether you opened it and opens itself when you are
+  on one of its pages. The everyday menu is ten items.
+
 ## 0.13.1 — the menu follows the day
 
 - Menu regrouped by how a business uses it: Home and History first, then Get paid (Ask a customer

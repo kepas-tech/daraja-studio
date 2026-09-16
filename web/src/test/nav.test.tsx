@@ -51,6 +51,30 @@ describe('Nav', () => {
   // The `available` flag is the ground truth for what is finished (docs/MENU-PLAN.md), so this
   // reads it rather than repeating a list of paths that goes stale the moment a slice ships — and
   // went stale silently, because a hardcoded list only fails once somebody edits it.
+  it('folds the rarely used destinations under Advanced, grouped like the rest, and opens on an advanced page', () => {
+    localStorage.removeItem('studio.nav.advanced');
+    const { unmount } = render(<MemoryRouter initialEntries={['/']}><Nav /></MemoryRouter>);
+    const toggle = screen.getByRole('button', { name: copy.nav.advanced });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    const advanced = copy.nav.filter((e) => e.advanced);
+    expect(advanced.map((e) => e.key)).toEqual(['standing-orders', 'express', 'bonga', 'bulk', 'reverse']);
+    // Folded links are in the document but hidden; the everyday ones are not inside the fold.
+    const fold = document.getElementById('nav-advanced')!;
+    expect(fold.className).toContain('hidden');
+    for (const e of advanced) expect(fold.querySelector(`a[href="${e.path}"]`)).not.toBeNull();
+    expect(fold.querySelector('a[href="/send"]')).toBeNull();
+    expect(fold.querySelector('a[href="/approvals"]')).toBeNull();
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(fold.className).not.toContain('hidden');
+    expect(within(fold).getAllByText(copy.nav.groups.in!).length).toBe(1);
+    expect(within(fold).getAllByText(copy.nav.groups.out!).length).toBe(1);
+    unmount();
+    localStorage.removeItem('studio.nav.advanced');
+    render(<MemoryRouter initialEntries={['/bulk']}><Nav /></MemoryRouter>);
+    expect(screen.getByRole('button', { name: copy.nav.advanced }).getAttribute('aria-expanded')).toBe('true');
+  });
+
   it('marks unfinished destinations without marking available pages', () => {
     render(<MemoryRouter><Nav /></MemoryRouter>);
     const unfinished = copy.nav.filter((e) => !e.available);
