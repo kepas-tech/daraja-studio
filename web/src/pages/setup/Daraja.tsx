@@ -9,6 +9,8 @@ import { useSession } from '../../app/session';
 import { Button } from '../../components/Button';
 import { Flash } from '../../components/Flash';
 import { StepFooter } from './StepFooter';
+import { SafaricomHow } from '../../components/SafaricomHow';
+import { how } from '../../copy/guide';
 
 export function Daraja({ onDone, onBack }: { onDone: () => void; onBack: () => void }) {
   const toast = useToast();
@@ -35,6 +37,7 @@ export function Daraja({ onDone, onBack }: { onDone: () => void; onBack: () => v
   }
   return (
     <div className="space-y-4">
+      <SafaricomHow links={[how.keys]} />
       <Questionnaire doneLabel={copy.setup.next} busy={busy} onDone={() => void submit()} onCancel={replacing ? () => setReplacing(false) : onBack} steps={[
         { key: 'key', question: copy.setup.daraja.key, valid: f.consumerKey.length > 0, render: () => <TextField label={copy.setup.daraja.key} labelHidden value={f.consumerKey} onChange={(e) => setF({ ...f, consumerKey: e.target.value })} autoFocus autoComplete="off" /> },
         { key: 'secret', question: copy.setup.daraja.secret, valid: f.consumerSecret.length > 0, render: () => <TextField label={copy.setup.daraja.secret} labelHidden type="password" value={f.consumerSecret} onChange={(e) => setF({ ...f, consumerSecret: e.target.value })} autoComplete="off" autoFocus /> },

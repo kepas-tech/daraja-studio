@@ -6,5 +6,12 @@
   "certificateSandbox": "https://developer.safaricom.co.ke/certificates/SandboxCertificate.cer",
   "certificateProduction": "https://developer.safaricom.co.ke/certificates/ProductionCertificate.cer",
   "orgPortal": "https://org.ke.m-pesa.com",
-  "businessEmail": "mailto:M-PESABusiness@Safaricom.co.ke"
+  "businessEmail": "mailto:M-PESABusiness@Safaricom.co.ke",
+  "darajaMyApps": "https://developer.safaricom.co.ke/dashboard/myapps",
+  "darajaTestCredentials": "https://developer.safaricom.co.ke/dashboard/testcredentials",
+  "darajaGoLive": "https://developer.safaricom.co.ke/dashboard/golive",
+  "darajaUrlManagement": "https://developer.safaricom.co.ke/dashboard/urlmanagement",
+  "darajaExpressSimulate": "https://developer.safaricom.co.ke/dashboard/apis?api=MpesaExpressSimulate",
+  "darajaB2c": "https://developer.safaricom.co.ke/dashboard/apis?api=BusinessToCustomer",
+  "apiSupportEmail": "mailto:apisupport@safaricom.co.ke"
 }

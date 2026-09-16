@@ -10,6 +10,8 @@ import { StatusPill } from '../../components/StatusPill';
 import { toastText } from '../../components/ErrorCard';
 import { useToast } from '../../components/Toast';
 import { copy } from '../../copy/en';
+import { SafaricomHow } from '../../components/SafaricomHow';
+import { how } from '../../copy/guide';
 import { when } from '../../format';
 import type { B2cApiSetting, Env, EnvSlotView, SecretState } from '../../api/types';
 import type { StepUp } from './useStepUp';
@@ -61,6 +63,7 @@ export function EnvironmentTab({ env, slot, isActiveMode, reload, stepUp }: { en
           <><span>{copy.setup.daraja.key}: {keyStatusText(slot)}</span><span className="block text-sm text-muted">{copy.setup.daraja.secret}: {secretText(slot.consumerSecret)}</span></>
         }>
           {(close) => (
+            <><SafaricomHow links={[how.keys]} />
             <Questionnaire doneLabel={copy.settings.save} onCancel={close} onDone={() => stepUp.ask(copy.settings.confirm.replaceCreds, async (password) => {
               const r = await api.post<{ ok: boolean; message: string }>(`/api/settings/environments/${env}/daraja`, { ...creds, password });
               if (!r.ok) { toast.error(copy.settings.darajaReplaceFailed(r.message)); return; }
@@ -71,7 +74,7 @@ export function EnvironmentTab({ env, slot, isActiveMode, reload, stepUp }: { en
             })} steps={[
               { key: 'key', question: copy.setup.daraja.key, valid: creds.consumerKey.length > 0, render: () => <TextField label={copy.setup.daraja.key} labelHidden value={creds.consumerKey} onChange={(e) => setCreds({ ...creds, consumerKey: e.target.value })} autoComplete="off" autoFocus /> },
               { key: 'secret', question: copy.setup.daraja.secret, valid: creds.consumerSecret.length > 0, render: () => <TextField label={copy.setup.daraja.secret} labelHidden type="password" value={creds.consumerSecret} onChange={(e) => setCreds({ ...creds, consumerSecret: e.target.value })} autoComplete="off" autoFocus /> },
-            ]} />
+            ]} /></>
           )}
         </SettingRow>
 
@@ -102,6 +105,7 @@ export function EnvironmentTab({ env, slot, isActiveMode, reload, stepUp }: { en
         <SettingRow testId="setting-passkey" label={copy.settings.passkey} changeLabel={copy.settings.replace} value={secretText(slot.passkey)}>
           {(close) => (
             <>
+              <SafaricomHow links={[how.passkeyProduction, how.passkeySandbox]} />
               <TextField label={copy.settings.newPasskey} type="password" value={pk} onChange={(e) => setPk(e.target.value)} autoComplete="off" />
               <Button disabled={!pk} onClick={() => stepUp.ask(copy.settings.confirm.replacePasskey, async (password) => {
                 await api.post(`/api/settings/environments/${env}/passkey`, { passkey: pk, password });
@@ -164,7 +168,8 @@ export function EnvironmentTab({ env, slot, isActiveMode, reload, stepUp }: { en
           );
         })}</ul>
         {adding && (
-          <div className="border-t border-line bg-page p-4">
+          <div className="space-y-4 border-t border-line bg-page p-4">
+            <SafaricomHow links={newOpMode === 'modePassword' ? [how.operatorCreate, how.operatorPassword, how.certificateSandbox, how.certificateProduction] : [how.operatorCreate, how.operatorPassword, how.credential]} />
             <Questionnaire doneLabel={copy.setup.operator.add} onCancel={() => setAdding(false)} onDone={() => stepUp.ask(copy.settings.confirm.add(newOp.name), async (password) => {
               const body = newOpMode === 'modePassword'
                 ? { name: newOp.name, operatorPassword: newOp.operatorPassword, certPem: newOp.certPem, password }
@@ -175,10 +180,10 @@ export function EnvironmentTab({ env, slot, isActiveMode, reload, stepUp }: { en
               setAdding(false);
               await reload();
             })} steps={[
-              { key: 'name', question: copy.setup.operator.name, valid: newOp.name.length > 0, render: () => <TextField label={copy.setup.operator.name} labelHidden value={newOp.name} onChange={(e) => setNewOp({ ...newOp, name: e.target.value })} autoComplete="off" autoFocus /> },
+              { key: 'name', question: copy.setup.operator.name, hint: copy.setup.operator.nameHint, valid: newOp.name.length > 0, render: () => <TextField label={copy.setup.operator.name} labelHidden value={newOp.name} onChange={(e) => setNewOp({ ...newOp, name: e.target.value })} autoComplete="off" autoFocus /> },
               { key: 'mode', question: copy.setup.operator.mode, valid: true, render: () => <ModeChoice name={`new-operator-mode-${env}`} mode={newOpMode} onChange={setNewOpMode} /> },
               ...(newOpMode === 'modePassword' ? [
-                { key: 'password', question: copy.setup.operator.password, valid: newOp.operatorPassword.length > 0, render: () => <TextField label={copy.setup.operator.password} labelHidden type="password" value={newOp.operatorPassword} onChange={(e) => setNewOp({ ...newOp, operatorPassword: e.target.value })} autoComplete="off" autoFocus /> },
+                { key: 'password', question: copy.setup.operator.password, hint: copy.setup.operator.passwordHint, valid: newOp.operatorPassword.length > 0, render: () => <TextField label={copy.setup.operator.password} labelHidden type="password" value={newOp.operatorPassword} onChange={(e) => setNewOp({ ...newOp, operatorPassword: e.target.value })} autoComplete="off" autoFocus /> },
                 { key: 'cert', question: copy.setup.operator.cert, valid: newOp.certPem.length > 0, render: () => <label className="block"><span className="sr-only">{copy.setup.operator.cert}</span><textarea className={textarea} value={newOp.certPem} onChange={(e) => setNewOp({ ...newOp, certPem: e.target.value })} autoComplete="off" spellCheck={false} autoCorrect="off" autoFocus /></label> },
               ] : [
                 { key: 'credential', question: copy.setup.operator.credential, hint: copy.setup.operator.whereCredential, valid: newOp.credential.length > 0, render: () => <label className="block"><span className="sr-only">{copy.setup.operator.credential}</span><textarea className={textarea} value={newOp.credential} onChange={(e) => setNewOp({ ...newOp, credential: e.target.value })} autoComplete="off" spellCheck={false} autoCorrect="off" autoFocus /></label> },

@@ -107,6 +107,7 @@ describe('Passkey', () => {
   it('says plainly that the test goes to your own phone and may be cancelled', () => {
     vi.stubGlobal('fetch', fetchFor({}));
     render(<Passkey onDone={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.getByTestId('safaricom-how')).toHaveTextContent('the copy icon next to Passkey');
     expect(screen.getByText(copy.setup.passkey.testBody)).toBeInTheDocument();
     answer(copy.setup.passkey.field, 'k'.repeat(64), { exact: false });
     expect(screen.getByText(copy.setup.passkey.phoneHelp)).toBeInTheDocument();

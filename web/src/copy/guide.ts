@@ -44,8 +44,32 @@ export const guideIntro = 'Every page, in the order you meet them. Each task is 
 /** Only guide.md carries this line; the page for people never mentions the machine copy. */
 export const guideMachineLine = 'This is the copy for AI agents and scripts. The page people see at /guide has the same tasks in everyday words, without the routes, permission keys, API calls or the agent rules.';
 
-const DARAJA_LOGIN = ['Daraja portal', 'Log In (or Sign Up the first time)'];
-const YOUR_APP = [...DARAJA_LOGIN, 'Dashboard', 'My Apps', 'your app'];
+
+const DARAJA = ['Daraja portal', 'Log In'];
+const ORG = ['M-Pesa business portal', 'Log in as the Business Administrator (paybill or till number, username, password, the code on screen, then the code sent by SMS)'];
+
+/**
+ * Every place Studio sends a person to on Safaricom's sites, with the clicks once there. Read
+ * off the live portals on 2026-09-16. Shared by the guide and by the setup and Settings screens,
+ * so a hint on a form and the manual can never disagree.
+ */
+export const how = {
+  createApp: { label: 'Open My Apps on the Daraja portal', href: links.darajaMyApps, trail: [...DARAJA, 'My Apps', 'Create Sandbox App', 'Application Name', 'tick the products', 'Create App'] },
+  keys: { label: 'Open My Apps on the Daraja portal', href: links.darajaMyApps, trail: [...DARAJA, 'My Apps', 'your app card', 'the copy icon next to Consumer Key', 'then the one next to Consumer Secret'] },
+  passkeyProduction: { label: 'Open My Apps on the Daraja portal', href: links.darajaMyApps, trail: [...DARAJA, 'My Apps', 'your Production app card', 'the copy icon next to Passkey'] },
+  passkeySandbox: { label: 'Open the M-Pesa Express simulator', href: links.darajaExpressSimulate, trail: [...DARAJA, 'APIs', 'M-Pesa Express(Prompt)', 'Simulate', 'Open Simulator', 'Select or search one of your apps', 'your sandbox app', 'the Passkey box'] },
+  credential: { label: 'Open Test Credentials on the Daraja portal', href: links.darajaTestCredentials, trail: [...DARAJA, 'Test Credentials', 'Initiator Password', 'Sandbox or Production', 'Generate Password', 'copy the long text'] },
+  certificateSandbox: { label: 'Download the Sandbox certificate', href: links.certificateSandbox, trail: ['a file called SandboxCertificate.cer downloads'] },
+  certificateProduction: { label: 'Download the Production certificate', href: links.certificateProduction, trail: ['a file called ProductionCertificate.cer downloads'] },
+  goLive: { label: 'Open Go Live on the Daraja portal', href: links.darajaGoLive, trail: [...DARAJA, 'Go Live', 'Verification Type: Short Code', 'Organization ShortCode', 'Organization Name', 'M-PESA Username', 'tick the Terms and Conditions', 'Next', 'type the code sent by SMS'] },
+  urlManagement: { label: 'Open URL Management on the Daraja portal', href: links.darajaUrlManagement, trail: [...DARAJA, 'Self Service', 'URL Management', 'View URLs', 'paybill or till number', 'M-PESA admin username', 'the code sent by SMS'] },
+  orgPortal: { label: 'Open the M-Pesa business portal', href: links.orgPortal, trail: ORG },
+  operatorCreate: { label: 'Open the M-Pesa business portal', href: links.orgPortal, trail: [...ORG, 'Operators', 'Add', 'Username', 'Access channel: API', 'Web profile: default rule profile', 'Roles: ORG B2C API Initiator, Balance Query ORG API, Transaction Status query ORG API', 'the person’s details', 'Submit'] },
+  operatorPassword: { label: 'Open the M-Pesa business portal', href: links.orgPortal, trail: ['M-Pesa business portal', 'Log in as a Business Manager (a user with the Set Restricted ORG API PASSWORD role)', 'My Functions', 'Operator Management', 'search the username', 'Operations', 'Set Password'] },
+  number: { label: 'Open the M-Pesa business portal', href: links.orgPortal, trail: [...ORG, 'My Organization'] },
+  businessEmail: { label: 'Email Safaricom’s business team', href: links.businessEmail, trail: ['a new email opens'] },
+  apiSupport: { label: 'Email Safaricom’s API support', href: links.apiSupportEmail, trail: ['a new email opens'] },
+} satisfies Record<string, GuideLink>;
 
 export const guide: GuideSection[] = [
   {
@@ -88,103 +112,107 @@ export const guide: GuideSection[] = [
   {
     key: 'safaricom',
     title: 'Getting things from Safaricom',
-    intro: 'Two Safaricom sites matter. The Daraja portal is where apps, codes and the passkey live. The M-Pesa business portal is where your organisation and its users live. Each task below has a button to the right site and the clicks once you are there.',
+    intro: 'Two Safaricom websites matter. The Daraja portal is where your app, its two codes and the passkey live. The M-Pesa business portal is where your business, its users and your number live. Each task below has a button to the right page and the clicks once you are there, read off the live sites.',
     tasks: [
       {
         key: 'daraja-account',
         title: 'A Daraja account and an app',
         who: 'Owner',
         steps: [
-          'Open the Daraja portal and press Sign Up (or Log In if you already have an account). Sign up with your email; Safaricom sends a confirmation.',
-          'Once logged in, open Dashboard, then My Apps, then Add a new app.',
-          'Give the app a name (your business name is fine), tick the products you will use, and press Create.',
-          'For the phone prompt, tick "Lipa Na M-Pesa Sandbox" as well; that is the product the passkey belongs to.',
+          'Open the Daraja portal and press Log In, or Sign Up the first time (email and a password; Safaricom sends a confirmation).',
+          'Once in, the left menu shows My Apps, Test Credentials, Go Live and APIs. Open My Apps.',
+          'Press Create Sandbox App. Give it an Application Name (letters, numbers, spaces and the _ sign only; your business name is fine).',
+          'Tick the products: "M-Pesa Sandbox" (covers receiving, sending and the rest), and "Lipa Na M-Pesa Sandbox" if you will prompt customers’ phones. Press Create App.',
+          'Your app now shows as a card on My Apps with its Consumer Key, Consumer Secret, Passkey, Short Code and Products. A new app is Sandbox; real money needs Go Live, below.',
         ],
-        notes: ['A new app starts in Sandbox. Real money needs the Go Live step further down.'],
-        links: [{ label: 'Open the Daraja portal', href: links.daraja, trail: [...DARAJA_LOGIN, 'Dashboard', 'My Apps', 'Add a new app'] }],
+        links: [how.createApp],
       },
       {
         key: 'keys',
         title: 'The Consumer Key and Consumer Secret',
         who: 'Owner',
         steps: [
-          'On the Daraja portal, open Dashboard, then My Apps, then press your app.',
-          'The two codes are on the app’s page: "Consumer Key" and "Consumer Secret". Press the copy or show button next to each.',
-          'Paste them into Studio’s "Daraja app" screen (during setup, or later under Settings). Studio checks them with Safaricom at once.',
+          'On My Apps, find your app’s card. Sandbox and Production apps are separate cards; use the one for the mode you are setting up.',
+          'Press the small copy icon next to Consumer Key. Paste it into Studio’s "Consumer key" box.',
+          'Press the copy icon next to Consumer Secret. Paste it into Studio’s "Consumer secret" box. Studio checks the pair with Safaricom at once and says "accepted".',
         ],
-        notes: ['Sandbox and Production have different codes. After Go Live, the app’s page shows a second set for Production; use those in Production mode.', 'Safaricom’s own answer: "log in to Daraja, click on your app and you\'ll find the details".'],
-        links: [{ label: 'Open the Daraja portal', href: links.daraja, trail: [...YOUR_APP, 'Consumer Key / Consumer Secret'] }],
+        notes: ['The eye icon on the card shows or hides the values; the copy icon works either way.'],
+        links: [how.keys],
       },
       {
         key: 'go-live',
-        title: 'Go Live: switching your app to real money',
-        who: 'Owner',
+        title: 'Go Live: moving your app to real money',
+        who: 'Owner, with the M-Pesa business portal administrator’s username and phone',
         steps: [
-          'On the Daraja portal, open Dashboard, then My Apps, then your app, then Go Live.',
-          'Fill in the form: your paybill or till number, the organisation name as Safaricom knows it, and the products you need (Receive money, Send money, and the phone prompt if you use it).',
-          'Send it. Safaricom answers within 24 working hours (Monday to Friday, 8am to 5pm).',
-          'When approved, the app’s page shows Production codes, and Safaricom emails the production "Passkey" if you asked for the phone prompt.',
+          'On the Daraja portal open Go Live. Verification Type stays "Short Code".',
+          'Organization ShortCode: your paybill, till store number, head office number or B2C number. Organization Name: your business name, shortened, without symbols.',
+          'M-PESA Username: the username of the Business Administrator or Business Manager on the M-Pesa business portal. It is case sensitive.',
+          'Tick "I accept Safaricom’s Terms and Conditions" and press Next. A one-time code goes by SMS to the phone on that portal user’s profile (it must be a Safaricom line). Type it.',
+          'Safaricom answers within 24 working hours (Monday to Friday, 8am to 5pm). Your sandbox app is then moved to Production with a new Consumer Key and Secret, and the Passkey appears on the card.',
         ],
-        links: [{ label: 'Open the Daraja portal', href: links.daraja, trail: [...YOUR_APP, 'Go Live'] }],
+        notes: ['To send money to phones in Production your number must be one that can both receive and pay out. If the B2C product is missing at Go Live, ask Safaricom’s business team for a B2C or "one account" number.'],
+        links: [how.goLive, how.businessEmail],
       },
       {
         key: 'passkey',
-        title: 'The Passkey (for prompting a customer’s phone)',
+        title: 'The Passkey (only for prompting a customer’s phone)',
         who: 'Owner',
         steps: [
-          'Sandbox: on the Daraja portal open APIs, then "M-Pesa Express(Prompt)", then Simulate. The practice "Passkey" is shown there; copy it.',
-          'Production: Safaricom emails the passkey to the app owner when Go Live is approved with the phone prompt product. Search your email for "passkey".',
-          'Paste it into Studio’s "STK passkey" screen with your own phone number. Studio sends one KES 1 prompt to your phone as the test; cancel it on the phone, nothing is taken.',
+          'Production: on My Apps, your Production app card has a Passkey row. Press the copy icon next to it. Safaricom also emails it to the app owner after Go Live.',
+          'Sandbox: open APIs, then M-Pesa Express(Prompt), then Simulate, then Open Simulator on the right. Pick your sandbox app under "Select or search one of your apps"; the test data fills in, including a Passkey box. Copy it.',
+          'Paste it into Studio’s "STK passkey" screen with your own phone number. Studio sends one KES 1 prompt to your phone as the proof; cancel it on the phone, nothing is taken.',
         ],
-        notes: ['Safaricom’s own answer: you only need a passkey if your app has the Lipa na M-Pesa or M-Pesa Express product.', 'Lost the production passkey? Email Safaricom’s API support from the address on the Daraja portal, quoting your paybill or till number.'],
-        links: [{ label: 'Open the Daraja portal', href: links.darajaApis, trail: [...DARAJA_LOGIN, 'APIs', 'M-Pesa Express(Prompt)', 'Simulate', 'Passkey'] }],
+        notes: ['Safaricom’s own words: you only need a passkey if your app has the Lipa na M-Pesa or M-Pesa Express product.'],
+        links: [how.passkeyProduction, how.passkeySandbox],
+      },
+      {
+        key: 'number',
+        title: 'Your paybill or till number',
+        who: 'Owner',
+        steps: [
+          'It is on the letter or email Safaricom sent when the number was opened, and on your Production app card on the Daraja portal as Short Code after Go Live.',
+          'On the M-Pesa business portal it is under My Organization.',
+          'Type it into Studio’s "Shortcode" screen. Studio asks Safaricom for the name held against it and shows the name, so you can see you typed the right number.',
+        ],
+        links: [how.number],
       },
       {
         key: 'org-portal',
         title: 'The M-Pesa business portal and its administrator',
         who: 'Owner',
         steps: [
-          'The M-Pesa business portal is where Safaricom keeps your organisation, its bank details and its users. You need an administrator login for it.',
-          'If nobody in your business has one yet, Safaricom sets it up from a signed and stamped letter on your letterhead. The letter lists: your paybill or till number, the organisation name, the administrator’s username, first, middle and last name, ID type and number with a scan of both sides, nationality, date of birth, email and phone number.',
-          'Email the letter to M-PESABusiness@Safaricom.co.ke (the button below opens a new email).',
-          'Safaricom sends the login details. Log in at the portal; the first login asks you to set your own password.',
+          'The M-Pesa business portal is where Safaricom keeps your business, its users and its money. You need a Business Administrator login there before Go Live and before any portal user for Studio.',
+          'If your business has none yet: Safaricom’s business team sets one up. Your number must first settle to a bank through a Head Office; the same team sends the forms. Then they create the Business Administrator username.',
+          'First login: open the portal, type the paybill or till number, the administrator username and the first-time password from Safaricom’s email, then the code shown on screen, then the code sent by SMS. Set your own password and two security questions.',
+          'After that, logging in is the number, username, password, the code on screen and the SMS code.',
         ],
-        links: [
-          { label: 'Open the M-Pesa business portal', href: links.orgPortal, trail: ['M-Pesa business portal', 'Log in as the administrator'] },
-          { label: 'Email Safaricom about an administrator', href: links.businessEmail, trail: ['New email', 'attach the signed letter and ID scans'] },
-        ],
+        links: [how.orgPortal, how.businessEmail],
       },
       {
         key: 'operator',
-        title: 'A portal user for Studio (Safaricom calls it an operator)',
-        who: 'Owner',
+        title: 'A portal user for Studio (Safaricom calls it an API operator)',
+        who: 'Owner, as the Business Administrator',
         steps: [
-          'Log in to the M-Pesa business portal as the administrator.',
-          'Go to Search, then Organization Operator, then Create.',
-          'Fill in a username for Studio (for example your business name), the person responsible, and choose "API" as the access channel. Save.',
-          'The new user needs the rights to send money and to check balances. Safaricom adds those on request: email M-PESABusiness@Safaricom.co.ke with your paybill or till number and the username, asking for the operator roles for sending money to phones and for balance checks.',
-          'Safaricom sends the user’s password. Type the username and password into Studio’s "API operator" screen, together with the certificate (next task). Studio tests them by asking Safaricom for your balance, and keeps the user only if Safaricom accepts it.',
+          'Log in to the M-Pesa business portal as the Business Administrator and open Operators, then Add.',
+          'Username: a name for Studio, for example your business name. Access channel: API. Web profile: default rule profile.',
+          'Roles: tick ORG B2C API Initiator (sending money to phones), Balance Query ORG API (the balance on Home, and the test Studio runs) and Transaction Status query ORG API (checking a payment). Add Org Reversals Initiator if you will reverse payments.',
+          'Fill in the person responsible and Submit. The user shows as pending until it has a password.',
+          'The password is set by a portal user who has the Set Restricted ORG API PASSWORD role (a Business Manager): My Functions, then Operator Management, search the username, Operations, Set Password. Use letters, numbers and only # & % $ as symbols; never @ or a full stop, and no brackets.',
+          'Type the username and that password into Studio’s "API operator" screen, with the certificate (next task). Studio asks Safaricom for your balance with them and keeps the user only if Safaricom accepts it.',
         ],
-        notes: ['Studio never keeps the password itself. It keeps a scrambled version made with Safaricom’s certificate, which is all Safaricom needs.', 'Safaricom’s own answer for roles: "To add operator roles, write an email to M-PESABusiness@Safaricom.co.ke for an operator role to be added under your short code."'],
-        links: [
-          { label: 'Open the M-Pesa business portal', href: links.orgPortal, trail: ['M-Pesa business portal', 'Search', 'Organization Operator', 'Create', 'access channel: API'] },
-          { label: 'Email Safaricom about operator rights', href: links.businessEmail, trail: ['New email', 'paybill or till number', 'username', 'the rights you need'] },
-        ],
+        notes: ['Studio never keeps the password itself, only a scrambled version made with Safaricom’s certificate.', 'Too many wrong tries lock the user ("security credential is locked"); the Business Administrator unlocks it on the portal.'],
+        links: [how.operatorCreate, how.operatorPassword],
       },
       {
         key: 'certificate',
         title: 'Safaricom’s certificate file',
         who: 'Owner',
         steps: [
-          'Press the button for the certificate you need: Sandbox for practice, Production for real money. A small file ending in .cer downloads.',
-          'Open the file with a plain text program: Notepad on Windows, TextEdit on a Mac (right-click the file, Open With). It is a block of letters between a BEGIN line and an END line.',
-          'Select all of it, copy, and paste into Studio’s "Certificate" field (during setup on the "API operator" screen, or later under Settings).',
+          'Press the button for the mode you are setting up: Sandbox or Production. A small file ending in .cer downloads.',
+          'Open it with a plain text program: Notepad on Windows, TextEdit on a Mac (right-click the file, Open With). It is a block of letters between a BEGIN line and an END line.',
+          'Select all of it, copy, and paste into Studio’s "Certificate" box (on the "API operator" screen during setup, or under Settings later).',
         ],
-        notes: ['Safaricom’s own answer: "Log in to Daraja, click on Docs, scroll down on the left side and you\'ll find it there."'],
-        links: [
-          { label: 'Download the Sandbox certificate', href: links.certificateSandbox, trail: ['downloads SandboxCertificate.cer'] },
-          { label: 'Download the Production certificate', href: links.certificateProduction, trail: ['downloads ProductionCertificate.cer'] },
-        ],
+        links: [how.certificateSandbox, how.certificateProduction],
       },
       {
         key: 'security-credential',
@@ -192,21 +220,20 @@ export const guide: GuideSection[] = [
         who: 'Owner',
         steps: [
           'This is the same scrambled password Studio would make for you, made on Safaricom’s site instead. Use it if you would rather not type the portal user’s password into Studio.',
-          'On the Daraja portal open APIs, then "Business To Customer (B2C)", then the Simulate page. Find the box named "Security Credential" (some pages call it "Initiator Security Password").',
-          'Choose Sandbox or Production, type the portal user’s password, press Generate, and copy the long text it gives you.',
-          'In Studio’s "API operator" screen choose "I already generated a Security Credential on the Daraja portal" and paste it.',
+          'On the Daraja portal open Test Credentials. Under "Generate Security Credential Value", type the portal user’s password as Initiator Password, choose Sandbox or Production, and press Generate Password.',
+          'Copy the long text it shows. In Studio’s "API operator" screen choose "I already generated a Security Credential on the Daraja portal" and paste it.',
         ],
-        links: [{ label: 'Open the Daraja portal', href: links.darajaApis, trail: [...DARAJA_LOGIN, 'APIs', 'Business To Customer (B2C)', 'Simulate', 'Security Credential', 'Generate'] }],
+        links: [how.credential],
       },
       {
-        key: 'number',
-        title: 'Your paybill or till number',
+        key: 'url-management',
+        title: 'Where Safaricom sends news of customer payments',
         who: 'Owner',
         steps: [
-          'It is on the letter or email Safaricom sent when the number was opened, and on the M-Pesa business portal under My Organization.',
-          'Type it into Studio’s "Shortcode" screen. Studio asks Safaricom for the name held against the number and shows it, so you can see you typed the right one.',
+          'Studio registers its own address with Safaricom when you press Turn on under Money in. In Production, Safaricom accepts that once per number.',
+          'If Safaricom says the addresses are already on record and payments still do not show, an older address is on record. Open URL Management on the Daraja portal, press View URLs, prove it is you (paybill or till number, the M-PESA admin username, the SMS code), then delete the old ones and press Turn on again in Studio.',
         ],
-        links: [{ label: 'Open the M-Pesa business portal', href: links.orgPortal, trail: ['M-Pesa business portal', 'Search', 'My Organization', 'Details'] }],
+        links: [how.urlManagement, how.apiSupport],
       },
     ],
   },
@@ -776,7 +803,7 @@ export const guide: GuideSection[] = [
           'Withdrawing to the bank, moving float from Utility to Working, creating portal users and their rights, resetting portal passwords, KYC, bank accounts, tills, settlement plans, closing the organisation, Safaricom’s own statement, changing where paybill news is sent after the first time, and the portal’s own audit log all live on Safaricom’s business portal.',
           'Not possible via API lists each one with why, where on the portal, and the phone code (*234#) where one exists.',
         ],
-        links: [{ label: 'Open the M-Pesa business portal', href: links.orgPortal, trail: ['M-Pesa business portal', 'Log in'] }],
+        links: [how.orgPortal],
       },
     ],
   },

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.14.3 — setup steps say exactly where on Safaricom’s sites
+
+- Every setup step and Settings form that takes something from Safaricom now shows "Where to
+  get it": a button to the exact Safaricom page and the clicks once there (a → b → c), read off
+  the live Daraja portal: the app card on My Apps for the Consumer Key, Secret and Passkey, Test
+  Credentials for a Security Credential, Go Live and its fields, Self Service › URL Management
+  for registered payment addresses, and the M-Pesa business portal for the number and the API
+  operator (roles, access channel, who sets the password and with which characters). The
+  wizard’s own hints, the Money in caveat and the Not possible card for callback addresses say
+  the same. One data source feeds the forms and the manual.
+
 ## 0.14.2 — the manual in everyday words, with Safaricom’s clicks
 
 - How to use is rewritten for people who are not technical: no routes, codes or permission

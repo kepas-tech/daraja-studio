@@ -78,7 +78,7 @@ export const copy = {
   },
   comingSoon: { title: 'Not in this version yet', badge: 'Coming soon', body: 'Planned for a later release.' },
   login: { title: 'Log in', username: 'Username', password: 'Password', button: 'Log in', locked: 'Too many wrong tries. Wait 15 minutes and try again.', guideLink: 'How to use Daraja Studio' },
-  guidePage: { contents: 'On this page', login: 'Log in', where: 'Where:', who: 'Who:', then: 'Then:' },
+  guidePage: { contents: 'On this page', login: 'Log in', where: 'Where:', who: 'Who:', then: 'Then:', whereToGet: 'Where to get it' },
   changePassword: {
     title: 'Choose your own password',
     intro: 'Your password is temporary. Choose your own before using Studio.',
@@ -322,7 +322,7 @@ export const copy = {
     intro: 'Customers pay your paybill or till from their own phone. Once turned on, each payment shows here and in History the moment Safaricom reports it.',
     registered: (at: string) => `On since ${at}`, notRegistered: 'Not turned on yet', turnOn: 'Turn on', turnOnAgain: 'Register again', turnedOn: 'Safaricom will send payments here.',
     registering: 'Telling Safaricom where to send payments. This can take up to a minute; this page updates on its own.', registeringButton: 'Telling Safaricom…', failed: 'Safaricom did not accept it.',
-    alreadyRegistered: 'Safaricom said the addresses were already on record, so this counts as on. If a payment does not show up here, an older address may be on record; Safaricom API support can reset it. The hourly check still finds every payment.',
+    alreadyRegistered: 'Safaricom said the addresses were already on record, so this counts as on. If a payment does not show up here, an older address may be on record: on the Daraja portal open Self Service › URL Management › View URLs, delete the old ones, then press Register again here. The hourly check still finds every payment.',
     confirmTurnOn: 'Tell Safaricom to send payments to this studio?',
     needsAddress: 'Test the public address in Settings first.',
     check: 'Check for missed payments', checking: 'Asking Safaricom…', found: (n: number) => (n === 0 ? 'Nothing missed.' : `Found ${n} missed payment${n === 1 ? '' : 's'}.`),
@@ -340,11 +340,11 @@ export const copy = {
       uses: 'Tick what applies. This decides which Safaricom details the next steps ask for. You can change it later in Settings.',
       environment: 'Sandbox is Safaricom\'s practice area with pretend money and test credentials. Production is your real M-Pesa account and real money. You can switch later in Settings.',
       org: 'Shown in the menu and on receipts.',
-      shortcode: 'Your paybill or till number, as on your Safaricom letter.',
-      daraja: 'From developer.safaricom.co.ke, under My Apps.',
+      shortcode: 'Your paybill or till number, as on your Safaricom letter, on the M-Pesa business portal under My Organization, or on your Production app card on the Daraja portal.',
+      daraja: 'Two codes from your app card on the Daraja portal, under My Apps: the copy icon next to Consumer Key, then the one next to Consumer Secret.',
       'public-url': 'The address of this studio itself, as you open it in your browser. Safaricom posts payment results to it, so it must be reachable from the internet over https.',
-      passkey: 'Needed to prompt a customer\'s phone. From the Daraja portal, under Lipa Na M-Pesa Online. Tested right away.',
-      operator: 'The Safaricom portal user allowed to move money out of your account. Only an operator Safaricom accepts is kept.',
+      passkey: 'Needed to prompt a customer\'s phone. In Production it is on your app card on the Daraja portal, under My Apps; in Sandbox it is in the M-Pesa Express simulator\'s test data. Tested right away.',
+      operator: 'A user on the M-Pesa business portal made for Studio, with access channel API and the roles ORG B2C API Initiator, Balance Query ORG API and Transaction Status query ORG API. Only one Safaricom accepts is kept.',
       done: 'Everything Safaricom needs is in place.',
     } as Record<string, string>,
     owner: { displayName: 'Your name', username: 'Username', password: 'Choose a password (12+ characters)', button: 'Create owner', created: (name: string) => `Owner account created for ${name}.`, changeName: 'Change name', nameSaved: 'Name saved.', fixed: 'The username and password stay; change the password later from the account menu.' },
@@ -378,7 +378,7 @@ export const copy = {
       recommended: 'Start here', advice: 'Still setting things up or testing? Start with Sandbox. Switch to Production in Settings when you are ready to move real money.',
       confirm: 'Type your shortcode to confirm production',
     },
-    daraja: { key: 'Consumer key', secret: 'Consumer secret', where: 'From the Daraja portal › My Apps.', ok: 'Safaricom accepted the key and secret.', accepted: 'Daraja key and secret accepted.' },
+    daraja: { key: 'Consumer key', secret: 'Consumer secret', where: 'Daraja portal › My Apps › your app card › the copy icon next to each.', ok: 'Safaricom accepted the key and secret.', accepted: 'Daraja key and secret accepted.' },
     /**
      * The step that proves a passkey, which nothing else can. No read-only Daraja call uses one,
      * so the only evidence it is right is Safaricom accepting a push made with it. A wrong one is
@@ -387,7 +387,7 @@ export const copy = {
      */
     passkey: {
       field: 'STK passkey',
-      where: 'From the Daraja portal, under Lipa Na M-Pesa Online for this shortcode.',
+      where: 'Production: Daraja portal › My Apps › your Production app card › the copy icon next to Passkey. Sandbox: APIs › M-Pesa Express(Prompt) › Simulate › Open Simulator › pick your app › the Passkey box.',
       phone: 'Your own phone number',
       phoneHelp: 'We send one test to this number. Use your own, not a customer’s.',
       testTitle: 'We will test it now',
@@ -403,6 +403,8 @@ export const copy = {
     operator: {
       name: 'Operator username (as in the Safaricom portal)',
       password: 'Operator password',
+      passwordHint: 'The password a Business Manager set for this user on the M-Pesa business portal (My Functions › Operator Management › Set Password). Letters, numbers and only # & % $; never @, a full stop or brackets.',
+      nameHint: 'Made on the M-Pesa business portal by the Business Administrator: Operators › Add, access channel API, roles ORG B2C API Initiator, Balance Query ORG API and Transaction Status query ORG API.',
       cert: 'Safaricom certificate (paste the .cer text)',
       add: 'Add and test',
       pending: 'Testing with a balance query…',
@@ -412,7 +414,7 @@ export const copy = {
       modePassword: 'I have the operator password and the Safaricom certificate',
       modeCredential: 'I already generated a Security Credential on the Daraja portal',
       credential: 'Security Credential (paste the whole value)',
-      whereCredential: 'Daraja portal › Test Credentials › Generate Security Credential.',
+      whereCredential: 'Daraja portal › Test Credentials › type the operator password as Initiator Password › Sandbox or Production › Generate Password › copy the long text.',
     },
     publicUrl: {
       field: 'This studio\'s address (https://…)', placeholder: 'https://pay.example.co.ke', test: 'Test this address', ok: 'Safaricom will be able to reach you here.',
@@ -547,7 +549,7 @@ export const copy = {
     { key: 'statement', title: "Safaricom's own account statement", what: 'The official statement with running balance per account.', why: 'No statement API. Studio History is its own ledger built from callbacks and pulls, not Safaricom’s statement.', portalPath: 'Transaction › Account Statement › Export' },
     { key: 'bulk-operators', title: 'Bulk operator creation', what: 'Upload a CSV of operators.', why: 'No API.', portalPath: 'Business Center › Bulk Task › Create Organization Operator' },
     { key: 'approval-switch', title: 'Operator Creation Approval Switch', what: "Portal's own maker-checker for creating operators.", why: 'Portal setting only.', portalPath: 'Search › Organization › Details › KYC Info' },
-    { key: 'c2b-urls', title: 'Change registered paybill callback URLs', what: 'Point paybill payments at a different system after the first registration in production.', why: 'Production Daraja refuses to overwrite registered URLs. Delete and re-add them in the Daraja portal.', portalPath: 'Daraja portal › My Apps › your app › C2B URLs' },
+    { key: 'c2b-urls', title: 'Change registered paybill callback URLs', what: 'Point paybill payments at a different system after the first registration in production.', why: 'Production Daraja refuses to overwrite registered URLs. View, delete and re-add them on the Daraja portal, after proving it is you with the M-PESA admin username and an SMS code.', portalPath: 'Daraja portal › Self Service › URL Management › View URLs' },
     { key: 'portal-audit', title: 'Audit log of portal actions', what: 'What people did inside the Safaricom portal.', why: 'No API. Studio audits only what happens in studio.', portalPath: 'My Preference › Audit Log' },
   ] as NotPossibleItem[],
 };

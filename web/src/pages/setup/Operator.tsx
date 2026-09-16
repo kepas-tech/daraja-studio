@@ -11,6 +11,8 @@ import { copy } from '../../copy/en';
 import { StepFooter } from './StepFooter';
 import { Questionnaire } from '../../components/Questionnaire';
 import { Segmented } from '../../components/Segmented';
+import { SafaricomHow } from '../../components/SafaricomHow';
+import { how } from '../../copy/guide';
 
 type Mode = 'modePassword' | 'modeCredential';
 
@@ -45,11 +47,12 @@ export function Operator({ onDone, onBack }: { onDone: () => void; onBack: () =>
   };
   return (
     <div className="space-y-6">
+      <SafaricomHow links={mode === 'modePassword' ? [how.operatorCreate, how.operatorPassword, how.certificateSandbox, how.certificateProduction] : [how.operatorCreate, how.operatorPassword, how.credential]} />
       <Questionnaire doneLabel={copy.setup.operator.add} busy={busy} onDone={() => void submit()} steps={[
-        { key: 'name', question: copy.setup.operator.name, valid: f.name.length > 0, render: () => <TextField label={copy.setup.operator.name} labelHidden value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} autoComplete="off" autoFocus /> },
+        { key: 'name', question: copy.setup.operator.name, hint: copy.setup.operator.nameHint, valid: f.name.length > 0, render: () => <TextField label={copy.setup.operator.name} labelHidden value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} autoComplete="off" autoFocus /> },
         { key: 'mode', question: copy.setup.operator.mode, valid: true, render: () => <Segmented name="operator-mode" label={copy.setup.operator.mode} value={mode} onChange={setMode} options={[{ value: 'modeCredential', label: copy.setup.operator.modeCredential }, { value: 'modePassword', label: copy.setup.operator.modePassword }]} /> },
         ...(mode === 'modePassword' ? [
-          { key: 'password', question: copy.setup.operator.password, valid: f.operatorPassword.length > 0, render: () => <TextField label={copy.setup.operator.password} labelHidden type="password" value={f.operatorPassword} onChange={(e) => setF({ ...f, operatorPassword: e.target.value })} autoComplete="off" autoFocus /> },
+          { key: 'password', question: copy.setup.operator.password, hint: copy.setup.operator.passwordHint, valid: f.operatorPassword.length > 0, render: () => <TextField label={copy.setup.operator.password} labelHidden type="password" value={f.operatorPassword} onChange={(e) => setF({ ...f, operatorPassword: e.target.value })} autoComplete="off" autoFocus /> },
           { key: 'cert', question: copy.setup.operator.cert, valid: f.certPem.length > 0, render: () => <label className="block"><span className="sr-only">{copy.setup.operator.cert}</span><textarea className={textarea} value={f.certPem} onChange={(e) => setF({ ...f, certPem: e.target.value })} autoComplete="off" spellCheck={false} autoCorrect="off" autoFocus /></label> },
         ] : [
           { key: 'credential', question: copy.setup.operator.credential, hint: copy.setup.operator.whereCredential, valid: f.credential.length > 0, render: () => <label className="block"><span className="sr-only">{copy.setup.operator.credential}</span><textarea className={textarea} value={f.credential} onChange={(e) => setF({ ...f, credential: e.target.value })} autoComplete="off" spellCheck={false} autoCorrect="off" autoFocus /></label> },

@@ -10,6 +10,8 @@ import { StepFooter } from './StepFooter';
 import { Questionnaire } from '../../components/Questionnaire';
 import { normalizeKe } from '../../format';
 import { useSession } from '../../app/session';
+import { SafaricomHow } from '../../components/SafaricomHow';
+import { how } from '../../copy/guide';
 
 /**
  * The step that proves a passkey, which nothing else can.
@@ -64,6 +66,7 @@ export function Passkey({ onDone, onBack }: { onDone: () => void; onBack: () => 
           <p>{c.failedBody}</p>
         </Flash>
       )}
+      <SafaricomHow links={[how.passkeyProduction, how.passkeySandbox]} />
       <Flash tone="neutral">
         <p className="font-semibold">{c.testTitle}</p>
         <p>{c.testBody}</p>

@@ -49,7 +49,7 @@ describe('How to use', () => {
   it('every task that needs something from Safaricom links to the right site and spells out the clicks', () => {
     render(<MemoryRouter><Guide /></MemoryRouter>);
     const withLinks = guide.flatMap((s) => s.tasks).filter((t) => t.links?.length);
-    expect(withLinks.map((t) => t.key)).toEqual(expect.arrayContaining(['keys', 'passkey', 'operator', 'certificate', 'security-credential', 'number', 'go-live']));
+    expect(withLinks.map((t) => t.key)).toEqual(expect.arrayContaining(['daraja-account', 'keys', 'go-live', 'passkey', 'number', 'org-portal', 'operator', 'certificate', 'security-credential', 'url-management']));
     for (const t of withLinks) for (const l of t.links!) {
       const a = screen.getAllByRole('link', { name: l.label }).find((el) => el.getAttribute('href') === l.href);
       expect(a, `${t.key}: ${l.label}`).toBeDefined();

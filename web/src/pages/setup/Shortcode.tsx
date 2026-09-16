@@ -8,6 +8,8 @@ import { copy } from '../../copy/en';
 import { Flash } from '../../components/Flash';
 import { StepFooter } from './StepFooter';
 import { useSession } from '../../app/session';
+import { SafaricomHow } from '../../components/SafaricomHow';
+import { how } from '../../copy/guide';
 
 export function Shortcode({ onDone, onBack }: { onDone: () => void; onBack: () => void }) {
   const toast = useToast();
@@ -29,6 +31,7 @@ export function Shortcode({ onDone, onBack }: { onDone: () => void; onBack: () =
         timerRef.current = setTimeout(onDone, 800);
       } catch (e2) { setErr(e2 instanceof ApiError ? e2 : new Error(copy.error.generic)); setBusy(false); }
     }}>
+      <SafaricomHow links={[how.number]} />
       <TextField label={copy.setup.shortcode.field} inputMode="numeric" value={shortcode} onChange={(e) => setShortcode(e.target.value)} autoFocus />
       {msg && <Flash tone="success">{msg}</Flash>}
       <ErrorCard error={err} />
