@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.15.3 — Safaricom's own words on a refused key
+
+- `@kepas/daraja-js` 1.5.1. When Safaricom answers HTTP 401, the line it sent ("Invalid Access
+  Token", "Invalid API call as no apiproduct match found") now reaches the three-line error instead
+  of a fixed "authentication failed", so a wrong key reads differently from a product that is not
+  ticked on the app.
+
 ## 0.15.2 — "not allowed" on Bill Manager says what it is
 
 - When Safaricom answers HTTP 401 to the invoicing set-up while the same key works everywhere
