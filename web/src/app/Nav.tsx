@@ -9,31 +9,33 @@ import { StatusPill } from '../components/StatusPill';
 import { copy, type NavEntry } from '../copy/en';
 
 /**
- * The two numbers the menu shows: how many sends wait for a second person (and whether approvals
- * are on at all), and how many lines in the inbox nobody has read. Any signed-in person may read
- * both. One stream serves both counts — a second `useEvents` would open a second connection — and
- * both are read again on every reconnect, so a badge is never left stale by an event that arrived
+ * The menu's three numbers: how many rows are waiting for a person (feature 5: held for a second
+ * person, or never answered by Safaricom), whether approvals are on at all, and how many lines in
+ * the inbox nobody has read. Any signed-in person may read all three; one stream serves them, and
+ * they are read again on every reconnect, so a badge is never left stale by an event that arrived
  * while the stream was down.
  */
-function useMenuCounts(): { approvals: { count: number; enabled: boolean }; unread: number } {
+function useMenuCounts(): { approvals: { enabled: boolean }; waiting: number; unread: number } {
   // Approvals is shown until the answer says otherwise; the inbox starts empty.
-  const [approvals, setApprovals] = useState({ count: 0, enabled: true });
+  const [approvals, setApprovals] = useState({ enabled: true });
+  const [waiting, setWaiting] = useState(0);
   const [unread, setUnread] = useState(0);
-  const loadApprovals = useCallback(() => api.get<{ count: number; enabled: boolean }>('/api/approvals/count').then((r) => setApprovals({ count: r.count, enabled: !!r.enabled })).catch(() => {}), []);
+  const loadApprovals = useCallback(() => api.get<{ enabled: boolean }>('/api/approvals/count').then((r) => setApprovals({ enabled: !!r.enabled })).catch(() => {}), []);
+  const loadWaiting = useCallback(() => api.get<{ badge: number }>('/api/waiting/count').then((r) => setWaiting(r.badge ?? 0)).catch(() => {}), []);
   const loadUnread = useCallback(() => api.get<{ unread: number }>('/api/notifications/count').then((r) => setUnread(r.unread ?? 0)).catch(() => {}), []);
-  const loadBoth = useCallback(() => { void loadApprovals(); void loadUnread(); }, [loadApprovals, loadUnread]);
-  useEffect(() => { loadBoth(); }, [loadBoth]);
+  const loadAll = useCallback(() => { void loadApprovals(); void loadWaiting(); void loadUnread(); }, [loadApprovals, loadWaiting, loadUnread]);
+  useEffect(() => { loadAll(); }, [loadAll]);
   useEvents(useCallback((e) => {
-    if (e.type === 'request.updated') void loadApprovals();
+    if (e.type === 'request.updated') { void loadApprovals(); void loadWaiting(); }
     if (e.type === 'notification.created') void loadUnread();
-  }, [loadApprovals, loadUnread]), typeof EventSource !== 'undefined', loadBoth);
+  }, [loadApprovals, loadWaiting, loadUnread]), typeof EventSource !== 'undefined', loadAll);
   // Reading the inbox is not an event the server sends (nothing moved); the page says so on the window.
   useEffect(() => {
     const onChanged = () => void loadUnread();
     window.addEventListener(NOTIFICATIONS_CHANGED, onChanged);
     return () => window.removeEventListener(NOTIFICATIONS_CHANGED, onChanged);
   }, [loadUnread]);
-  return { approvals, unread };
+  return { approvals, waiting, unread };
 }
 
 function Item({ e, onPick, badge }: { e: NavEntry; onPick: () => void; badge?: number }) {
@@ -60,10 +62,11 @@ export function Nav() {
   const [open, setOpen] = useState(false);
   const pick = () => setOpen(false);
   const live = copy.nav.filter((e) => e.available);
-  const { approvals, unread } = useMenuCounts();
-  // Waiting for approval only fills while Settings › Approvals is on; hidden otherwise, unless a send still waits from before.
-  const shown = (e: NavEntry) => e.key !== 'approvals' || approvals.enabled || approvals.count > 0;
-  const badge = (e: NavEntry) => (e.key === 'approvals' ? approvals.count : e.key === 'notifications' ? unread : undefined);
+  const { approvals, waiting, unread } = useMenuCounts();
+  // Waiting fills while Settings › Approvals is on, or while a row waits for a person (held, or
+  // never answered by Safaricom); hidden only when there is nothing to do there at all.
+  const shown = (e: NavEntry) => e.key !== 'approvals' || approvals.enabled || waiting > 0;
+  const badge = (e: NavEntry) => (e.key === 'approvals' ? waiting : e.key === 'notifications' ? unread : undefined);
   return (
     <nav aria-label={copy.app.navLabel} className="w-full shrink-0 border-b border-line bg-page md:w-60 md:overflow-y-auto md:border-r md:border-b-0">
       <button type="button" aria-expanded={open} aria-controls="nav-entries" onClick={() => setOpen((v) => !v)} className="flex min-h-11 w-full cursor-pointer items-center gap-2 px-4 text-base font-semibold md:hidden">

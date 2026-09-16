@@ -18,6 +18,9 @@ afterEach(() => cleanup());
 
 const held = (over: Record<string, unknown> = {}) => ({ id: 'r1', type: 'b2c', subtype: 'BusinessPayment', status: 'awaiting_approval', amountCents: 500000, currency: 'KES', recipient: { kind: 'phone', value: '254700123456', name: null }, remarks: 'Rent', receipt: null, category: 'Rent', createdAt: '2026-09-16T07:15:30Z', sentAt: null, resultAt: null, resultSource: null, safaricomSaid: null, meaning: null, whatToDo: null, retriable: false, pollAttempts: 0, checked: null, createdBy: { id: 'owner', displayName: 'Amina' }, approvedBy: null, ...over });
 
+/** The page is the Waiting page now: the held section arrives inside GET /api/waiting. */
+const waitingView = (items: unknown[], canDecide = true) => ({ approvals: { items, canDecide }, sent: { items: [], count: 0 }, noAnswer: { items: [], count: 0 }, badge: items.length });
+
 function fetchFor(handlers: Record<string, (init?: RequestInit) => Response>) {
   return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const key = `${init?.method ?? 'GET'} ${String(input)}`;
@@ -31,7 +34,7 @@ describe('Waiting for approval', () => {
   it('lists held sends and releases one after the password', async () => {
     let posted: unknown = null;
     vi.stubGlobal('fetch', fetchFor({
-      'GET /api/approvals': () => new Response(JSON.stringify({ items: [held()], nextCursor: null }), { status: 200 }),
+      'GET /api/waiting': () => new Response(JSON.stringify(waitingView([held()])), { status: 200 }),
       'POST /api/approvals/r1/release': (init) => { posted = JSON.parse(String(init?.body)); return new Response(JSON.stringify(held({ status: 'sent' })), { status: 201 }); },
     }));
     render(<MemoryRouter><Approvals /></MemoryRouter>);
@@ -46,7 +49,7 @@ describe('Waiting for approval', () => {
   it('refusing needs a reason, and sends it', async () => {
     let posted: unknown = null;
     vi.stubGlobal('fetch', fetchFor({
-      'GET /api/approvals': () => new Response(JSON.stringify({ items: [held()], nextCursor: null }), { status: 200 }),
+      'GET /api/waiting': () => new Response(JSON.stringify(waitingView([held()])), { status: 200 }),
       'POST /api/approvals/r1/refuse': (init) => { posted = JSON.parse(String(init?.body)); return new Response(JSON.stringify(held({ status: 'rejected' })), { status: 200 }); },
     }));
     render(<MemoryRouter><Approvals /></MemoryRouter>);
@@ -61,7 +64,7 @@ describe('Waiting for approval', () => {
 
   it('your own send shows no buttons', async () => {
     vi.stubGlobal('fetch', fetchFor({
-      'GET /api/approvals': () => new Response(JSON.stringify({ items: [held({ createdBy: { id: 'anna', displayName: 'Anna' } })], nextCursor: null }), { status: 200 }),
+      'GET /api/waiting': () => new Response(JSON.stringify(waitingView([held({ createdBy: { id: 'anna', displayName: 'Anna' } })])), { status: 200 }),
     }));
     render(<MemoryRouter><Approvals /></MemoryRouter>);
     await screen.findByText(copy.approvals.own);

@@ -32,7 +32,7 @@ import { settingsRoutes } from './settings/routes.js';
 import { peopleRoutes } from './people/routes.js';
 import { setupRoutes } from './setup/routes.js';
 import { healthRoutes } from './health/routes.js';
-import { sendRoutes, requestRoutes, balanceRoutes, lookupRoutes } from './money_out/routes.js';
+import { sendRoutes, requestRoutes, balanceRoutes, lookupRoutes, waitingRoutes } from './money_out/routes.js';
 import { reversalRoutes } from './money_out/reversal.js';
 import { qrRoutes } from './qr/routes.js';
 import { orgRoutes } from './orgs/routes.js';
@@ -135,6 +135,8 @@ export function buildApp(deps: AppDeps): express.Express {
   app.use('/api/collect', collectRoutes(deps));
   app.use('/api/money-in', moneyInRoutes(deps));
   app.use('/api/approvals', approvalRoutes(deps));
+  // Feature 5: the Waiting page's three sections in one read.
+  app.use('/api/waiting', waitingRoutes(deps));
   app.use('/api/send/bulk', bulkRoutes(deps));
   app.use('/api/invoices', invoiceRoutes(deps));
   // Feature 1: the saved contact book, read by Send to phone and Bulk send.

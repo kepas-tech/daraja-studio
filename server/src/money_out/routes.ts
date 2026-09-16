@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import type { AppDeps } from '../app.js';
 import { requireAuth, requireCsrf, requireStepUp } from '../auth/middleware.js';
-import { requirePermission, assertPermission } from '../permissions/middleware.js';
+import { requirePermission, assertPermission, personPermissions } from '../permissions/middleware.js';
 import { requireMoneyReady } from './ready.js';
 import { getRequest, listRequests, type RequestView } from './reads.js';
 import { audit } from '../audit/log.js';
@@ -229,6 +229,26 @@ export function approvalRoutes(deps: AppDeps): Router {
       const b = parse(refuseSchema, req.body);
       res.json(await deps.moneyOut.refuse(String(req.params.id), b.reason, { personId: req.person!.id, ip: clientIp(req) }));
     } catch (e) { next(e); }
+  });
+  return r;
+}
+
+/**
+ * Feature 5: the Waiting page. Reads only — Release, Refuse, "Check with Safaricom" and Mark as
+ * checked keep their own routes and gates. `canDecide` is the release route's own rule (the owner,
+ * or `send.approve`), so the page never draws a button that route would refuse.
+ */
+export function waitingRoutes(deps: AppDeps): Router {
+  const r = Router();
+  r.get('/', requireAuth(deps.db), requirePermission(deps.db, 'lookup.view'), async (req, res, next) => {
+    try {
+      const person = req.person!;
+      const canDecide = person.is_owner || (await personPermissions(deps.db, person.id)).includes('send.approve');
+      res.json(await deps.moneyOut.listWaiting(canDecide));
+    } catch (e) { next(e); }
+  });
+  r.get('/count', requireAuth(deps.db), async (_req, res, next) => {
+    try { res.json({ badge: await deps.moneyOut.waitingBadge() }); } catch (e) { next(e); }
   });
   return r;
 }

@@ -1,7 +1,7 @@
 import type { Db } from '../db/pool.js';
 import { explain, type DarajaScope } from '../sdk/meaning.js';
 import { HttpError } from '../util/errors.js';
-import { COLLECT_KINDS, KINDS, LEDGER_TYPES, type RequestRow } from './registry.js';
+import { COLLECT_KINDS, KINDS, LEDGER_TYPES, MONEY_TYPES, type RequestRow } from './registry.js';
 import { AUTH_FAILED_MEANING } from './service.js';
 
 export interface RequestView {
@@ -189,3 +189,61 @@ export async function listRequests(db: Db, query: ListQuery, egressIps: string[]
   const last = page[page.length - 1];
   return { items: page.map((row) => toView(row, egressIps)), nextCursor: more && last && last.created_cursor ? encodeCursor(last.created_cursor, last.id) : null };
 }
+
+/** Feature 5: how many rows a Waiting section shows before it says it is cut off. */
+export const WAITING_LIMIT = 100;
+
+export interface WaitingSection { items: RequestView[]; count: number }
+export interface WaitingView {
+  /** Empty unless the caller may release or refuse; `canDecide` says which, so the page never
+   * draws a button the release route would refuse. */
+  approvals: { items: RequestView[]; canDecide: boolean };
+  sent: WaitingSection;
+  noAnswer: WaitingSection;
+  badge: number;
+}
+
+/**
+ * Feature 5: everything that has not finished, for the Waiting page. The type list is
+ * `MONEY_TYPES`, the sweep's own universe (money out): a row only appears here while the existing
+ * rules could still move it, and every row's "Check with Safaricom" names a type that route
+ * accepts. A row a person has already checked leaves the page, exactly as it leaves the sweep.
+ * Order and `count` are separate: the page shows the newest `limit` and the true total, so a
+ * cut-off section can say so.
+ */
+export async function listWaiting(db: Db, opts: { canDecide: boolean; egressIps: string[]; limit?: number }): Promise<WaitingView> {
+  const limit = opts.limit ?? WAITING_LIMIT;
+  // A pending row has no sent_at yet (a crash between the INSERT and Safaricom's ack), hence the
+  // same COALESCE the sweep uses for its age.
+  const live = `r.type = ANY($1) AND r.checked_at IS NULL`;
+  const newestFirst = `ORDER BY COALESCE(r.sent_at, r.created_at) DESC, r.id DESC`;
+  const [sentRows, noAnswerRows, sentCount, noAnswerCount, approvalCount] = await Promise.all([
+    db.query<ViewRow>(`${VIEW_SELECT} WHERE ${live} AND r.status IN ('sent','pending') ${newestFirst} LIMIT $2`, [MONEY_TYPES, limit]),
+    db.query<ViewRow>(`${VIEW_SELECT} WHERE ${live} AND r.status = 'unknown' ${newestFirst} LIMIT $2`, [MONEY_TYPES, limit]),
+    db.query<{ n: number }>(`SELECT count(*)::int AS n FROM requests r WHERE ${live} AND r.status IN ('sent','pending')`, [MONEY_TYPES]),
+    db.query<{ n: number }>(`SELECT count(*)::int AS n FROM requests r WHERE ${live} AND r.status = 'unknown'`, [MONEY_TYPES]),
+    db.query<{ n: number }>(`SELECT count(*)::int AS n FROM requests r WHERE r.status = 'awaiting_approval'`, []),
+  ]);
+  // The held section keeps the approvals route's own gate and shape, so Release and Refuse are
+  // handed exactly what they had before this page existed.
+  const held = opts.canDecide ? (await listRequests(db, { status: 'awaiting_approval', limit }, opts.egressIps)).items : [];
+  return {
+    approvals: { items: held, canDecide: opts.canDecide },
+    sent: { items: sentRows.map((row) => toView(row, opts.egressIps)), count: sentCount[0]?.n ?? 0 },
+    noAnswer: { items: noAnswerRows.map((row) => toView(row, opts.egressIps)), count: noAnswerCount[0]?.n ?? 0 },
+    badge: (approvalCount[0]?.n ?? 0) + (noAnswerCount[0]?.n ?? 0),
+  };
+}
+
+/**
+ * Feature 5: what the menu badge counts — held sends plus sends Safaricom never answered. A row
+ * that is merely sent is not a badge: it needs no person yet.
+ */
+export async function waitingBadge(db: Db): Promise<number> {
+  const [row] = await db.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM requests r
+      WHERE r.status = 'awaiting_approval' OR (r.status = 'unknown' AND r.checked_at IS NULL AND r.type = ANY($1))`,
+    [MONEY_TYPES]);
+  return row?.n ?? 0;
+}
+

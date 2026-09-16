@@ -4,10 +4,19 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { Nav } from '../app/Nav';
 import { copy } from '../copy/en';
 
-// The menu's approvals badge subscribes to live events and reads a count; neither is under test here.
+// The menu's badges subscribe to live events and read counts; neither is under test here.
 class FakeEventSource { onopen: (() => void) | null = null; addEventListener() {} close() {} }
 vi.stubGlobal('EventSource', FakeEventSource);
-vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ count: 0, enabled: true }), { status: 200 })));
+/** The menu reads three counts (feature 5's waiting badge, the approvals switch, the inbox); one stub answers all of them, and the URL says which. */
+function stubCounts(c: { count?: number; enabled?: boolean; badge?: number; unread?: number } = {}) {
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.includes('/api/waiting/count')) return new Response(JSON.stringify({ badge: c.badge ?? 0 }), { status: 200 });
+    if (url.includes('/api/notifications/count')) return new Response(JSON.stringify({ unread: c.unread ?? 0 }), { status: 200 });
+    return new Response(JSON.stringify({ count: c.count ?? 0, enabled: c.enabled ?? true }), { status: 200 });
+  }));
+}
+stubCounts();
 
 afterEach(cleanup);
 
@@ -51,17 +60,17 @@ describe('Nav', () => {
   // The `available` flag is the ground truth for what is finished (docs/MENU-PLAN.md), so this
   // reads it rather than repeating a list of paths that goes stale the moment a slice ships — and
   // went stale silently, because a hardcoded list only fails once somebody edits it.
-  it('shows Waiting for approval only while approvals are on, or while a send still waits', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ count: 0, enabled: false }), { status: 200 })));
+  it('shows Waiting only while approvals are on, or while something waits for a person', async () => {
+    stubCounts({ enabled: false });
     const first = render(<MemoryRouter><Nav /></MemoryRouter>);
     await waitFor(() => expect(screen.getByText('Send money')).toBeInTheDocument());
     await waitFor(() => expect(document.querySelector('a[href="/approvals"]')).toBeNull());
     first.unmount();
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ count: 2, enabled: false }), { status: 200 })));
+    stubCounts({ enabled: false, badge: 2 });
     render(<MemoryRouter><Nav /></MemoryRouter>);
     await waitFor(() => expect(document.querySelector('a[href="/approvals"]')).not.toBeNull());
     expect(screen.getByText('2')).toBeInTheDocument();
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ count: 0, enabled: true }), { status: 200 })));
+    stubCounts();
   });
 
   it('keeps the rarely used destinations off the everyday menu and offers Advanced as a plain link to them', () => {

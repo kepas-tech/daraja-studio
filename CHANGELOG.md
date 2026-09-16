@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.21.0 — one Waiting page for money that has not finished
+
+- "Waiting for approval" is now **Waiting**, and it holds three kinds of unfinished payment: sends
+  waiting for a second person, sends Safaricom has not answered yet, and sends Studio has stopped
+  checking. Each row shows how long it has been waiting.
+- Every row offers the one action that helps: Release or Refuse on a held send, "Check with
+  Safaricom" on one Safaricom has gone quiet about, and Mark as checked once a person has looked.
+  The page itself moves no money.
+- The menu badge counts what needs a person: sends waiting for approval plus sends with no answer. A
+  send that is merely in flight is not a badge.
+- `GET /api/waiting` and `/api/waiting/count`. The approval routes are unchanged, so Release and
+  Refuse keep their own gates.
+
 ## 0.20.0 — a bell that says what happened while you were away
 
 - Notifications: every payment that settles, fails or goes unanswered, every send that waits for a

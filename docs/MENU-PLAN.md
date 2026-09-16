@@ -57,7 +57,7 @@ Status values are exactly `live`, `building`, or `planned`. One slice is `buildi
 | 11 | Standing orders | `standing-orders` | live | M8 | 0.13.0, deployed 2026-09-16 |
 | 12 | Express checkout | `express` | live | M9 | 0.13.0, deployed 2026-09-16 |
 | 13 | Bonga points | `bonga` | live | M10 | 0.13.0, deployed 2026-09-16 |
-| 14 | Waiting for approval | `approvals` | live | M4 | 0.10.0, deployed 2026-09-16 |
+| 14 | Waiting | `approvals` | live | M4 | 0.10.0, deployed 2026-09-16; widened in 0.21.0 to sent and no-answer rows, with age and Check with Safaricom |
 | 15 | History | `history` | live | — | shipped in 2A |
 | 16 | People | `people` | live | — | shipped in 3B |
 | 17 | Settings | `settings` | live | — | shipped before 0.4.0 |

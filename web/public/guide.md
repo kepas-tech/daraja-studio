@@ -229,7 +229,7 @@ Who: Anyone with a login · Route: /login
 ### The menu
 
 1. The left menu shows your business name, your paybill or till number and whether you are in Sandbox or Production.
-2. Home and History come first. Then Get paid (Ask a customer to pay, Money in, QR codes, Invoices), Pay out (Send money, and Waiting for approval while approvals are on), and Manage (Settings, Advanced).
+2. Home and History come first. Then Get paid (Ask a customer to pay, Money in, QR codes, Invoices), Pay out (Send money, Contacts, Bulk send, and Waiting whenever a send needs a person), and Manage (Businesses, Settings, Advanced).
 3. Advanced opens a page of cards for things you set up once or use now and then: Standing orders, Express checkout, Bonga points, Bulk send, Reverse a payment.
 4. Below the line: How to use (this page) and Not possible via API.
 5. Your name at the top right opens the account menu: Organisation, Change password, Log out.
@@ -543,22 +543,27 @@ Safaricom calls this: Bulk Task › Bulk Payment · Where: Manage → Advanced �
 | GET | `/api/send/bulk/:id` | bulk.send |
 | POST | `/api/send/bulk/:id/retry` | bulk.send, password |
 
-### Waiting for approval
+### Waiting
 
-Safaricom calls this: Review Transaction · Where: Pay out → Waiting for approval · Who: An Approver releases or refuses; anyone logged in sees the count · Route: /approvals · Permission: send.approve
+Safaricom calls this: Review Transaction · Where: Pay out → Waiting · Who: Anyone logged in; an Approver or the owner releases or refuses · Route: /approvals · Permission: send.approve
 
-1. Turn it on in Settings › Approvals: hold sends of this amount or more (0 turns it off). It applies to everyone, the owner included.
-2. Give somebody the Approver role in People, or nothing can be released.
-3. The menu shows Waiting for approval, with a count, while approvals are on or a send still waits.
-4. Each held send shows the amount, who it is to, the category and note, who made it and when. Release asks for your password and sends it. Refuse asks why; the maker sees the reason.
-5. Nobody can release or refuse their own send. A held send is refused on its own after 24 hours.
+1. Everything that has not finished is on one page, in three groups: waiting for a second person, sent and not yet answered by Safaricom, and no answer yet.
+2. Each row shows how long it has waited, so the oldest is easy to spot.
+3. Waiting for a second person: turn it on in Settings › Approvals to hold sends of an amount or more (0 turns it off); it applies to everyone, the owner included. Give somebody the Approver role in People, or nothing can be released. Release asks for your password and sends it. Refuse asks why, and the maker sees the reason.
+4. Nobody can release or refuse their own send. A held send is refused on its own after 24 hours.
+5. Sent, waiting for Safaricom: the request is with Safaricom and no answer has come back. Most answers arrive within two minutes; Studio asks again on its own, or press Check with Safaricom.
+6. No answer yet: five checks went by with no answer. Check the Safaricom portal, then open the row and Mark as checked, which takes it off this page.
+7. The menu shows Waiting with a count of the rows that need a person: held sends and no-answer sends. A send Safaricom is still working on is not counted.
 
 | Method | Path | Who |
 |---|---|---|
+| GET | `/api/waiting` | lookup.view; the three sections and the badge |
+| GET | `/api/waiting/count` | signed in; { badge } |
 | GET | `/api/approvals` | send.approve |
 | GET | `/api/approvals/count` | signed in; { count, enabled } |
 | POST | `/api/approvals/:id/release` | send.approve, password |
 | POST | `/api/approvals/:id/refuse` | send.approve; body { reason } |
+| POST | `/api/requests/:id/check` | the permission of that kind of send |
 | PUT | `/api/settings/approval-threshold` | owner, password; body { cents } |
 
 ### Reverse a payment

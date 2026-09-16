@@ -17,7 +17,7 @@ import { enqueue } from '../db/jobs.js';
 import { PUBLIC_URL_UNVERIFIED } from './ready.js';
 import { KINDS, MONEY_TYPES, type CallbackUrls, type RequestKind, type RequestRow } from './registry.js';
 import { failOperatorOnCredentialCode } from './operatorHealth.js';
-import { getRequest, listRequests, type Page, type RequestView } from './reads.js';
+import { getRequest, listRequests, listWaiting, waitingBadge, type Page, type RequestView, type WaitingView } from './reads.js';
 
 export interface SendInput { phone: string; amountCents: number; commandId: 'BusinessPayment' | 'SalaryPayment' | 'PromotionPayment'; category?: string; remarks?: string; occasion?: string; confirmDuplicate?: boolean; /** Feature 1: the saved phone contact this send is labelled with; checked below. */ contactId?: string; /** Feature 2: the business this send belongs to. Checked below; the last one used becomes the pickers' default. */ businessId?: string; /** M5: the batch this row belongs to; never accepted from a client. */ bulk?: { planId: string; index: number } }
 export interface Actor { personId: string; ip: string }
@@ -43,6 +43,10 @@ export interface MoneyOutService {
   release(requestId: string, actor: Actor): Promise<RequestView>;
   refuse(requestId: string, reason: string, actor: Actor): Promise<RequestView>;
   listAwaiting(): Promise<Page<RequestView>>;
+  /** Feature 5: the Waiting page's three sections. `canDecide` is the release route's own gate. */
+  listWaiting(canDecide: boolean): Promise<WaitingView>;
+  /** Feature 5: held sends plus sends Safaricom never answered, for the menu badge. */
+  waitingBadge(): Promise<number>;
   /** Held rows older than 24 hours are refused by the clock. Returns how many. */
   expireApprovals(): Promise<number>;
 }
@@ -451,6 +455,10 @@ export function createMoneyOutService(deps: { db: Db; settings: Settings; daraja
     },
 
     async listAwaiting() { return listRequests(deps.db, { status: 'awaiting_approval', limit: 100 }, deps.config.egressIps); },
+
+    async listWaiting(canDecide) { return listWaiting(deps.db, { canDecide, egressIps: deps.config.egressIps }); },
+
+    async waitingBadge() { return waitingBadge(deps.db); },
 
     async expireApprovals() {
       const rows = await deps.db.query<{ id: string }>(

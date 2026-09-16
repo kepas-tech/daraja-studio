@@ -148,6 +148,18 @@ export type UnmatchedView = RequestView & {
   customerNumber?: number | null;
 };
 export interface Page<T> { items: T[]; nextCursor: string | null }
+/** One section of the Waiting page: the newest rows shown, and the true total behind them. */
+export interface WaitingSection { items: RequestView[]; count: number }
+/**
+ * `GET /api/waiting` (feature 5). The held rows are empty unless the caller may release or refuse —
+ * `canDecide` says which, so the page never draws a button the release route would refuse.
+ */
+export interface WaitingView {
+  approvals: { items: RequestView[]; canDecide: boolean };
+  sent: WaitingSection;
+  noAnswer: WaitingSection;
+  badge: number;
+}
 /** How loud a line in the inbox is. Four levels, the same four the server writes (design 2026-09-16, feature 4). */
 export type NotificationSeverity = 'info' | 'success' | 'warning' | 'critical';
 /** `GET /api/notifications`. `count` is how many times the same event happened before it was read. */
