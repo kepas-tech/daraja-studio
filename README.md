@@ -48,6 +48,13 @@ Two optional settings worth knowing before real money is involved:
 
 Open http://localhost:5173. The server listens on http://localhost:8080.
 
+## Keeping your own details out of the repo
+
+Sample data in tests is made up. Put your real paybill or till number, phone numbers, names,
+operator usernames and app names in the repo-root `.env` (git-ignored) as
+`STUDIO_PRIVATE_STRINGS=a,b,c`; `server/test/private-strings.test.ts` then fails the suite if any
+of them appears in a tracked file.
+
 ## Deploy
 
 See [`deploy/README.md`](deploy/README.md) for Docker Compose (Postgres + Caddy + backups every

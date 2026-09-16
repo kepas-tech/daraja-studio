@@ -69,7 +69,7 @@ export function createFakeSafaricom(opts: FakeSafaricomOptions): FakeSafaricom {
   let sync: { code: string; desc: string } | null = null;
   let syncLost = false;
   let v3Refused = false;
-  let orgInfoName: string | null | false = 'KEPAS TECHNOLOGIES';
+  let orgInfoName: string | null | false = 'ACME TRADERS';
   let fixedDate: Date | null = null;
   let n = 0;
   let utility = 34392;
@@ -129,7 +129,7 @@ export function createFakeSafaricom(opts: FakeSafaricomOptions): FakeSafaricom {
     return { Result: {
       ResultType: 0, ResultCode: 0, ResultDesc: OK_DESC, OriginatorConversationID: queryOc, ConversationID: conv, TransactionID: receipt,
       ResultParameters: { ResultParameter: [
-        param('DebitPartyName', '600999 - KEPAS'), param('CreditPartyName', '254700123456 - Jane Doe'), param('OriginatorConversationID', queryOc),
+        param('DebitPartyName', '600999 - ACME'), param('CreditPartyName', '254700123456 - Jane Doe'), param('OriginatorConversationID', queryOc),
         param('InitiatedTime', 20260906142000), param('DebitAccountType', 'Utility Account'), param('DebitPartyCharges', ''), param('TransactionReason', ''),
         param('ReasonType', 'Business Payment to Customer via API'), param('TransactionStatus', transactionStatus), param('FinalisedTime', 20260906142002),
         param('Amount', amount), param('ConversationID', conv), param('ReceiptNo', receipt),
@@ -362,7 +362,7 @@ export function createFakeSafaricom(opts: FakeSafaricomOptions): FakeSafaricom {
       const offset = Number(body.OffSetValue ?? 0);
       const rows = paid.slice(offset, offset + 100).map((p) => ({
         transactionId: p.receipt, trxDate: p.at.toISOString().replace('T', ' ').slice(0, 19), msisdn: p.phone, sender: 'JANE DOE',
-        transactiontype: 'c2b-pay-bill-debit', billreference: p.account, amount: String(p.amount), organizationname: 'KEPAS',
+        transactiontype: 'c2b-pay-bill-debit', billreference: p.account, amount: String(p.amount), organizationname: 'ACME',
       }));
       return json({ ResponseRefID: `fake-pq-${n}`, ResponseCode: '1000', ResponseMessage: 'Success', Response: [rows] });
     }
@@ -417,7 +417,7 @@ export function createFakeSafaricom(opts: FakeSafaricomOptions): FakeSafaricom {
       }
       return id;
     },
-    reset() { scenario = 'completes'; sync = null; syncLost = false; v3Refused = false; orgInfoName = 'KEPAS TECHNOLOGIES'; fixedDate = null; calls.length = 0; queue.length = 0; sent.clear(); stk.clear(); utility = 34392; paid.length = 0; c2bConfirmUrl = null; billManagerUrl = null; },
+    reset() { scenario = 'completes'; sync = null; syncLost = false; v3Refused = false; orgInfoName = 'ACME TRADERS'; fixedDate = null; calls.length = 0; queue.length = 0; sent.clear(); stk.clear(); utility = 34392; paid.length = 0; c2bConfirmUrl = null; billManagerUrl = null; },
     async settle() { while (queue.length) { const fn = queue.shift()!; await fn().catch(() => {}); } },
   };
 }

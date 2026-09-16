@@ -30,7 +30,7 @@ async function seedPhase2(): Promise<{ personId: string; operatorId: string; req
   await migrate(db, preSevenDir);
   await db.query(
     `INSERT INTO settings(key, value, encrypted) VALUES
-       ('org.name','KEPAS TECHNOLOGIES',false),
+       ('org.name','ACME TRADERS',false),
        ('install.secret','v1:AAAA:BBBB:CCCC',true),
        ('https.seen','true',false),
        ('daraja.environment','production',false),
@@ -43,7 +43,7 @@ async function seedPhase2(): Promise<{ personId: string; operatorId: string; req
     `INSERT INTO people(username, display_name, password_hash, is_owner) VALUES ('owner','Owner','h',true) RETURNING id`,
   );
   const [o] = await db.query<{ id: string }>(
-    `INSERT INTO operators(name, credential_enc, status, environment) VALUES ('KEPAS','v1:C','verified','production') RETURNING id`,
+    `INSERT INTO operators(name, credential_enc, status, environment) VALUES ('APIONE','v1:C','verified','production') RETURNING id`,
   );
   const [r] = await db.query<{ id: string }>(
     `INSERT INTO requests(type, originator_conversation_id, status, amount_cents, operator_id, created_by)
@@ -68,7 +68,7 @@ describe('migration 007', () => {
       'SELECT * FROM orgs',
     );
     expect(org.slug).toBe('org-1');
-    expect(org.name).toBe('KEPAS TECHNOLOGIES');
+    expect(org.name).toBe('ACME TRADERS');
     expect(org.status).toBe('verified');
     expect(org.is_host).toBe(true);
     expect(org.verified_at).not.toBeNull();
@@ -144,7 +144,7 @@ describe('migration 007', () => {
     await db.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public;');
     await migrate(db, preSevenDir);
     const [o] = await db.query<{ id: string }>(
-      `INSERT INTO operators(name, credential_enc, status) VALUES ('KEPAS','v1:C','verified') RETURNING id`,
+      `INSERT INTO operators(name, credential_enc, status) VALUES ('APIONE','v1:C','verified') RETURNING id`,
     );
     const [r] = await db.query<{ id: string }>(
       `INSERT INTO requests(type, originator_conversation_id, status, operator_id) VALUES ('b2c','oc-1','completed',$1) RETURNING id`,

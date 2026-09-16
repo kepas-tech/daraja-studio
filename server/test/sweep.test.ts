@@ -14,7 +14,7 @@ afterAll(() => deps.db.end());
 const statusAck = vi.fn(async () => ({ conversationId: 'AG_Q', originatorConversationId: `q-${Math.random().toString(36).slice(2)}`, responseCode: '0', responseDescription: 'Accept the service request successfully.' }));
 const factory = (transaction = statusAck): DarajaFactory => ({
   get: async () => ({}) as never,
-  getForOperator: async () => ({ status: { transaction }, config: { initiator: 'KEPAS' } }) as never,
+  getForOperator: async () => ({ status: { transaction }, config: { initiator: 'APIONE' } }) as never,
   invalidate: () => {}, stkEnabled: async () => false,
 });
 const noOperator: DarajaFactory = { get: async () => ({}) as never, getForOperator: async () => { throw new HttpError(409, 'no_operator', 'x'); }, invalidate: () => {}, stkEnabled: async () => false };
@@ -37,7 +37,7 @@ describe('money out: sweep', () => {
   beforeEach(async () => {
     await resetTables(deps.db);
     await deps.settings.set('public.url', 'https://studio.example');
-    await deps.db.query(`INSERT INTO operators(name, credential_enc, status) VALUES ('KEPAS',$1,'verified')`, [encrypt(deps.config.secretKey, 'c')]);
+    await deps.db.query(`INSERT INTO operators(name, credential_enc, status) VALUES ('APIONE',$1,'verified')`, [encrypt(deps.config.secretKey, 'c')]);
     statusAck.mockClear();
   });
 

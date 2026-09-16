@@ -25,7 +25,7 @@ describe('parseBulk', () => {
 const ack = vi.fn(async (input: { originatorConversationId: string; phone: string }) => ({ conversationId: 'AG_1', originatorConversationId: input.originatorConversationId, responseCode: '0', responseDescription: 'Accept the service request successfully.' }));
 const factory: DarajaFactory = {
   get: async () => ({ b2c: { send: ack } }) as never,
-  getForOperator: async () => ({ b2c: { send: ack }, config: { initiator: 'KEPAS' } }) as never,
+  getForOperator: async () => ({ b2c: { send: ack }, config: { initiator: 'APIONE' } }) as never,
   invalidate: () => {},
   stkEnabled: async () => false,
 } as unknown as DarajaFactory;
@@ -43,7 +43,7 @@ describe('bulk send', () => {
     await deps.settings.set('env.sandbox.consumerSecret', 's');
     await deps.settings.set('env.sandbox.credsVerifiedAt', new Date().toISOString());
     await deps.settings.set('env.sandbox.shortcode', '600999');
-    await deps.db.query(`INSERT INTO operators(name, credential_enc, status, priority) VALUES ('KEPAS',$1,'verified',1)`, [encrypt(deps.config.secretKey, 'c')]);
+    await deps.db.query(`INSERT INTO operators(name, credential_enc, status, priority) VALUES ('APIONE',$1,'verified',1)`, [encrypt(deps.config.secretKey, 'c')]);
     ack.mockClear();
   });
   const h = (r: request.Test) => r.set('Cookie', s.cookie).set('x-csrf-token', s.csrf);

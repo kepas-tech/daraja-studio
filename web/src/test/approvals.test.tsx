@@ -16,7 +16,7 @@ vi.stubGlobal('EventSource', FakeEventSource);
 vi.mock('../app/session', () => ({ useSession: () => ({ status: 'ready', person: { id: 'anna', display_name: 'Anna', is_owner: false }, org: null, permissions: ['send.approve'], refresh: async () => {} }) }));
 afterEach(() => cleanup());
 
-const held = (over: Record<string, unknown> = {}) => ({ id: 'r1', type: 'b2c', subtype: 'BusinessPayment', status: 'awaiting_approval', amountCents: 500000, currency: 'KES', recipient: { kind: 'phone', value: '254700123456', name: null }, remarks: 'Rent', receipt: null, category: 'Rent', createdAt: '2026-09-16T07:15:30Z', sentAt: null, resultAt: null, resultSource: null, safaricomSaid: null, meaning: null, whatToDo: null, retriable: false, pollAttempts: 0, checked: null, createdBy: { id: 'owner', displayName: 'Nelson' }, approvedBy: null, ...over });
+const held = (over: Record<string, unknown> = {}) => ({ id: 'r1', type: 'b2c', subtype: 'BusinessPayment', status: 'awaiting_approval', amountCents: 500000, currency: 'KES', recipient: { kind: 'phone', value: '254700123456', name: null }, remarks: 'Rent', receipt: null, category: 'Rent', createdAt: '2026-09-16T07:15:30Z', sentAt: null, resultAt: null, resultSource: null, safaricomSaid: null, meaning: null, whatToDo: null, retriable: false, pollAttempts: 0, checked: null, createdBy: { id: 'owner', displayName: 'Amina' }, approvedBy: null, ...over });
 
 function fetchFor(handlers: Record<string, (init?: RequestInit) => Response>) {
   return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -35,7 +35,7 @@ describe('Waiting for approval', () => {
       'POST /api/approvals/r1/release': (init) => { posted = JSON.parse(String(init?.body)); return new Response(JSON.stringify(held({ status: 'sent' })), { status: 201 }); },
     }));
     render(<MemoryRouter><Approvals /></MemoryRouter>);
-    await screen.findByText('Nelson');
+    await screen.findByText('Amina');
     fireEvent.click(screen.getByRole('button', { name: copy.approvals.release }));
     await screen.findByText(copy.approvals.confirmRelease('KES 5,000'));
     fireEvent.change(screen.getByLabelText(copy.confirm.yourPassword), { target: { value: 'correct horse' } });
@@ -50,7 +50,7 @@ describe('Waiting for approval', () => {
       'POST /api/approvals/r1/refuse': (init) => { posted = JSON.parse(String(init?.body)); return new Response(JSON.stringify(held({ status: 'rejected' })), { status: 200 }); },
     }));
     render(<MemoryRouter><Approvals /></MemoryRouter>);
-    await screen.findByText('Nelson');
+    await screen.findByText('Amina');
     fireEvent.click(screen.getByRole('button', { name: copy.approvals.refuse }));
     const refuse = screen.getByRole('button', { name: copy.approvals.refuse });
     expect(refuse).toBeDisabled();
@@ -71,7 +71,7 @@ describe('Waiting for approval', () => {
 
 describe('Settings › Approvals', () => {
   const slot = { shortcode: null, consumerKey: 'none', consumerSecret: 'none', credsVerifiedAt: null, passkey: 'none', certPem: 'none', b2cApi: { setting: 'auto', detected: null, detectedAt: null }, ready: { creds: false, operator: false }, operators: [] };
-  const view = { mode: 'sandbox', environments: { sandbox: slot, production: slot }, org: { name: 'KEPAS', nominatedNumber: '', notificationPhone: '' }, stkEnabled: false, publicUrl: null, publicVerifiedAt: null, httpsSeen: false, allowlist: [], setupCompletedAt: 'x', sendCategories: [], approvalThresholdCents: 0 } as unknown as SettingsView;
+  const view = { mode: 'sandbox', environments: { sandbox: slot, production: slot }, org: { name: 'APIONE', nominatedNumber: '', notificationPhone: '' }, stkEnabled: false, publicUrl: null, publicVerifiedAt: null, httpsSeen: false, allowlist: [], setupCompletedAt: 'x', sendCategories: [], approvalThresholdCents: 0 } as unknown as SettingsView;
   const stepUp = { ask: vi.fn((_t: string, run: (pw: string) => Promise<void>) => { void run('pw'); }), dialogProps: { open: false, title: '', busy: false, error: null, onConfirm: () => {}, onCancel: () => {} } };
 
   it('shows Off, and saving a threshold puts the cents', async () => {

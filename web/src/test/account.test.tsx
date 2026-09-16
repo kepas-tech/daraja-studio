@@ -25,7 +25,7 @@ const view = {
     sandbox: slot({ shortcode: '174379' }),
     production: slot({ shortcode: '700111', credsVerifiedAt: '2026-09-07T07:00:00Z', ready: { creds: true, operator: true } }),
   },
-  org: { name: 'KEPAS TECHNOLOGIES', nominatedNumber: '254700000000', notificationPhone: '254700000000' },
+  org: { name: 'ACME TRADERS', nominatedNumber: '254700000000', notificationPhone: '254700000000' },
   stkEnabled: false, publicUrl: 'https://darajastudio.com', publicVerifiedAt: '2026-09-08T04:00:00Z', httpsSeen: true,
   allowlist: ['196.201.214.200'], setupCompletedAt: '2026-09-01T09:00:00Z',
   sendCategories: [], approvalThresholdCents: 0,
@@ -38,9 +38,9 @@ function mount(handlers: (url: string, method: string, init?: RequestInit) => Re
     if (url === '/api/setup/status') return new Response(JSON.stringify({ mode: 'hosted', hosted: { signupOpen: true, egressIps: ['192.0.2.10'] }, needsOwner: false, completed: true, step: 'done' }), { status: 200 });
     if (url === '/api/auth/me') {
       return new Response(JSON.stringify({
-        person: { id: 'p1', username: 'amina@example.co.ke', display_name: 'Nelson', is_owner: true, must_change_password: false },
+        person: { id: 'p1', username: 'amina@example.co.ke', display_name: 'Amina', is_owner: true, must_change_password: false },
         csrf: 'c', permissions: [],
-        org: { id: 'o1', name: 'KEPAS TECHNOLOGIES', status: 'verified', environment: 'production', isHost: true, suspendReason: null, createdAt: '2026-09-01T08:00:00Z', verifiedAt: '2026-09-01T09:05:00Z' },
+        org: { id: 'o1', name: 'ACME TRADERS', status: 'verified', environment: 'production', isHost: true, suspendReason: null, createdAt: '2026-09-01T08:00:00Z', verifiedAt: '2026-09-01T09:05:00Z' },
       }), { status: 200 });
     }
     if (url === '/api/settings' && method === 'GET') return new Response(JSON.stringify(data), { status: 200 });
@@ -58,7 +58,7 @@ describe('Settings › Organisation', () => {
   it('names the organisation, when it signed up and when Safaricom verified it', async () => {
     mount(() => { throw new Error('no other call expected'); }, view, <Settings />);
     await screen.findByText(copy.settings.organisation.title);
-    expect(screen.getAllByText('KEPAS TECHNOLOGIES').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('ACME TRADERS').length).toBeGreaterThan(0);
     expect(screen.getByText(copy.org.signedUp, { exact: false })).toBeInTheDocument();
     expect(screen.getByText(copy.org.verifiedOn, { exact: false })).toBeInTheDocument();
   });
@@ -156,10 +156,10 @@ describe('Account', () => {
     const dialog = await screen.findByRole('dialog');
     fireEvent.change(within(dialog).getByLabelText(copy.confirm.yourPassword), { target: { value: 'owner-password' } });
     expect(within(dialog).getByRole('button', { name: copy.confirm.confirm })).toBeDisabled();
-    fireEvent.change(within(dialog).getByLabelText(copy.account.typeName('KEPAS TECHNOLOGIES')), { target: { value: 'KEPAS' } });
+    fireEvent.change(within(dialog).getByLabelText(copy.account.typeName('ACME TRADERS')), { target: { value: 'APIONE' } });
     expect(within(dialog).getByRole('button', { name: copy.confirm.confirm })).toBeDisabled();
-    fireEvent.change(within(dialog).getByLabelText(copy.account.typeName('KEPAS TECHNOLOGIES')), { target: { value: 'KEPAS TECHNOLOGIES' } });
+    fireEvent.change(within(dialog).getByLabelText(copy.account.typeName('ACME TRADERS')), { target: { value: 'ACME TRADERS' } });
     fireEvent.click(within(dialog).getByRole('button', { name: copy.confirm.confirm }));
-    await waitFor(() => expect(wiped).toEqual({ confirmName: 'KEPAS TECHNOLOGIES', password: 'owner-password' }));
+    await waitFor(() => expect(wiped).toEqual({ confirmName: 'ACME TRADERS', password: 'owner-password' }));
   });
 });

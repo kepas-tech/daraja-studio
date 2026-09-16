@@ -19,13 +19,13 @@ vi.stubGlobal('EventSource', FakeEventSource);
 afterEach(() => cleanup());
 const fresh = { workingCents: 1400, utilityCents: 3439200, chargesPaidCents: 2500, queriedAt: new Date().toISOString() };
 const slot = { shortcode: null, consumerKey: { saved: true, last4: '4f2a' }, consumerSecret: { saved: true, last4: null }, credsVerifiedAt: 'x', passkey: { saved: false, last4: null }, cert: { saved: false, last4: null }, operators: [], ready: { creds: true, operator: true }, b2cApi: { setting: 'auto', detected: null, detectedAt: null } };
-const settings = { mode: 'sandbox', environments: { sandbox: slot, production: slot }, org: { name: 'KEPAS', nominatedNumber: '', notificationPhone: '' }, publicVerifiedAt: 'x', stkEnabled: true, publicUrl: 'x', httpsSeen: true, allowlist: [], setupCompletedAt: 'x', sendCategories: [], approvalThresholdCents: 0 };
+const settings = { mode: 'sandbox', environments: { sandbox: slot, production: slot }, org: { name: 'APIONE', nominatedNumber: '', notificationPhone: '' }, publicVerifiedAt: 'x', stkEnabled: true, publicUrl: 'x', httpsSeen: true, allowlist: [], setupCompletedAt: 'x', sendCategories: [], approvalThresholdCents: 0 };
 
 function mount(latestRef: { value: unknown }, onRefresh: () => Response) {
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const key = `${init?.method ?? 'GET'} ${String(input)}`;
     if (key === 'GET /api/setup/status') return new Response(JSON.stringify({ needsOwner: false, completed: true, step: null }), { status: 200 });
-    if (key === 'GET /api/auth/me') return new Response(JSON.stringify({ person: { id: '1', username: 'owner', display_name: 'Owner', is_owner: true, must_change_password: false }, csrf: 'c', permissions: [], org: { id: 'o', name: 'KEPAS', status: 'verified', environment: 'sandbox', isHost: true, suspendReason: null } }), { status: 200 });
+    if (key === 'GET /api/auth/me') return new Response(JSON.stringify({ person: { id: '1', username: 'owner', display_name: 'Owner', is_owner: true, must_change_password: false }, csrf: 'c', permissions: [], org: { id: 'o', name: 'APIONE', status: 'verified', environment: 'sandbox', isHost: true, suspendReason: null } }), { status: 200 });
     if (key === 'GET /api/settings') return new Response(JSON.stringify(settings), { status: 200 });
     if (key === 'GET /api/balances/latest') return new Response(JSON.stringify(latestRef.value), { status: 200 });
     if (key.startsWith('GET /api/requests?')) return new Response(JSON.stringify({ items: [], nextCursor: null }), { status: 200 });

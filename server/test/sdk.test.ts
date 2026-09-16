@@ -32,17 +32,17 @@ describe('sdk', () => {
   });
 
   it('attaches the highest-priority verified operator', async () => {
-    await deps.db.query(`INSERT INTO operators(name, credential_enc, status, priority) VALUES ('KEPAS',$1,'verified',1), ('APITWO',$2,'verified',2)`,
-      [encrypt(deps.config.secretKey, 'cred-kepas'), encrypt(deps.config.secretKey, 'cred-two')]);
+    await deps.db.query(`INSERT INTO operators(name, credential_enc, status, priority) VALUES ('APIONE',$1,'verified',1), ('APITWO',$2,'verified',2)`,
+      [encrypt(deps.config.secretKey, 'cred-one'), encrypt(deps.config.secretKey, 'cred-two')]);
     const f = createDarajaFactory({ ...deps, secretKey: deps.config.secretKey });
     const d = await f.get();
-    expect(d.config.initiator).toBe('KEPAS');
-    expect(d.config.securityCredential).toBe('cred-kepas');
+    expect(d.config.initiator).toBe('APIONE');
+    expect(d.config.securityCredential).toBe('cred-one');
   });
 
   it('rebuilds the client when settings or the operator credential change, without calling invalidate()', async () => {
-    await deps.db.query(`INSERT INTO operators(name, credential_enc, status, priority) VALUES ('KEPAS',$1,'verified',1)`,
-      [encrypt(deps.config.secretKey, 'cred-kepas')]);
+    await deps.db.query(`INSERT INTO operators(name, credential_enc, status, priority) VALUES ('APIONE',$1,'verified',1)`,
+      [encrypt(deps.config.secretKey, 'cred-one')]);
     const f = createDarajaFactory({ ...deps, secretKey: deps.config.secretKey });
     const d1 = await f.get();
     expect(d1.config.environment).toBe('sandbox');
@@ -56,10 +56,10 @@ describe('sdk', () => {
     expect(d2.config.environment).toBe('production');
     await deps.settings.set('daraja.environment', 'sandbox');
 
-    await deps.db.query(`UPDATE operators SET credential_enc=$1 WHERE name='KEPAS'`,
-      [encrypt(deps.config.secretKey, 'cred-kepas-rotated')]);
+    await deps.db.query(`UPDATE operators SET credential_enc=$1 WHERE name='APIONE'`,
+      [encrypt(deps.config.secretKey, 'cred-one-rotated')]);
     const d3 = await f.get();
-    expect(d3.config.securityCredential).toBe('cred-kepas-rotated');
+    expect(d3.config.securityCredential).toBe('cred-one-rotated');
 
     await deps.settings.set('env.sandbox.consumerSecret', 's2');
     const d4 = await f.get();
@@ -197,11 +197,11 @@ describe('sdk', () => {
     const f = createDarajaFactory({ ...deps, secretKey: deps.config.secretKey });
     await expect(f.get()).resolves.toBeTruthy();
     await expect(f.getForOperator()).rejects.toMatchObject({ status: 409, code: 'no_operator' });
-    await deps.db.query(`INSERT INTO operators(name, credential_enc, status, priority) VALUES ('KEPAS',$1,'pending',1)`, [encrypt(deps.config.secretKey, 'c')]);
+    await deps.db.query(`INSERT INTO operators(name, credential_enc, status, priority) VALUES ('APIONE',$1,'pending',1)`, [encrypt(deps.config.secretKey, 'c')]);
     await expect(f.getForOperator()).rejects.toMatchObject({ code: 'no_operator' });
     await deps.db.query(`UPDATE operators SET status='verified'`);
     const d = await f.getForOperator();
-    expect(d.config.initiator).toBe('KEPAS');
+    expect(d.config.initiator).toBe('APIONE');
   });
 
   it('passes an injected fetchImpl into the Daraja client config', async () => {

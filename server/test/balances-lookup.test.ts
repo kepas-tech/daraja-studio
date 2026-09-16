@@ -10,14 +10,14 @@ const SAF_IP = '196.201.214.200';
 
 const balanceQuery = vi.fn(async () => ({ conversationId: 'AG_B', originatorConversationId: `bal-${Math.random().toString(36).slice(2)}`, responseCode: '0', responseDescription: 'ok' }));
 const transaction = vi.fn(async () => ({ conversationId: 'AG_S', originatorConversationId: `st-${Math.random().toString(36).slice(2)}`, responseCode: '0', responseDescription: 'ok' }));
-const daraja: DarajaFactory = { get: async () => ({}) as never, getForOperator: async () => ({ balance: { query: balanceQuery }, status: { transaction }, config: { initiator: 'KEPAS' } }) as never, invalidate: () => {}, stkEnabled: async () => false };
+const daraja: DarajaFactory = { get: async () => ({}) as never, getForOperator: async () => ({ balance: { query: balanceQuery }, status: { transaction }, config: { initiator: 'APIONE' } }) as never, invalidate: () => {}, stkEnabled: async () => false };
 const { app, deps, close } = makeApp({ daraja });
 afterAll(close);
 
 async function ready() {
   await deps.settings.set('public.url', 'https://studio.example');
   await deps.settings.set('public.verifiedAt', new Date().toISOString());
-  await deps.db.query(`INSERT INTO operators(name, credential_enc, status, rotated_at) VALUES ('KEPAS',$1,'verified', now() - interval '84 days')`, [encrypt(deps.config.secretKey, 'c')]);
+  await deps.db.query(`INSERT INTO operators(name, credential_enc, status, rotated_at) VALUES ('APIONE',$1,'verified', now() - interval '84 days')`, [encrypt(deps.config.secretKey, 'c')]);
 }
 
 // A Safaricom balance RESULT — as opposed to the synchronous ack — carrying whichever ids the

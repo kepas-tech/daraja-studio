@@ -56,14 +56,14 @@ async function seedPhase2Dump(installSecret: string): Promise<string> {
   const [{ id: orgId }] = await withSystem(() =>
     db.query<{ id: string }>(
       `INSERT INTO orgs(slug, name, status, is_host, callback_secret_hash, callback_secret_enc, key_salt, verified_at)
-       VALUES ('org-1','KEPAS TECHNOLOGIES','verified',true,'unset',$1,gen_random_bytes(32), now()) RETURNING id`,
+       VALUES ('org-1','ACME TRADERS','verified',true,'unset',$1,gen_random_bytes(32), now()) RETURNING id`,
       [encrypt(MASTER, installSecret)],
     ),
   );
   await withOrg(orgId, async () => {
     await db.query(
       `INSERT INTO settings(key, value, encrypted) VALUES
-         ('org.name','KEPAS TECHNOLOGIES',false),
+         ('org.name','ACME TRADERS',false),
          ('daraja.environment','production',false),
          ('env.production.shortcode','700111',false),
          ('env.production.consumerKey',$1,true),
@@ -85,7 +85,7 @@ async function seedPhase2Dump(installSecret: string): Promise<string> {
     );
     await db.query(
       `INSERT INTO operators(name, credential_enc, status, environment) VALUES
-         ('KEPAS',$1,'verified','production'),
+         ('APIONE',$1,'verified','production'),
          ('testapi',$2,'disabled','sandbox')`,
       [encrypt(MASTER, 'SECURITY-CREDENTIAL'), encrypt(MASTER, 'SECURITY-CREDENTIAL-TEST')],
     );
@@ -175,7 +175,7 @@ describe('bootTenancy', () => {
     const [name] = await withOrg(orgId, () =>
       db.query<{ value: string }>(`SELECT value FROM settings WHERE key='org.name'`),
     );
-    expect(name.value).toBe('KEPAS TECHNOLOGIES');
+    expect(name.value).toBe('ACME TRADERS');
   });
 
   it('is idempotent: a second boot changes nothing', async () => {
@@ -217,7 +217,7 @@ describe('bootTenancy', () => {
     const [{ id: orgId }] = await withSystem(() =>
       db.query<{ id: string }>(
         `INSERT INTO orgs(slug, name, status, is_host, callback_secret_hash, callback_secret_enc, key_salt, verified_at)
-         VALUES ('org-1','KEPAS TECHNOLOGIES','verified',true,$1,$2,gen_random_bytes(32), now()) RETURNING id`,
+         VALUES ('org-1','ACME TRADERS','verified',true,$1,$2,gen_random_bytes(32), now()) RETURNING id`,
         [sha256('sekret'), encrypt(MASTER, 'sekret')],
       ),
     );

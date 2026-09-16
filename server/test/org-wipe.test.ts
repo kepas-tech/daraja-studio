@@ -13,26 +13,26 @@ describe('POST /api/org/wipe', () => {
   const orgName = async () => (await withSystem(() => deps.db.query<{ name: string; status: string }>('SELECT name, status FROM orgs LIMIT 1')))[0]!;
 
   it('refuses a wrong name, a wrong password, and anyone but the owner', async () => {
-    await withSystem(() => deps.db.query(`UPDATE orgs SET name = 'KEPAS TECHNOLOGIES', status = 'verified'`));
-    let r = await wipe({ confirmName: 'KEPAS', password: 'correct horse' });
+    await withSystem(() => deps.db.query(`UPDATE orgs SET name = 'ACME TRADERS', status = 'verified'`));
+    let r = await wipe({ confirmName: 'APIONE', password: 'correct horse' });
     expect(r.status).toBe(400); expect(r.body.error.code).toBe('confirm_name');
-    r = await wipe({ confirmName: 'KEPAS TECHNOLOGIES', password: 'nope' });
+    r = await wipe({ confirmName: 'ACME TRADERS', password: 'nope' });
     expect(r.status).toBe(403);
     const orgId = (await withSystem(() => deps.db.query<{ id: string }>('SELECT id FROM orgs LIMIT 1')))[0]!.id;
     await makePerson(deps.db, orgId, { username: 'viewer', password: 'viewer-pass-123', role: 'viewer' });
     const v = await loginAs(app, 'viewer', 'viewer-pass-123');
-    r = await wipe({ confirmName: 'KEPAS TECHNOLOGIES', password: 'viewer-pass-123' }, v.cookie, v.csrf);
+    r = await wipe({ confirmName: 'ACME TRADERS', password: 'viewer-pass-123' }, v.cookie, v.csrf);
     expect(r.status).toBe(403); expect(r.body.error.code).toBe('owner_only');
-    expect((await orgName()).name).toBe('KEPAS TECHNOLOGIES');
+    expect((await orgName()).name).toBe('ACME TRADERS');
   });
 
   it('wipes everything but the audit trail and puts the install back to first-run setup', async () => {
-    await withSystem(() => deps.db.query(`UPDATE orgs SET name = 'KEPAS TECHNOLOGIES', status = 'verified'`));
+    await withSystem(() => deps.db.query(`UPDATE orgs SET name = 'ACME TRADERS', status = 'verified'`));
     const orgId = (await withSystem(() => deps.db.query<{ id: string }>('SELECT id FROM orgs LIMIT 1')))[0]!.id;
     await deps.settings.set('setup.completedAt', new Date().toISOString());
     await deps.settings.set('env.production.shortcode', '700111');
     await deps.db.query(`INSERT INTO requests(type, subtype, originator_conversation_id, status, amount_cents, currency, recipient_kind, recipient_value) VALUES ('b2c','BusinessPayment','ocid-1','completed',100,'KES','phone','254700000000')`);
-    const r = await wipe({ confirmName: 'KEPAS TECHNOLOGIES', password: 'correct horse' });
+    const r = await wipe({ confirmName: 'ACME TRADERS', password: 'correct horse' });
     expect(r.status).toBe(204);
     const org = await orgName();
     expect(org.status).toBe('pending');

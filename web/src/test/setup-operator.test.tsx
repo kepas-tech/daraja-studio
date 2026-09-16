@@ -38,7 +38,7 @@ describe('Setup › Operator', () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/settings', expect.anything()));
 
     expect(screen.getByTestId('safaricom-how')).toHaveTextContent('Organization Operator');
-    answer(copy.setup.operator.name, 'KEPAS');
+    answer(copy.setup.operator.name, 'APIONE');
     next();
     const credentialField = screen.getByLabelText(copy.setup.operator.credential);
     expect(credentialField).toHaveAttribute('autocomplete', 'off');
@@ -48,7 +48,7 @@ describe('Setup › Operator', () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/setup/operator', expect.objectContaining({ method: 'POST' })));
     const call = fetchMock.mock.calls.find(([u]) => String(u) === '/api/setup/operator');
     const body = JSON.parse(String(call?.[1]?.body));
-    expect(body).toEqual({ name: 'KEPAS', credential: 'the-credential' });
+    expect(body).toEqual({ name: 'APIONE', credential: 'the-credential' });
     expect(body).not.toHaveProperty('operatorPassword');
   });
 
@@ -58,7 +58,7 @@ describe('Setup › Operator', () => {
     render(<MemoryRouter><Operator onDone={() => {}} onBack={() => {}} /></MemoryRouter>);
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/settings', expect.anything()));
 
-    answer(copy.setup.operator.name, 'KEPAS');
+    answer(copy.setup.operator.name, 'APIONE');
     fireEvent.click(screen.getByLabelText(copy.setup.operator.modePassword));
     next();
     answer(copy.setup.operator.password, 'op-password');
@@ -68,7 +68,7 @@ describe('Setup › Operator', () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/setup/operator', expect.objectContaining({ method: 'POST' })));
     const call = fetchMock.mock.calls.find(([u]) => String(u) === '/api/setup/operator');
     const body = JSON.parse(String(call?.[1]?.body));
-    expect(body).toEqual({ name: 'KEPAS', operatorPassword: 'op-password', certPem: '-----BEGIN CERTIFICATE-----' });
+    expect(body).toEqual({ name: 'APIONE', operatorPassword: 'op-password', certPem: '-----BEGIN CERTIFICATE-----' });
     expect(body).not.toHaveProperty('credential');
   });
 });

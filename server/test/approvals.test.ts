@@ -17,7 +17,7 @@ const APPROVER = { personId: '', ip: '1.1.1.2' };
 function factory(send: (input: unknown) => Promise<unknown>): DarajaFactory {
   return {
     get: async () => ({ b2c: { send } }) as never,
-    getForOperator: async () => ({ b2c: { send }, config: { initiator: 'KEPAS' } }) as never,
+    getForOperator: async () => ({ b2c: { send }, config: { initiator: 'APIONE' } }) as never,
     invalidate: () => {},
     stkEnabled: async () => false,
   } as unknown as DarajaFactory;
@@ -35,7 +35,7 @@ describe('waiting for approval (service)', () => {
     MAKER.personId = m.id;
     const [a] = await deps.db.query<{ id: string }>(`INSERT INTO people(username, display_name, password_hash, is_owner, role) VALUES ('anna','Anna','x',false,'approver') RETURNING id`);
     APPROVER.personId = a.id;
-    await deps.db.query(`INSERT INTO operators(name, credential_enc, status, priority) VALUES ('KEPAS',$1,'verified',1)`, [encrypt(deps.config.secretKey, 'c')]);
+    await deps.db.query(`INSERT INTO operators(name, credential_enc, status, priority) VALUES ('APIONE',$1,'verified',1)`, [encrypt(deps.config.secretKey, 'c')]);
     ack.mockClear();
   });
 
@@ -112,7 +112,7 @@ describe('waiting for approval (routes)', () => {
     await adeps.settings.set('env.sandbox.consumerSecret', 's');
     await adeps.settings.set('env.sandbox.credsVerifiedAt', new Date().toISOString());
     await adeps.settings.set('env.sandbox.shortcode', '600999');
-    await adeps.db.query(`INSERT INTO operators(name, credential_enc, status, priority) VALUES ('KEPAS',$1,'verified',1)`, [encrypt(adeps.config.secretKey, 'c')]);
+    await adeps.db.query(`INSERT INTO operators(name, credential_enc, status, priority) VALUES ('APIONE',$1,'verified',1)`, [encrypt(adeps.config.secretKey, 'c')]);
     const [a] = await adeps.db.query<{ id: string }>(`INSERT INTO people(username, display_name, password_hash, is_owner, role) VALUES ('anna','Anna',$1,false,'approver') RETURNING id`, [await hashPassword('correct horse')]);
     await adeps.db.query(`INSERT INTO permissions(person_id, permission) VALUES ($1,'send.approve')`, [a.id]);
     const login = await request(app).post('/api/auth/login').send({ username: 'anna', password: 'correct horse' });

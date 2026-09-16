@@ -6,7 +6,7 @@ import { answer } from './questionnaire';
 
 afterEach(() => cleanup());
 
-const validForm = { name: 'KEPAS', nominatedNumber: '254712345678', notificationPhone: '254712345678' };
+const validForm = { name: 'APIONE', nominatedNumber: '254712345678', notificationPhone: '254712345678' };
 
 function fillAndSubmit() {
   answer(copy.setup.org.name, validForm.name);

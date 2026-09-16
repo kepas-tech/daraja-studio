@@ -83,7 +83,7 @@ describe('migration 006', () => {
          ('daraja.credsEnv','production',false),
          ('daraja.environment','production',false)`,
     );
-    const [{ id: verifiedId }] = await db.query<{ id: string }>(`INSERT INTO operators(name, credential_enc, status) VALUES ('KEPAS','c','verified') RETURNING id`);
+    const [{ id: verifiedId }] = await db.query<{ id: string }>(`INSERT INTO operators(name, credential_enc, status) VALUES ('APIONE','c','verified') RETURNING id`);
     const [{ id: failedId }] = await db.query<{ id: string }>(`INSERT INTO operators(name, credential_enc, status) VALUES ('APITWO','c','failed') RETURNING id`);
 
     await migrate(db, migrationsDir);
@@ -102,7 +102,7 @@ describe('migration 006', () => {
          ('daraja.consumerKey','ENC-KEY',true),
          ('daraja.environment','staging',false)`,
     );
-    const [{ id: verifiedId }] = await db.query<{ id: string }>(`INSERT INTO operators(name, credential_enc, status) VALUES ('KEPAS','c','verified') RETURNING id`);
+    const [{ id: verifiedId }] = await db.query<{ id: string }>(`INSERT INTO operators(name, credential_enc, status) VALUES ('APIONE','c','verified') RETURNING id`);
 
     await migrate(db, migrationsDir);
 
@@ -117,7 +117,7 @@ describe('migration 006', () => {
   it('defaults existing operator rows to sandbox', async () => {
     await db.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public;');
     await migrate(db, preSixDir);
-    const [{ id }] = await db.query<{ id: string }>(`INSERT INTO operators(name, credential_enc, status) VALUES ('KEPAS','c','pending') RETURNING id`);
+    const [{ id }] = await db.query<{ id: string }>(`INSERT INTO operators(name, credential_enc, status) VALUES ('APIONE','c','pending') RETURNING id`);
     await migrate(db, migrationsDir);
     const [op] = await db.query<{ environment: string }>('SELECT environment FROM operators WHERE id=$1', [id]);
     expect(op.environment).toBe('sandbox');

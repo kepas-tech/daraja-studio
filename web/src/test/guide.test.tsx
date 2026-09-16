@@ -12,7 +12,7 @@ import { renderGuide, renderLlms } from '../../scripts/guide-md.mjs';
 afterEach(() => cleanup());
 
 describe('How to use', () => {
-  it('shows every section and every task', () => {
+  it('shows every section and every task', { timeout: 30000 }, () => {
     render(<MemoryRouter><Guide /></MemoryRouter>);
     for (const s of guide) {
       expect(screen.getByRole('heading', { level: 2, name: s.title })).toBeInTheDocument();

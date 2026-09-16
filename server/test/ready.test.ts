@@ -42,7 +42,7 @@ describe('requireMoneyReady', () => {
     let r = await request(probeApp).post('/api/_ready_probe').set('Cookie', cookie).set('x-csrf-token', csrf).send({});
     expect(r.status).toBe(409);
     expect(r.body.error.code).toBe('no_operator');
-    await deps.db.query(`INSERT INTO operators(name, credential_enc, status) VALUES ('KEPAS',$1,'pending')`, [encrypt(deps.config.secretKey, 'c')]);
+    await deps.db.query(`INSERT INTO operators(name, credential_enc, status) VALUES ('APIONE',$1,'pending')`, [encrypt(deps.config.secretKey, 'c')]);
     r = await request(probeApp).post('/api/_ready_probe').set('Cookie', cookie).set('x-csrf-token', csrf).send({});
     expect(r.body.error.code).toBe('no_operator');
     await deps.db.query(`UPDATE operators SET status='verified'`);

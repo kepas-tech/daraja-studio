@@ -315,7 +315,7 @@ describe('explicit organisation predicates on direct queries (I1, RLS bypassed)'
     });
     const daraja: DarajaFactory = {
       get: async () => ({}) as never,
-      getForOperator: async () => ({ status: { transaction: statusAck }, config: { initiator: 'KEPAS' } }) as never,
+      getForOperator: async () => ({ status: { transaction: statusAck }, config: { initiator: 'APIONE' } }) as never,
       invalidate: () => {},
       stkEnabled: async () => false,
     };

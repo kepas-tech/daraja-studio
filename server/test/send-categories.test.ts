@@ -6,14 +6,14 @@ import type { DarajaFactory } from '../src/sdk/client.js';
 
 const send = async (input: { originatorConversationId: string; commandId: string }) => { lastCommand = input.commandId; return { conversationId: 'AG_R', originatorConversationId: input.originatorConversationId, responseCode: '0', responseDescription: 'ok' }; };
 let lastCommand = '';
-const daraja: DarajaFactory = { get: async () => ({}) as never, getForOperator: async () => ({ b2c: { send }, status: { transaction: async () => ({ conversationId: 'q', originatorConversationId: 'q', responseCode: '0', responseDescription: 'ok' }) }, config: { initiator: 'KEPAS' } }) as never, invalidate: () => {}, stkEnabled: async () => false };
+const daraja: DarajaFactory = { get: async () => ({}) as never, getForOperator: async () => ({ b2c: { send }, status: { transaction: async () => ({ conversationId: 'q', originatorConversationId: 'q', responseCode: '0', responseDescription: 'ok' }) }, config: { initiator: 'APIONE' } }) as never, invalidate: () => {}, stkEnabled: async () => false };
 const { app, deps, close } = makeApp({ daraja });
 afterAll(close);
 
 async function ready() {
   await deps.settings.set('public.url', 'https://studio.example');
   await deps.settings.set('public.verifiedAt', new Date().toISOString());
-  await deps.db.query(`INSERT INTO operators(name, credential_enc, status) VALUES ('KEPAS',$1,'verified')`, [encrypt(deps.config.secretKey, 'c')]);
+  await deps.db.query(`INSERT INTO operators(name, credential_enc, status) VALUES ('APIONE',$1,'verified')`, [encrypt(deps.config.secretKey, 'c')]);
 }
 
 describe('payment categories', () => {

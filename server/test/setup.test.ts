@@ -40,7 +40,7 @@ describe('setup environment', () => {
   it('lets the wizard pick production before any shortcode exists, without a confirmation', async () => {
     await resetTables(deps.db);
     await request(app).get('/api/setup/status');
-    const owner = await request(app).post('/api/setup/owner').send({ displayName: 'Nelson', username: 'nelson', password: 'correct horse battery' });
+    const owner = await request(app).post('/api/setup/owner').send({ displayName: 'Amina', username: 'amina', password: 'correct horse battery' });
     expect(owner.status).toBe(201);
     const h = (r: request.Test) => r.set('Cookie', owner.headers['set-cookie'][0]).set('x-csrf-token', owner.body.csrf);
     const r = await h(request(app).post('/api/setup/environment')).send({ environment: 'production' });
@@ -49,16 +49,16 @@ describe('setup environment', () => {
     // Back to this step with a production shortcode already stored: still no confirmation while
     // setup is unfinished, whether the answer is the same or changed.
     await h(request(app).post('/api/setup/uses')).send({ payOut: true, collect: false });
-    await h(request(app).post('/api/setup/org')).send({ name: 'KEPAS', nominatedNumber: '254700000000', notificationPhone: '254700000000' });
+    await h(request(app).post('/api/setup/org')).send({ name: 'APIONE', nominatedNumber: '254700000000', notificationPhone: '254700000000' });
     await h(request(app).post('/api/setup/shortcode')).send({ shortcode: '700111' });
     expect((await h(request(app).post('/api/setup/environment')).send({ environment: 'production' })).status).toBe(200);
     expect((await h(request(app).post('/api/setup/environment')).send({ environment: 'sandbox' })).status).toBe(200);
     expect((await h(request(app).post('/api/setup/environment')).send({ environment: 'production' })).status).toBe(200);
     // The owner's name can be corrected from the wizard; the username stays.
-    expect((await h(request(app).put('/api/auth/display-name')).send({ displayName: 'Nelson Otieno' })).status).toBe(204);
+    expect((await h(request(app).put('/api/auth/display-name')).send({ displayName: 'Amina Otieno' })).status).toBe(204);
     expect((await h(request(app).put('/api/auth/display-name')).send({ displayName: '' })).status).toBe(400);
     const me = await h(request(app).get('/api/auth/me'));
-    expect(me.body.person.display_name).toBe('Nelson Otieno');
+    expect(me.body.person.display_name).toBe('Amina Otieno');
   });
 });
 
@@ -89,7 +89,7 @@ describe('setup wizard', () => {
     const envResp = await h(request(app).post('/api/setup/environment')).send({ environment: 'sandbox' });
     expect(envResp.status).toBe(200);
     expect(envResp.body).toEqual({ mode: 'sandbox', ready: { creds: false, operator: false } });
-    expect((await h(request(app).post('/api/setup/org')).send({ name: 'KEPAS', nominatedNumber: '254700000000', notificationPhone: '254700000000' })).status).toBe(204);
+    expect((await h(request(app).post('/api/setup/org')).send({ name: 'APIONE', nominatedNumber: '254700000000', notificationPhone: '254700000000' })).status).toBe(204);
     const scResp = await h(request(app).post('/api/setup/shortcode')).send({ shortcode: '600999' });
     expect(scResp.status).toBe(200);
     expect(scResp.body).toEqual({ verifiedName: null, verifyError: null });
@@ -118,7 +118,7 @@ describe('setup wizard', () => {
     const early = await h(request(app).post('/api/setup/complete'));
     expect(early.status).toBe(409);
     expect(early.body.error.details).toEqual({ step: 'operator' });
-    await h(request(app).post('/api/setup/operator')).send({ name: 'KEPAS', credential: OPERATOR_CREDENTIAL });
+    await h(request(app).post('/api/setup/operator')).send({ name: 'APIONE', credential: OPERATOR_CREDENTIAL });
     // The operator's own probe is asynchronous — it waits for a real balance callback, which is
     // operators.test.ts's job to exercise. Here only /complete's own gating is under test, so the
     // outcome that probe would eventually reach is written directly.
@@ -156,7 +156,7 @@ describe('setup wizard', () => {
     await h(request(app).post('/api/setup/uses')).send({ payOut: false, collect: true });
     expect((await request(app).get('/api/setup/status')).body.uses).toEqual({ payOut: false, collect: true, stk: false });
     await h(request(app).post('/api/setup/environment')).send({ environment: 'sandbox' });
-    await h(request(app).post('/api/setup/org')).send({ name: 'KEPAS', nominatedNumber: '254700000000', notificationPhone: '254700000000' });
+    await h(request(app).post('/api/setup/org')).send({ name: 'APIONE', nominatedNumber: '254700000000', notificationPhone: '254700000000' });
     await h(request(app).post('/api/setup/shortcode')).send({ shortcode: '600999' });
     await h(request(app).post('/api/setup/daraja')).send({ consumerKey: 'k', consumerSecret: 's' });
     await h(request(app).post('/api/setup/public-url')).send({ url: 'https://studio.example' });
@@ -171,7 +171,7 @@ describe('setup wizard', () => {
     const h = (r: request.Test) => r.set('Cookie', cookie).set('x-csrf-token', csrf);
     await h(request(app).post('/api/setup/uses')).send({ payOut: false, collect: true, stk: true });
     await h(request(app).post('/api/setup/environment')).send({ environment: 'sandbox' });
-    await h(request(app).post('/api/setup/org')).send({ name: 'KEPAS', nominatedNumber: '254700000000', notificationPhone: '254700000000' });
+    await h(request(app).post('/api/setup/org')).send({ name: 'APIONE', nominatedNumber: '254700000000', notificationPhone: '254700000000' });
     await h(request(app).post('/api/setup/shortcode')).send({ shortcode: '600999' });
     await h(request(app).post('/api/setup/daraja')).send({ consumerKey: 'k', consumerSecret: 's' });
     await h(request(app).post('/api/setup/public-url')).send({ url: 'https://studio.example' });
@@ -198,7 +198,7 @@ describe('setup wizard', () => {
     const h = (r: request.Test) => r.set('Cookie', cookie).set('x-csrf-token', csrf);
     await h(request(app).post('/api/setup/uses')).send({ payOut: true, collect: false });
     await h(request(app).post('/api/setup/environment')).send({ environment: 'sandbox' });
-    await h(request(app).post('/api/setup/org')).send({ name: 'KEPAS', nominatedNumber: '254700000000', notificationPhone: '254700000000' });
+    await h(request(app).post('/api/setup/org')).send({ name: 'APIONE', nominatedNumber: '254700000000', notificationPhone: '254700000000' });
     await h(request(app).post('/api/setup/shortcode')).send({ shortcode: '600999' });
     await h(request(app).post('/api/setup/daraja')).send({ consumerKey: 'k', consumerSecret: 's' });
 
@@ -227,7 +227,7 @@ describe('setup wizard', () => {
       const h = (r: request.Test) => r.set('Cookie', cookie).set('x-csrf-token', csrf);
       await h(request(failing.app).post('/api/setup/uses')).send({ payOut: false, collect: true, stk: true });
       await h(request(failing.app).post('/api/setup/environment')).send({ environment: 'sandbox' });
-      await h(request(failing.app).post('/api/setup/org')).send({ name: 'KEPAS', nominatedNumber: '254700000000', notificationPhone: '254700000000' });
+      await h(request(failing.app).post('/api/setup/org')).send({ name: 'APIONE', nominatedNumber: '254700000000', notificationPhone: '254700000000' });
       await h(request(failing.app).post('/api/setup/shortcode')).send({ shortcode: '600999' });
       await h(request(failing.app).post('/api/setup/daraja')).send({ consumerKey: 'k', consumerSecret: 's' });
       await h(request(failing.app).post('/api/setup/public-url')).send({ url: 'https://studio.example' });
@@ -257,12 +257,12 @@ describe('setup wizard', () => {
     const h = (r: request.Test) => r.set('Cookie', cookie).set('x-csrf-token', csrf);
     await h(request(app).post('/api/setup/uses')).send({ payOut: true, collect: false });
     await h(request(app).post('/api/setup/environment')).send({ environment: 'sandbox' });
-    await h(request(app).post('/api/setup/org')).send({ name: 'KEPAS', nominatedNumber: '254700000000', notificationPhone: '254700000000' });
+    await h(request(app).post('/api/setup/org')).send({ name: 'APIONE', nominatedNumber: '254700000000', notificationPhone: '254700000000' });
     await h(request(app).post('/api/setup/shortcode')).send({ shortcode: '600999' });
     await h(request(app).post('/api/setup/daraja')).send({ consumerKey: 'k', consumerSecret: 's' });
     await h(request(app).post('/api/setup/public-url')).send({ url: 'https://studio.example' });
     await h(request(app).post('/api/setup/public-url/test'));
-    await h(request(app).post('/api/setup/operator')).send({ name: 'KEPAS', credential: OPERATOR_CREDENTIAL });
+    await h(request(app).post('/api/setup/operator')).send({ name: 'APIONE', credential: OPERATOR_CREDENTIAL });
     await withSystem(() => deps.db.query(`UPDATE operators SET status='verified' WHERE org_id=$1`, [TEST_ORG_ID]));
 
     // Exactly the shape a freshly booted install's organisation #1 is in before this route ever

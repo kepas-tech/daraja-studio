@@ -70,11 +70,11 @@ describe('standing orders, express checkout and Bonga', () => {
   });
 
   it('express checkout prompts the other business\'s till and settles on the flat callback', async () => {
-    const r = await h(request(app).post('/api/collect/express')).send({ till: '174379', amountCents: 250000, paymentRef: 'PO-77', partnerName: 'KEPAS' });
+    const r = await h(request(app).post('/api/collect/express')).send({ till: '174379', amountCents: 250000, paymentRef: 'PO-77', partnerName: 'APIONE' });
     expect(r.status).toBe(201);
     expect(r.body).toMatchObject({ type: 'express', status: 'sent', recipient: { kind: 'shortcode', value: '174379' } });
     const sent = fake.calls.find((c) => c.path.endsWith('/ussdpush/get-msisdn'))!;
-    expect(sent.body).toMatchObject({ primaryShortCode: '174379', receiverShortCode: '600999', amount: 2500, paymentRef: 'PO-77', partnerName: 'KEPAS' });
+    expect(sent.body).toMatchObject({ primaryShortCode: '174379', receiverShortCode: '600999', amount: 2500, paymentRef: 'PO-77', partnerName: 'APIONE' });
     await fake.settle();
     const ex = await row(r.body.id);
     expect(ex.status).toBe('completed');

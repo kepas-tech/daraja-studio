@@ -14,9 +14,9 @@ afterAll(() => db.end());
 
 describe('audit', () => {
   it('appends a row', async () => {
-    await audit(db, { action: 'settings.set', target: 'org.name', before: null, after: 'KEPAS', ip: '127.0.0.1' });
+    await audit(db, { action: 'settings.set', target: 'org.name', before: null, after: 'APIONE', ip: '127.0.0.1' });
     const rows = await db.query<{ action: string; after_json: string }>(`SELECT action, after_json FROM audit_log WHERE target='org.name' ORDER BY id DESC LIMIT 1`);
     expect(rows[0].action).toBe('settings.set');
-    expect(rows[0].after_json).toBe('KEPAS');
+    expect(rows[0].after_json).toBe('APIONE');
   });
 });

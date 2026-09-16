@@ -12,7 +12,7 @@ function statusBody(queryOc: string, opts: { code?: number; status?: string; rec
     ResultType: 0, ResultCode: code, ResultDesc: code === 0 ? 'The service request is processed successfully.' : 'The format of parameter null is invalid.',
     OriginatorConversationID: queryOc, ConversationID: `AG_${queryOc}`, TransactionID: opts.receipt ?? '',
     ...(code === 0 ? { ResultParameters: { ResultParameter: [
-      { Key: 'DebitPartyName', Value: '600999 - KEPAS' }, { Key: 'CreditPartyName', Value: '254700123456 - Jane Doe' },
+      { Key: 'DebitPartyName', Value: '600999 - ACME' }, { Key: 'CreditPartyName', Value: '254700123456 - Jane Doe' },
       { Key: 'TransactionStatus', Value: opts.status ?? 'Completed' }, { Key: 'Amount', Value: opts.amount ?? 1 },
       { Key: 'ReceiptNo', Value: opts.receipt ?? 'RI6BZTPXNM' }, { Key: 'FinalisedTime', Value: 20260906142000 },
       { Key: 'ReasonType', Value: 'Business Payment to Customer via API' },

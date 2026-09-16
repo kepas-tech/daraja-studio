@@ -10,7 +10,7 @@ afterEach(() => cleanup());
 
 const slot = { shortcode: null, consumerKey: { saved: false, last4: null }, consumerSecret: { saved: false, last4: null }, credsVerifiedAt: null, passkey: { saved: false, last4: null }, cert: { saved: false, last4: null }, operators: [], ready: { creds: false, operator: false }, b2cApi: { setting: 'auto', detected: null, detectedAt: null } };
 const categories = [{ id: 'business', name: 'Business payment', commandId: 'BusinessPayment' }, { id: 'salary', name: 'Salary', commandId: 'SalaryPayment' }];
-const view = { mode: 'sandbox', environments: { sandbox: slot, production: slot }, org: { name: 'KEPAS', nominatedNumber: '', notificationPhone: '' }, stkEnabled: false, publicUrl: null, publicVerifiedAt: null, httpsSeen: false, allowlist: [], setupCompletedAt: 'x', sendCategories: categories, approvalThresholdCents: 0 };
+const view = { mode: 'sandbox', environments: { sandbox: slot, production: slot }, org: { name: 'APIONE', nominatedNumber: '', notificationPhone: '' }, stkEnabled: false, publicUrl: null, publicVerifiedAt: null, httpsSeen: false, allowlist: [], setupCompletedAt: 'x', sendCategories: categories, approvalThresholdCents: 0 };
 
 function mount(items = categories) {
   const puts: unknown[] = [];

@@ -36,7 +36,7 @@ async function seedPhase3a(): Promise<string> {
   const [org] = await withSystem(() =>
     db.query<{ id: string }>(
       `INSERT INTO orgs(slug, name, status, is_host, callback_secret_hash, callback_secret_enc, key_salt)
-       VALUES ('org-1','KEPAS','verified',true,'hash-1','unset',gen_random_bytes(32)) RETURNING id`,
+       VALUES ('org-1','APIONE','verified',true,'hash-1','unset',gen_random_bytes(32)) RETURNING id`,
     ),
   );
   await withOrg(org.id, () =>

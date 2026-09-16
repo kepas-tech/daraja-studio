@@ -50,7 +50,7 @@ describe('operators', () => {
   it('add → pending → probe sends balance query and records request + timeout job', async () => {
     const query = ackFor('OC-9');
     const svc = createOperatorService({ ...deps, secretKey: deps.config.secretKey, daraja: fakeFactory(query), events });
-    const { id } = await svc.add('sandbox', { name: 'KEPAS', password: 'Secret#123', certPem }, { personId: null as never, ip: '1.1.1.1' });
+    const { id } = await svc.add('sandbox', { name: 'APIONE', password: 'Secret#123', certPem }, { personId: null as never, ip: '1.1.1.1' });
     expect(query).toHaveBeenCalledWith(expect.objectContaining({ resultUrl: 'https://studio.example/cb/sekret/balance' }));
     const op = (await deps.db.query<{ status: string; credential_enc: string }>('SELECT status, credential_enc FROM operators WHERE id=$1', [id]))[0];
     expect(op.status).toBe('pending');

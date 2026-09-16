@@ -25,14 +25,14 @@ const productionSlot = {
   ...emptySlot,
   shortcode: '700111',
   consumerKey: { saved: true, last4: '4f2a' }, consumerSecret: { saved: true, last4: null }, credsVerifiedAt: '2026-09-07T07:00:00Z',
-  operators: [{ id: 'a', name: 'KEPAS', environment: 'production' as const, status: 'verified' as const, priority: 1, rotatedAt: '2026-09-02T00:00:00Z', lastProbeAt: null, lastError: null, expiresAt: '2026-12-01T00:00:00Z' }],
+  operators: [{ id: 'a', name: 'APIONE', environment: 'production' as const, status: 'verified' as const, priority: 1, rotatedAt: '2026-09-02T00:00:00Z', lastProbeAt: null, lastError: null, expiresAt: '2026-12-01T00:00:00Z' }],
   ready: { creds: true, operator: true },
   b2cApi: { setting: 'auto' as const, detected: 'v1' as const, detectedAt },
 };
 const view = {
   mode: 'production',
   environments: { sandbox: emptySlot, production: productionSlot },
-  org: { name: 'KEPAS', nominatedNumber: '254700000000', notificationPhone: '254700000000' },
+  org: { name: 'APIONE', nominatedNumber: '254700000000', notificationPhone: '254700000000' },
   stkEnabled: false, publicUrl: 'https://x', publicVerifiedAt: null, httpsSeen: false,
   allowlist: ['1.1.1.1'], setupCompletedAt: 'x',
   sendCategories: [], approvalThresholdCents: 0,

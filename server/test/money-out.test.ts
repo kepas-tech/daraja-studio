@@ -18,7 +18,7 @@ const RECIPIENT = '254700123456';
 function factory(send: (input: unknown) => Promise<unknown>, _opId: string): DarajaFactory {
   return {
     get: async () => ({ b2c: { send } }) as never,
-    getForOperator: async () => ({ b2c: { send }, config: { initiator: 'KEPAS' } }) as never,
+    getForOperator: async () => ({ b2c: { send }, config: { initiator: 'APIONE' } }) as never,
     invalidate: () => {},
     stkEnabled: async () => false,
   } as unknown as DarajaFactory & { opId: string };
@@ -33,7 +33,7 @@ describe('money out: send', () => {
     await deps.settings.set('public.verifiedAt', new Date().toISOString());
     const [p] = await deps.db.query<{ id: string }>(`INSERT INTO people(username, display_name, password_hash, is_owner) VALUES ('owner','Owner','x',true) RETURNING id`);
     ACTOR.personId = p.id;
-    const [op] = await deps.db.query<{ id: string }>(`INSERT INTO operators(name, credential_enc, status, priority) VALUES ('KEPAS',$1,'verified',1) RETURNING id`, [encrypt(deps.config.secretKey, 'c')]);
+    const [op] = await deps.db.query<{ id: string }>(`INSERT INTO operators(name, credential_enc, status, priority) VALUES ('APIONE',$1,'verified',1) RETURNING id`, [encrypt(deps.config.secretKey, 'c')]);
     opId = op.id;
     ack.mockClear();
   });
@@ -102,7 +102,7 @@ describe('money out: send', () => {
     // this harness — which would make the test pass even on the unpatched, genuinely racy code).
     const slowDaraja: DarajaFactory = {
       get: async () => ({ b2c: { send: ack } }) as never,
-      getForOperator: async () => { await new Promise((r) => setTimeout(r, 30)); return { b2c: { send: ack }, config: { initiator: 'KEPAS' } } as never; },
+      getForOperator: async () => { await new Promise((r) => setTimeout(r, 30)); return { b2c: { send: ack }, config: { initiator: 'APIONE' } } as never; },
       invalidate: () => {}, stkEnabled: async () => false,
     };
     const svc = createMoneyOutService({ ...deps, daraja: slowDaraja, events });
@@ -208,7 +208,7 @@ describe('money out: b2c API version (auto detection + v1 fallback)', () => {
     await deps.settings.set('public.verifiedAt', new Date().toISOString());
     const [p] = await deps.db.query<{ id: string }>(`INSERT INTO people(username, display_name, password_hash, is_owner) VALUES ('owner','Owner','x',true) RETURNING id`);
     ACTOR.personId = p.id;
-    const [op] = await deps.db.query<{ id: string }>(`INSERT INTO operators(name, credential_enc, status, priority) VALUES ('KEPAS',$1,'verified',1) RETURNING id`, [encrypt(deps.config.secretKey, 'c')]);
+    const [op] = await deps.db.query<{ id: string }>(`INSERT INTO operators(name, credential_enc, status, priority) VALUES ('APIONE',$1,'verified',1) RETURNING id`, [encrypt(deps.config.secretKey, 'c')]);
     opId = op.id;
   });
 

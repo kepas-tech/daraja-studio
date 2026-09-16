@@ -9,7 +9,7 @@ import { copy } from '../copy/en';
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 function mockFetch() {
-  return vi.fn(async () => new Response(JSON.stringify({ verifiedName: 'KEPAS', verifyError: null }), { status: 200 }));
+  return vi.fn(async () => new Response(JSON.stringify({ verifiedName: 'APIONE', verifyError: null }), { status: 200 }));
 }
 
 function fillAndSubmit() {
@@ -35,7 +35,7 @@ describe('Setup › Shortcode post-success timer', () => {
 
     fillAndSubmit();
     await act(async () => { await flushMicrotasks(); });
-    expect(screen.getByText(copy.setup.shortcode.verified('KEPAS'))).toBeInTheDocument();
+    expect(screen.getByText(copy.setup.shortcode.verified('APIONE'))).toBeInTheDocument();
     expect(screen.getByRole('button', { name: copy.setup.next })).toBeDisabled();
 
     unmount();
@@ -51,7 +51,7 @@ describe('Setup › Shortcode post-success timer', () => {
 
     fillAndSubmit();
     await act(async () => { await flushMicrotasks(); });
-    expect(screen.getByText(copy.setup.shortcode.verified('KEPAS'))).toBeInTheDocument();
+    expect(screen.getByText(copy.setup.shortcode.verified('APIONE'))).toBeInTheDocument();
 
     act(() => { vi.advanceTimersByTime(800); });
 
@@ -65,7 +65,7 @@ describe('Setup › Shortcode post-success timer', () => {
     fillAndSubmit();
     await act(async () => { await flushMicrotasks(); });
 
-    expect(screen.getByRole('status')).toHaveTextContent(copy.setup.shortcode.verified('KEPAS'));
+    expect(screen.getByRole('status')).toHaveTextContent(copy.setup.shortcode.verified('APIONE'));
   });
 
   it('keeps the Next button disabled through the post-success wait, and re-enables it only on error', async () => {

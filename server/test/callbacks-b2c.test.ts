@@ -29,7 +29,7 @@ function b2cBody(oc: string, code = 0) {
 }
 
 async function seed(oc: string, status = 'sent') {
-  const [op] = await deps.db.query<{ id: string }>(`INSERT INTO operators(name, credential_enc, status) VALUES ('KEPAS', $1, 'verified') RETURNING id`, [encrypt(deps.config.secretKey, 'c')]);
+  const [op] = await deps.db.query<{ id: string }>(`INSERT INTO operators(name, credential_enc, status) VALUES ('APIONE', $1, 'verified') RETURNING id`, [encrypt(deps.config.secretKey, 'c')]);
   const [req] = await deps.db.query<{ id: string }>(
     `INSERT INTO requests(type, subtype, originator_conversation_id, status, amount_cents, recipient_kind, recipient_value, operator_id, sent_at) VALUES ('b2c','BusinessPayment',$1,$2,100,'phone','254700123456',$3,now()) RETURNING id`, [oc, status, op.id]);
   return { opId: op.id, reqId: req.id };
@@ -108,7 +108,7 @@ describe('/cb/b2c', () => {
   });
 
   it('a pending row (crash before our own sent update) is completed by its result', async () => {
-    const [op] = await deps.db.query<{ id: string }>(`INSERT INTO operators(name, credential_enc, status) VALUES ('KEPAS', $1, 'verified') RETURNING id`, [encrypt(deps.config.secretKey, 'c')]);
+    const [op] = await deps.db.query<{ id: string }>(`INSERT INTO operators(name, credential_enc, status) VALUES ('APIONE', $1, 'verified') RETURNING id`, [encrypt(deps.config.secretKey, 'c')]);
     const [req] = await deps.db.query<{ id: string }>(
       `INSERT INTO requests(type, subtype, originator_conversation_id, status, amount_cents, recipient_kind, recipient_value, operator_id) VALUES ('b2c','BusinessPayment','OCB6','pending',100,'phone','254700123456',$1) RETURNING id`, [op.id]);
     await request(app).post('/cb/sekret/b2c').set('X-Forwarded-For', SAF_IP).send(b2cBody('OCB6'));
@@ -120,7 +120,7 @@ describe('/cb/b2c', () => {
   // OriginatorConversationID, which the send path stores as payload_json->>'ackOriginatorConversationId'.
   // The result callback echoes Safaricom's id, not ours, so matching must fall back to that field.
   it('matches on the acknowledged OriginatorConversationID stored in payload_json when it differs from ours', async () => {
-    const [op] = await deps.db.query<{ id: string }>(`INSERT INTO operators(name, credential_enc, status) VALUES ('KEPAS', $1, 'verified') RETURNING id`, [encrypt(deps.config.secretKey, 'c')]);
+    const [op] = await deps.db.query<{ id: string }>(`INSERT INTO operators(name, credential_enc, status) VALUES ('APIONE', $1, 'verified') RETURNING id`, [encrypt(deps.config.secretKey, 'c')]);
     const [req] = await deps.db.query<{ id: string }>(
       `INSERT INTO requests(type, subtype, originator_conversation_id, status, amount_cents, recipient_kind, recipient_value, operator_id, sent_at, payload_json)
        VALUES ('b2c','BusinessPayment','ours-1','sent',100,'phone','254700123456',$1,now(),$2::jsonb) RETURNING id`,
@@ -186,7 +186,7 @@ describe('/cb/b2c/timeout', () => {
     const statusAck = vi.fn(async () => ({ conversationId: 'AG_Q', originatorConversationId: 'q-1', responseCode: '0', responseDescription: 'Accept the service request successfully.' }));
     const daraja: DarajaFactory = {
       get: async () => ({}) as never,
-      getForOperator: async () => ({ status: { transaction: statusAck }, config: { initiator: 'KEPAS' } }) as never,
+      getForOperator: async () => ({ status: { transaction: statusAck }, config: { initiator: 'APIONE' } }) as never,
       invalidate: () => {}, stkEnabled: async () => false,
     };
     const svc = createMoneyOutService({ ...deps, daraja, events: deps.events });

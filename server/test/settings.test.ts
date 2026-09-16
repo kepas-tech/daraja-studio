@@ -19,9 +19,9 @@ afterAll(() => db.end());
 describe('settings', () => {
   it('stores plain and encrypted values', async () => {
     const s = createSettings(db, keyring);
-    await s.set('org.name', 'KEPAS');
+    await s.set('org.name', 'APIONE');
     await s.set('env.sandbox.consumerSecret', 'topsecret');
-    expect(await s.get('org.name')).toBe('KEPAS');
+    expect(await s.get('org.name')).toBe('APIONE');
     expect(await s.get('env.sandbox.consumerSecret')).toBe('topsecret');
     const raw = await db.query<{ value: string; encrypted: boolean }>(`SELECT value, encrypted FROM settings WHERE key='env.sandbox.consumerSecret'`);
     expect(raw[0].encrypted).toBe(true);
@@ -31,7 +31,7 @@ describe('settings', () => {
     const s = createSettings(db, keyring);
     expect(await s.get('public.url')).toBeNull();
     const m = await s.getMany(['org.name', 'public.url']);
-    expect(m['org.name']).toBe('KEPAS');
+    expect(m['org.name']).toBe('APIONE');
     expect(m['public.url']).toBeNull();
   });
 

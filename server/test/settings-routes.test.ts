@@ -90,14 +90,14 @@ describe('settings routes', () => {
   // A4
   it('org save requires step-up: 403 without a password, 204 with the correct one', async () => {
     const noOrg = await request(app).put('/api/settings/org').set('Cookie', cookie).set('x-csrf-token', csrf)
-      .send({ name: 'KEPAS', nominatedNumber: '254700000000', notificationPhone: '254700000000' });
+      .send({ name: 'APIONE', nominatedNumber: '254700000000', notificationPhone: '254700000000' });
     expect(noOrg.status).toBe(403);
     expect(noOrg.body.error.code).toBe('step_up_required');
     const okOrg = await request(app).put('/api/settings/org').set('Cookie', cookie).set('x-csrf-token', csrf)
-      .send({ name: 'KEPAS', nominatedNumber: '254700000000', notificationPhone: '254700000000', password: 'correct horse' });
+      .send({ name: 'APIONE', nominatedNumber: '254700000000', notificationPhone: '254700000000', password: 'correct horse' });
     expect(okOrg.status).toBe(204);
     // The organisation row itself carries the new name, so the header and Home show it at once.
-    expect((await request(app).get('/api/auth/me').set('Cookie', cookie)).body.org.name).toBe('KEPAS');
+    expect((await request(app).get('/api/auth/me').set('Cookie', cookie)).body.org.name).toBe('APIONE');
   });
 
   it('public-url save requires step-up: 403 without a password', async () => {
@@ -146,7 +146,7 @@ describe('settings routes', () => {
     const envFetch = (async (url: string | URL | Request) => {
       const u = String(url);
       if (u.includes('generate')) { generateCalls++; return new Response(JSON.stringify({ access_token: 't', expires_in: '3599' }), { status: 200 }); }
-      if (u.includes('/sfcverify/v1/query/info')) return new Response(JSON.stringify({ ResponseMessage: 'Success', OrganizationName: 'KEPAS' }), { status: 200 });
+      if (u.includes('/sfcverify/v1/query/info')) return new Response(JSON.stringify({ ResponseMessage: 'Success', OrganizationName: 'APIONE' }), { status: 200 });
       return new Response('{}', { status: 500 });
     }) as typeof fetch;
     const built = makeApp({ fetchImpl: envFetch });
@@ -157,14 +157,14 @@ describe('settings routes', () => {
       await request(built.app).post('/api/settings/environments/sandbox/daraja').set('Cookie', c2).set('x-csrf-token', cs2).send({ consumerKey: 'k', consumerSecret: 's', password: 'correct horse' });
       const afterCreds = generateCalls;
       const first = await request(built.app).put('/api/settings/environments/sandbox/shortcode').set('Cookie', c2).set('x-csrf-token', cs2).send({ shortcode: '600999', password: 'correct horse' });
-      expect(first.body).toEqual({ verifiedName: 'KEPAS', verifyError: null });
+      expect(first.body).toEqual({ verifiedName: 'APIONE', verifyError: null });
       expect(generateCalls).toBe(afterCreds + 1);
       const second = await request(built.app).put('/api/settings/environments/sandbox/shortcode').set('Cookie', c2).set('x-csrf-token', cs2).send({ shortcode: '600999', password: 'correct horse' });
-      expect(second.body).toEqual({ verifiedName: 'KEPAS', verifyError: null });
+      expect(second.body).toEqual({ verifiedName: 'APIONE', verifyError: null });
       // The kind Safaricom answered for is remembered, and the name can be fetched again on demand.
-      expect((await request(built.app).get('/api/settings').set('Cookie', c2)).body.environments.sandbox).toMatchObject({ safaricomName: 'KEPAS', shortcodeKind: 'paybill' });
+      expect((await request(built.app).get('/api/settings').set('Cookie', c2)).body.environments.sandbox).toMatchObject({ safaricomName: 'APIONE', shortcodeKind: 'paybill' });
       const again = await request(built.app).post('/api/settings/environments/sandbox/shortcode/verify').set('Cookie', c2).set('x-csrf-token', cs2);
-      expect(again.body).toEqual({ verifiedName: 'KEPAS', verifyError: null });
+      expect(again.body).toEqual({ verifiedName: 'APIONE', verifyError: null });
       expect(generateCalls).toBe(afterCreds + 1);
     } finally {
       await built.close();
@@ -315,13 +315,13 @@ describe('settings routes', () => {
     const { generateKeyPairSync } = await import('node:crypto');
     const { publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
     const certPem = publicKey.export({ type: 'spki', format: 'pem' }) as string;
-    const r = await request(app).post('/api/settings/environments/sandbox/operators').set('Cookie', cookie).set('x-csrf-token', csrf).send({ name: 'KEPAS', operatorPassword: 'Secret#123', certPem, password: 'correct horse' });
+    const r = await request(app).post('/api/settings/environments/sandbox/operators').set('Cookie', cookie).set('x-csrf-token', csrf).send({ name: 'APIONE', operatorPassword: 'Secret#123', certPem, password: 'correct horse' });
     expect(r.status).toBe(201);
-    expect(r.body.name).toBe('KEPAS');
+    expect(r.body.name).toBe('APIONE');
     expect(r.body.environment).toBe('sandbox');
 
     const list = await request(app).get('/api/settings/environments/sandbox/operators').set('Cookie', cookie);
-    expect(list.body.map((o: { name: string }) => o.name)).toEqual(['KEPAS']);
+    expect(list.body.map((o: { name: string }) => o.name)).toEqual(['APIONE']);
     const prodList = await request(app).get('/api/settings/environments/production/operators').set('Cookie', cookie);
     expect(prodList.body).toEqual([]);
   });

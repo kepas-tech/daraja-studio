@@ -33,7 +33,7 @@ describe('Home', () => {
       if (url === '/api/setup/status') return new Response(JSON.stringify({ needsOwner: false, completed: true, step: null }), { status: 200 });
       if (url === '/api/auth/me') return new Response(JSON.stringify({ person: { id: '1', username: 'owner', display_name: 'Host Owner', is_owner: true, must_change_password: false }, csrf: 'c', permissions: [] }), { status: 200 });
       if (url === '/api/settings') {
-        const slot = { shortcode: null, consumerKey: { saved: true, last4: '4f2a' }, consumerSecret: { saved: true, last4: null }, credsVerifiedAt: 'x', passkey: { saved: false, last4: null }, cert: { saved: false, last4: null }, operators: [{ id: 'a', name: 'KEPAS', environment: 'sandbox', status: 'verified', priority: 1, rotatedAt: 'x', lastProbeAt: null, lastError: null, expiresAt: 'x' }], ready: { creds: true, operator: true }, b2cApi: { setting: 'auto', detected: null, detectedAt: null } };
+        const slot = { shortcode: null, consumerKey: { saved: true, last4: '4f2a' }, consumerSecret: { saved: true, last4: null }, credsVerifiedAt: 'x', passkey: { saved: false, last4: null }, cert: { saved: false, last4: null }, operators: [{ id: 'a', name: 'APIONE', environment: 'sandbox', status: 'verified', priority: 1, rotatedAt: 'x', lastProbeAt: null, lastError: null, expiresAt: 'x' }], ready: { creds: true, operator: true }, b2cApi: { setting: 'auto', detected: null, detectedAt: null } };
         return new Response(JSON.stringify({ mode: 'sandbox', environments: { sandbox: slot, production: { ...slot, operators: [], ready: { creds: false, operator: false } } }, org: { name: '', nominatedNumber: '', notificationPhone: '' }, publicVerifiedAt: 'x', stkEnabled: true, publicUrl: 'x', httpsSeen: true, allowlist: [], setupCompletedAt: 'x' }), { status: 200 });
       }
       if (url === '/api/balances/latest') return new Response(JSON.stringify({ workingCents: 1400, utilityCents: 3439200, chargesPaidCents: 0, queriedAt: new Date().toISOString() }), { status: 200 });
@@ -52,7 +52,7 @@ describe('Home', () => {
 const hostedSettings = {
   mode: 'sandbox',
   environments: {
-    sandbox: { shortcode: null, consumerKey: { saved: true, last4: '4f2a' }, consumerSecret: { saved: true, last4: null }, credsVerifiedAt: 'x', passkey: { saved: false, last4: null }, cert: { saved: false, last4: null }, operators: [{ id: 'a', name: 'KEPAS', environment: 'sandbox', status: 'verified', priority: 1, rotatedAt: 'x', lastProbeAt: null, lastError: null, expiresAt: 'x' }], ready: { creds: true, operator: true }, b2cApi: { setting: 'auto', detected: null, detectedAt: null } },
+    sandbox: { shortcode: null, consumerKey: { saved: true, last4: '4f2a' }, consumerSecret: { saved: true, last4: null }, credsVerifiedAt: 'x', passkey: { saved: false, last4: null }, cert: { saved: false, last4: null }, operators: [{ id: 'a', name: 'APIONE', environment: 'sandbox', status: 'verified', priority: 1, rotatedAt: 'x', lastProbeAt: null, lastError: null, expiresAt: 'x' }], ready: { creds: true, operator: true }, b2cApi: { setting: 'auto', detected: null, detectedAt: null } },
     production: { shortcode: null, consumerKey: { saved: false, last4: null }, consumerSecret: { saved: false, last4: null }, credsVerifiedAt: null, passkey: { saved: false, last4: null }, cert: { saved: false, last4: null }, operators: [], ready: { creds: false, operator: false }, b2cApi: { setting: 'auto', detected: null, detectedAt: null } },
   },
   org: { name: 'One Ltd', nominatedNumber: '', notificationPhone: '' },
@@ -84,9 +84,9 @@ function mountHome(state: { me: unknown }) {
 
 describe('Home header', () => {
   it('shows the name Safaricom holds for the shortcode, the shortcode, the environment and the business\'s own name', async () => {
-    const state = { me: { ...me(), org: { ...me().org, environment: 'production', shortcode: '700111', shortcodeKind: 'paybill', safaricomName: 'KEPAS TECHNOLOGIES' } } };
+    const state = { me: { ...me(), org: { ...me().org, environment: 'production', shortcode: '700111', shortcodeKind: 'paybill', safaricomName: 'ACME TRADERS' } } };
     const { unmount } = mountHome(state);
-    await screen.findByRole('heading', { level: 1, name: 'KEPAS TECHNOLOGIES' });
+    await screen.findByRole('heading', { level: 1, name: 'ACME TRADERS' });
     expect(screen.getByText(copy.home.shortcodeLine('700111', 'production', 'One Ltd', 'paybill'))).toBeInTheDocument();
     expect(copy.home.shortcodeLine('700111', 'production', 'One Ltd', 'paybill')).toBe('Paybill 700111 · Production · One Ltd');
     expect(copy.home.shortcodeLine('174379', 'sandbox', null, null)).toBe('Paybill or till 174379 · Sandbox');

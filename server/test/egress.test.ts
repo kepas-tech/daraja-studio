@@ -89,7 +89,7 @@ describe('the whitelist line reaches every product surface, not just a stored ro
   function refusalError(): DarajaAPIError {
     return Object.assign(new DarajaAPIError('rejected', { raw: { errorCode: '403.002.1001', errorMessage: REFUSED } }), { httpStatus: 403 });
   }
-  const fakeClient = { balance: { query: async () => { throw refusalError(); } }, config: { initiator: 'KEPAS' } } as never;
+  const fakeClient = { balance: { query: async () => { throw refusalError(); } }, config: { initiator: 'APIONE' } } as never;
   const refusalDaraja: DarajaFactory = {
     get: async () => fakeClient, getForOperator: async () => fakeClient, invalidate: () => {}, stkEnabled: async () => false,
   };
@@ -105,7 +105,7 @@ describe('the whitelist line reaches every product surface, not just a stored ro
     await makePerson(localWithIps.deps.db, TEST_ORG_ID, { username: 'owner', password: 'correct horse', displayName: 'Owner', isOwner: true, role: 'owner' });
     await localWithIps.deps.settings.set('public.url', 'https://studio.example');
     await localWithIps.deps.settings.set('public.verifiedAt', new Date().toISOString());
-    await localWithIps.deps.db.query(`INSERT INTO operators(name, credential_enc, status) VALUES ('KEPAS','x','verified')`);
+    await localWithIps.deps.db.query(`INSERT INTO operators(name, credential_enc, status) VALUES ('APIONE','x','verified')`);
     const w = await loginAs(localWithIps.app, 'owner', 'correct horse');
     const r = await request(localWithIps.app).post('/api/balances/refresh').set('Cookie', w.cookie).set('x-csrf-token', w.csrf).send({});
     expect(r.status).toBe(502);
@@ -117,7 +117,7 @@ describe('the whitelist line reaches every product surface, not just a stored ro
     await makePerson(localNoIps.deps.db, TEST_ORG_ID, { username: 'owner', password: 'correct horse', displayName: 'Owner', isOwner: true, role: 'owner' });
     await localNoIps.deps.settings.set('public.url', 'https://studio.example');
     await localNoIps.deps.settings.set('public.verifiedAt', new Date().toISOString());
-    await localNoIps.deps.db.query(`INSERT INTO operators(name, credential_enc, status) VALUES ('KEPAS','x','verified')`);
+    await localNoIps.deps.db.query(`INSERT INTO operators(name, credential_enc, status) VALUES ('APIONE','x','verified')`);
     const s = await loginAs(localNoIps.app, 'owner', 'correct horse');
     const r = await request(localNoIps.app).post('/api/balances/refresh').set('Cookie', s.cookie).set('x-csrf-token', s.csrf).send({});
     expect(r.status).toBe(502);
