@@ -29,6 +29,9 @@ describe('Layout log out', () => {
     await screen.findByText('Host Owner');
 
     fireEvent.click(screen.getByRole('button', { name: copy.account.menu }));
+    // Delete this studio left the header menu in 0.13.1; it lives on the Account page only.
+    expect(screen.queryByRole('menuitem', { name: copy.account.deleteButton })).toBeNull();
+    expect(screen.getByRole('menuitem', { name: copy.account.organisation })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: copy.nav.logout }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/auth/logout', expect.objectContaining({ method: 'POST' })));

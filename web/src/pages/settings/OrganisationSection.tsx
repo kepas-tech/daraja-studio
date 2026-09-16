@@ -20,7 +20,7 @@ const ENVS: Env[] = ['sandbox', 'production'];
 /** Everything about the organisation as read-only rows; each edit form opens on request. */
 export function OrganisationSection({ view, reload, stepUp }: { view: SettingsView; reload: () => Promise<unknown>; stepUp: StepUp }) {
   const toast = useToast();
-  const { org: session } = useSession();
+  const { org: session, refresh } = useSession();
   const [org, setOrg] = useState(view.org);
   const [url, setUrl] = useState(view.publicUrl ?? '');
   const [allow, setAllow] = useState(view.allowlist.join(', '));
@@ -43,7 +43,8 @@ export function OrganisationSection({ view, reload, stepUp }: { view: SettingsVi
             onDone={() => stepUp.ask(copy.settings.confirm.org, async (password) => {
               await api.put('/api/settings/org', { ...org, password });
               toast.success(copy.settings.saved);
-              await reload();
+              // The name sits in the menu header and the page title; both read the session.
+              await Promise.all([reload(), refresh()]);
               close();
             })}
             steps={[

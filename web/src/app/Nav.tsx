@@ -38,11 +38,9 @@ export function Nav() {
   // current Chrome, so its links were never painted or clickable. Owning the state keeps the
   // open/closed decision somewhere a test can assert (see nav.test.tsx).
   const [open, setOpen] = useState(false);
-  const [soonOpen, setSoonOpen] = useState(false);
   const pick = () => setOpen(false);
   const live = copy.nav.filter((e) => e.available);
   const waiting = useApprovalsCount();
-  const soon = copy.nav.filter((e) => !e.available);
   return (
     <nav aria-label={copy.app.navLabel} className="w-full shrink-0 border-b border-line bg-page md:w-60 md:overflow-y-auto md:border-r md:border-b-0">
       <button type="button" aria-expanded={open} aria-controls="nav-entries" onClick={() => setOpen((v) => !v)} className="flex min-h-11 w-full cursor-pointer items-center gap-2 px-4 text-base font-semibold md:hidden">
@@ -52,19 +50,12 @@ export function Nav() {
       <ul id="nav-entries" className={`${open ? 'block' : 'hidden'} pb-4 md:block`}>
         {org && <li className="px-3 pt-4 pb-2" title={org.name}><span className="block truncate text-sm font-semibold">{org.name}</span><span className="block text-xs text-muted">{copy.org.envLine[org.environment]}</span></li>}
         {live.filter((e) => e.group === 'home').map((e) => <Item key={e.key} e={e} onPick={pick} />)}
-        <li className={heading}>{copy.nav.groups.money}</li>
-        {live.filter((e) => e.group === 'money').map((e) => <Item key={e.key} e={e} onPick={pick} badge={e.key === 'approvals' ? waiting : undefined} />)}
-        <li className={heading}>{copy.nav.groups.manage}</li>
-        {live.filter((e) => e.group === 'manage').map((e) => <Item key={e.key} e={e} onPick={pick} />)}
-        {soon.length > 0 && <li className="pt-4">
-          <button type="button" aria-expanded={soonOpen} aria-controls="nav-soon" onClick={() => setSoonOpen((v) => !v)} className="flex min-h-10 w-full cursor-pointer items-center gap-3 px-3 text-left text-sm text-muted hover:text-ink">
-            <Icon name={soonOpen ? 'chevron-up' : 'chevron-down'} className="size-4" />
-            <span>{copy.nav.planned(soon.length)}</span>
-          </button>
-          <ul id="nav-soon" className={soonOpen ? 'block' : 'hidden'}>
-            {soon.map((e) => <Item key={e.key} e={e} onPick={pick} />)}
-          </ul>
-        </li>}
+        {(['in', 'out', 'manage'] as const).map((g) => (
+          <li key={g}>
+            <div className={heading}>{copy.nav.groups[g]}</div>
+            <ul>{live.filter((e) => e.group === g).map((e) => <Item key={e.key} e={e} onPick={pick} badge={e.key === 'approvals' ? waiting : undefined} />)}</ul>
+          </li>
+        ))}
         <li className="mt-4 border-t border-line pt-2"><ul>{live.filter((e) => e.group === 'help').map((e) => <Item key={e.key} e={e} onPick={pick} />)}</ul></li>
       </ul>
     </nav>

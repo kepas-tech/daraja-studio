@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.13.1 — the menu follows the day
+
+- Menu regrouped by how a business uses it: Home and History first, then Get paid (Ask a customer
+  to pay, Money in, QR codes, Invoices, Standing orders, Express checkout, Bonga points), Pay out
+  (Send money, Bulk send, Waiting for approval, Reverse a payment), Manage (People, Settings).
+- Business name and contacts are edited at the top of Settings; the name in the menu updates at once.
+- "Delete this studio" no longer sits in the header account menu. It stays at the bottom of the
+  Account page, behind the owner's password and the name typed back.
+
 ## 0.13.0 — standing orders, express checkout, Bonga points
 
 - Standing orders (M-Pesa Ratiba): set one up for a customer, they agree once on their phone,

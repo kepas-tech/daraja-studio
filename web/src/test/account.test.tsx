@@ -3,6 +3,8 @@ import { MemoryRouter } from 'react-router';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { SessionProvider } from '../app/session';
 import { Account } from '../pages/Account';
+import { Settings } from '../pages/Settings';
+import type { ReactNode } from 'react';
 import { ToastHost } from '../components/Toast';
 import { copy } from '../copy/en';
 
@@ -29,7 +31,7 @@ const view = {
   sendCategories: [], approvalThresholdCents: 0,
 };
 
-function mount(handlers: (url: string, method: string, init?: RequestInit) => Response, data: unknown = view) {
+function mount(handlers: (url: string, method: string, init?: RequestInit) => Response, data: unknown = view, page: ReactNode = <Account />) {
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     const method = init?.method ?? 'GET';
@@ -46,13 +48,15 @@ function mount(handlers: (url: string, method: string, init?: RequestInit) => Re
   });
   vi.stubGlobal('fetch', fetchMock);
   vi.stubGlobal('EventSource', class { addEventListener() {} close() {} });
-  render(<MemoryRouter><SessionProvider><ToastHost /><Account /></SessionProvider></MemoryRouter>);
+  render(<MemoryRouter><SessionProvider><ToastHost />{page}</SessionProvider></MemoryRouter>);
   return fetchMock;
 }
 
-describe('Account › Organisation', () => {
+// The organisation card (name, contacts, verification, public address, callback secret) lives at the
+// top of Settings since 0.13.1, so the business name is found where a person expects to change it.
+describe('Settings › Organisation', () => {
   it('names the organisation, when it signed up and when Safaricom verified it', async () => {
-    mount(() => { throw new Error('no other call expected'); });
+    mount(() => { throw new Error('no other call expected'); }, view, <Settings />);
     await screen.findByText(copy.settings.organisation.title);
     expect(screen.getAllByText('KEPAS TECHNOLOGIES').length).toBeGreaterThan(0);
     expect(screen.getByText(copy.org.signedUp, { exact: false })).toBeInTheDocument();
@@ -60,7 +64,7 @@ describe('Account › Organisation', () => {
   });
 
   it('shows what Safaricom has verified in each environment', async () => {
-    mount(() => { throw new Error('no other call expected'); });
+    mount(() => { throw new Error('no other call expected'); }, view, <Settings />);
     await screen.findByText(copy.settings.organisation.title);
     expect(screen.getByTestId('verification-production')).toHaveTextContent(copy.settings.organisation.verifiedWith);
     expect(screen.getByTestId('verification-production')).toHaveTextContent('700111');
@@ -68,7 +72,7 @@ describe('Account › Organisation', () => {
   });
 
   it('links to the People page', async () => {
-    mount(() => { throw new Error('no other call expected'); });
+    mount(() => { throw new Error('no other call expected'); }, view, <Settings />);
     expect(await screen.findByRole('link', { name: copy.settings.organisation.peopleLink })).toHaveAttribute('href', '/people');
   });
 
@@ -77,7 +81,7 @@ describe('Account › Organisation', () => {
     mount((url, method, init) => {
       if (url === '/api/settings/install-secret/reveal' && method === 'POST') { revealed = JSON.parse(String(init?.body)); return new Response(JSON.stringify({ secret: 'top-secret-value' }), { status: 200 }); }
       throw new Error(`unexpected ${method} ${url}`);
-    });
+    }, view, <Settings />);
     await screen.findByText(copy.settings.organisation.title);
     fireEvent.click(screen.getByRole('button', { name: copy.settings.revealSecret }));
     fireEvent.change(await screen.findByLabelText(copy.confirm.yourPassword), { target: { value: 'owner-password' } });
@@ -90,11 +94,14 @@ describe('Account › Organisation', () => {
   });
 
   it('no longer has an Advanced card', async () => {
-    mount(() => { throw new Error('no other call expected'); });
+    mount(() => { throw new Error('no other call expected'); }, view, <Settings />);
     await screen.findByText(copy.settings.organisation.title);
     expect(screen.queryByText(copy.settings.advanced)).not.toBeInTheDocument();
   });
 
+});
+
+describe('Account', () => {
   it('lists both shortcodes and saves one after the password', async () => {
     let put: unknown = null;
     mount((url, method, init) => {

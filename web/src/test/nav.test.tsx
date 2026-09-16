@@ -81,7 +81,7 @@ describe('Nav', () => {
       if (e.safaricom) expect(screen.getByText(e.safaricom)).toBeInTheDocument();
     }
     expect(copy.nav.map((e) => e.key)).toEqual([
-      'home','send','bulk','reverse','money-in','stk','qr','invoices','standing-orders','express','bonga','approvals','history','people','settings','not-possible',
+      'home','history','stk','money-in','qr','invoices','standing-orders','express','bonga','send','bulk','approvals','reverse','people','settings','not-possible',
     ]);
   });
 });

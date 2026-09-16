@@ -1,6 +1,6 @@
 import type { IconName } from '../icons/lineMd';
 
-export interface NavEntry { key: string; label: string; safaricom: string | null; path: string; icon: IconName; group: 'home' | 'money' | 'manage' | 'help'; phase: 1 | 2 | 3 | 4 | 5; available: boolean }
+export interface NavEntry { key: string; label: string; safaricom: string | null; path: string; icon: IconName; group: 'home' | 'in' | 'out' | 'manage' | 'help'; phase: 1 | 2 | 3 | 4 | 5; available: boolean }
 export interface NotPossibleItem { key: string; title: string; what: string; why: string; portalPath: string; ussd?: string }
 
 export const copy = {
@@ -41,24 +41,26 @@ export const copy = {
     } as Record<string, string>,
   },
   pageHeader: { safaricomPrefix: 'Safaricom calls this: ' },
+  // Ordered by a business's day: look (Home, History), get paid (all day), pay out (payroll,
+  // suppliers, refunds), manage (rarely), help (once). Most used first inside each group.
   nav: Object.assign([
     { key: 'home', label: 'Home', safaricom: null, path: '/', icon: 'home', group: 'home', phase: 1, available: true },
-    { key: 'send', label: 'Send money', safaricom: 'Initiate Transaction', path: '/send', icon: 'arrow-right-circle', group: 'money', phase: 2, available: true },
-    { key: 'bulk', label: 'Bulk send', safaricom: 'Bulk Task › Bulk Payment', path: '/bulk', icon: 'document-list', group: 'money', phase: 5, available: true },
-    { key: 'reverse', label: 'Reverse a payment', safaricom: 'Reversal', path: '/reverse', icon: 'arrow-left-circle', group: 'money', phase: 2, available: true },
-    { key: 'money-in', label: 'Money in', safaricom: null, path: '/money-in', icon: 'arrow-down-circle', group: 'money', phase: 3, available: true },
-    { key: 'stk', label: 'Ask a customer to pay', safaricom: 'STK Push', path: '/ask-to-pay', icon: 'cellphone', group: 'money', phase: 3, available: true },
-    { key: 'qr', label: 'QR codes', safaricom: 'Dynamic QR', path: '/qr', icon: 'grid-3', group: 'money', phase: 4, available: true },
-    { key: 'invoices', label: 'Invoices', safaricom: 'Bill Manager', path: '/invoices', icon: 'file-document', group: 'money', phase: 4, available: true },
-    { key: 'standing-orders', label: 'Standing orders', safaricom: 'M-Pesa Ratiba', path: '/standing-orders', icon: 'calendar', group: 'money', phase: 4, available: true },
-    { key: 'express', label: 'Express checkout', safaricom: 'B2B Express Checkout', path: '/express', icon: 'speed', group: 'money', phase: 4, available: true },
-    { key: 'bonga', label: 'Bonga points', safaricom: 'Lipa na Bonga', path: '/bonga', icon: 'star', group: 'money', phase: 3, available: true },
-    { key: 'approvals', label: 'Waiting for approval', safaricom: 'Review Transaction', path: '/approvals', icon: 'clipboard-check', group: 'money', phase: 5, available: true },
-    { key: 'history', label: 'History', safaricom: 'Account Statement', path: '/history', icon: 'list', group: 'money', phase: 2, available: true },
+    { key: 'history', label: 'History', safaricom: 'Account Statement', path: '/history', icon: 'list', group: 'home', phase: 2, available: true },
+    { key: 'stk', label: 'Ask a customer to pay', safaricom: 'STK Push', path: '/ask-to-pay', icon: 'cellphone', group: 'in', phase: 3, available: true },
+    { key: 'money-in', label: 'Money in', safaricom: null, path: '/money-in', icon: 'arrow-down-circle', group: 'in', phase: 3, available: true },
+    { key: 'qr', label: 'QR codes', safaricom: 'Dynamic QR', path: '/qr', icon: 'grid-3', group: 'in', phase: 4, available: true },
+    { key: 'invoices', label: 'Invoices', safaricom: 'Bill Manager', path: '/invoices', icon: 'file-document', group: 'in', phase: 4, available: true },
+    { key: 'standing-orders', label: 'Standing orders', safaricom: 'M-Pesa Ratiba', path: '/standing-orders', icon: 'calendar', group: 'in', phase: 4, available: true },
+    { key: 'express', label: 'Express checkout', safaricom: 'B2B Express Checkout', path: '/express', icon: 'speed', group: 'in', phase: 4, available: true },
+    { key: 'bonga', label: 'Bonga points', safaricom: 'Lipa na Bonga', path: '/bonga', icon: 'star', group: 'in', phase: 3, available: true },
+    { key: 'send', label: 'Send money', safaricom: 'Initiate Transaction', path: '/send', icon: 'arrow-right-circle', group: 'out', phase: 2, available: true },
+    { key: 'bulk', label: 'Bulk send', safaricom: 'Bulk Task › Bulk Payment', path: '/bulk', icon: 'document-list', group: 'out', phase: 5, available: true },
+    { key: 'approvals', label: 'Waiting for approval', safaricom: 'Review Transaction', path: '/approvals', icon: 'clipboard-check', group: 'out', phase: 5, available: true },
+    { key: 'reverse', label: 'Reverse a payment', safaricom: 'Reversal', path: '/reverse', icon: 'arrow-left-circle', group: 'out', phase: 2, available: true },
     { key: 'people', label: 'People', safaricom: 'Organization Operator', path: '/people', icon: 'account', group: 'manage', phase: 5, available: true },
     { key: 'settings', label: 'Settings', safaricom: 'My Preference', path: '/settings', icon: 'cog', group: 'manage', phase: 1, available: true },
     { key: 'not-possible', label: 'Not possible via API', safaricom: null, path: '/not-possible', icon: 'alert-circle', group: 'help', phase: 1, available: true },
-  ] as NavEntry[], { logout: 'Log out', menu: 'Menu', groups: { money: 'Money', manage: 'Manage' }, planned: (n: number) => `${n} planned features` }),
+  ] as NavEntry[], { logout: 'Log out', menu: 'Menu', groups: { in: 'Get paid', out: 'Pay out', manage: 'Manage' } as Record<string, string> }),
   comingSoon: { title: 'Not in this version yet', badge: 'Coming soon', body: 'Planned for a later release.' },
   login: { title: 'Log in', username: 'Username', password: 'Password', button: 'Log in', locked: 'Too many wrong tries. Wait 15 minutes and try again.' },
   changePassword: {
@@ -417,7 +419,7 @@ export const copy = {
       peopleLink: 'Manage people',
       callbackSecret: 'Callback secret',
     },
-    org: 'Your organization', daraja: 'Daraja app', passkey: 'STK passkey', publicUrl: 'Public address', operatorsTitle: 'API operators', allowlist: 'Safaricom callback addresses', advanced: 'Advanced',
+    org: 'Business name and contacts', daraja: 'Daraja app', passkey: 'STK passkey', publicUrl: 'Public address', operatorsTitle: 'API operators', allowlist: 'Safaricom callback addresses', advanced: 'Advanced',
     change: 'Change', replace: 'Replace', test: 'Test', addOperator: 'Add operator', hidden: 'Hidden',
     appearance: { title: 'Appearance', system: 'System', light: 'Light', dark: 'Dark' },
     invoices: { title: 'Invoices', label: 'Safaricom Bill Manager', notYet: 'Not set up', remindersOn: 'Reminders on', remindersOff: 'Reminders off', hint: 'Set up invoicing from the Invoices page.' },

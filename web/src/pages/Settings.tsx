@@ -10,6 +10,7 @@ import { EnvironmentTab } from './settings/EnvironmentTab';
 import { CategoriesSection } from './settings/CategoriesSection';
 import { ApprovalsSection } from './settings/ApprovalsSection';
 import { InvoicesSection } from './settings/InvoicesSection';
+import { OrganisationSection } from './settings/OrganisationSection';
 import { useStepUp } from './settings/useStepUp';
 import { Card } from '../components/Card';
 import { Loading } from '../components/Loading';
@@ -42,6 +43,8 @@ export function Settings() {
     <>
       <PageHeader title={copy.settings.title} safaricom={copy.nav.find((n) => n.key === 'settings')?.safaricom ?? null} />
       <ErrorCard error={err} />
+
+      <div className="mb-6"><OrganisationSection view={v} reload={load} stepUp={stepUp} /></div>
 
       <Card id="appearance" title={copy.settings.appearance.title} className="mb-6" bodyClassName="p-4">
         <div className="max-w-sm"><Segmented name="theme" label={copy.settings.appearance.title} value={theme} options={themes} onChange={setTheme} /></div>

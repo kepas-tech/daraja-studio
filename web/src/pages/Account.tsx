@@ -14,7 +14,6 @@ import { TextField } from '../components/TextField';
 import { useToast } from '../components/Toast';
 import { copy } from '../copy/en';
 import { ModeCard } from './settings/ModeCard';
-import { OrganisationSection } from './settings/OrganisationSection';
 import { useStepUp } from './settings/useStepUp';
 
 const ENVS: Env[] = ['sandbox', 'production'];
@@ -60,7 +59,6 @@ export function Account() {
     <>
       <PageHeader title={copy.account.title} />
       <ErrorCard error={err} />
-      <OrganisationSection view={v} reload={load} stepUp={stepUp} />
       <ModeCard view={v} reload={load} stepUp={stepUp} onSwitched={() => {}} />
       <Card title={copy.account.shortcodes} className="mb-6" bodyClassName="p-0">
         {ENVS.map((env) => {

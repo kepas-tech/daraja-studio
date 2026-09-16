@@ -38,7 +38,6 @@ function AccountMenu() {
           {person?.is_owner && <Link to="/account" role="menuitem" className={item} onClick={() => setOpen(false)}><Icon name="cog" className="size-4 text-muted" />{copy.account.organisation}</Link>}
           <Link to="/account/password" role="menuitem" className={item} onClick={() => setOpen(false)}><Icon name="confirm" className="size-4 text-muted" />{copy.account.changePassword}</Link>
           <button type="button" className={item} onClick={() => void logout()}><Icon name="logout" className="size-4 text-muted" />{copy.nav.logout}</button>
-          {person?.is_owner && <Link to="/account#delete" role="menuitem" className={`${item} border-t border-line text-danger`} onClick={() => setOpen(false)}><Icon name="alert" className="size-4" />{copy.account.deleteButton}</Link>}
         </div>
       )}
     </div>
