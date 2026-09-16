@@ -10,6 +10,8 @@ type EnvSlotKey = 'shortcode' | 'consumerKey' | 'consumerSecret' | 'credsVerifie
   // organisation's alone; the name Safaricom returned for the shortcode; and when the person
   // confirmed that name is theirs.
   | 'consumerKeyHash' | 'safaricomName' | 'shortcodeConfirmedAt'
+  // Whether Safaricom answered for the number as a paybill or a till, learned when the name was checked.
+  | 'shortcodeKind'
   // When a real STK push was accepted by Safaricom on this shortcode. A passkey cannot be checked
   // any other way: no read-only Daraja call uses it, so the only proof it is right is Safaricom
   // accepting a push. Until this is set, the passkey is stored but unproven, and nothing may claim

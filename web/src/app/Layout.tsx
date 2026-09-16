@@ -34,7 +34,7 @@ function AccountMenu() {
       </button>
       {open && (
         <div role="menu" className="absolute right-0 z-40 mt-1 w-72 overflow-hidden rounded-md border border-line bg-surface py-1 shadow-lg">
-          {org && <div className="border-b border-line px-4 py-3"><div className="truncate text-base font-semibold">{org.name}</div><div className="text-sm text-muted">{copy.org.envLine[org.environment]}</div></div>}
+          {org && <div className="border-b border-line px-4 py-3"><div className="truncate text-base font-semibold">{org.name}</div><div className="text-sm text-muted">{org.shortcode ? `${copy.org.numberLine(org.shortcodeKind, org.shortcode)} · ` : ''}{copy.org.envLine[org.environment]}</div></div>}
           {person?.is_owner && <Link to="/account" role="menuitem" className={item} onClick={() => setOpen(false)}><Icon name="cog" className="size-4 text-muted" />{copy.account.organisation}</Link>}
           <Link to="/account/password" role="menuitem" className={item} onClick={() => setOpen(false)}><Icon name="confirm" className="size-4 text-muted" />{copy.account.changePassword}</Link>
           <button type="button" className={item} onClick={() => void logout()}><Icon name="logout" className="size-4 text-muted" />{copy.nav.logout}</button>

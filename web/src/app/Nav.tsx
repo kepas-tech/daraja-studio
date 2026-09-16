@@ -48,7 +48,7 @@ export function Nav() {
         <span>{copy.nav.menu}</span>
       </button>
       <ul id="nav-entries" className={`${open ? 'block' : 'hidden'} pb-4 md:block`}>
-        {org && <li className="px-3 pt-4 pb-2" title={org.name}><span className="block truncate text-sm font-semibold">{org.name}</span><span className="block text-xs text-muted">{copy.org.envLine[org.environment]}</span></li>}
+        {org && <li className="px-3 pt-4 pb-2" title={org.name}><span className="block truncate text-sm font-semibold">{org.name}</span><span className="block text-xs text-muted">{org.shortcode ? `${copy.org.numberLine(org.shortcodeKind, org.shortcode)} · ` : ''}{copy.org.envLine[org.environment]}</span></li>}
         {live.filter((e) => e.group === 'home').map((e) => <Item key={e.key} e={e} onPick={pick} />)}
         {(['in', 'out', 'manage'] as const).map((g) => (
           <li key={g}>

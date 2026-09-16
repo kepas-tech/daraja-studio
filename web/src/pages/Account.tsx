@@ -68,6 +68,13 @@ export function Account() {
               {(close) => (
                 <>
                   <TextField label={copy.settings.shortcode.label} inputMode="numeric" value={shortcodes[env]} onChange={(e) => setShortcodes({ ...shortcodes, [env]: e.target.value })} />
+                  <Button variant="secondary" disabled={!slot.shortcode} onClick={async () => {
+                    try {
+                      const r = await api.post<{ verifiedName: string | null; verifyError: string | null }>(`/api/settings/environments/${env}/shortcode/verify`);
+                      if (r.verifiedName) toast.success(copy.settings.shortcode.knownAs(r.verifiedName)); else toast.info(r.verifyError ?? copy.settings.organisation.noName);
+                      await load();
+                    } catch (e) { setErr(explainApiError(e)); }
+                  }}>{copy.settings.organisation.checkName}</Button>
                   <Button disabled={!shortcodes[env]} onClick={() => stepUp.ask(copy.settings.confirm.saveShortcode, async (password) => {
                     const r = await api.put<{ verifiedName: string | null; verifyError: string | null }>(`/api/settings/environments/${env}/shortcode`, { shortcode: shortcodes[env], password });
                     if (r.verifiedName) toast.success(copy.settings.shortcode.knownAs(r.verifiedName));

@@ -96,6 +96,8 @@ describe('settings routes', () => {
     const okOrg = await request(app).put('/api/settings/org').set('Cookie', cookie).set('x-csrf-token', csrf)
       .send({ name: 'KEPAS', nominatedNumber: '254700000000', notificationPhone: '254700000000', password: 'correct horse' });
     expect(okOrg.status).toBe(204);
+    // The organisation row itself carries the new name, so the header and Home show it at once.
+    expect((await request(app).get('/api/auth/me').set('Cookie', cookie)).body.org.name).toBe('KEPAS');
   });
 
   it('public-url save requires step-up: 403 without a password', async () => {
@@ -159,6 +161,10 @@ describe('settings routes', () => {
       expect(generateCalls).toBe(afterCreds + 1);
       const second = await request(built.app).put('/api/settings/environments/sandbox/shortcode').set('Cookie', c2).set('x-csrf-token', cs2).send({ shortcode: '600999', password: 'correct horse' });
       expect(second.body).toEqual({ verifiedName: 'KEPAS', verifyError: null });
+      // The kind Safaricom answered for is remembered, and the name can be fetched again on demand.
+      expect((await request(built.app).get('/api/settings').set('Cookie', c2)).body.environments.sandbox).toMatchObject({ safaricomName: 'KEPAS', shortcodeKind: 'paybill' });
+      const again = await request(built.app).post('/api/settings/environments/sandbox/shortcode/verify').set('Cookie', c2).set('x-csrf-token', cs2);
+      expect(again.body).toEqual({ verifiedName: 'KEPAS', verifyError: null });
       expect(generateCalls).toBe(afterCreds + 1);
     } finally {
       await built.close();

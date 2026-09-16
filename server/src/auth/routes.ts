@@ -85,7 +85,7 @@ export function authRoutes(db: Db, config: Config): Router {
       // Home shows the shortcode of the environment in use and the name Safaricom itself holds for
       // it (recorded when the shortcode was checked), not just the name the owner typed.
       const slot = await db.query<{ key: string; value: string }>(
-        `SELECT key, value FROM settings WHERE org_id=$1 AND key IN ($2, $3) AND encrypted = false`, [org.id, `env.${environment}.shortcode`, `env.${environment}.safaricomName`],
+        `SELECT key, value FROM settings WHERE org_id=$1 AND key IN ($2, $3, $4) AND encrypted = false`, [org.id, `env.${environment}.shortcode`, `env.${environment}.safaricomName`, `env.${environment}.shortcodeKind`],
       );
       const slotOf = (k: string) => slot.find((r) => r.key === `env.${environment}.${k}`)?.value ?? null;
       const [operator] = await db.query<{ name: string }>(`SELECT name FROM operators WHERE org_id=$1 AND environment=$2 AND status='verified' ORDER BY priority ASC, created_at ASC LIMIT 1`, [org.id, environment]);
@@ -99,7 +99,7 @@ export function authRoutes(db: Db, config: Config): Router {
           isHost: org.isHost, suspendReason: org.suspendReason,
           createdAt: dates?.created_at.toISOString() ?? null,
           verifiedAt: dates?.verified_at?.toISOString() ?? null,
-          shortcode: slotOf('shortcode'), safaricomName: slotOf('safaricomName'), operatorName: operator?.name ?? null,
+          shortcode: slotOf('shortcode'), safaricomName: slotOf('safaricomName'), shortcodeKind: slotOf('shortcodeKind'), operatorName: operator?.name ?? null,
         },
         // Migration 008 sets is_host_admin on this install's owner, but there is no host console
         // here for it to mean anything — always false.

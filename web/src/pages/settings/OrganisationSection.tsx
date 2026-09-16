@@ -93,7 +93,7 @@ export function OrganisationSection({ view, reload, stepUp }: { view: SettingsVi
               <li key={e} data-testid={`verification-${e}`} className="flex flex-wrap items-center gap-2">
                 <span>{copy.settings.tabs[e]}</span>
                 <StatusPill kind={verified ? 'ok' : 'muted'}>{verified ? c.verifiedWith : c.notVerifiedWith}</StatusPill>
-                <span className="text-sm text-muted">{c.shortcode}: {slot.shortcode ?? c.none} · {c.creds}: {slot.credsVerifiedAt ? when(slot.credsVerifiedAt) : c.none} · {c.operator}: {slot.ready.operator ? copy.settings.operatorStatus.verified : c.none}{slot.safaricomName ? ` · ${c.knownAs} ${slot.safaricomName}` : ''}</span>
+                <span className="text-sm text-muted">{copy.org.numberLabel(slot.shortcodeKind)}: {slot.shortcode ?? c.none} · {c.creds}: {slot.credsVerifiedAt ? when(slot.credsVerifiedAt) : c.none} · {c.operator}: {slot.ready.operator ? copy.settings.operatorStatus.verified : c.none}{slot.safaricomName ? ` · ${c.knownAs} ${slot.safaricomName}` : ''}</span>
               </li>
             );
           })}

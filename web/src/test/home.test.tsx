@@ -84,11 +84,12 @@ function mountHome(state: { me: unknown }) {
 
 describe('Home header', () => {
   it('shows the name Safaricom holds for the shortcode, the shortcode, the environment and the business\'s own name', async () => {
-    const state = { me: { ...me(), org: { ...me().org, environment: 'production', shortcode: '700111', safaricomName: 'KEPAS TECHNOLOGIES' } } };
+    const state = { me: { ...me(), org: { ...me().org, environment: 'production', shortcode: '700111', shortcodeKind: 'paybill', safaricomName: 'KEPAS TECHNOLOGIES' } } };
     const { unmount } = mountHome(state);
     await screen.findByRole('heading', { level: 1, name: 'KEPAS TECHNOLOGIES' });
-    expect(screen.getByText(copy.home.shortcodeLine('700111', 'production', 'One Ltd'))).toBeInTheDocument();
-    expect(copy.home.shortcodeLine('700111', 'production', 'One Ltd')).toBe('Shortcode 700111 · Production · One Ltd');
+    expect(screen.getByText(copy.home.shortcodeLine('700111', 'production', 'One Ltd', 'paybill'))).toBeInTheDocument();
+    expect(copy.home.shortcodeLine('700111', 'production', 'One Ltd', 'paybill')).toBe('Paybill 700111 · Production · One Ltd');
+    expect(copy.home.shortcodeLine('174379', 'sandbox', null, null)).toBe('Paybill or till 174379 · Sandbox');
     unmount();
   });
   it('falls back to the business name and says when no shortcode is set', async () => {

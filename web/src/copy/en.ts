@@ -32,6 +32,9 @@ export const copy = {
     badge: { sandbox: 'Sandbox', production: 'Production' } as Record<string, string>,
     badgeSafaricom: { sandbox: 'Sandbox', production: 'Production' } as Record<string, string>,
     envLine: { sandbox: 'Sandbox', production: 'Production' } as Record<string, string>,
+    /** What to call the number: Paybill or Till once Safaricom has said which, otherwise both. */
+    numberLabel: (kind: string | null | undefined) => (kind === 'paybill' ? 'Paybill' : kind === 'till' ? 'Till' : 'Paybill or till'),
+    numberLine: (kind: string | null | undefined, code: string | null | undefined) => (code ? `${copy.org.numberLabel(kind)} ${code}` : 'No paybill or till yet'),
     suspended: 'This organisation is read-only. Nothing has been deleted.',
     signedUp: 'Signed up',
     verifiedOn: 'Verified by Safaricom',
@@ -130,7 +133,7 @@ export const copy = {
     noPublicUrl: 'Safaricom cannot reach this studio yet. Test your public address in Settings.',
     stkOff: 'Ask a customer to pay is off. Add the STK passkey in Settings to turn it on.',
     connected: 'Connected to Safaricom.', viewAll: 'View all',
-    shortcodeLine: (code: string | null, env: string, ownName: string | null) => [code ? `Shortcode ${code}` : 'No shortcode yet', copy.org.envLine[env] ?? env, ownName].filter(Boolean).join(' · '),
+    shortcodeLine: (code: string | null, env: string, ownName: string | null, kind?: string | null) => [copy.org.numberLine(kind, code), copy.org.envLine[env] ?? env, ownName].filter(Boolean).join(' · '),
     latestBalance: 'Latest balance', noBalance: 'No balance yet', recent: 'Recent requests', noRecent: 'Nothing sent yet.',
   },
   request: {
@@ -364,7 +367,7 @@ export const copy = {
       nothing: 'Choose at least one, so we know what to set up.',
     },
     org: { name: 'Business name', nominated: 'Nominated number (2547…)', notify: 'Notification phone (2547…)' },
-    shortcode: { field: 'Paybill or till number', verified: (n: string) => `Safaricom knows this shortcode as "${n}".`, notVerified: 'Saved. We could not verify the name with Safaricom yet.' },
+    shortcode: { field: 'Paybill or till number', verified: (n: string) => `Safaricom knows this number as "${n}".`, notVerified: 'Saved. We could not verify the name with Safaricom yet.' },
     env: {
       sandbox: 'Sandbox', sandboxHint: 'Test money. Safe to try things without moving real money.',
       production: 'Production', productionHint: 'Real money. Connects to your real M-Pesa account.',
@@ -427,7 +430,7 @@ export const copy = {
       operator: 'A working API operator',
       shortcode: 'Shortcode',
       none: 'Not set',
-      knownAs: 'Safaricom knows it as',
+      knownAs: 'Safaricom knows it as', checkName: 'Check the name with Safaricom', noName: 'Safaricom gave no name for this number.',
       defaultName: 'This is the starting name. Press Change to enter your business name.',
       people: 'Who can log in',
       peopleLink: 'Manage people',
@@ -484,7 +487,7 @@ export const copy = {
     operators: { switchToTest: (env: string) => `Switch to ${env === 'production' ? 'Production' : 'Sandbox'} mode to test this operator.` },
     shortcode: {
       label: 'Paybill or till number',
-      knownAs: (name: string) => `Saved. Safaricom knows this shortcode as ${name}.`,
+      knownAs: (name: string) => `Saved. Safaricom knows this number as ${name}.`,
       unverified: 'Saved. Not yet verified with Safaricom.',
     },
     b2cApi: {

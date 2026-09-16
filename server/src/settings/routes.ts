@@ -41,6 +41,7 @@ export function settingsRoutes(deps: AppDeps): Router {
 
   r.get('/', async (_req, res, next) => { try { res.json(await svc.view()); } catch (e) { next(e); } });
   r.put('/org', requireStepUp, async (req, res, next) => { try { await svc.setOrg(parse(org, req.body), a(req)); res.status(204).end(); } catch (e) { next(e); } });
+  r.post('/environments/:env/shortcode/verify', async (req, res, next) => { try { res.json(await svc.verifyShortcode(envParam(req))); } catch (e) { next(e); } });
   r.put('/environments/:env/shortcode', requireStepUp, async (req, res, next) => { try { const b = parse(shortcodeSchema, req.body); res.json(await svc.setShortcode(envParam(req), b.shortcode, a(req))); } catch (e) { next(e); } });
   r.put('/mode', requireStepUp, async (req, res, next) => { try { const b = parse(mode, req.body); res.json(await svc.setMode(b.environment, b.confirmShortcode, a(req))); } catch (e) { next(e); } });
   r.post('/environments/:env/daraja', requireStepUp, async (req, res, next) => { try { const b = parse(creds, req.body); res.json(await svc.setDarajaCreds(envParam(req), b.consumerKey, b.consumerSecret, a(req))); } catch (e) { next(e); } });

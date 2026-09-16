@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.13.5 — Paybill or Till, by name
+
+- The number is called what it is: Paybill or Till once Safaricom has said which (learned when the
+  name is checked), "Paybill or till" until then. It shows under the business name in the menu and
+  in the account menu on every page, and on Home's line under the heading.
+- Account › Shortcodes has "Check the name with Safaricom"; the name is also fetched the moment a
+  key and secret are accepted, for a number entered before them.
+- Saving the business name renames the organisation itself, so the header and Home show it at
+  once. Before this fix the name looked stuck on "My organisation" after a reset.
+
 ## 0.13.3 — Home names the account
 
 - Home's heading is the name Safaricom holds for your shortcode (recorded when the shortcode was

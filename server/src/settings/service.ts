@@ -30,8 +30,8 @@ export interface SecretState { saved: boolean; last4: string | null }
 export type B2cApiSetting = 'auto' | 'v1' | 'v3';
 export interface EnvSlotView {
   shortcode: string | null;
-  /** The name Safaricom returned when the shortcode was checked. */
-  safaricomName: string | null;
+  /** The name Safaricom returned when the shortcode was checked, and whether it answered as a paybill or a till. */
+  safaricomName: string | null; shortcodeKind: 'paybill' | 'till' | null;
   consumerKey: SecretState; consumerSecret: SecretState; credsVerifiedAt: string | null;
   passkey: SecretState; cert: SecretState;
   operators: OperatorView[];
@@ -52,6 +52,8 @@ export interface SettingsService {
   view(): Promise<SettingsView>;
   setOrg(input: { name: string; nominatedNumber: string; notificationPhone: string }, actor: Actor): Promise<void>;
   setShortcode(env: Env, shortcode: string, actor: Actor): Promise<{ verifiedName: string | null; verifyError: string | null }>;
+  /** Ask Safaricom for the name behind the stored shortcode, as a paybill first, then as a till. Read only. */
+  verifyShortcode(env: Env): Promise<{ verifiedName: string | null; verifyError: string | null }>;
   setMode(env: Env, confirmShortcode: string | undefined, actor: Actor): Promise<{ mode: Env; ready: { creds: boolean; operator: boolean } }>;
   setDarajaCreds(env: Env, key: string, secret: string, actor: Actor): Promise<{ ok: boolean; message: string }>;
   setPasskey(env: Env, passkey: string, actor: Actor): Promise<void>;
@@ -83,7 +85,7 @@ export function createSettingsService(deps: { db: Db; config: Config; settings: 
     };
   }
 
-  return {
+  const svc: SettingsService = {
     async view() {
       const shared = await deps.settings.getMany([
         'org.name', 'org.nominatedNumber', 'org.notificationPhone', 'daraja.environment',
@@ -94,13 +96,14 @@ export function createSettingsService(deps: { db: Db; config: Config; settings: 
       const mode = ((shared['daraja.environment'] as Env) ?? 'sandbox');
       const environments = {} as Record<Env, EnvSlotView>;
       for (const e of ENVS) {
-        const s = await deps.settings.getMany([`env.${e}.shortcode`, `env.${e}.consumerKey`, `env.${e}.consumerSecret`, `env.${e}.credsVerifiedAt`, `env.${e}.passkey`, `env.${e}.certPem`, `env.${e}.b2cApi`, `env.${e}.b2cApiDetected`, `env.${e}.b2cApiDetectedAt`, `env.${e}.safaricomName`]);
+        const s = await deps.settings.getMany([`env.${e}.shortcode`, `env.${e}.consumerKey`, `env.${e}.consumerSecret`, `env.${e}.credsVerifiedAt`, `env.${e}.passkey`, `env.${e}.certPem`, `env.${e}.b2cApi`, `env.${e}.b2cApiDetected`, `env.${e}.b2cApiDetectedAt`, `env.${e}.safaricomName`, `env.${e}.shortcodeKind`]);
         const consumerKey = s[`env.${e}.consumerKey`];
         const { creds, operator, operators } = await envReady(e, { consumerKey, consumerSecret: s[`env.${e}.consumerSecret`], credsVerifiedAt: s[`env.${e}.credsVerifiedAt`] });
         const b2cApiSetting = s[`env.${e}.b2cApi`];
         environments[e] = {
           shortcode: s[`env.${e}.shortcode`],
           safaricomName: s[`env.${e}.safaricomName`],
+          shortcodeKind: s[`env.${e}.shortcodeKind`] === 'till' ? 'till' : s[`env.${e}.shortcodeKind`] === 'paybill' ? 'paybill' : null,
           consumerKey: { saved: !!consumerKey, last4: consumerKey ? consumerKey.slice(-4) : null },
           consumerSecret: { saved: !!s[`env.${e}.consumerSecret`], last4: null },
           credsVerifiedAt: s[`env.${e}.credsVerifiedAt`],
@@ -145,6 +148,9 @@ export function createSettingsService(deps: { db: Db; config: Config; settings: 
       await deps.settings.set('org.name', name);
       await deps.settings.set('org.nominatedNumber', nominatedNumber);
       await deps.settings.set('org.notificationPhone', notificationPhone);
+      // The menu header, Home and /api/auth/me read the organisation row, not the setting; the two
+      // drifted apart after a wipe (the row reset to "My organisation", the setting kept the name).
+      await deps.db.query(`UPDATE orgs SET name=$1 WHERE id = app_current_org()`, [name]);
       deps.daraja.invalidate();
       await audit(deps.db, { personId: actor.personId, action: 'settings.org', after: { name, nominatedNumber, notificationPhone }, ip: actor.ip });
     },
@@ -173,6 +179,12 @@ export function createSettingsService(deps: { db: Db; config: Config; settings: 
       deps.daraja.invalidate();
       await audit(deps.db, { personId: actor.personId, action: 'settings.shortcode', after: { environment: env, shortcode: sc }, ip: actor.ip });
 
+      return svc.verifyShortcode(env);
+    },
+
+    async verifyShortcode(env) {
+      const sc = await deps.settings.get(`env.${env}.shortcode`);
+      if (!sc) return { verifiedName: null, verifyError: 'Enter the paybill or till number first.' };
       // Verify the shortcode against Safaricom only once that environment's own creds are saved
       // and have themselves already been accepted by Safaricom — never against another
       // environment's creds, and never before Safaricom has confirmed the pair works at all.
@@ -194,13 +206,20 @@ export function createSettingsService(deps: { db: Db; config: Config; settings: 
           },
           ...(deps.fetchImpl ? { fetchImpl: f } : {}),
         });
-        const r = await client.orgInfo.query({ identifier: sc, identifierType: 'paybill' });
-        if (r.success) {
-          await deps.settings.set(`env.${env}.safaricomName`, r.organizationName);
-          return { verifiedName: r.organizationName, verifyError: null };
+        // A number is a paybill or a till; Safaricom only answers for the right kind, so both are
+        // tried and the one that answers is remembered for the labels.
+        let last: { responseMessage: string } | null = null;
+        for (const kind of ['paybill', 'till'] as const) {
+          const r = await client.orgInfo.query({ identifier: sc, identifierType: kind });
+          if (r.success) {
+            await deps.settings.set(`env.${env}.safaricomName`, r.organizationName);
+            await deps.settings.set(`env.${env}.shortcodeKind`, kind);
+            return { verifiedName: r.organizationName, verifyError: null };
+          }
+          last = r;
         }
         await deps.settings.delete(`env.${env}.safaricomName`);
-        return { verifiedName: null, verifyError: r.responseMessage || 'Safaricom answered, but gave no reason.' };
+        return { verifiedName: null, verifyError: last?.responseMessage || 'Safaricom answered, but gave no reason.' };
       } catch (e) {
         await deps.settings.delete(`env.${env}.safaricomName`);
         // A DarajaAPIError means Safaricom itself answered with an error envelope — that message
@@ -283,6 +302,9 @@ export function createSettingsService(deps: { db: Db; config: Config; settings: 
       await deps.settings.set(`env.${env}.credsVerifiedAt`, new Date().toISOString());
       deps.daraja.invalidate();
       await audit(deps.db, { personId: actor.personId, action: 'settings.daraja_creds', after: { environment: env }, ip: actor.ip });
+      // The shortcode is often entered before the key and secret; now that they work, fetch its name.
+      const pending = await deps.settings.getMany([`env.${env}.shortcode`, `env.${env}.safaricomName`]);
+      if (pending[`env.${env}.shortcode`] && !pending[`env.${env}.safaricomName`]) { try { await svc.verifyShortcode(env); } catch { /* a name is a nicety; the creds are saved */ } }
       return { ok: true, message: 'Safaricom accepted the key and secret.' };
     },
 
@@ -358,4 +380,5 @@ export function createSettingsService(deps: { db: Db; config: Config; settings: 
       return secret;
     },
   };
+  return svc;
 }

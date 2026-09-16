@@ -56,7 +56,7 @@ export function Home() {
   const settingsLabel = copy.nav.find((e) => e.key === 'settings')?.label ?? 'Settings';
   return (
     <>
-      <PageHeader title={org?.safaricomName ?? org?.name ?? copy.appName} subtitle={org ? copy.home.shortcodeLine(org.shortcode ?? null, org.environment, org.safaricomName ? org.name : null) : null} />
+      <PageHeader title={org?.safaricomName ?? org?.name ?? copy.appName} subtitle={org ? copy.home.shortcodeLine(org.shortcode ?? null, org.environment, org.safaricomName ? org.name : null, org.shortcodeKind) : null} />
       {alerts.length > 0 && (
         <Flash tone="danger" className="mb-6">
           <p className="font-semibold">{copy.home.finishSetup}</p>
