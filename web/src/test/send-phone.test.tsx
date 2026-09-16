@@ -46,6 +46,7 @@ function fetchFor(handlers: Record<string, (init?: RequestInit) => Response>) {
     const key = `${init?.method ?? 'GET'} ${String(input)}`;
     if (key === 'GET /api/send/categories') return new Response(JSON.stringify({ items: [{ id: 'business', name: 'Business payment', commandId: 'BusinessPayment' }, { id: 'salary', name: 'Salary', commandId: 'SalaryPayment' }] }), { status: 200 });
     const h = handlers[key];
+    if (!h && key === 'POST /api/send/name-check') return new Response(JSON.stringify({ available: false, reason: 'not_enabled', said: null }), { status: 200 });
     if (!h) throw new Error(`unexpected fetch ${key}`);
     return h(init);
   });
@@ -60,6 +61,36 @@ async function fillForm() {
 }
 
 describe('SendPhone', () => {
+  it('review shows the registered name when Safaricom answers, and says "check the number" when it cannot', async () => {
+    let asked: unknown = null;
+    vi.stubGlobal('fetch', fetchFor({
+      'GET /api/balances/latest': () => new Response(JSON.stringify(balance), { status: 200 }),
+      'POST /api/send/name-check': (init) => { asked = JSON.parse(String(init?.body)); return new Response(JSON.stringify({ available: true, name: 'JANE D****** O******' }), { status: 200 }); },
+    }));
+    render(<MemoryRouter><SendPhone /></MemoryRouter>);
+    await fillForm();
+    expect(await screen.findByText(copy.send.phone.review.name('JANE D****** O******'))).toBeInTheDocument();
+    expect(asked).toEqual({ phone: '254700123456' });
+    expect(screen.queryByText(copy.send.phone.review.nameNote)).toBeNull();
+    cleanup();
+
+    vi.stubGlobal('fetch', fetchFor({ 'GET /api/balances/latest': () => new Response(JSON.stringify(balance), { status: 200 }) }));
+    render(<MemoryRouter><SendPhone /></MemoryRouter>);
+    await fillForm();
+    expect(await screen.findByText(copy.send.phone.review.nameNote)).toBeInTheDocument();
+  });
+
+  it('review warns when Safaricom does not know the number, and still lets the owner decide', async () => {
+    vi.stubGlobal('fetch', fetchFor({
+      'GET /api/balances/latest': () => new Response(JSON.stringify(balance), { status: 200 }),
+      'POST /api/send/name-check': () => new Response(JSON.stringify({ available: false, reason: 'not_found', said: 'The customer does not exist.' }), { status: 200 }),
+    }));
+    render(<MemoryRouter><SendPhone /></MemoryRouter>);
+    await fillForm();
+    expect(await screen.findByRole('alert')).toHaveTextContent(copy.send.phone.review.nameNotFound);
+    expect(screen.getByRole('button', { name: copy.send.phone.send })).toBeEnabled();
+  });
+
   it('form → review (with balance) → password → sent → live completed', async () => {
     let posted: unknown = null;
     const fetchMock = fetchFor({
@@ -314,7 +345,8 @@ describe('SendPhone', () => {
     await waitFor(() => expect(document.body.textContent).toContain('0700 123 456'));
     await waitFor(() => expect(document.body.textContent).toContain('KES 1'));
     await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/send/phone'));
-    expect(fetchMock.mock.calls.every(([, init]) => (init?.method ?? 'GET') !== 'POST')).toBe(true);
+    // The review asks Safaricom for the name (a POST that moves nothing); the send itself must not go out.
+    expect(fetchMock.mock.calls.some(([url, init]) => init?.method === 'POST' && String(url) === '/api/send/phone')).toBe(false);
   });
 
   it('shows a plain-English notice and leaves the form empty when the ?again= row cannot be loaded', async () => {

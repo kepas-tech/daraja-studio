@@ -433,16 +433,20 @@ Safaricom calls this: Initiate Transaction › Business Payment to Customer · W
 3. Amount in KES, whole shillings.
 4. What kind of payment is this? One of your own categories (Settings › Payment categories); each is one of Safaricom’s three kinds, Business payment, Salary or Promotion.
 5. Note, optional.
-6. Review: Utility balance now and after, the fee note, and the per-send cap if one is set. Safaricom cannot check the name before sending, so check the number.
+6. Review: the name Safaricom holds for that number when your paybill or till is allowed to ask (first name in full, the rest hidden), Utility balance now and after, the fee note, and the per-send cap if one is set. When Safaricom cannot check the name, the page says so: check the number. When Safaricom does not know the number, a red notice says so before you send.
 7. Send, then your password. The page says Sent, then Paid or Not paid; the receipt goes to History.
 
 - The same amount to the same number twice in a row is questioned first: "You sent this already at … Send again?"
 - When Settings › Approvals is on and the amount is at or above the limit, the send waits for a second person instead of going out. Nothing leaves your account until it is released.
 - Needs a working portal user (Settings). Without one Home says you cannot send yet.
+- The name check (Safaricom calls it B2C Hakikisha) needs Safaricom’s approval for your paybill or till. Email API support to ask for it; until then the review says Safaricom cannot check the name.
+
+- [Email Safaricom’s API support](mailto:apisupport@safaricom.co.ke) — then: a new email opens
 
 | Method | Path | Who |
 |---|---|---|
 | GET | `/api/send/categories` | signed in |
+| POST | `/api/send/name-check` | send.phone; body { phone }; answers { available: true, name } or { available: false, reason: "not_found" | "not_enabled" | "unavailable", said } |
 | POST | `/api/send/phone` | send.phone, password; body { phone, amountCents, category, remarks? } |
 
 ### Bulk send

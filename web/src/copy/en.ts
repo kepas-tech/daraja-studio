@@ -173,6 +173,9 @@ export const copy = {
       againUnavailable: 'Studio could not load that earlier payment. Enter the details yourself.',
       review: {
         title: 'Check before you send', nameNote: 'Safaricom cannot check the name before sending. Check the number.',
+        nameChecking: 'Checking the name with Safaricom…',
+        name: (n: string) => `Registered to ${n}. Safaricom hides part of the name.`,
+        nameNotFound: 'Safaricom does not know this number. Check it before you send.',
         feeNote: 'Safaricom charges its fee on top, taken from your Utility account.', debits: 'Taken from: Utility account',
         balanceNow: 'Utility balance now', balanceAfter: 'After this send', balanceMissing: 'No balance yet. Refresh in Balances to see it here.',
         balanceStale: (w: string) => `Balance last checked ${w}. Refresh in Balances if in doubt.`,

@@ -38,6 +38,7 @@ const listSchema = z.object({
 }).refine((v) => !v.from || !v.to || v.from <= v.to, { message: 'The end date must be on or after the start date.', path: ['to'] });
 const checkedSchema = z.object({ note: z.string().trim().min(1).max(500) });
 const isUuid = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+const nameCheckSchema = z.object({ phone: z.string().trim().min(1).max(20) });
 const lookupSchema = z.object({ receipt: z.string().trim().toUpperCase().regex(/^[A-Z0-9]{10}$/, 'An M-Pesa receipt is 10 letters and numbers, like RI6BZTPXNM.') });
 
 function parse<T>(schema: z.ZodType<T>, body: unknown): T {
@@ -49,6 +50,11 @@ function parse<T>(schema: z.ZodType<T>, body: unknown): T {
 export function sendRoutes(deps: AppDeps): Router {
   const r = Router();
   r.get('/categories', requireAuth(deps.db), requireCsrf, async (_req, res, next) => { try { res.json({ items: await deps.settingsService.getSendCategories() }); } catch (e) { next(e); } });
+  // Asked on the review step, before the password. Same gate as the send itself so nobody can
+  // use Studio as a phone-number directory without being able to send.
+  r.post('/name-check', requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'send.phone'), requireMoneyReady(deps), async (req, res, next) => {
+    try { res.json(await deps.moneyOut.nameCheck(parse(nameCheckSchema, req.body).phone)); } catch (e) { next(e); }
+  });
   r.post('/phone', requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'send.phone'), requireMoneyReady(deps), requireStepUp(deps.db), async (req, res, next) => {
     try {
       const b = parse(sendPhone, req.body);

@@ -32,6 +32,13 @@ export interface FakeSafaricom {
    * case, distinct from a transport failure. Persists across calls; cleared by `reset()`.
    */
   knowsShortcodeAs(name: string | null | false): void;
+  /**
+   * What B2C Hakikisha (`/b2c/hakikisha/v1/hakikisha`) answers for any phone. A string is the
+   * display name (first name clear, the rest masked, as Safaricom sends it). `false` answers the
+   * documented "The customer does not exist." (HTTP 400). `null` answers 401, as Safaricom does
+   * when the product is not on the app or not approved for the shortcode. Cleared by `reset()`.
+   */
+  knowsPhoneAs(name: string | null | false): void;
   /** A customer pays the paybill. Posts the confirmation to the registered address unless `deliver` is false (a lost one, for the pull check to find). Returns the receipt. */
   customerPays(p: { amount: number; phone: string; account: string; receipt?: string; deliver?: boolean }): Promise<string>;
   /** A customer pays a Bill Manager invoice: posts the payment push to the opt-in's callback address. Returns the transaction id. */
@@ -70,6 +77,7 @@ export function createFakeSafaricom(opts: FakeSafaricomOptions): FakeSafaricom {
   let syncLost = false;
   let v3Refused = false;
   let orgInfoName: string | null | false = 'ACME TRADERS';
+  let phoneName: string | null | false = 'JANE D****** O******';
   let fixedDate: Date | null = null;
   let n = 0;
   let utility = 34392;
@@ -370,6 +378,14 @@ export function createFakeSafaricom(opts: FakeSafaricomOptions): FakeSafaricom {
       return json({ ResponseRefID: `fake-pq-${n}`, ResponseCode: '1000', ResponseMessage: 'Success', Response: [rows] });
     }
 
+    if (path.endsWith('/b2c/hakikisha/v1/hakikisha')) {
+      const header = (status: string, message: string) => ({ requestID: String((body.header as { requestID?: string } | undefined)?.requestID ?? `fake-${n}`), timestamp: String(Math.floor(Date.now() / 1000)), status, message });
+      if (phoneName === null || scenario === 'credentialError') return json({ requestId: `fake-${n}`, errorCode: '404.001.03', errorMessage: 'Invalid Access Token' }, 401);
+      if (phoneName === false) return json({ header: header('400', 'Error'), body: { message: 'The customer does not exist.' } }, 400);
+      const [firstName = '', middleName = '', lastName = ''] = phoneName.split(' ');
+      return json({ header: header('200', 'Success'), body: { firstName, middleName, lastName } });
+    }
+
     if (path.endsWith('/sfcverify/v1/query/info')) {
       if (orgInfoName === null) {
         return json({ requestId: `fake-${n}`, errorCode: '500.001.1001', errorMessage: 'Service unavailable' }, 500);
@@ -398,6 +414,7 @@ export function createFakeSafaricom(opts: FakeSafaricomOptions): FakeSafaricom {
     losesSync() { syncLost = true; },
     refusesV3() { v3Refused = true; },
     knowsShortcodeAs(name) { orgInfoName = name; },
+    knowsPhoneAs(name) { phoneName = name; },
     dateAt(at) { fixedDate = at; },
     async customerPaysInvoice({ account, amount, phone = '254700123456', transactionId }) {
       n += 1;
@@ -420,7 +437,7 @@ export function createFakeSafaricom(opts: FakeSafaricomOptions): FakeSafaricom {
       }
       return id;
     },
-    reset() { scenario = 'completes'; sync = null; syncLost = false; v3Refused = false; orgInfoName = 'ACME TRADERS'; fixedDate = null; calls.length = 0; queue.length = 0; sent.clear(); stk.clear(); utility = 34392; paid.length = 0; c2bConfirmUrl = null; billManagerUrl = null; },
+    reset() { scenario = 'completes'; sync = null; syncLost = false; v3Refused = false; orgInfoName = 'ACME TRADERS'; phoneName = 'JANE D****** O******'; fixedDate = null; calls.length = 0; queue.length = 0; sent.clear(); stk.clear(); utility = 34392; paid.length = 0; c2bConfirmUrl = null; billManagerUrl = null; },
     async settle() { while (queue.length) { const fn = queue.shift()!; await fn().catch(() => {}); } },
   };
 }

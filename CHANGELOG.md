@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.16.0 — the name behind the number, before you send
+
+- Send money › To a phone: the review now asks Safaricom for the name registered to that number
+  and shows it (first name in full, the rest hidden by Safaricom). When Safaricom does not know
+  the number, a red notice says so before you send. When Safaricom has not switched the check on
+  for your paybill or till, the review says what it always said: check the number. Safaricom calls
+  this B2C Hakikisha; it needs their approval, and the manual says how to ask.
+  `POST /api/send/name-check`.
+- `@kepas/daraja-js` 1.6.0: the name lookup, and a fix for a 401 that lasted up to an hour after a
+  product was added to the app on the Daraja portal (the cached token was minted before the
+  change; the SDK now drops it and asks again with a fresh one).
+
 ## 0.15.3 — Safaricom's own words on a refused key
 
 - `@kepas/daraja-js` 1.5.1. When Safaricom answers HTTP 401, the line it sent ("Invalid Access

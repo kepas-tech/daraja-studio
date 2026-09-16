@@ -1,6 +1,6 @@
 {
   "name": "@daraja-studio/server",
-  "version": "0.15.3",
+  "version": "0.16.0",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
@@ -12,7 +12,7 @@
     "lint": "eslint src test"
   },
   "dependencies": {
-    "@kepas/daraja-js": "1.5.1",
+    "@kepas/daraja-js": "1.6.0",
     "argon2": "0.45.1",
     "express": "5.2.1",
     "nodemailer": "10.0.3",

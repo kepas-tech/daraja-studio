@@ -108,5 +108,8 @@ export interface MoneyInView {
   nominatedNumber: string | null; publicVerified: boolean;
   registering: boolean; lastError: string | null; alreadyRegistered: boolean;
 }
+export type NameCheck =
+  | { available: true; name: string }
+  | { available: false; reason: 'not_found' | 'not_enabled' | 'unavailable'; said: string | null };
 export interface BalanceView { workingCents: number | null; utilityCents: number | null; chargesPaidCents: number | null; queriedAt: string }
 export interface Page<T> { items: T[]; nextCursor: string | null }

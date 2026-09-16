@@ -57,7 +57,7 @@ describe('How to use', () => {
     }
     expect(screen.getAllByText(/Then: .+ → /).length).toBeGreaterThan(5);
     for (const t of withLinks) for (const l of t.links!) expect(Object.values(links)).toContain(l.href);
-  });
+  }, 20_000); // scans every link on the whole manual; slow when the full suite runs alongside
 
   it('every step names a page that exists, so the manual cannot point at a route that is gone', () => {
     const routes = new Set([...copy.nav.map((e) => e.path), '/setup', '/login', '/send/phone', '/requests/:id', '/account', '/people', '/go-live']);

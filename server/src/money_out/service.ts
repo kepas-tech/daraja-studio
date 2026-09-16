@@ -21,8 +21,19 @@ import { getRequest, listRequests, type Page, type RequestView } from './reads.j
 
 export interface SendInput { phone: string; amountCents: number; commandId: 'BusinessPayment' | 'SalaryPayment' | 'PromotionPayment'; category?: string; remarks?: string; occasion?: string; confirmDuplicate?: boolean; /** M5: the batch this row belongs to; never accepted from a client. */ bulk?: { planId: string; index: number } }
 export interface Actor { personId: string; ip: string }
+/**
+ * What Safaricom says about the person behind a phone number, asked before a send (B2C
+ * Hakikisha). `not_enabled`: Safaricom has not switched the check on for this paybill or till
+ * (it needs their approval), so the review falls back to "check the number". `not_found`: the
+ * number is not an M-Pesa customer. `said` is Safaricom's own line, or null when it gave none.
+ */
+export type NameCheck =
+  | { available: true; name: string }
+  | { available: false; reason: 'not_found' | 'not_enabled' | 'unavailable'; said: string | null };
 export interface MoneyOutService {
   send(input: SendInput, actor: Actor): Promise<RequestView>;
+  /** The registered name behind a phone number, when Safaricom lets this shortcode ask. */
+  nameCheck(phone: string): Promise<NameCheck>;
   sweep(): Promise<{ polled: number; expired: number }>;
   pollOne(requestId: string): Promise<{ queryId: string }>;
   markChecked(requestId: string, note: string, actor: Actor): Promise<RequestView>;
@@ -283,6 +294,29 @@ export function createMoneyOutService(deps: { db: Db; settings: Settings; daraja
   }
 
   return {
+    async nameCheck(input) {
+      let phone: string;
+      try { phone = normalizePhone(input); } catch { throw new HttpError(400, 'bad_phone', 'Enter a Kenyan mobile number such as 0712 345 678.'); }
+      // Read-only and not tied to an operator: the app's own key is enough.
+      const client = await deps.daraja.get();
+      try {
+        const r = await client.hakikisha.lookup({ phone });
+        return { available: true, name: r.displayName };
+      } catch (e) {
+        // 401 here means the product is not on the app or not approved for the shortcode: the
+        // same key just worked for everything else the review needed.
+        if (e instanceof DarajaAuthError) return { available: false, reason: 'not_enabled', said: null };
+        if (e instanceof DarajaAPIError) {
+          // Safaricom's "does not exist" arrives either as an HTTP 400 whose body carries
+          // `body.message`, or as a 200 with `header.status` 400 (already turned into the message).
+          const body = (e.raw as { body?: { message?: unknown } } | undefined)?.body;
+          const said = typeof body?.message === 'string' ? body.message : e.message;
+          const notFound = /not exist|not found|invalid phone/i.test(said) || /HTTP 400/.test(e.message);
+          return { available: false, reason: notFound ? 'not_found' : 'unavailable', said };
+        }
+        return { available: false, reason: 'unavailable', said: null };
+      }
+    },
     async send(input, actor) {
       const kind = KINDS.b2c;
       let phone: string;

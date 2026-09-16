@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { api, ApiError } from '../../api/client';
 import { useEvents } from '../../api/events';
-import type { BalanceView, RequestView, SendCategory } from '../../api/types';
+import type { BalanceView, NameCheck, RequestView, SendCategory } from '../../api/types';
 import { useSession } from '../../app/session';
 import { Button } from '../../components/Button';
 import { TextField } from '../../components/TextField';
@@ -45,6 +45,18 @@ export function SendPhone() {
   const valid = !!normalised && cents !== null && cents % 100 === 0 && (categories.length === 0 || !!kind);
 
   useEffect(() => { if (step === 'review') api.get<BalanceView | null>('/api/balances/latest').then(setBalance).catch(() => setBalance(null)); }, [step]);
+  // The name Safaricom holds for the number, asked once per review. `undefined` = asking,
+  // `null` = Studio could not ask (the page then says what it always said: check the number).
+  const [nameCheck, setNameCheck] = useState<NameCheck | null | undefined>(undefined);
+  useEffect(() => {
+    if (step !== 'review') return;
+    let live = true;
+    setNameCheck(undefined);
+    api.post<NameCheck>('/api/send/name-check', { phone: normalised }).then((r) => { if (live) setNameCheck(r); }).catch(() => { if (live) setNameCheck(null); });
+    return () => { live = false; };
+  }, [step, normalised]);
+  const nameLine = nameCheck === undefined ? copy.send.phone.review.nameChecking : nameCheck?.available ? copy.send.phone.review.name(nameCheck.name) : copy.send.phone.review.nameNote;
+  const unknownNumber = nameCheck != null && !nameCheck.available && nameCheck.reason === 'not_found';
   // W5 (spec §10): the cap is enforced server-side (service.ts) regardless — this is only so the
   // operator sees it before typing their password rather than after a 409 in the dialog.
   useEffect(() => { if (step === 'review') api.get<{ sendCapCents: number | null }>('/healthz').then((h) => setCap(h.sendCapCents)).catch(() => {}); }, [step]);
@@ -137,7 +149,7 @@ export function SendPhone() {
           >
             <h2 className="text-xl font-semibold">{copy.send.phone.review.title}</h2>
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-base">
-              <dt className="text-muted">{copy.request.to}</dt><dd>{phone(normalised)}<span className="block text-sm text-muted">{copy.send.phone.review.nameNote}</span></dd>
+              <dt className="text-muted">{copy.request.to}</dt><dd>{phone(normalised)}<span className="block text-sm text-muted">{nameLine}</span></dd>
               <dt className="text-muted">{copy.request.amount}</dt><dd>{money(cents)}<span className="block text-sm text-muted">{copy.send.phone.review.feeNote}</span></dd>
               <dt className="text-muted">{copy.send.phone.kind}</dt><dd>{kind}</dd>
               <dt className="text-muted">{copy.send.phone.review.balanceNow}</dt>
@@ -147,6 +159,7 @@ export function SendPhone() {
             </dl>
             <p className="text-sm text-muted">{copy.send.phone.review.debits}</p>
             {cap !== null && <p className="text-sm text-muted">{copy.send.phone.review.cap(money(cap))}</p>}
+            {unknownNumber && <Flash tone="danger" role="alert">{copy.send.phone.review.nameNotFound}</Flash>}
             {short && <Flash tone="danger" role="alert">{copy.send.phone.review.short}</Flash>}
             {duplicate && (
               <Flash tone="neutral" role="alert">
