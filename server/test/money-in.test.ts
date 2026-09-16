@@ -64,6 +64,17 @@ describe('money in', () => {
     expect((await h(request(app).post('/api/money-in/register')).send({})).status).toBe(403);
   });
 
+  it('"URLs are already registered" counts as registered, with the caveat flagged', async () => {
+    fake.rejectsSync('500.003.1001', 'URLs are already registered');
+    const r = await register();
+    expect(r.body.c2bRegisteredAt).toBeTruthy();
+    expect(r.body.pullRegisteredAt).toBeTruthy();
+    expect(r.body.alreadyRegistered).toBe(true);
+    expect(r.body.lastError).toBeNull();
+    // A clean registration later clears the caveat.
+    expect((await register()).body.alreadyRegistered).toBe(false);
+  });
+
   it('a refusal by Safaricom is kept as the last error, in three lines, and clears on a later success', async () => {
     fake.rejectsSync('400.003.01', 'Bad Request - Invalid ShortCode');
     const r = await register();

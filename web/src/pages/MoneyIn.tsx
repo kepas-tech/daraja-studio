@@ -75,6 +75,7 @@ export function MoneyIn() {
             )}
           </div>
           {view.registering && <Flash tone="neutral" role="status">{c.registering}</Flash>}
+          {!view.registering && on && view.alreadyRegistered && <Flash tone="neutral">{c.alreadyRegistered}</Flash>}
           {!view.registering && view.lastError && (
             <Flash tone="danger" role="alert">
               <p className="font-semibold text-danger">{c.failed}</p>

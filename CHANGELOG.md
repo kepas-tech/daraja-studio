@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.13.7 — "already registered" counts as on
+
+- A production paybill takes one C2B registration; Safaricom refuses the next with "URLs are
+  already registered". Money in now treats that answer as registered and says so on the page,
+  with the caveat that an older address could be on record and that the hourly check finds
+  every payment regardless.
+
 ## 0.13.6 — Money in registration you can watch
 
 - Turn on answers at once and the registration runs behind it; the page says it is telling

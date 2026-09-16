@@ -20,6 +20,8 @@ export interface MoneyInView {
   registering: boolean;
   /** Why the last registration failed, in the studio's three-line form joined by newlines; null after a success. */
   lastError: string | null;
+  /** Safaricom said the addresses were already on record when this studio registered: kept as registered, with a caveat. */
+  alreadyRegistered: boolean;
 }
 export interface MoneyInService {
   status(): Promise<MoneyInView>;
@@ -79,12 +81,13 @@ export function createMoneyInService(deps: { db: Db; settings: Settings; daraja:
   const svc: MoneyInService = {
     async status() {
       const env = await mode();
-      const s = await deps.settings.getMany([`env.${env}.c2bRegisteredAt`, `env.${env}.pullRegisteredAt`, `env.${env}.pullCheckedAt`, `env.${env}.c2bRegisterStartedAt`, `env.${env}.c2bRegisterError`, 'org.nominatedNumber', 'public.verifiedAt']);
+      const s = await deps.settings.getMany([`env.${env}.c2bRegisteredAt`, `env.${env}.pullRegisteredAt`, `env.${env}.pullCheckedAt`, `env.${env}.c2bRegisterStartedAt`, `env.${env}.c2bRegisterError`, `env.${env}.c2bAlreadyRegistered`, 'org.nominatedNumber', 'public.verifiedAt']);
       const started = s[`env.${env}.c2bRegisterStartedAt`];
       const registering = !!started && Date.now() - Date.parse(started) < 2 * 60_000;
       return {
         mode: env, c2bRegisteredAt: s[`env.${env}.c2bRegisteredAt`], pullRegisteredAt: s[`env.${env}.pullRegisteredAt`], pullCheckedAt: s[`env.${env}.pullCheckedAt`],
         nominatedNumber: s['org.nominatedNumber'], publicVerified: !!s['public.verifiedAt'], registering, lastError: s[`env.${env}.c2bRegisterError`],
+        alreadyRegistered: s[`env.${env}.c2bAlreadyRegistered`] === 'true',
       };
     },
     async register(actor) {
@@ -119,7 +122,16 @@ export function createMoneyInService(deps: { db: Db; settings: Settings; daraja:
         const client = await deps.daraja.get();
         // Safaricom keeps the first registration and answers the repeat as a success, so pressing
         // the button again is safe; the timestamp records the latest confirmation either way.
-        await client.c2b.registerUrls({ confirmationUrl: urls.c2bConfirm, validationUrl: urls.c2bValidate, responseType: 'Completed' });
+        try {
+          await client.c2b.registerUrls({ confirmationUrl: urls.c2bConfirm, validationUrl: urls.c2bValidate, responseType: 'Completed' });
+          await deps.settings.set(`env.${env}.c2bAlreadyRegistered`, 'false');
+        } catch (e) {
+          // A production paybill takes one registration; Safaricom refuses the next with this text.
+          // The addresses on record are then most likely this studio's own (a first press whose
+          // reply was lost), so it counts as registered, with the caveat shown on the page.
+          if (!(e instanceof DarajaAPIError) || !/already registered/i.test(syncRejection(e).desc)) throw e;
+          await deps.settings.set(`env.${env}.c2bAlreadyRegistered`, 'true');
+        }
         await deps.settings.set(`env.${env}.c2bRegisteredAt`, new Date().toISOString());
         await client.pull.registerUrl({ nominatedNumber: s['org.nominatedNumber'] ?? '', callbackUrl: urls.pull });
         await deps.settings.set(`env.${env}.pullRegisteredAt`, new Date().toISOString());

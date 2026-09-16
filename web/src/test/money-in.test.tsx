@@ -15,7 +15,7 @@ vi.stubGlobal('EventSource', FakeEventSource);
 vi.mock('../app/session', () => ({ useSession: () => ({ status: 'ready', person: { id: 'p1', display_name: 'Owner', is_owner: true }, org: null, permissions: [], refresh: async () => {} }) }));
 afterEach(() => cleanup());
 
-const status = (over: Record<string, unknown> = {}) => ({ mode: 'sandbox', c2bRegisteredAt: null, pullRegisteredAt: null, pullCheckedAt: null, nominatedNumber: '254700000000', publicVerified: true, registering: false, lastError: null, ...over });
+const status = (over: Record<string, unknown> = {}) => ({ mode: 'sandbox', c2bRegisteredAt: null, pullRegisteredAt: null, pullCheckedAt: null, nominatedNumber: '254700000000', publicVerified: true, registering: false, lastError: null, alreadyRegistered: false, ...over });
 const row = { id: 'r1', type: 'c2b', subtype: 'Pay Bill', status: 'completed', amountCents: 25000, currency: 'KES', recipient: { kind: 'phone', value: '254700123456', name: 'Jane Doe' }, remarks: null, receipt: 'RC00000001', category: null, createdAt: '2026-09-16T07:15:30Z', sentAt: '2026-09-16T07:15:30Z', resultAt: '2026-09-16T07:15:31Z', resultSource: 'callback', safaricomSaid: 'Completed', meaning: null, whatToDo: null, retriable: false, pollAttempts: 0, checked: null, createdBy: null };
 
 function fetchFor(handlers: Record<string, (init?: RequestInit) => Response>) {
