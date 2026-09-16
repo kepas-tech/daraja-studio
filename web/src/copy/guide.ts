@@ -553,7 +553,7 @@ export const guide: GuideSection[] = [
           'Amount in KES, whole shillings.',
           'What kind of payment is this? One of your own categories (Settings › Payment categories); each is one of Safaricom’s three kinds, Business payment, Salary or Promotion.',
           'Note, optional.',
-          'Review: the name Safaricom holds for that number when your paybill or till is allowed to ask (first name in full, the rest hidden), Utility balance now and after, the fee note, and the per-send cap if one is set. When Safaricom cannot check the name, the page says so: check the number. When Safaricom does not know the number, a red notice says so before you send.',
+          'Review: the name Safaricom holds for that number when your paybill or till is allowed to ask (first name in full, the rest hidden), Utility balance now and after, the fee note, and the per-send cap if one is set. When Safaricom has not switched the check on for your number, the page says so: check the number. When Safaricom does not know the number, a red notice says so before you send.',
           'Send, then your password. The page says Sent, then Paid or Not paid; the receipt goes to History.',
         ],
         notes: [

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.16.2 — Bill Manager on the address Safaricom's own email gives
+
+- `@kepas/daraja-js` 1.6.2. Safaricom's go-live email lists the production Bill Manager
+  addresses with the first part twice (`/v1/billmanager-invoice/v1/billmanager-invoice/optin`),
+  unlike its docs page, and the documented address answers "Invalid Access Token" even with
+  Bill Manager ticked and a fresh token. The SDK now tries the email's address when the
+  documented one is refused, so Set up invoicing can go through. Nothing is sent twice: a refusal
+  happens at the gate, before Bill Manager sees anything.
+- Send money › To a phone: when Safaricom has not switched on name checks for your number, the
+  review says so and points at the manual, instead of the generic "cannot check" line.
+
 ## 0.16.1 — Safaricom's own words when a number is unknown
 
 - `@kepas/daraja-js` 1.6.1: the name check's "The customer does not exist." now arrives as the

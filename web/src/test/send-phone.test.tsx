@@ -74,7 +74,18 @@ describe('SendPhone', () => {
     expect(screen.queryByText(copy.send.phone.review.nameNote)).toBeNull();
     cleanup();
 
+    // Not switched on for this shortcode (the default handler answers not_enabled): say so.
     vi.stubGlobal('fetch', fetchFor({ 'GET /api/balances/latest': () => new Response(JSON.stringify(balance), { status: 200 }) }));
+    render(<MemoryRouter><SendPhone /></MemoryRouter>);
+    await fillForm();
+    expect(await screen.findByText(copy.send.phone.review.nameNotEnabled)).toBeInTheDocument();
+    cleanup();
+
+    // Studio could not ask at all: the old line.
+    vi.stubGlobal('fetch', fetchFor({
+      'GET /api/balances/latest': () => new Response(JSON.stringify(balance), { status: 200 }),
+      'POST /api/send/name-check': () => new Response(JSON.stringify({ error: { code: 'bad_gateway', message: 'x' } }), { status: 502 }),
+    }));
     render(<MemoryRouter><SendPhone /></MemoryRouter>);
     await fillForm();
     expect(await screen.findByText(copy.send.phone.review.nameNote)).toBeInTheDocument();
@@ -104,7 +115,7 @@ describe('SendPhone', () => {
     await fillForm();
     await screen.findByText('KES 34,392');
     await screen.findByText('KES 34,391');
-    expect(screen.getByText(copy.send.phone.review.nameNote)).toBeInTheDocument();
+    expect(screen.getByText(copy.send.phone.review.nameNotEnabled)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: copy.send.phone.send }));
     expect(screen.getByRole('dialog')).toHaveTextContent(copy.send.phone.confirmTitle('KES 1', '0700 123 456'));
     fireEvent.change(screen.getByLabelText(copy.confirm.yourPassword), { target: { value: 'studio-pw' } });

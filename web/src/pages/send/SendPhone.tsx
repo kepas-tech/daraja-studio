@@ -55,7 +55,10 @@ export function SendPhone() {
     api.post<NameCheck>('/api/send/name-check', { phone: normalised }).then((r) => { if (live) setNameCheck(r); }).catch(() => { if (live) setNameCheck(null); });
     return () => { live = false; };
   }, [step, normalised]);
-  const nameLine = nameCheck === undefined ? copy.send.phone.review.nameChecking : nameCheck?.available ? copy.send.phone.review.name(nameCheck.name) : copy.send.phone.review.nameNote;
+  const nameLine = nameCheck === undefined ? copy.send.phone.review.nameChecking
+    : nameCheck?.available ? copy.send.phone.review.name(nameCheck.name)
+    : nameCheck?.reason === 'not_enabled' ? copy.send.phone.review.nameNotEnabled
+    : copy.send.phone.review.nameNote;
   const unknownNumber = nameCheck != null && !nameCheck.available && nameCheck.reason === 'not_found';
   // W5 (spec §10): the cap is enforced server-side (service.ts) regardless — this is only so the
   // operator sees it before typing their password rather than after a 409 in the dialog.

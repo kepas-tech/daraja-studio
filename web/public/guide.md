@@ -433,7 +433,7 @@ Safaricom calls this: Initiate Transaction › Business Payment to Customer · W
 3. Amount in KES, whole shillings.
 4. What kind of payment is this? One of your own categories (Settings › Payment categories); each is one of Safaricom’s three kinds, Business payment, Salary or Promotion.
 5. Note, optional.
-6. Review: the name Safaricom holds for that number when your paybill or till is allowed to ask (first name in full, the rest hidden), Utility balance now and after, the fee note, and the per-send cap if one is set. When Safaricom cannot check the name, the page says so: check the number. When Safaricom does not know the number, a red notice says so before you send.
+6. Review: the name Safaricom holds for that number when your paybill or till is allowed to ask (first name in full, the rest hidden), Utility balance now and after, the fee note, and the per-send cap if one is set. When Safaricom has not switched the check on for your number, the page says so: check the number. When Safaricom does not know the number, a red notice says so before you send.
 7. Send, then your password. The page says Sent, then Paid or Not paid; the receipt goes to History.
 
 - The same amount to the same number twice in a row is questioned first: "You sent this already at … Send again?"

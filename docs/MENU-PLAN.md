@@ -87,7 +87,7 @@ and are registered in one map, so each of these is a new file plus one line plus
 ## The slices, in order
 
 Ordered by what a Kenyan business needs to operate, with cost as the tie-breaker. Each names the
-Daraja call behind it, taken from `@kepas/daraja-js` 1.6.1, not from the label.
+Daraja call behind it, taken from `@kepas/daraja-js` 1.6.2, not from the label.
 
 ### M1 — Ask a customer to pay · `collect.stkPush`, `status.stkPush` — DONE 2026-09-14
 The most-used M-Pesa flow in the country: the business asks, the customer's phone prompts, the money
