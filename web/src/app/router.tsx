@@ -29,6 +29,7 @@ import { StandingOrders } from '../pages/collect/StandingOrders';
 import { Express } from '../pages/collect/Express';
 import { Bonga } from '../pages/collect/Bonga';
 import { Advanced } from '../pages/Advanced';
+import { Guide } from '../pages/Guide';
 
 function Gate() {
   const s = useSession();
@@ -44,9 +45,9 @@ function Gate() {
     );
   }
   if (s.status === 'password-change') return <ChangePassword />;
-  if (s.status === 'needs-owner' || s.status === 'setup') return <Routes><Route path="/setup/*" element={<SetupLayout />} /><Route path="*" element={<Navigate to="/setup" replace />} /></Routes>;
+  if (s.status === 'needs-owner' || s.status === 'setup') return <Routes><Route path="/setup/*" element={<SetupLayout />} /><Route path="/guide" element={<Guide standalone />} /><Route path="*" element={<Navigate to="/setup" replace />} /></Routes>;
   if (s.status === 'anonymous') {
-    return <Routes><Route path="/login" element={<Login />} /><Route path="*" element={<Navigate to="/login" replace />} /></Routes>;
+    return <Routes><Route path="/login" element={<Login />} /><Route path="/guide" element={<Guide standalone />} /><Route path="*" element={<Navigate to="/login" replace />} /></Routes>;
   }
   return (
     <Routes>
@@ -74,6 +75,7 @@ function Gate() {
         <Route path="/express" element={<Express />} />
         <Route path="/bonga" element={<Bonga />} />
         <Route path="/advanced" element={<Advanced />} />
+        <Route path="/guide" element={<Guide />} />
         <Route path="/history" element={<History />} />
         <Route path="/requests/:id" element={<RequestDetail />} />
         {copy.nav.filter((e) => !e.available).map((e) => <Route key={e.key} path={e.path} element={<ComingSoon />} />)}

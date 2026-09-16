@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router';
+import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router';
 import { useSession } from '../../app/session';
 import { Card } from '../../components/Card';
 import { ToastHost } from '../../components/Toast';
@@ -65,6 +65,7 @@ export function SetupLayout() {
             <Route path="done" element={<Done onDone={async () => { await s.refresh(); nav('/'); }} />} />
           </Routes>
         </Card>
+        <p className="text-center text-sm"><Link to="/guide">{copy.login.guideLink}</Link></p>
         <ToastHost />
       </div>
     </div>

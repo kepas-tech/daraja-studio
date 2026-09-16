@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router';
 import { api, ApiError } from '../api/client';
 import { useSession } from '../app/session';
 import { Button } from '../components/Button';
@@ -29,6 +30,7 @@ export function Login() {
             <Button type="submit" disabled={busy || !u || !p} className="w-full">{copy.login.button}</Button>
           </form>
         </Card>
+        <p className="text-center text-sm"><Link to="/guide">{copy.login.guideLink}</Link></p>
       </div>
     </div>
   );

@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.14.0 — How to use, for people and for AI agents
+
+- A How to use page at `/guide`, written from a walk through every page of the live studio: what
+  to have ready, the ten setup steps, logging in, Home, History, every Get paid and Pay out task
+  as numbered steps the way the screens go, Settings row by row, People, Account, the status
+  words and the three-line error, and what the API cannot do. Reachable from the menu (above Not
+  possible via API), from the Login page and from the setup wizard, so a reader without an
+  account can still read it.
+- The same text as Markdown at `/guide.md`, no login needed, and `/llms.txt` pointing to it, so
+  an AI agent or a script reads the same manual. Each task lists the API calls behind its page
+  with who may call them; a closing section states the rules for agents, first among them that
+  an AI agent never moves money. One source (`web/src/copy/guide.ts`) feeds the page and the
+  file; a test fails when they drift.
+
 ## 0.13.8 — Waiting for approval only when it applies
 
 - The menu shows Waiting for approval only while Settings › Approvals is on, or while a send held

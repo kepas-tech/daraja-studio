@@ -1,0 +1,5 @@
+# Daraja Studio
+
+> A plain-English console for one M-Pesa paybill or till, self-hosted, over the Safaricom Daraja API.
+
+- [How to use Daraja Studio](/guide.md): every page and every API call, plus the rules for AI agents.

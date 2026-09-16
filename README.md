@@ -15,6 +15,8 @@ Current work and remaining features: [Roadmap](docs/ROADMAP.md).
 - **Balances, Lookup and History** — account balance, receipt lookup, and a full history in Safaricom's own words.
 - **Settings** — Daraja credentials, shortcode, operator, callback address and B2C API version, per environment (sandbox/production).
 - **Setup wizard** — takes a new install from empty database to verified in a few steps.
+- **How to use** — the manual, inside the app at `/guide` and as plain Markdown at `/guide.md`
+  (no login), written for people and for AI agents alike. Source: `web/src/copy/guide.ts`.
 - **Hosted mode** — run Studio as a service for many organisations: sign-up verified by real
   Safaricom calls, email confirmation by code or link, login by e-mail, people and roles, owner recovery, a read-mostly host console,
   and per-organisation rate limits.

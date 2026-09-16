@@ -62,6 +62,7 @@ export const copy = {
     { key: 'reverse', label: 'Reverse a payment', safaricom: 'Reversal', path: '/reverse', icon: 'arrow-left-circle', group: 'out', phase: 2, available: true, advanced: true },
     { key: 'settings', label: 'Settings', safaricom: 'My Preference', path: '/settings', icon: 'cog', group: 'manage', phase: 1, available: true },
     { key: 'advanced', label: 'Advanced', safaricom: null, path: '/advanced', icon: 'lightbulb', group: 'manage', phase: 1, available: true },
+    { key: 'guide', label: 'How to use', safaricom: null, path: '/guide', icon: 'question-circle', group: 'help', phase: 1, available: true },
     { key: 'not-possible', label: 'Not possible via API', safaricom: null, path: '/not-possible', icon: 'alert-circle', group: 'help', phase: 1, available: true },
   ] as NavEntry[], { logout: 'Log out', menu: 'Menu', groups: { in: 'Get paid', out: 'Pay out', manage: 'Manage' } as Record<string, string> }),
   advancedPage: {
@@ -76,7 +77,8 @@ export const copy = {
     } as Record<string, string>,
   },
   comingSoon: { title: 'Not in this version yet', badge: 'Coming soon', body: 'Planned for a later release.' },
-  login: { title: 'Log in', username: 'Username', password: 'Password', button: 'Log in', locked: 'Too many wrong tries. Wait 15 minutes and try again.' },
+  login: { title: 'Log in', username: 'Username', password: 'Password', button: 'Log in', locked: 'Too many wrong tries. Wait 15 minutes and try again.', guideLink: 'How to use Daraja Studio' },
+  guidePage: { contents: 'On this page', login: 'Log in', api: 'The calls behind this page', apiMethod: 'Method', apiPath: 'Path', apiWho: 'Who', session: 'Session and errors', rules: 'Rules' },
   changePassword: {
     title: 'Choose your own password',
     intro: 'Your password is temporary. Choose your own before using Studio.',
