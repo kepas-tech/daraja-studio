@@ -46,7 +46,8 @@ export const guideMachineLine = 'This is the copy for AI agents and scripts. The
 
 
 const DARAJA = ['Daraja portal', 'Log In'];
-const ORG = ['M-Pesa business portal', 'Log in as the Business Administrator (paybill or till number, username, password, the code on screen, then the code sent by SMS)'];
+const ORG = ['M-Pesa business portal', 'Log in (paybill or till number, username, password, the code on screen, then the code sent by SMS)'];
+const OPERATORS = [...ORG, 'Search', 'Organization Operator', 'the … next to Organization Short Code', 'type your number', 'Search', 'Confirm', 'Search'];
 
 /**
  * Every place Studio sends a person to on Safaricom's sites, with the clicks once there. Read
@@ -64,9 +65,9 @@ export const how = {
   goLive: { label: 'Open Go Live on the Daraja portal', href: links.darajaGoLive, trail: [...DARAJA, 'Go Live', 'Verification Type: Short Code', 'Organization ShortCode', 'Organization Name', 'M-PESA Username', 'tick the Terms and Conditions', 'Next', 'type the code sent by SMS'] },
   urlManagement: { label: 'Open URL Management on the Daraja portal', href: links.darajaUrlManagement, trail: [...DARAJA, 'Self Service', 'URL Management', 'View URLs', 'paybill or till number', 'M-PESA admin username', 'the code sent by SMS'] },
   orgPortal: { label: 'Open the M-Pesa business portal', href: links.orgPortal, trail: ORG },
-  operatorCreate: { label: 'Open the M-Pesa business portal', href: links.orgPortal, trail: [...ORG, 'Operators', 'Add', 'Username', 'Access channel: API', 'Web profile: default rule profile', 'Roles: ORG B2C API Initiator, Balance Query ORG API, Transaction Status query ORG API', 'the person’s details', 'Submit'] },
-  operatorPassword: { label: 'Open the M-Pesa business portal', href: links.orgPortal, trail: ['M-Pesa business portal', 'Log in as a Business Manager (a user with the Set Restricted ORG API PASSWORD role)', 'My Functions', 'Operator Management', 'search the username', 'Operations', 'Set Password'] },
-  number: { label: 'Open the M-Pesa business portal', href: links.orgPortal, trail: [...ORG, 'My Organization'] },
+  operatorCreate: { label: 'Open the M-Pesa business portal', href: links.orgPortal, trail: [...OPERATORS, '+ Create (only a Business Administrator sees it live)', 'Username', 'Access Channel: API', 'Rule Profile: Web Operator Rule Profile', 'Roles: ORG B2C API initiator, Balance Query ORG API, Transaction Status query ORG API', 'the person’s details', 'Submit'] },
+  operatorPassword: { label: 'Open the M-Pesa business portal', href: links.orgPortal, trail: [...OPERATORS, 'Detail on the user’s row', 'Set Password (top right; shown to a Business Manager)', 'Password', 'Confirm Password', 'Submit'] },
+  number: { label: 'Open the M-Pesa business portal', href: links.orgPortal, trail: [...ORG, 'Search', 'My Organization', 'the number and name at the top of the page'] },
   businessEmail: { label: 'Email Safaricom’s business team', href: links.businessEmail, trail: ['a new email opens'] },
   apiSupport: { label: 'Email Safaricom’s API support', href: links.apiSupportEmail, trail: ['a new email opens'] },
 } satisfies Record<string, GuideLink>;
@@ -171,7 +172,7 @@ export const guide: GuideSection[] = [
         who: 'Owner',
         steps: [
           'It is on the letter or email Safaricom sent when the number was opened, and on your Production app card on the Daraja portal as Short Code after Go Live.',
-          'On the M-Pesa business portal it is under My Organization.',
+          'On the M-Pesa business portal: Search, then My Organization; the number and your business name are at the top of the page.',
           'Type it into Studio’s "Shortcode" screen. Studio asks Safaricom for the name held against it and shows the name, so you can see you typed the right number.',
         ],
         links: [how.number],
@@ -193,14 +194,14 @@ export const guide: GuideSection[] = [
         title: 'A portal user for Studio (Safaricom calls it an API operator)',
         who: 'Owner, as the Business Administrator',
         steps: [
-          'Log in to the M-Pesa business portal as the Business Administrator and open Operators, then Add.',
-          'Username: a name for Studio, for example your business name. Access channel: API. Web profile: default rule profile.',
-          'Roles: tick ORG B2C API Initiator (sending money to phones), Balance Query ORG API (the balance on Home, and the test Studio runs) and Transaction Status query ORG API (checking a payment). Add Org Reversals Initiator if you will reverse payments.',
-          'Fill in the person responsible and Submit. The user shows as pending until it has a password.',
-          'The password is set by a portal user who has the Set Restricted ORG API PASSWORD role (a Business Manager): My Functions, then Operator Management, search the username, Operations, Set Password. Use letters, numbers and only # & % $ as symbols; never @ or a full stop, and no brackets.',
+          'Log in to the M-Pesa business portal as the Business Administrator. Open Search, then Organization Operator. Press the … next to Organization Short Code, type your number, Search, Confirm, then Search again: every user under your number is listed.',
+          'Press + Create (it is greyed out unless you are the Business Administrator). Username: a name for Studio, for example your business name. Access Channel: API. Rule Profile: Web Operator Rule Profile.',
+          'Roles: tick ORG B2C API initiator (sending money to phones), Balance Query ORG API (the balance on Home, and the test Studio runs) and Transaction Status query ORG API (checking a payment). Add Org Reversals Initiator if you will reverse payments.',
+          'Fill in the person responsible and Submit. The user shows in the list as Pending Active until it has a password.',
+          'The password is set by a portal user who has the Set Restricted ORG API PASSWORD role (a Business Manager): on the same list press Detail on the user’s row, then Set Password at the top right; type it twice and Submit. Use letters, numbers and only # & % $ as symbols; never @ or a full stop, and no brackets. The user then shows as Active.',
           'Type the username and that password into Studio’s "API operator" screen, with the certificate (next task). Studio asks Safaricom for your balance with them and keeps the user only if Safaricom accepts it.',
         ],
-        notes: ['Studio never keeps the password itself, only a scrambled version made with Safaricom’s certificate.', 'Too many wrong tries lock the user ("security credential is locked"); the Business Administrator unlocks it on the portal.'],
+        notes: ['A user with access channel Web that holds the same roles also works; the roles are what count.', 'Studio never keeps the password itself, only a scrambled version made with Safaricom’s certificate.', 'Too many wrong tries lock the user ("security credential is locked"); the Business Administrator unlocks it on the portal.'],
         links: [how.operatorCreate, how.operatorPassword],
       },
       {

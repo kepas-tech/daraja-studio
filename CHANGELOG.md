@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.14.4 — the M-Pesa business portal, as it really is
+
+- The API operator trail now matches the live M-Pesa business portal: Search › Organization
+  Operator › pick your number › Search, + Create (Business Administrator only), Access Channel
+  API, Rule Profile Web Operator Rule Profile, the three roles; then Detail › Set Password by a
+  Business Manager, which turns Pending Active into Active. The number is under Search › My
+  Organization. A Web user holding the same roles also works.
+- When Safaricom refuses an operator with "initiator information is invalid", What to do now
+  says exactly that: Active not Pending Active, the two roles, then add it again.
+
 ## 0.14.3 — setup steps say exactly where on Safaricom’s sites
 
 - Every setup step and Settings form that takes something from Safaricom now shows "Where to

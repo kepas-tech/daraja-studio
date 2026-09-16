@@ -109,10 +109,10 @@ Who: Owner
 Who: Owner
 
 1. It is on the letter or email Safaricom sent when the number was opened, and on your Production app card on the Daraja portal as Short Code after Go Live.
-2. On the M-Pesa business portal it is under My Organization.
+2. On the M-Pesa business portal: Search, then My Organization; the number and your business name are at the top of the page.
 3. Type it into Studio’s "Shortcode" screen. Studio asks Safaricom for the name held against it and shows the name, so you can see you typed the right number.
 
-- [Open the M-Pesa business portal](https://org.ke.m-pesa.com) — then: M-Pesa business portal → Log in as the Business Administrator (paybill or till number, username, password, the code on screen, then the code sent by SMS) → My Organization
+- [Open the M-Pesa business portal](https://org.ke.m-pesa.com) — then: M-Pesa business portal → Log in (paybill or till number, username, password, the code on screen, then the code sent by SMS) → Search → My Organization → the number and name at the top of the page
 
 ### The M-Pesa business portal and its administrator
 
@@ -123,25 +123,26 @@ Who: Owner
 3. First login: open the portal, type the paybill or till number, the administrator username and the first-time password from Safaricom’s email, then the code shown on screen, then the code sent by SMS. Set your own password and two security questions.
 4. After that, logging in is the number, username, password, the code on screen and the SMS code.
 
-- [Open the M-Pesa business portal](https://org.ke.m-pesa.com) — then: M-Pesa business portal → Log in as the Business Administrator (paybill or till number, username, password, the code on screen, then the code sent by SMS)
+- [Open the M-Pesa business portal](https://org.ke.m-pesa.com) — then: M-Pesa business portal → Log in (paybill or till number, username, password, the code on screen, then the code sent by SMS)
 - [Email Safaricom’s business team](mailto:M-PESABusiness@Safaricom.co.ke) — then: a new email opens
 
 ### A portal user for Studio (Safaricom calls it an API operator)
 
 Who: Owner, as the Business Administrator
 
-1. Log in to the M-Pesa business portal as the Business Administrator and open Operators, then Add.
-2. Username: a name for Studio, for example your business name. Access channel: API. Web profile: default rule profile.
-3. Roles: tick ORG B2C API Initiator (sending money to phones), Balance Query ORG API (the balance on Home, and the test Studio runs) and Transaction Status query ORG API (checking a payment). Add Org Reversals Initiator if you will reverse payments.
-4. Fill in the person responsible and Submit. The user shows as pending until it has a password.
-5. The password is set by a portal user who has the Set Restricted ORG API PASSWORD role (a Business Manager): My Functions, then Operator Management, search the username, Operations, Set Password. Use letters, numbers and only # & % $ as symbols; never @ or a full stop, and no brackets.
+1. Log in to the M-Pesa business portal as the Business Administrator. Open Search, then Organization Operator. Press the … next to Organization Short Code, type your number, Search, Confirm, then Search again: every user under your number is listed.
+2. Press + Create (it is greyed out unless you are the Business Administrator). Username: a name for Studio, for example your business name. Access Channel: API. Rule Profile: Web Operator Rule Profile.
+3. Roles: tick ORG B2C API initiator (sending money to phones), Balance Query ORG API (the balance on Home, and the test Studio runs) and Transaction Status query ORG API (checking a payment). Add Org Reversals Initiator if you will reverse payments.
+4. Fill in the person responsible and Submit. The user shows in the list as Pending Active until it has a password.
+5. The password is set by a portal user who has the Set Restricted ORG API PASSWORD role (a Business Manager): on the same list press Detail on the user’s row, then Set Password at the top right; type it twice and Submit. Use letters, numbers and only # & % $ as symbols; never @ or a full stop, and no brackets. The user then shows as Active.
 6. Type the username and that password into Studio’s "API operator" screen, with the certificate (next task). Studio asks Safaricom for your balance with them and keeps the user only if Safaricom accepts it.
 
+- A user with access channel Web that holds the same roles also works; the roles are what count.
 - Studio never keeps the password itself, only a scrambled version made with Safaricom’s certificate.
 - Too many wrong tries lock the user ("security credential is locked"); the Business Administrator unlocks it on the portal.
 
-- [Open the M-Pesa business portal](https://org.ke.m-pesa.com) — then: M-Pesa business portal → Log in as the Business Administrator (paybill or till number, username, password, the code on screen, then the code sent by SMS) → Operators → Add → Username → Access channel: API → Web profile: default rule profile → Roles: ORG B2C API Initiator, Balance Query ORG API, Transaction Status query ORG API → the person’s details → Submit
-- [Open the M-Pesa business portal](https://org.ke.m-pesa.com) — then: M-Pesa business portal → Log in as a Business Manager (a user with the Set Restricted ORG API PASSWORD role) → My Functions → Operator Management → search the username → Operations → Set Password
+- [Open the M-Pesa business portal](https://org.ke.m-pesa.com) — then: M-Pesa business portal → Log in (paybill or till number, username, password, the code on screen, then the code sent by SMS) → Search → Organization Operator → the … next to Organization Short Code → type your number → Search → Confirm → Search → + Create (only a Business Administrator sees it live) → Username → Access Channel: API → Rule Profile: Web Operator Rule Profile → Roles: ORG B2C API initiator, Balance Query ORG API, Transaction Status query ORG API → the person’s details → Submit
+- [Open the M-Pesa business portal](https://org.ke.m-pesa.com) — then: M-Pesa business portal → Log in (paybill or till number, username, password, the code on screen, then the code sent by SMS) → Search → Organization Operator → the … next to Organization Short Code → type your number → Search → Confirm → Search → Detail on the user’s row → Set Password (top right; shown to a Business Manager) → Password → Confirm Password → Submit
 
 ### Safaricom’s certificate file
 
@@ -623,7 +624,7 @@ Where: Not possible via API · Route: /not-possible
 1. Withdrawing to the bank, moving float from Utility to Working, creating portal users and their rights, resetting portal passwords, KYC, bank accounts, tills, settlement plans, closing the organisation, Safaricom’s own statement, changing where paybill news is sent after the first time, and the portal’s own audit log all live on Safaricom’s business portal.
 2. Not possible via API lists each one with why, where on the portal, and the phone code (*234#) where one exists.
 
-- [Open the M-Pesa business portal](https://org.ke.m-pesa.com) — then: M-Pesa business portal → Log in as the Business Administrator (paybill or till number, username, password, the code on screen, then the code sent by SMS)
+- [Open the M-Pesa business portal](https://org.ke.m-pesa.com) — then: M-Pesa business portal → Log in (paybill or till number, username, password, the code on screen, then the code sent by SMS)
 
 ## For AI agents and scripts
 

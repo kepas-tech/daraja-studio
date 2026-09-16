@@ -18,7 +18,7 @@ const WHAT_TO_DO: Record<string, string> = {
   'b2b:2001': 'Safaricom rejected the API operator credential. In Settings, give this operator a new password or Security Credential (from the Safaricom portal), then try again.',
   'status:25': 'Safaricom could not read the query. Check the receipt and try again; if it keeps happening, contact Safaricom API support with the text above.',
   'b2c:403.002.1001': 'On the Daraja portal, open the app whose key you saved and check that the B2C API is on it. If it is not, ask Safaricom API support to enable B2C for this shortcode, then try again.',
-  'balance:2001': 'Add the API operator that exists on the M-Pesa organisation portal for this environment, with its current password and the certificate for this environment, then test it again.',
+  'balance:2001': 'On the M-Pesa business portal (Search › Organization Operator › your number › Detail on this user) the user must show Active, not Pending Active: a Business Manager presses Set Password there. It must hold the roles Balance Query ORG API and ORG B2C API initiator. Then add it here again with that password and the certificate for this environment (or a fresh Security Credential from the Daraja portal › Test Credentials).',
   // A v3 send only: the app itself is not subscribed to the B2C v3 gateway product (a separate
   // subscription from plain B2C). The general pair above stays for a v1 send with this same code.
   'b2c:403.002.1001:v3': "In Settings, under this environment's Daraja app, set the B2C API version to v1 and send again. Nothing was sent.",

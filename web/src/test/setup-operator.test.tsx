@@ -37,7 +37,7 @@ describe('Setup › Operator', () => {
     render(<MemoryRouter><Operator onDone={() => {}} onBack={() => {}} /></MemoryRouter>);
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/settings', expect.anything()));
 
-    expect(screen.getByTestId('safaricom-how')).toHaveTextContent('Operators → Add');
+    expect(screen.getByTestId('safaricom-how')).toHaveTextContent('Organization Operator');
     answer(copy.setup.operator.name, 'KEPAS');
     next();
     const credentialField = screen.getByLabelText(copy.setup.operator.credential);
