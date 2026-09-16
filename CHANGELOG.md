@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.16.1 — Safaricom's own words when a number is unknown
+
+- `@kepas/daraja-js` 1.6.1: the name check's "The customer does not exist." now arrives as the
+  error message itself, whichever shape Safaricom sends it in. Studio already read both shapes;
+  this keeps the SDK honest for everyone else too.
+
 ## 0.16.0 — the name behind the number, before you send
 
 - Send money › To a phone: the review now asks Safaricom for the name registered to that number
