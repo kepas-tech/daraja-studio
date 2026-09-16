@@ -7,10 +7,10 @@ import { Icon } from '../components/Icon';
 import { StatusPill } from '../components/StatusPill';
 import { copy, type NavEntry } from '../copy/en';
 
-/** M4: how many sends wait for a second person; any signed-in person may read it. */
-function useApprovalsCount(): number {
-  const [n, setN] = useState(0);
-  const load = useCallback(() => api.get<{ count: number }>('/api/approvals/count').then((r) => setN(r.count)).catch(() => {}), []);
+/** M4: how many sends wait for a second person, and whether approvals are on at all; any signed-in person may read it. */
+function useApprovals(): { count: number; enabled: boolean } {
+  const [n, setN] = useState<{ count: number; enabled: boolean }>({ count: 0, enabled: true }); // shown until the answer says otherwise
+  const load = useCallback(() => api.get<{ count: number; enabled: boolean }>('/api/approvals/count').then((r) => setN({ count: r.count, enabled: !!r.enabled })).catch(() => {}), []);
   useEffect(() => { void load(); }, [load]);
   useEvents(useCallback((e) => { if (e.type === 'request.updated') void load(); }, [load]), typeof EventSource !== 'undefined');
   return n;
@@ -40,7 +40,10 @@ export function Nav() {
   const [open, setOpen] = useState(false);
   const pick = () => setOpen(false);
   const live = copy.nav.filter((e) => e.available);
-  const waiting = useApprovalsCount();
+  const approvals = useApprovals();
+  const waiting = approvals.count;
+  // Waiting for approval only fills while Settings › Approvals is on; hidden otherwise, unless a send still waits from before.
+  const shown = (e: NavEntry) => e.key !== 'approvals' || approvals.enabled || approvals.count > 0;
   return (
     <nav aria-label={copy.app.navLabel} className="w-full shrink-0 border-b border-line bg-page md:w-60 md:overflow-y-auto md:border-r md:border-b-0">
       <button type="button" aria-expanded={open} aria-controls="nav-entries" onClick={() => setOpen((v) => !v)} className="flex min-h-11 w-full cursor-pointer items-center gap-2 px-4 text-base font-semibold md:hidden">
@@ -53,7 +56,7 @@ export function Nav() {
         {(['in', 'out', 'manage'] as const).map((g) => (
           <li key={g}>
             <div className={heading}>{copy.nav.groups[g]}</div>
-            <ul>{live.filter((e) => e.group === g && !e.advanced).map((e) => <Item key={e.key} e={e} onPick={pick} badge={e.key === 'approvals' ? waiting : undefined} />)}</ul>
+            <ul>{live.filter((e) => e.group === g && !e.advanced && shown(e)).map((e) => <Item key={e.key} e={e} onPick={pick} badge={e.key === 'approvals' ? waiting : undefined} />)}</ul>
           </li>
         ))}
         <li className="mt-4 border-t border-line pt-2"><ul>{live.filter((e) => e.group === 'help').map((e) => <Item key={e.key} e={e} onPick={pick} />)}</ul></li>

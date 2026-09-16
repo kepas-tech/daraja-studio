@@ -152,7 +152,12 @@ export function approvalRoutes(deps: AppDeps): Router {
   const refuseSchema = z.object({ reason: z.string().trim().min(1).max(200) });
   r.get('/', requireAuth(deps.db), requirePermission(deps.db, 'send.approve'), async (_req, res, next) => { try { res.json(await deps.moneyOut.listAwaiting()); } catch (e) { next(e); } });
   r.get('/count', requireAuth(deps.db), async (_req, res, next) => {
-    try { res.json({ count: (await deps.db.query<{ n: number }>(`SELECT count(*)::int AS n FROM requests WHERE status='awaiting_approval'`))[0].n }); } catch (e) { next(e); }
+    try {
+      // `enabled` lets the menu show Waiting for approval only while approvals are on (or something still waits).
+      const [row] = await deps.db.query<{ n: number }>(`SELECT count(*)::int AS n FROM requests WHERE status='awaiting_approval'`);
+      const enabled = (Number((await deps.settings.get('send.approvalThresholdCents')) ?? 0) || 0) > 0;
+      res.json({ count: row.n, enabled });
+    } catch (e) { next(e); }
   });
   r.post('/:id/release', requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'send.approve'), requireMoneyReady(deps), requireStepUp(deps.db), async (req, res, next) => {
     try {

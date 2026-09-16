@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.13.8 — Waiting for approval only when it applies
+
+- The menu shows Waiting for approval only while Settings › Approvals is on, or while a send held
+  earlier still waits. `GET /api/approvals/count` also says whether approvals are on.
+
 ## 0.13.7 — "already registered" counts as on
 
 - A production paybill takes one C2B registration; Safaricom refuses the next with "URLs are

@@ -127,7 +127,7 @@ describe('waiting for approval (routes)', () => {
     const sent = await as(owner)(request(app).post('/api/send/phone')).send({ ...INPUT, password: 'correct horse' });
     expect(sent.status).toBe(201);
     expect(sent.body.status).toBe('awaiting_approval');
-    expect((await request(app).get('/api/approvals/count').set('Cookie', owner.cookie)).body.count).toBe(1);
+    expect((await request(app).get('/api/approvals/count').set('Cookie', owner.cookie)).body).toEqual({ count: 1, enabled: true });
     expect((await request(app).get('/api/approvals').set('Cookie', anna.cookie)).body.items.length).toBe(1);
     // The maker, even as owner, cannot release their own.
     expect((await as(owner)(request(app).post(`/api/approvals/${sent.body.id}/release`)).send({ password: 'correct horse' })).status).toBe(403);
