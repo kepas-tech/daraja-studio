@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { api, ApiError } from '../api/client';
 import { useEvents } from '../api/events';
@@ -32,18 +32,27 @@ export function MoneyIn() {
   const [err, setErr] = useState<Error | Explained | null>(null);
   const [checking, setChecking] = useState(false);
   const [found, setFound] = useState<number | null>(null);
+  const justStarted = useRef(false);
 
   const load = useCallback(async () => {
     const [v, r] = await Promise.all([api.get<MoneyInView>('/api/money-in/status'), api.get<Page<RequestView>>('/api/money-in/recent')]);
     setView(v); setRecent(r.items);
   }, []);
   useEffect(() => { load().catch((e) => setErr(explainApiError(e))); }, [load]);
-  useEvents(useCallback((e) => { if (e.type === 'request.updated') void load().catch(() => {}); }, [load]));
+  useEvents(useCallback((e) => { if (e.type === 'request.updated' || e.type === 'money_in.updated') void load().catch(() => {}); }, [load]));
+  // While Safaricom is being told where to post, re-read every few seconds until the answer lands.
+  useEffect(() => {
+    if (!view?.registering) return;
+    const t = setInterval(() => { void load().catch(() => {}); }, 3000);
+    return () => clearInterval(t);
+  }, [view?.registering, load]);
 
   const turnOn = () => stepUp.ask(c.confirmTurnOn, async (password) => {
     const v = await api.post<MoneyInView>('/api/money-in/register', { password });
-    setView(v); toast.success(c.turnedOn);
+    justStarted.current = true; setView(v); toast.info(c.registering);
   });
+  const registered = !!view?.c2bRegisteredAt;
+  useEffect(() => { if (view && !view.registering && registered && !view.lastError && justStarted.current) { justStarted.current = false; toast.success(c.turnedOn); } }, [view, registered, toast, c.turnedOn]);
   const check = async () => {
     setChecking(true); setErr(null); setFound(null);
     try { const r = await api.post<{ found: number; checkedAt: string }>('/api/money-in/check', {}); setFound(r.found); await load(); }
@@ -62,9 +71,16 @@ export function MoneyIn() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <StatusPill kind={on ? 'ok' : 'muted'}>{on ? c.registered(when(view.c2bRegisteredAt)) : c.notRegistered}</StatusPill>
             {person?.is_owner && (
-              <Button type="button" variant={on ? 'secondary' : 'primary'} disabled={!view.publicVerified} onClick={turnOn}>{on ? c.turnOnAgain : c.turnOn}</Button>
+              <Button type="button" variant={on ? 'secondary' : 'primary'} disabled={!view.publicVerified || view.registering} onClick={turnOn}>{view.registering ? c.registeringButton : on ? c.turnOnAgain : c.turnOn}</Button>
             )}
           </div>
+          {view.registering && <Flash tone="neutral" role="status">{c.registering}</Flash>}
+          {!view.registering && view.lastError && (
+            <Flash tone="danger" role="alert">
+              <p className="font-semibold text-danger">{c.failed}</p>
+              {view.lastError.split('\n').map((line, i) => <p key={i}>{line}</p>)}
+            </Flash>
+          )}
           {!view.publicVerified && <Flash tone="neutral">{c.needsAddress}</Flash>}
           <p className="text-sm text-muted">{c.validationNote}</p>
         </Card>

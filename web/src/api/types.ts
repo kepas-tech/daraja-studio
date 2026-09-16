@@ -105,6 +105,7 @@ export interface InvoicesSettingsView { mode: 'sandbox' | 'production'; optedIn:
 export interface MoneyInView {
   mode: 'sandbox' | 'production'; c2bRegisteredAt: string | null; pullRegisteredAt: string | null; pullCheckedAt: string | null;
   nominatedNumber: string | null; publicVerified: boolean;
+  registering: boolean; lastError: string | null;
 }
 export interface BalanceView { workingCents: number | null; utilityCents: number | null; chargesPaidCents: number | null; queriedAt: string }
 export interface Page<T> { items: T[]; nextCursor: string | null }

@@ -319,6 +319,7 @@ export const copy = {
     title: 'Money in', safaricom: 'C2B',
     intro: 'Customers pay your paybill or till from their own phone. Once turned on, each payment shows here and in History the moment Safaricom reports it.',
     registered: (at: string) => `On since ${at}`, notRegistered: 'Not turned on yet', turnOn: 'Turn on', turnOnAgain: 'Register again', turnedOn: 'Safaricom will send payments here.',
+    registering: 'Telling Safaricom where to send payments. This can take up to a minute; this page updates on its own.', registeringButton: 'Telling Safaricom…', failed: 'Safaricom did not accept it.',
     confirmTurnOn: 'Tell Safaricom to send payments to this studio?',
     needsAddress: 'Test the public address in Settings first.',
     check: 'Check for missed payments', checking: 'Asking Safaricom…', found: (n: number) => (n === 0 ? 'Nothing missed.' : `Found ${n} missed payment${n === 1 ? '' : 's'}.`),

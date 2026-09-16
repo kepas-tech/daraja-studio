@@ -92,6 +92,8 @@ describe('standing orders, express checkout and Bonga', () => {
     expect(off.status).toBe(409);
     expect(off.body.error.code).toBe('money_in_off');
     await h(request(app).post('/api/money-in/register')).send({ password: 'correct horse' });
+    // Registration finishes in the background; wait for it before redeeming.
+    for (let i = 0; i < 50; i++) { if (!(await request(app).get('/api/money-in/status').set('Cookie', cookie)).body.registering) break; await new Promise((res) => setTimeout(res, 40)); }
     const r = await h(request(app).post('/api/collect/bonga/redeem')).send({ phone: '0700123456', points: 500, accountReference: 'HSE-12' });
     expect(r.status).toBe(201);
     expect(r.body).toMatchObject({ type: 'bonga', status: 'sent', amountCents: 10000 });

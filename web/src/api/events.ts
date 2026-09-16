@@ -12,7 +12,7 @@ export function useEvents(onEvent: (e: StudioEvent) => void, enabled = true, onO
     const handler = (ev: MessageEvent) => { try { onEvent(JSON.parse(ev.data)); } catch { /* ignore */ } };
     // Every named event the server publishes to a tenant stream, in one place: a name missing here
     // is a screen that never hears about the change (review correction B08).
-    for (const t of ['request.updated', 'balance.updated', 'operator.updated', 'alert', 'setup.updated', 'org.updated', 'bulk.updated', 'invoice.updated']) es.addEventListener(t, handler as EventListener);
+    for (const t of ['request.updated', 'balance.updated', 'operator.updated', 'alert', 'setup.updated', 'org.updated', 'bulk.updated', 'invoice.updated', 'money_in.updated']) es.addEventListener(t, handler as EventListener);
     if (onOpen) es.onopen = () => onOpen();
     return () => es.close();
   }, [onEvent, enabled, onOpen]);

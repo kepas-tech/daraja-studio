@@ -1,5 +1,5 @@
 import { DarajaAPIError, DarajaAuthError, DarajaConnectionError, type C2bPayment } from '@kepas/daraja-js';
-import type { Db } from '../db/pool.js';
+import { currentOrgId, withOrg, type Db } from '../db/pool.js';
 import type { Settings, Env } from '../settings/store.js';
 import type { DarajaFactory } from '../sdk/client.js';
 import type { EventHub } from '../events/hub.js';
@@ -14,10 +14,19 @@ import { syncRejection } from '../money_out/service.js';
 import { recordC2b } from './record.js';
 
 export interface Actor { personId: string; ip: string }
-export interface MoneyInView { mode: Env; c2bRegisteredAt: string | null; pullRegisteredAt: string | null; pullCheckedAt: string | null; nominatedNumber: string | null; publicVerified: boolean }
+export interface MoneyInView {
+  mode: Env; c2bRegisteredAt: string | null; pullRegisteredAt: string | null; pullCheckedAt: string | null; nominatedNumber: string | null; publicVerified: boolean;
+  /** A registration is in flight (started within the last two minutes and not yet finished). */
+  registering: boolean;
+  /** Why the last registration failed, in the studio's three-line form joined by newlines; null after a success. */
+  lastError: string | null;
+}
 export interface MoneyInService {
   status(): Promise<MoneyInView>;
+  /** Starts the registration and returns at once; the outcome lands in status(). */
   register(actor: Actor): Promise<MoneyInView>;
+  /** The work register() starts. Exposed so tests can await it. */
+  runRegistration(actor: Actor): Promise<void>;
   checkMissed(): Promise<{ found: number; checkedAt: string }>;
   /** The hourly job: nothing to do until the owner has registered. */
   checkMissedIfRegistered(): Promise<void>;
@@ -70,27 +79,64 @@ export function createMoneyInService(deps: { db: Db; settings: Settings; daraja:
   const svc: MoneyInService = {
     async status() {
       const env = await mode();
-      const s = await deps.settings.getMany([`env.${env}.c2bRegisteredAt`, `env.${env}.pullRegisteredAt`, `env.${env}.pullCheckedAt`, 'org.nominatedNumber', 'public.verifiedAt']);
-      return { mode: env, c2bRegisteredAt: s[`env.${env}.c2bRegisteredAt`], pullRegisteredAt: s[`env.${env}.pullRegisteredAt`], pullCheckedAt: s[`env.${env}.pullCheckedAt`], nominatedNumber: s['org.nominatedNumber'], publicVerified: !!s['public.verifiedAt'] };
+      const s = await deps.settings.getMany([`env.${env}.c2bRegisteredAt`, `env.${env}.pullRegisteredAt`, `env.${env}.pullCheckedAt`, `env.${env}.c2bRegisterStartedAt`, `env.${env}.c2bRegisterError`, 'org.nominatedNumber', 'public.verifiedAt']);
+      const started = s[`env.${env}.c2bRegisterStartedAt`];
+      const registering = !!started && Date.now() - Date.parse(started) < 2 * 60_000;
+      return {
+        mode: env, c2bRegisteredAt: s[`env.${env}.c2bRegisteredAt`], pullRegisteredAt: s[`env.${env}.pullRegisteredAt`], pullCheckedAt: s[`env.${env}.pullCheckedAt`],
+        nominatedNumber: s['org.nominatedNumber'], publicVerified: !!s['public.verifiedAt'], registering, lastError: s[`env.${env}.c2bRegisterError`],
+      };
     },
     async register(actor) {
       const env = await mode();
       const s = await deps.settings.getMany(['public.url', 'public.verifiedAt', 'org.nominatedNumber']);
       if (!s['public.url'] || !s['public.verifiedAt']) throw new HttpError(409, 'public_url_unverified', PUBLIC_URL_UNVERIFIED);
       if (!s['org.nominatedNumber']) throw new HttpError(409, 'no_nominated_number', NO_NOMINATED);
-      const urls = callbackUrls(s['public.url'], await currentCallbackSecret(deps.orgs));
-      const client = await deps.daraja.get();
+      // Safaricom can take long enough here that a proxy in front of the studio gives up first, and
+      // the page would then see a cut connection rather than an answer. So the work runs after this
+      // reply, and the page reads its outcome from status(): started, then registered or an error.
+      await deps.settings.set(`env.${env}.c2bRegisterStartedAt`, new Date().toISOString());
+      await deps.settings.delete(`env.${env}.c2bRegisterError`);
+      const orgId = currentOrgId();
+      setImmediate(() => {
+        const run = () => svc.runRegistration(actor);
+        (orgId ? withOrg(orgId, run) : run()).catch((e) => console.error('money in registration failed', e instanceof Error ? e.name : 'error'));
+      });
+      return svc.status();
+    },
+
+    async runRegistration(actor) {
+      const env = await mode();
+      const s = await deps.settings.getMany(['public.url', 'org.nominatedNumber']);
+      const finish = async (error: string | null) => {
+        await deps.settings.delete(`env.${env}.c2bRegisterStartedAt`);
+        if (error) await deps.settings.set(`env.${env}.c2bRegisterError`, error.slice(0, 600));
+        else await deps.settings.delete(`env.${env}.c2bRegisterError`);
+        await deps.events.publish('money_in.updated', { environment: env, ok: !error });
+      };
       try {
+        const urls = callbackUrls(s['public.url'] ?? '', await currentCallbackSecret(deps.orgs));
+        const client = await deps.daraja.get();
         // Safaricom keeps the first registration and answers the repeat as a success, so pressing
         // the button again is safe; the timestamp records the latest confirmation either way.
         await client.c2b.registerUrls({ confirmationUrl: urls.c2bConfirm, validationUrl: urls.c2bValidate, responseType: 'Completed' });
         await deps.settings.set(`env.${env}.c2bRegisteredAt`, new Date().toISOString());
-        await client.pull.registerUrl({ nominatedNumber: s['org.nominatedNumber'], callbackUrl: urls.pull });
+        await client.pull.registerUrl({ nominatedNumber: s['org.nominatedNumber'] ?? '', callbackUrl: urls.pull });
         await deps.settings.set(`env.${env}.pullRegisteredAt`, new Date().toISOString());
-      } catch (e) { threeLines(e); }
-      await audit(deps.db, { personId: actor.personId, action: 'money_in.registered', after: { environment: env }, ip: actor.ip });
-      return svc.status();
+        await audit(deps.db, { personId: actor.personId, action: 'money_in.registered', after: { environment: env }, ip: actor.ip });
+        await finish(null);
+      } catch (e) {
+        let message: string;
+        try { threeLines(e); message = 'Something went wrong on our side.'; } catch (h) {
+          const he = h as HttpError;
+          const d = he.details as { safaricomSaid?: string; meaning?: string; whatToDo?: string } | undefined;
+          message = d?.safaricomSaid ? [d.safaricomSaid, d.meaning, d.whatToDo].filter(Boolean).join('\n') : he.message;
+        }
+        console.error('money in registration failed', env, e instanceof Error ? e.name : 'error');
+        await finish(message);
+      }
     },
+
     async checkMissed() {
       const env = await mode();
       if (!(await deps.settings.get(`env.${env}.pullRegisteredAt`))) throw new HttpError(409, 'not_registered', NOT_REGISTERED);

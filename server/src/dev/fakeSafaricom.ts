@@ -171,7 +171,9 @@ export function createFakeSafaricom(opts: FakeSafaricomOptions): FakeSafaricom {
     const isStk = !isStkQuery && path.includes('/stkpush/');
     const isReversal = path.endsWith('/reversal/v1/request');
     const isMoneyStatusOrBalance = path.endsWith('/b2c/v3/paymentrequest') || path.endsWith('/b2c/v1/paymentrequest')
-      || isReversal || path.endsWith('/transactionstatus/v1/query') || path.endsWith('/accountbalance/v1/query') || isStk || isStkQuery;
+      || isReversal || path.endsWith('/transactionstatus/v1/query') || path.endsWith('/accountbalance/v1/query') || isStk || isStkQuery
+      // Money in's one-time registration can be refused too (a wrong shortcode, an unregistered app).
+      || path.endsWith('/registerurl');
 
     // Decision 2: a synchronous rejection answers the NEXT money/status/balance call, whichever
     // endpoint it lands on, with the Daraja error envelope the SDK actually parses on a non-2xx

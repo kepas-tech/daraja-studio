@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.13.6 — Money in registration you can watch
+
+- Turn on answers at once and the registration runs behind it; the page says it is telling
+  Safaricom, re-reads every few seconds, and then shows either "On since …" or Safaricom's own
+  refusal in three lines. A cut connection in between can no longer hide the answer, and a
+  failure is logged. `POST /api/money-in/register` answers 202; status carries `registering` and
+  `lastError`.
+
 ## 0.13.5 — Paybill or Till, by name
 
 - The number is called what it is: Paybill or Till once Safaricom has said which (learned when the

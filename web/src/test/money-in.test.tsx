@@ -15,7 +15,7 @@ vi.stubGlobal('EventSource', FakeEventSource);
 vi.mock('../app/session', () => ({ useSession: () => ({ status: 'ready', person: { id: 'p1', display_name: 'Owner', is_owner: true }, org: null, permissions: [], refresh: async () => {} }) }));
 afterEach(() => cleanup());
 
-const status = (over: Record<string, unknown> = {}) => ({ mode: 'sandbox', c2bRegisteredAt: null, pullRegisteredAt: null, pullCheckedAt: null, nominatedNumber: '254700000000', publicVerified: true, ...over });
+const status = (over: Record<string, unknown> = {}) => ({ mode: 'sandbox', c2bRegisteredAt: null, pullRegisteredAt: null, pullCheckedAt: null, nominatedNumber: '254700000000', publicVerified: true, registering: false, lastError: null, ...over });
 const row = { id: 'r1', type: 'c2b', subtype: 'Pay Bill', status: 'completed', amountCents: 25000, currency: 'KES', recipient: { kind: 'phone', value: '254700123456', name: 'Jane Doe' }, remarks: null, receipt: 'RC00000001', category: null, createdAt: '2026-09-16T07:15:30Z', sentAt: '2026-09-16T07:15:30Z', resultAt: '2026-09-16T07:15:31Z', resultSource: 'callback', safaricomSaid: 'Completed', meaning: null, whatToDo: null, retriable: false, pollAttempts: 0, checked: null, createdBy: null };
 
 function fetchFor(handlers: Record<string, (init?: RequestInit) => Response>) {
@@ -29,11 +29,12 @@ function fetchFor(handlers: Record<string, (init?: RequestInit) => Response>) {
 
 describe('Money in', () => {
   it('shows not turned on, and Turn on asks for the password then posts the registration', async () => {
-    let posted: unknown = null;
+    let posted: unknown = null; let registering = false;
     vi.stubGlobal('fetch', fetchFor({
-      'GET /api/money-in/status': () => new Response(JSON.stringify(status()), { status: 200 }),
+      // The start answers 202; the page then reads status until it settles, and here it settles as registered.
+      'GET /api/money-in/status': () => new Response(JSON.stringify(registering ? status({ c2bRegisteredAt: '2026-09-16T07:00:00Z', pullRegisteredAt: '2026-09-16T07:00:00Z' }) : status()), { status: 200 }),
       'GET /api/money-in/recent': () => new Response(JSON.stringify({ items: [], nextCursor: null }), { status: 200 }),
-      'POST /api/money-in/register': (init) => { posted = JSON.parse(String(init?.body)); return new Response(JSON.stringify(status({ c2bRegisteredAt: '2026-09-16T07:00:00Z', pullRegisteredAt: '2026-09-16T07:00:00Z' })), { status: 200 }); },
+      'POST /api/money-in/register': (init) => { posted = JSON.parse(String(init?.body)); registering = true; return new Response(JSON.stringify(status({ registering: true })), { status: 202 }); },
     }));
     render(<MemoryRouter><MoneyIn /></MemoryRouter>);
     await screen.findByText(copy.moneyIn.notRegistered);
@@ -43,8 +44,20 @@ describe('Money in', () => {
     fireEvent.change(screen.getByLabelText(copy.confirm.yourPassword), { target: { value: 'correct horse' } });
     fireEvent.click(screen.getByRole('button', { name: copy.confirm.confirm }));
     await waitFor(() => expect(posted).toEqual({ password: 'correct horse' }));
-    await screen.findByText(/On since/);
+    // The page re-reads status every three seconds while Safaricom is being told.
+    await screen.findByText(/On since/, {}, { timeout: 5000 });
     expect(screen.getByRole('button', { name: copy.moneyIn.turnOnAgain })).toBeInTheDocument();
+  });
+
+  it('shows Safaricom\'s refusal, line by line, when the last registration failed', async () => {
+    vi.stubGlobal('fetch', fetchFor({
+      'GET /api/money-in/status': () => new Response(JSON.stringify(status({ lastError: 'Bad Request - Invalid ShortCode\nSafaricom does not know this number.\nCheck the paybill or till number in Settings.' })), { status: 200 }),
+      'GET /api/money-in/recent': () => new Response(JSON.stringify({ items: [], nextCursor: null }), { status: 200 }),
+    }));
+    render(<MemoryRouter><MoneyIn /></MemoryRouter>);
+    await screen.findByText(copy.moneyIn.failed);
+    expect(screen.getByText('Bad Request - Invalid ShortCode')).toBeInTheDocument();
+    expect(screen.getByText('Check the paybill or till number in Settings.')).toBeInTheDocument();
   });
 
   it('once on, Check for missed payments posts and reports what it found, and the latest list shows payments', async () => {

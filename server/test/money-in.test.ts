@@ -29,7 +29,17 @@ describe('money in', () => {
   let cookie: string; let csrf: string;
   beforeEach(async () => { await resetTables(deps.db); ({ cookie, csrf } = await loginAsOwner(app, deps)); await ready(); fake.reset(); });
   const h = (r: request.Test) => r.set('Cookie', cookie).set('x-csrf-token', csrf);
-  const register = () => h(request(app).post('/api/money-in/register')).send({ password: 'correct horse' });
+  // Registration answers 202 and finishes in the background; wait for status() to settle.
+  const register = async () => {
+    const r = await h(request(app).post('/api/money-in/register')).send({ password: 'correct horse' });
+    if (r.status !== 202) return r;
+    for (let i = 0; i < 50; i++) {
+      const st = await request(app).get('/api/money-in/status').set('Cookie', cookie);
+      if (!st.body.registering) return { status: 200, body: st.body } as typeof r;
+      await new Promise((res) => setTimeout(res, 40));
+    }
+    throw new Error('registration never settled');
+  };
 
   it('registers both addresses, idempotently, and reports them', async () => {
     const a = await register();
@@ -52,6 +62,18 @@ describe('money in', () => {
     expect((await register()).status).toBe(409);
     await deps.settings.set('public.verifiedAt', new Date().toISOString());
     expect((await h(request(app).post('/api/money-in/register')).send({})).status).toBe(403);
+  });
+
+  it('a refusal by Safaricom is kept as the last error, in three lines, and clears on a later success', async () => {
+    fake.rejectsSync('400.003.01', 'Bad Request - Invalid ShortCode');
+    const r = await register();
+    expect(r.status).toBe(200);
+    expect(r.body.c2bRegisteredAt).toBeNull();
+    expect(r.body.registering).toBe(false);
+    expect(r.body.lastError).toContain('Invalid ShortCode');
+    const ok = await register();
+    expect(ok.body.c2bRegisteredAt).toBeTruthy();
+    expect(ok.body.lastError).toBeNull();
   });
 
   it('a customer paying lands in History as a completed c2b row, seen by the recent list', async () => {
