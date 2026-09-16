@@ -21,6 +21,8 @@ beforeAll(() => {
   originalWebDir = process.env.STUDIO_WEB_DIR;
   tmpWebDir = mkdtempSync(path.join(tmpdir(), 'daraja-studio-web-'));
   writeFileSync(path.join(tmpWebDir, 'index.html'), '<!doctype html><title>t</title>');
+  writeFileSync(path.join(tmpWebDir, 'guide.md'), '# How to use\n');
+  writeFileSync(path.join(tmpWebDir, 'llms.txt'), '# Daraja Studio\n');
   process.env.STUDIO_WEB_DIR = tmpWebDir;
   ({ app, close } = makeApp());
 });
@@ -33,6 +35,21 @@ afterAll(async () => {
 });
 
 describe('app shell', () => {
+  it('serves the machine copy of the manual to agents and scripts, never to a browser', async () => {
+    const agent = await request(app).get('/guide.md').set('Accept', '*/*');
+    expect(agent.status).toBe(200);
+    expect(agent.headers['content-type']).toMatch(/markdown/);
+    expect(agent.text).toContain('# How to use');
+    const script = await request(app).get('/llms.txt').set('Accept', 'text/plain');
+    expect(script.text).toContain('# Daraja Studio');
+    const browser = await request(app).get('/guide.md').set('Accept', 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8');
+    expect(browser.status).toBe(200);
+    expect(browser.headers['content-type']).toMatch(/html/);
+    expect(browser.text).toContain('<!doctype html>');
+    const browser2 = await request(app).get('/llms.txt').set('Accept', 'text/html,*/*;q=0.8');
+    expect(browser2.text).toContain('<!doctype html>');
+  });
+
   it('returns JSON 404 for unknown api routes', async () => {
     const r = await request(app).get('/api/nope');
     expect(r.status).toBe(404);

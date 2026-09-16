@@ -2,7 +2,7 @@
 
 Every page, in the order you meet them, from the first run to the last card. Each task is numbered the way the screens go.
 
-A copy for AI agents and scripts, no login needed: /guide.md · This file is that copy.
+This is the copy for AI agents and scripts. The page people see at /guide has the same tasks without the API calls or the agent rules.
 
 ## Contents
 

@@ -9,7 +9,7 @@ import { dirname, join } from 'node:path';
 import { agentSection, guide, guideIntro, guideMachineLine, guideTitle } from '../src/copy/guide.ts';
 
 export function renderGuide() {
-  const out = [`# ${guideTitle}`, '', guideIntro, '', `${guideMachineLine} · This file is that copy.`, ''];
+  const out = [`# ${guideTitle}`, '', guideIntro, '', guideMachineLine, ''];
   out.push('## Contents', '');
   for (const s of guide) out.push(`- ${s.title}`);
   out.push(`- ${agentSection.title}`, '');

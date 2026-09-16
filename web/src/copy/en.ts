@@ -78,7 +78,7 @@ export const copy = {
   },
   comingSoon: { title: 'Not in this version yet', badge: 'Coming soon', body: 'Planned for a later release.' },
   login: { title: 'Log in', username: 'Username', password: 'Password', button: 'Log in', locked: 'Too many wrong tries. Wait 15 minutes and try again.', guideLink: 'How to use Daraja Studio' },
-  guidePage: { contents: 'On this page', login: 'Log in', api: 'The calls behind this page', apiMethod: 'Method', apiPath: 'Path', apiWho: 'Who', session: 'Session and errors', rules: 'Rules' },
+  guidePage: { contents: 'On this page', login: 'Log in' },
   changePassword: {
     title: 'Choose your own password',
     intro: 'Your password is temporary. Choose your own before using Studio.',

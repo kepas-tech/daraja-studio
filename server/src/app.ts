@@ -149,6 +149,12 @@ export function buildApp(deps: AppDeps): express.Express {
       if (/^\/(api|cb)(\/|$)/.test(req.path)) return notFound(req, res, next);
       next();
     });
+    // The manual's machine copy (guide.md, llms.txt) is for AI agents and scripts, never for a person
+    // in a browser: a request that prefers HTML gets the app instead, whose router sends it Home.
+    app.use((req, res, next) => {
+      if ((req.path === '/guide.md' || req.path === '/llms.txt') && req.accepts(['text/markdown', 'text/plain', 'text/html']) === 'text/html') return res.sendFile(indexHtml);
+      next();
+    });
     app.use(express.static(webDir, { index: false, maxAge: '1h' }));
     app.get('/{*path}', (_req, res) => res.sendFile(indexHtml));
   }

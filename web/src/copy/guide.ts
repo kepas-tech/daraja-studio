@@ -27,7 +27,8 @@ export type GuideSection = { key: string; title: string; intro?: string; tasks: 
 
 export const guideTitle = 'How to use Daraja Studio';
 export const guideIntro = 'Every page, in the order you meet them, from the first run to the last card. Each task is numbered the way the screens go.';
-export const guideMachineLine = 'A copy for AI agents and scripts, no login needed: /guide.md';
+/** Only guide.md carries this line; the page for people never mentions the machine copy. */
+export const guideMachineLine = 'This is the copy for AI agents and scripts. The page people see at /guide has the same tasks without the API calls or the agent rules.';
 
 const PASSWORD = 'Your password is asked for anything that moves money or changes who can.';
 
@@ -603,7 +604,7 @@ export const guide: GuideSection[] = [
   },
 ];
 
-/** Where an AI agent stands. Verbatim from the project’s live-money rules; shown on the page and in guide.md. */
+/** Where an AI agent stands. Verbatim from the project’s live-money rules; only in guide.md, never on the page. */
 export const agentSection = {
   title: 'For AI agents and scripts',
   intro: 'Studio is a web app over a JSON API. An agent can read everything a signed-in person can; it never moves money.',

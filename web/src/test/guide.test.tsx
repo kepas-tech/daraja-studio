@@ -11,16 +11,24 @@ import { renderGuide, renderLlms } from '../../scripts/guide-md.mjs';
 afterEach(() => cleanup());
 
 describe('How to use', () => {
-  it('shows every section, every task and the rules for AI agents', () => {
+  it('shows every section and every task', () => {
     render(<MemoryRouter><Guide /></MemoryRouter>);
     for (const s of guide) {
       expect(screen.getByRole('heading', { level: 2, name: s.title })).toBeInTheDocument();
       for (const t of s.tasks) expect(screen.getByRole('heading', { name: t.title })).toBeInTheDocument();
     }
-    expect(screen.getByRole('heading', { level: 2, name: agentSection.title })).toBeInTheDocument();
-    expect(screen.getAllByText(/never moves money/).length).toBeGreaterThan(0);
-    expect(screen.getByText(/\/guide\.md/)).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: copy.guidePage.login })).toBeNull();
+  });
+
+  it('shows people nothing meant for machines: no API calls, no agent rules, no mention of guide.md', () => {
+    const { container } = render(<MemoryRouter><Guide /></MemoryRouter>);
+    const text = container.textContent ?? '';
+    expect(text).not.toContain('/api/');
+    expect(text).not.toContain('guide.md');
+    expect(text).not.toContain(agentSection.title);
+    expect(text).not.toMatch(/never moves money/);
+    expect(renderGuide()).toContain('/api/auth/login');
+    expect(renderGuide()).toContain(agentSection.title);
   });
 
   it('logged out, it stands on its own with a way to Log in', () => {

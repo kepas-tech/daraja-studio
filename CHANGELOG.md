@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.14.1 — the machine copy is for machines
+
+- The How to use page shows people the tasks and steps only: no API calls, no permission keys,
+  no rules for agents, no mention of a machine copy. `/guide.md` and `/llms.txt` answer only a
+  client that does not ask for HTML (an agent, curl, a script); a browser asking for them gets
+  the app, which opens Home.
+
 ## 0.14.0 — How to use, for people and for AI agents
 
 - A How to use page at `/guide`, written from a walk through every page of the live studio: what
