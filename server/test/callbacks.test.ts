@@ -97,7 +97,7 @@ describe('callbacks', () => {
   });
 
   it('an ordinary refresh and a successful operator probe mint no recovery ticket', async () => {
-    const [op] = await deps.db.query<{ id: string }>(`INSERT INTO operators(name, credential_enc, status) VALUES ('KEPAS2', $1, 'pending') RETURNING id`, [encrypt(deps.config.secretKey, 'c')]);
+    const [op] = await deps.db.query<{ id: string }>(`INSERT INTO operators(name, credential_enc, status) VALUES ('APITHREE', $1, 'pending') RETURNING id`, [encrypt(deps.config.secretKey, 'c')]);
     await deps.db.query(`INSERT INTO requests(type, subtype, originator_conversation_id, status) VALUES ('balance','refresh','OC-REFRESH','sent')`);
     await deps.db.query(`INSERT INTO requests(type, subtype, originator_conversation_id, status, operator_id) VALUES ('balance','operator_probe','OC-PROBE','sent',$1)`, [op.id]);
     await request(app).post('/cb/sekret/balance').set('X-Forwarded-For', SAF_IP).send(balanceBody('OC-REFRESH'));

@@ -35,8 +35,8 @@ describe('auth', () => {
     await deps.settings.set('env.sandbox.safaricomName', 'ACME TRADERS');
     const again = await request(app).get('/api/auth/me').set('Cookie', cookie);
     expect(again.body.org).toMatchObject({ shortcode: '600999', safaricomName: 'ACME TRADERS', operatorName: null });
-    await deps.db.query(`INSERT INTO operators(name, credential_enc, status, environment, verified_at) VALUES ('KEPAS API', 'x', 'verified', 'sandbox', now())`);
-    expect((await request(app).get('/api/auth/me').set('Cookie', cookie)).body.org.operatorName).toBe('KEPAS API');
+    await deps.db.query(`INSERT INTO operators(name, credential_enc, status, environment, verified_at) VALUES ('APIONE API', 'x', 'verified', 'sandbox', now())`);
+    expect((await request(app).get('/api/auth/me').set('Cookie', cookie)).body.org.operatorName).toBe('APIONE API');
   });
 
   it('rejects wrong password and locks after 5 failures', async () => {

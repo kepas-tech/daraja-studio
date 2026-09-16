@@ -166,8 +166,8 @@ describe('bootTenancy', () => {
       db.query<{ name: string; credential_enc: string }>('SELECT name, credential_enc FROM operators'),
     );
     const opByName = Object.fromEntries(ops.map((o) => [o.name, o.credential_enc]));
-    expect(opByName.KEPAS.startsWith('v2:')).toBe(true);
-    expect(decrypt(orgKey, opByName.KEPAS)).toBe('SECURITY-CREDENTIAL');
+    expect(opByName.APIONE.startsWith('v2:')).toBe(true);
+    expect(decrypt(orgKey, opByName.APIONE)).toBe('SECURITY-CREDENTIAL');
     expect(opByName.testapi.startsWith('v2:')).toBe(true);
     expect(decrypt(orgKey, opByName.testapi)).toBe('SECURITY-CREDENTIAL-TEST');
 
