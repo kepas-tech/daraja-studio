@@ -13,6 +13,8 @@ export interface OrgSummary {
   suspendReason: 'unpaid' | 'host' | null;
   /** From `GET /api/auth/me`. Optional so a page rendered without a session still type-checks. */
   createdAt?: string | null;
+  /** The environment in use: its shortcode and the name Safaricom holds for it, when checked. */
+  shortcode?: string | null; safaricomName?: string | null;
   verifiedAt?: string | null;
 }
 /** `GET /api/setup/status`. */

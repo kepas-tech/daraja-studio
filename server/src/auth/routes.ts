@@ -82,6 +82,12 @@ export function authRoutes(db: Db, config: Config): Router {
       const [dates] = await db.query<{ created_at: Date; verified_at: Date | null }>(
         'SELECT created_at, verified_at FROM orgs WHERE id=$1', [org.id],
       );
+      // Home shows the shortcode of the environment in use and the name Safaricom itself holds for
+      // it (recorded when the shortcode was checked), not just the name the owner typed.
+      const slot = await db.query<{ key: string; value: string }>(
+        `SELECT key, value FROM settings WHERE org_id=$1 AND key IN ($2, $3) AND encrypted = false`, [org.id, `env.${environment}.shortcode`, `env.${environment}.safaricomName`],
+      );
+      const slotOf = (k: string) => slot.find((r) => r.key === `env.${environment}.${k}`)?.value ?? null;
       res.json({
         person: maskHostAdmin(req.person!),
         csrf: req.csrf,
@@ -92,6 +98,7 @@ export function authRoutes(db: Db, config: Config): Router {
           isHost: org.isHost, suspendReason: org.suspendReason,
           createdAt: dates?.created_at.toISOString() ?? null,
           verifiedAt: dates?.verified_at?.toISOString() ?? null,
+          shortcode: slotOf('shortcode'), safaricomName: slotOf('safaricomName'),
         },
         // Migration 008 sets is_host_admin on this install's owner, but there is no host console
         // here for it to mean anything — always false.

@@ -119,6 +119,7 @@ export const copy = {
     noPublicUrl: 'Safaricom cannot reach this studio yet. Test your public address in Settings.',
     stkOff: 'Ask a customer to pay is off. Add the STK passkey in Settings to turn it on.',
     connected: 'Connected to Safaricom.', viewAll: 'View all',
+    shortcodeLine: (code: string | null, env: string, ownName: string | null) => [code ? `Shortcode ${code}` : 'No shortcode yet', copy.org.envLine[env] ?? env, ownName].filter(Boolean).join(' · '),
     latestBalance: 'Latest balance', noBalance: 'No balance yet', recent: 'Recent requests', noRecent: 'Nothing sent yet.',
   },
   request: {

@@ -29,6 +29,12 @@ describe('auth', () => {
     expect(me.status).toBe(200);
     expect(me.body.person.is_owner).toBe(true);
     expect(me.body.person.password_hash).toBeUndefined();
+    // Home's header: the environment in use, its shortcode and the name Safaricom holds for it.
+    expect(me.body.org).toMatchObject({ environment: 'sandbox', shortcode: null, safaricomName: null });
+    await deps.settings.set('env.sandbox.shortcode', '600999');
+    await deps.settings.set('env.sandbox.safaricomName', 'KEPAS TECHNOLOGIES');
+    const again = await request(app).get('/api/auth/me').set('Cookie', cookie);
+    expect(again.body.org).toMatchObject({ shortcode: '600999', safaricomName: 'KEPAS TECHNOLOGIES' });
   });
 
   it('rejects wrong password and locks after 5 failures', async () => {

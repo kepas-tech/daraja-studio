@@ -82,6 +82,23 @@ function mountHome(state: { me: unknown }) {
   return { fetchMock, unmount: view.unmount };
 }
 
+describe('Home header', () => {
+  it('shows the name Safaricom holds for the shortcode, the shortcode, the environment and the business\'s own name', async () => {
+    const state = { me: { ...me(), org: { ...me().org, environment: 'production', shortcode: '700111', safaricomName: 'KEPAS TECHNOLOGIES' } } };
+    const { unmount } = mountHome(state);
+    await screen.findByRole('heading', { level: 1, name: 'KEPAS TECHNOLOGIES' });
+    expect(screen.getByText(copy.home.shortcodeLine('700111', 'production', 'One Ltd'))).toBeInTheDocument();
+    expect(copy.home.shortcodeLine('700111', 'production', 'One Ltd')).toBe('Shortcode 700111 · Real money · Production · One Ltd');
+    unmount();
+  });
+  it('falls back to the business name and says when no shortcode is set', async () => {
+    const { unmount } = mountHome({ me: me() });
+    await screen.findByRole('heading', { level: 1, name: 'One Ltd' });
+    expect(screen.getByText(copy.home.shortcodeLine(null, 'sandbox', null))).toBeInTheDocument();
+    unmount();
+  });
+});
+
 describe('Home stream stability (PB1-F1)', () => {
   it('keeps one automatically-opening stream and stops re-reading the session', async () => {
     FakeEventSource.autoOpen = true;

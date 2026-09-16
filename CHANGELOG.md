@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.13.3 — Home names the account
+
+- Home's heading is the name Safaricom holds for your shortcode (recorded when the shortcode was
+  checked), with the shortcode, the environment in use and your own business name on the line
+  below. `GET /api/auth/me` carries `shortcode` and `safaricomName` for the active environment.
+
 ## 0.13.2 — an Advanced fold in the menu
 
 - Five destinations used rarely or set up once (Standing orders, Express checkout, Bonga points,
