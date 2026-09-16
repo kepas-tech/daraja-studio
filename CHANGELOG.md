@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.16.3 — Safaricom's reference on a refused invoicing set-up
+
+- When Safaricom refuses the Bill Manager set-up with "not allowed", the page now shows
+  Safaricom's own reference number and error code for that refusal, and asks you to quote them
+  in the email to API support. The server log carries the same two values. Never the body.
+
 ## 0.16.2 — Bill Manager on the address Safaricom's own email gives
 
 - `@kepas/daraja-js` 1.6.2. Safaricom's go-live email lists the production Bill Manager

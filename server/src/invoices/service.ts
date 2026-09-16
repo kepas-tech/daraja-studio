@@ -52,7 +52,7 @@ export const NOT_OPTED_IN = 'Set up invoicing with Safaricom first, under Invoic
 export const BILL_MANAGER_NOT_ALLOWED = {
   safaricomSaid: 'Safaricom answered "not allowed" (HTTP 401) to the Bill Manager set-up.',
   meaning: 'Your Daraja key works for everything else, so Safaricom is refusing Bill Manager for this app or this paybill, not the key.',
-  whatToDo: 'On the Daraja portal open My Apps, your Production app, then Update App, and make sure Bill Manager is ticked. If it already is, email apisupport@safaricom.co.ke with your paybill number asking for Bill Manager to be enabled, then press Set up invoicing again.',
+  whatToDo: 'On the Daraja portal open My Apps, your Production app, then Update App, and make sure Bill Manager is ticked. If it already is, email apisupport@safaricom.co.ke with your paybill number and Safaricom\u2019s reference above, asking for Bill Manager to be enabled for the paybill, then press Set up invoicing again.',
 };
 export const ALREADY_PAID = 'A paid invoice cannot be cancelled.';
 
@@ -77,7 +77,11 @@ export function createInvoicesService(deps: { db: Db; settings: Settings; daraja
     // Bill Manager for this app or this number, not the key. Seen live on 2026-09-16.
     if (e instanceof DarajaAuthError) {
       // The SDK message carries the gateway's own words ("Invalid Access Token", "no apiproduct match") from 1.5.1 on; no PII in it.
-      const said = `${BILL_MANAGER_NOT_ALLOWED.safaricomSaid} ${e.message}`;
+      // Safaricom's own reference and code for this refusal (never the body): the two things
+      // API support asks for, and what tells a gateway refusal from a Bill Manager one.
+      const code = (e.raw as { errorCode?: unknown } | undefined)?.errorCode;
+      const ref = [e.requestId ? `reference ${e.requestId}` : '', typeof code === 'string' ? `code ${code}` : ''].filter(Boolean).join(', ');
+      const said = `${BILL_MANAGER_NOT_ALLOWED.safaricomSaid} ${e.message}${ref ? ` (Safaricom's ${ref}).` : ''}`;
       throw new HttpError(502, 'not_allowed', said, { ...BILL_MANAGER_NOT_ALLOWED, safaricomSaid: said });
     }
     if (e instanceof DarajaConnectionError) throw new HttpError(502, 'unreachable', 'Safaricom could not be reached. Try again in a moment.');
@@ -193,7 +197,7 @@ export function createInvoicesService(deps: { db: Db; settings: Settings; daraja
           message = d?.safaricomSaid ? [d.safaricomSaid, d.meaning, d.whatToDo].filter(Boolean).join('\n') : he.message;
         }
         // The gateway's refusal text names the cause (token, product, whitelisting) and holds no customer data.
-        console.error('invoicing opt-in failed', env, e instanceof Error ? e.name : 'error', e instanceof DarajaAuthError ? e.message : '', `${Date.now() - startedAt}ms`);
+        console.error('invoicing opt-in failed', env, e instanceof Error ? e.name : 'error', e instanceof DarajaAuthError ? `${e.message} ref=${e.requestId ?? '-'} code=${String((e.raw as { errorCode?: unknown } | undefined)?.errorCode ?? '-')}` : '', `${Date.now() - startedAt}ms`);
         await finish(message);
       }
     },
