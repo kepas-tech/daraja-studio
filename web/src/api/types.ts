@@ -148,3 +148,12 @@ export type UnmatchedView = RequestView & {
   customerNumber?: number | null;
 };
 export interface Page<T> { items: T[]; nextCursor: string | null }
+/** How loud a line in the inbox is. Four levels, the same four the server writes (design 2026-09-16, feature 4). */
+export type NotificationSeverity = 'info' | 'success' | 'warning' | 'critical';
+/** `GET /api/notifications`. `count` is how many times the same event happened before it was read. */
+export interface NotificationView {
+  id: string; severity: NotificationSeverity; category: string; type: string;
+  title: string; body: string; data: { requestId?: string } & Record<string, unknown>;
+  count: number; readAt: string | null; createdAt: string; updatedAt: string;
+}
+export interface NotificationPage { items: NotificationView[]; unread: number; nextCursor: string | null }

@@ -8,7 +8,7 @@ const NAMES = [
   'home', 'document-report', 'arrow-right-circle', 'document-list', 'search', 'arrow-left-circle', 'arrow-down-circle',
   'cellphone', 'grid-3', 'file-document', 'calendar', 'speed', 'star', 'clipboard-check', 'list', 'account', 'cog',
   'alert-circle', 'menu', 'close', 'confirm-circle', 'lightbulb', 'loading-loop', 'arrow-left', 'arrow-right', 'logout',
-  'confirm', 'alert', 'question-circle', 'chevron-down', 'chevron-up', 'chevron-right', 'chevron-left', 'external-link', 'plus', 'person-add', 'check-all',
+  'confirm', 'alert', 'question-circle', 'chevron-down', 'chevron-up', 'chevron-right', 'chevron-left', 'external-link', 'plus', 'person-add', 'check-all', 'bell',
 ];
 
 const here = dirname(fileURLToPath(import.meta.url));

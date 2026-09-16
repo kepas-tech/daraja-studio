@@ -20,6 +20,8 @@ import { createMoneyInService } from './money_in/service.js';
 import { createBulkService } from './money_out/bulk.js';
 import { createInvoicesService } from './invoices/service.js';
 import { createBusinessesService } from './businesses/service.js';
+import { createNotificationsService } from './notifications/service.js';
+import { createNotificationWriter } from './notifications/writer.js';
 import { createScheduler } from './scheduler/loop.js';
 import { ensureRecurring } from './db/jobs.js';
 import { buildHandlers } from './scheduler/handlers.js';
@@ -96,8 +98,13 @@ async function main() {
   // Feature 2: businesses and customers. Needs the settings store for the last business used, so the
   // pickers can default to it, and the egress IPs for the rows the unmatched fixes hand back.
   const businesses = createBusinessesService({ db, settings, events, egressIps: config.egressIps });
+  // Feature 4: the inbox. The writer follows the same hub the browser follows, so a line exists
+  // before any page is opened.
+  const notifications = createNotificationsService({ db, events });
+  const notificationWriter = createNotificationWriter({ db, events, notifications, egressIps: config.egressIps });
 
   await events.start();
+  notificationWriter.start();
   await ensureRecurring(db, 'money_out_sweep', 30);
   await ensureRecurring(db, 'housekeeping', 3600);
   await ensureRecurring(db, 'daily', 86400);
@@ -121,6 +128,7 @@ async function main() {
     if (shuttingDown) return;
     shuttingDown = true;
     scheduler.stop();
+    notificationWriter.stop();
     server.closeIdleConnections();
     // SSE clients (events/sse.ts) hold their sockets open indefinitely, so a plain close() would
     // hang until each of them disconnects — give in-flight requests up to 10s, then force the rest.

@@ -253,6 +253,27 @@ Where: Home · Who: Anyone logged in · Route: /
 | POST | `/api/balances/refresh` | balances.view |
 | GET | `/api/requests?limit=5` | lookup.view |
 
+### See what happened while you were away
+
+Where: Home → Notifications · Who: Anyone logged in · Route: /notifications
+
+1. The bell in the menu, next to Home, carries the number of lines you have not read.
+2. Open Notifications for the list, newest first. Each line is a sentence: what happened, with the amount, the name and the receipt already in it.
+3. All shows every line; Unread hides what you have read. A number like ×3 means the same thing happened three times.
+4. Open this payment on a line about a payment opens that record in History.
+5. Mark as read clears one line; Mark all read at the top clears the bell.
+6. The page keeps itself up to date: a payment that finishes while the page is open gets its own line without a refresh.
+
+- These lines are written by Studio from what Safaricom reports. They are not a message from Safaricom.
+- A line that happens again does not make a second line: it moves to the top and its count goes up. Reading it does not bring it back.
+
+| Method | Path | Who |
+|---|---|---|
+| GET | `/api/notifications` | signed in; filter=unread|all, limit |
+| GET | `/api/notifications/count` | signed in; the number on the bell |
+| POST | `/api/notifications/:id/read` | signed in; CSRF header |
+| POST | `/api/notifications/read-all` | signed in; CSRF header; answers { read } |
+
 ## History
 
 ### Find a payment
@@ -700,7 +721,7 @@ Studio is a web app over a JSON API. An agent can read everything a signed-in pe
 1. Log in with POST /api/auth/login { username, password }. The answer carries csrf; the session is a cookie.
 2. Send the csrf value as the x-csrf-token header on every request that is not GET.
 3. GET /api/auth/me tells you who you are, your permissions, the organisation, its number and the environment in use (sandbox or production).
-4. GET /api/events is a server-sent events stream: request.updated, money_in.updated, invoice.updated, bulk.updated. Re-read the page or the record when one arrives.
+4. GET /api/events is a server-sent events stream: request.updated, money_in.updated, invoice.updated, bulk.updated, notification.created. Re-read the page or the record when one arrives.
 5. Errors are JSON: { error: { code, message, details? } }. A Safaricom refusal carries details.safaricomSaid, details.meaning and details.whatToDo. Show all three lines, never merged.
 6. Every page route above is a browser route; the API paths beside each task are what the page calls. "Where" is the menu trail a person follows; "permission" is the key the route checks.
 

@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.20.0 — a bell that says what happened while you were away
+
+- Notifications: every payment that settles, fails or goes unanswered, every send that waits for a
+  second person, and an operator that stops working now leaves one line in an inbox. The bell in
+  the menu carries the unread count.
+- Each line is a sentence with the owner's own name for the person and the receipt: "Sent KES 300
+  to Joseph Ngumbao John. They received it. Receipt UIG517BUAZ." Money in reads "Received KES 300
+  from Robert." A failure adds Safaricom's own words. No line carries a phone number, and the raw
+  callback body is never copied into one.
+- The same event twice is one line with "×2", not two lines, and a line that has been read stays
+  read when it happens again. Open a line to mark it read, or clear the lot with "Mark all read".
+  Any signed-in person may read and clear the inbox; there is no permission for it.
+- Table `notifications` (migration 026), routes under `/api/notifications`, and
+  `notification.created` over the existing event stream so the bell keeps itself current. Web push
+  is phase 2 and is not in this version.
+- The manual gains "See what happened while you were away".
+
 ## 0.19.0 — take History and Invoices out as a spreadsheet
 
 - History and Invoices each get "Export as a spreadsheet". The file carries every row the filters

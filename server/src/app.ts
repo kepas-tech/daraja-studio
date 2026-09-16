@@ -48,6 +48,7 @@ import { expressHandler, ratibaHandler } from './callbacks/collectKinds.js';
 import { invoiceRoutes } from './invoices/routes.js';
 import { contactsRoutes } from './contacts/routes.js';
 import { businessesRoutes, customersRoutes } from './businesses/routes.js';
+import { notificationRoutes } from './notifications/routes.js';
 import type { BusinessesService } from './businesses/service.js';
 import type { InvoicesService } from './invoices/service.js';
 import type { Scheduler } from './scheduler/loop.js';
@@ -142,6 +143,8 @@ export function buildApp(deps: AppDeps): express.Express {
   // because a customer id already names its business; the design's paths are exactly these.
   app.use('/api/businesses', businessesRoutes(deps));
   app.use('/api/customers', customersRoutes(deps));
+  // Feature 4: the inbox the writer fills and the bell reads.
+  app.use('/api/notifications', notificationRoutes(deps));
   app.use('/api/requests', requestRoutes(deps));
   app.use('/api/balances', balanceRoutes(deps));
   app.use('/api/lookup', lookupRoutes(deps));

@@ -66,8 +66,9 @@ Status values are exactly `live`, `building`, or `planned`. One slice is `buildi
 | 20 | Organisation (account menu) and Go live | — | live | — | 0.15.0, deployed 2026-09-16; Settings holds app behaviour only |
 | 21 | Contacts | `contacts` | live | F1 | 0.17.0, deployed 2026-09-17; the KEPAS Pay borrow list, item 1 |
 | 22 | Businesses | `businesses` | live | F2 | 0.18.0, deployed 2026-09-17; the KEPAS Pay borrow list, item 2 (customers ride with it) |
+| 23 | Notifications | `notifications` | live | F4 | 0.20.0, deployed 2026-09-17; the inbox and its bell, item 4 |
 
-**21 of 21 live (two of them folded into Home and History). Nothing left to build; the send types below are the remaining work.** Each slice below removes exactly one Coming soon label.
+**22 of 22 live (two of them folded into Home and History). Nothing left to build; the send types below are the remaining work.** Each slice below removes exactly one Coming soon label.
 
 ## Buttons that are not menu items
 

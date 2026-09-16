@@ -3,17 +3,37 @@ import { NavLink } from 'react-router';
 import { useSession } from './session';
 import { api } from '../api/client';
 import { useEvents } from '../api/events';
+import { NOTIFICATIONS_CHANGED } from '../api/notifications';
 import { Icon } from '../components/Icon';
 import { StatusPill } from '../components/StatusPill';
 import { copy, type NavEntry } from '../copy/en';
 
-/** M4: how many sends wait for a second person, and whether approvals are on at all; any signed-in person may read it. */
-function useApprovals(): { count: number; enabled: boolean } {
-  const [n, setN] = useState<{ count: number; enabled: boolean }>({ count: 0, enabled: true }); // shown until the answer says otherwise
-  const load = useCallback(() => api.get<{ count: number; enabled: boolean }>('/api/approvals/count').then((r) => setN({ count: r.count, enabled: !!r.enabled })).catch(() => {}), []);
-  useEffect(() => { void load(); }, [load]);
-  useEvents(useCallback((e) => { if (e.type === 'request.updated') void load(); }, [load]), typeof EventSource !== 'undefined');
-  return n;
+/**
+ * The two numbers the menu shows: how many sends wait for a second person (and whether approvals
+ * are on at all), and how many lines in the inbox nobody has read. Any signed-in person may read
+ * both. One stream serves both counts — a second `useEvents` would open a second connection — and
+ * both are read again on every reconnect, so a badge is never left stale by an event that arrived
+ * while the stream was down.
+ */
+function useMenuCounts(): { approvals: { count: number; enabled: boolean }; unread: number } {
+  // Approvals is shown until the answer says otherwise; the inbox starts empty.
+  const [approvals, setApprovals] = useState({ count: 0, enabled: true });
+  const [unread, setUnread] = useState(0);
+  const loadApprovals = useCallback(() => api.get<{ count: number; enabled: boolean }>('/api/approvals/count').then((r) => setApprovals({ count: r.count, enabled: !!r.enabled })).catch(() => {}), []);
+  const loadUnread = useCallback(() => api.get<{ unread: number }>('/api/notifications/count').then((r) => setUnread(r.unread ?? 0)).catch(() => {}), []);
+  const loadBoth = useCallback(() => { void loadApprovals(); void loadUnread(); }, [loadApprovals, loadUnread]);
+  useEffect(() => { loadBoth(); }, [loadBoth]);
+  useEvents(useCallback((e) => {
+    if (e.type === 'request.updated') void loadApprovals();
+    if (e.type === 'notification.created') void loadUnread();
+  }, [loadApprovals, loadUnread]), typeof EventSource !== 'undefined', loadBoth);
+  // Reading the inbox is not an event the server sends (nothing moved); the page says so on the window.
+  useEffect(() => {
+    const onChanged = () => void loadUnread();
+    window.addEventListener(NOTIFICATIONS_CHANGED, onChanged);
+    return () => window.removeEventListener(NOTIFICATIONS_CHANGED, onChanged);
+  }, [loadUnread]);
+  return { approvals, unread };
 }
 
 function Item({ e, onPick, badge }: { e: NavEntry; onPick: () => void; badge?: number }) {
@@ -40,10 +60,10 @@ export function Nav() {
   const [open, setOpen] = useState(false);
   const pick = () => setOpen(false);
   const live = copy.nav.filter((e) => e.available);
-  const approvals = useApprovals();
-  const waiting = approvals.count;
+  const { approvals, unread } = useMenuCounts();
   // Waiting for approval only fills while Settings › Approvals is on; hidden otherwise, unless a send still waits from before.
   const shown = (e: NavEntry) => e.key !== 'approvals' || approvals.enabled || approvals.count > 0;
+  const badge = (e: NavEntry) => (e.key === 'approvals' ? approvals.count : e.key === 'notifications' ? unread : undefined);
   return (
     <nav aria-label={copy.app.navLabel} className="w-full shrink-0 border-b border-line bg-page md:w-60 md:overflow-y-auto md:border-r md:border-b-0">
       <button type="button" aria-expanded={open} aria-controls="nav-entries" onClick={() => setOpen((v) => !v)} className="flex min-h-11 w-full cursor-pointer items-center gap-2 px-4 text-base font-semibold md:hidden">
@@ -52,11 +72,11 @@ export function Nav() {
       </button>
       <ul id="nav-entries" className={`${open ? 'block' : 'hidden'} pb-4 md:block`}>
         {org && <li className="px-3 pt-4 pb-2" title={org.name}><span className="block truncate text-sm font-semibold">{org.name}</span><span className="block text-xs text-muted">{org.shortcode ? `${copy.org.numberLine(org.shortcodeKind, org.shortcode)} · ` : ''}{copy.org.envLine[org.environment]}</span></li>}
-        {live.filter((e) => e.group === 'home').map((e) => <Item key={e.key} e={e} onPick={pick} />)}
+        {live.filter((e) => e.group === 'home').map((e) => <Item key={e.key} e={e} onPick={pick} badge={badge(e)} />)}
         {(['in', 'out', 'manage'] as const).map((g) => (
           <li key={g}>
             <div className={heading}>{copy.nav.groups[g]}</div>
-            <ul>{live.filter((e) => e.group === g && !e.advanced && shown(e)).map((e) => <Item key={e.key} e={e} onPick={pick} badge={e.key === 'approvals' ? waiting : undefined} />)}</ul>
+            <ul>{live.filter((e) => e.group === g && !e.advanced && shown(e)).map((e) => <Item key={e.key} e={e} onPick={pick} badge={badge(e)} />)}</ul>
           </li>
         ))}
         <li className="mt-4 border-t border-line pt-2"><ul>{live.filter((e) => e.group === 'help').map((e) => <Item key={e.key} e={e} onPick={pick} />)}</ul></li>

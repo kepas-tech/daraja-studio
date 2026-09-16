@@ -49,6 +49,7 @@ export const copy = {
   // suppliers, refunds), manage (rarely), help (once). Most used first inside each group.
   nav: Object.assign([
     { key: 'home', label: 'Home', safaricom: null, path: '/', icon: 'home', group: 'home', phase: 1, available: true },
+    { key: 'notifications', label: 'Notifications', safaricom: null, path: '/notifications', icon: 'bell', group: 'home', phase: 5, available: true },
     { key: 'history', label: 'History', safaricom: 'Account Statement', path: '/history', icon: 'list', group: 'home', phase: 2, available: true },
     { key: 'stk', label: 'Ask a customer to pay', safaricom: 'STK Push', path: '/ask-to-pay', icon: 'cellphone', group: 'in', phase: 3, available: true },
     { key: 'money-in', label: 'Money in', safaricom: null, path: '/money-in', icon: 'arrow-down-circle', group: 'in', phase: 3, available: true },
@@ -326,6 +327,21 @@ export const copy = {
     fromContact: 'Saved as',
     /** Feature 3: every row the filters select, in a file for a spreadsheet. */
     export: 'Export as a spreadsheet', exporting: 'Making the file…', exported: 'Saved to your downloads.',
+  },
+  notifications: {
+    title: 'Notifications',
+    intro: 'What happened while you were away: money that went out, money that came in, and anything that needs a look. Each line is a sentence, with the amount, the name and the receipt.',
+    filterLabel: 'Which lines?',
+    filters: { all: 'All', unread: 'Unread' } as Record<string, string>,
+    empty: 'Nothing here yet.',
+    emptyUnread: 'Nothing unread.',
+    markAllRead: 'Mark all read',
+    markedAll: (n: number) => (n === 1 ? 'One line marked as read.' : n + ' lines marked as read.'),
+    markRead: 'Mark as read',
+    openPayment: 'Open this payment',
+    repeated: (n: number) => '×' + n,
+    repeatedTitle: (n: number) => 'The same thing happened ' + n + ' times.',
+    severity: { info: 'For your information', success: 'Went well', warning: 'Needs a look', critical: 'Something is wrong' } as Record<string, string>,
   },
   standingOrders: {
     title: 'Standing orders', safaricom: 'M-Pesa Ratiba',
