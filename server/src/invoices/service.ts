@@ -12,6 +12,7 @@ import { audit } from '../audit/log.js';
 import { PUBLIC_URL_UNVERIFIED } from '../money_out/ready.js';
 import { syncRejection } from '../money_out/service.js';
 import { parseInvoices, type InvoiceRow, type InvoiceRowError } from './parse.js';
+import { EXPORT_MAX } from '../export/csv.js';
 
 export interface Actor { personId: string; ip: string }
 export interface OptInInput { email: string; officialContact: string; sendReminders: boolean; logo?: string }
@@ -40,6 +41,8 @@ export interface InvoicesService {
   checkBulk(text: string): { rows: InvoiceRow[]; errors: InvoiceRowError[]; count: number; totalCents: number };
   createBulk(text: string, actor: Actor): Promise<{ count: number }>;
   list(filter: 'open' | 'paid' | 'overdue' | 'cancelled' | 'all', q?: string): Promise<Omit<InvoiceView, 'payments'>[]>;
+  /** Feature 3: every row the same filters select, for the CSV export rather than the page. */
+  exportRows(filter: 'open' | 'paid' | 'overdue' | 'cancelled' | 'all', q?: string): Promise<Omit<InvoiceView, 'payments'>[]>;
   get(id: string): Promise<InvoiceView>;
   cancel(ids: string[], actor: Actor): Promise<number>;
   recordPayment(id: string, input: PaymentInput, actor: Actor): Promise<InvoiceView>;
@@ -63,6 +66,24 @@ interface Row {
 }
 const SELECT = `SELECT i.*, to_char(i.due_date, 'YYYY-MM-DD') AS due_date, p.display_name AS created_by_name FROM customer_invoices i LEFT JOIN people p ON p.id = i.created_by`;
 const todayNairobi = () => new Date(Date.now() + 3 * 3_600_000).toISOString().slice(0, 10);
+
+/** How many invoices the page itself shows. The CSV export has its own, larger bound. */
+const INVOICE_PAGE = 200;
+
+/**
+ * The one place an invoice filter becomes SQL. The page and the CSV export (feature 3) both call
+ * it, so a filter can never mean one thing on the screen and another thing in the file.
+ */
+function invoiceWhere(filter: 'open' | 'paid' | 'overdue' | 'cancelled' | 'all', q?: string): { where: string[]; params: unknown[] } {
+  const where: string[] = []; const params: unknown[] = [];
+  const today = todayNairobi();
+  if (filter === 'open') where.push(`i.status IN ('sent','partly_paid')`);
+  if (filter === 'overdue') { params.push(today); where.push(`i.status IN ('sent','partly_paid') AND i.due_date < $${params.length}::date`); }
+  if (filter === 'paid') where.push(`i.status = 'paid'`);
+  if (filter === 'cancelled') where.push(`i.status = 'cancelled'`);
+  if (q?.trim()) { params.push(`%${q.trim().replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`); const n = params.length; where.push(`(i.customer_name ILIKE $${n} ESCAPE '\\' OR i.external_reference ILIKE $${n} ESCAPE '\\' OR i.account_reference ILIKE $${n} ESCAPE '\\' OR i.invoice_name ILIKE $${n} ESCAPE '\\')`); }
+  return { where, params };
+}
 
 /**
  * Safaricom Bill Manager: the studio opts in once per environment (the app key comes back and is
@@ -257,14 +278,15 @@ export function createInvoicesService(deps: { db: Db; settings: Settings; daraja
       });
     },
     async list(filter, q) {
-      const where: string[] = []; const params: unknown[] = [];
-      const today = todayNairobi();
-      if (filter === 'open') where.push(`i.status IN ('sent','partly_paid')`);
-      if (filter === 'overdue') { params.push(today); where.push(`i.status IN ('sent','partly_paid') AND i.due_date < $${params.length}::date`); }
-      if (filter === 'paid') where.push(`i.status = 'paid'`);
-      if (filter === 'cancelled') where.push(`i.status = 'cancelled'`);
-      if (q?.trim()) { params.push(`%${q.trim().replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`); const n = params.length; where.push(`(i.customer_name ILIKE $${n} ESCAPE '\\' OR i.external_reference ILIKE $${n} ESCAPE '\\' OR i.account_reference ILIKE $${n} ESCAPE '\\' OR i.invoice_name ILIKE $${n} ESCAPE '\\')`); }
-      const rows = await deps.db.query<Row>(`${SELECT}${where.length ? ` WHERE ${where.join(' AND ')}` : ''} ORDER BY i.created_at DESC LIMIT 200`, params);
+      const { where, params } = invoiceWhere(filter, q);
+      const rows = await deps.db.query<Row>(`${SELECT}${where.length ? ` WHERE ${where.join(' AND ')}` : ''} ORDER BY i.created_at DESC LIMIT ${INVOICE_PAGE}`, params);
+      return rows.map(base);
+    },
+    /** Feature 3: the same filters and order as list(), without the page — the newest EXPORT_MAX rows. */
+    async exportRows(filter, q) {
+      const { where, params } = invoiceWhere(filter, q);
+      params.push(EXPORT_MAX);
+      const rows = await deps.db.query<Row>(`${SELECT}${where.length ? ` WHERE ${where.join(' AND ')}` : ''} ORDER BY i.created_at DESC LIMIT $${params.length}`, params);
       return rows.map(base);
     },
     async get(id) { return full(id); },

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { api, ApiError } from '../api/client';
+import { api, ApiError, saveDownload } from '../api/client';
 import { useEvents } from '../api/events';
 import { useSession } from '../app/session';
 import type { InvoiceView, InvoicesSettingsView } from '../api/types';
@@ -34,7 +34,7 @@ export function Invoices() {
   const c = copy.invoices;
   const toast = useToast();
   const nav = useNavigate();
-  const { person } = useSession();
+  const { person, permissions } = useSession();
   const stepUp = useStepUp();
   const [settings, setSettings] = useState<InvoicesSettingsView | null>(null);
   const [items, setItems] = useState<InvoiceView[] | null>(null);
@@ -43,11 +43,23 @@ export function Invoices() {
   const [mode, setMode] = useState<'list' | 'new' | 'bulk'>('list');
   const [err, setErr] = useState<Error | Explained | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
+  // Feature 3: an accountant asks for a month of invoices; the file holds every row the filter and
+  // the search select, not the page on screen. Owner, or whoever was given history.export.
+  const mayExport = !!person?.is_owner || permissions.includes('history.export');
+  const [exporting, setExporting] = useState(false);
 
   const loadSettings = useCallback(() => api.get<InvoicesSettingsView>('/api/invoices/settings').then(setSettings), []);
   const loadList = useCallback(() => api.get<{ items: InvoiceView[] }>(`/api/invoices?filter=${filter}${q.trim() ? `&q=${encodeURIComponent(q.trim())}` : ''}`).then((r) => setItems(r.items)), [filter, q]);
   useEffect(() => { loadSettings().catch((e) => setErr(explainApiError(e))); }, [loadSettings]);
   useEffect(() => { const t = setTimeout(() => { loadList().catch((e) => setErr(explainApiError(e))); }, 200); return () => clearTimeout(t); }, [loadList]);
+  const exportFile = async () => {
+    setExporting(true); setErr(null);
+    try {
+      saveDownload(await api.download(`/api/invoices/export.csv?filter=${filter}${q.trim() ? `&q=${encodeURIComponent(q.trim())}` : ''}`), 'invoices.csv');
+      toast.success(c.exported);
+    } catch (e) { setErr(explainApiError(e)); toast.error(copy.error.exportFailed); }
+    finally { setExporting(false); }
+  };
   useEvents(useCallback((e) => {
     if (e.type === 'invoice.updated' || e.type === 'request.updated') void loadList().catch(() => {});
     if (e.type === 'invoice.updated') void loadSettings().catch(() => {});
@@ -97,6 +109,7 @@ export function Invoices() {
             <select aria-label={c.filter} className={control} value={filter} onChange={(e) => setFilter(e.target.value as typeof filter)}>
               {(['open', 'overdue', 'paid', 'cancelled', 'all'] as const).map((f) => <option key={f} value={f}>{c.filters[f]}</option>)}
             </select>
+            {mayExport && <Button type="button" variant="secondary" disabled={exporting} onClick={() => void exportFile()}>{exporting ? c.exporting : c.export}</Button>}
             {selected.length > 0 && <Button variant="danger" onClick={() => void cancelMany()}>{c.cancelSelected(selected.length)}</Button>}
           </div>
           {!items ? <div className="p-4"><Loading /></div> : items.length === 0 ? <p className="p-4 text-base text-muted">{c.empty}</p> : (

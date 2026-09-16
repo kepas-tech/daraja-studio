@@ -69,6 +69,14 @@ Status values are exactly `live`, `building`, or `planned`. One slice is `buildi
 
 **21 of 21 live (two of them folded into Home and History). Nothing left to build; the send types below are the remaining work.** Each slice below removes exactly one Coming soon label.
 
+## Buttons that are not menu items
+
+Real work that adds no menu entry, tracked here for the same reason the send types are.
+
+| Button | Where | Status | Evidence |
+|---|---|---|---|
+| Export as a spreadsheet | History, Invoices | live | 0.19.0, deployed 2026-09-17; the KEPAS Pay borrow list, item 3; behind the already-declared `history.export` |
+
 ## Send types inside Send money
 
 These do not change the menu, because Send money is already live. They are real work and they are

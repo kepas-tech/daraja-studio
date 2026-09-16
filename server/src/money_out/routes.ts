@@ -4,7 +4,10 @@ import type { AppDeps } from '../app.js';
 import { requireAuth, requireCsrf, requireStepUp } from '../auth/middleware.js';
 import { requirePermission, assertPermission } from '../permissions/middleware.js';
 import { requireMoneyReady } from './ready.js';
-import { getRequest, listRequests } from './reads.js';
+import { getRequest, listRequests, type RequestView } from './reads.js';
+import { audit } from '../audit/log.js';
+import { EXPORT_MAX, nairobiStamp, sendCsv, shillings, toCsv, todayNairobi } from '../export/csv.js';
+import { statusLabel, whatLabel } from '../export/labels.js';
 import { clientIp } from '../util/ip.js';
 import { HttpError } from '../util/errors.js';
 import { KINDS } from './registry.js';
@@ -44,6 +47,28 @@ const listSchema = z.object({
   businessId: z.string().uuid().optional(), customerId: z.string().uuid().optional(),
 }).refine((v) => !v.from || !v.to || v.from <= v.to, { message: 'The end date must be on or after the start date.', path: ['to'] });
 const checkedSchema = z.object({ note: z.string().trim().min(1).max(500) });
+
+/** Feature 3: the columns an exported History carries, in the order the page reads. */
+const HISTORY_COLUMNS = ['When', 'What', 'To', 'Name', 'Business', 'Amount', 'Status', 'Receipt', 'Note', 'Who made it'];
+
+/**
+ * One History row as file cells. The name is the owner's own label first (the saved contact, then
+ * the customer), Safaricom's registered name only when the studio has nothing better.
+ */
+function historyRow(r: RequestView): unknown[] {
+  return [
+    nairobiStamp(r.createdAt),
+    whatLabel(r),
+    r.recipient.value ?? '',
+    r.contactName ?? r.customerName ?? r.recipient.name ?? '',
+    r.businessName ?? '',
+    shillings(r.amountCents),
+    statusLabel(r.status),
+    r.receipt ?? '',
+    r.remarks ?? '',
+    r.createdBy?.displayName ?? '',
+  ];
+}
 const isUuid = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 const nameCheckSchema = z.object({ phone: z.string().trim().min(1).max(20) });
 const lookupSchema = z.object({ receipt: z.string().trim().toUpperCase().regex(/^[A-Z0-9]{10}$/, 'An M-Pesa receipt is 10 letters and numbers, like RI6BZTPXNM.') });
@@ -82,6 +107,26 @@ export function requestRoutes(deps: AppDeps): Router {
     try {
       const qy = parse(listSchema, req.query);
       res.json(await listRequests(deps.db, { ...qy, type: qy.type ? qy.type.split(',').map((s) => s.trim()).filter(Boolean) : undefined }, deps.config.egressIps));
+    } catch (e) { next(e); }
+  });
+  // Feature 3: the rows the page has, as a file. `listRequests` owns what a filter means, so the
+  // file and the screen can never disagree; only the paging is dropped and the page's own cap is
+  // replaced by the export's. Registered before /:id so "export.csv" is never read as an id.
+  r.get('/export.csv', requirePermission(deps.db, 'history.export'), async (req, res, next) => {
+    try {
+      const qy = parse(listSchema, req.query);
+      const filter = { ...qy, type: qy.type ? qy.type.split(',').map((s) => s.trim()).filter(Boolean) : undefined };
+      const { items } = await listRequests(deps.db, { ...filter, limit: EXPORT_MAX }, deps.config.egressIps);
+      // What the person asked for, never what came back — and never the search text itself, which
+      // is often a phone number.
+      await audit(deps.db, {
+        personId: req.person!.id, ip: clientIp(req), action: 'history.exported',
+        after: {
+          type: filter.type ?? null, status: qy.status ?? null, from: qy.from ?? null, to: qy.to ?? null,
+          businessId: qy.businessId ?? null, customerId: qy.customerId ?? null, searched: Boolean(qy.q),
+        },
+      });
+      sendCsv(res, `history-${todayNairobi()}.csv`, toCsv(HISTORY_COLUMNS, items.map(historyRow)));
     } catch (e) { next(e); }
   });
   r.get('/:id', requirePermission(deps.db, 'lookup.view'), async (req, res, next) => {

@@ -131,7 +131,7 @@ export const copy = {
     },
   },
   confirm: { yourPassword: 'Your password', confirm: 'Confirm', cancel: 'Cancel', yes: 'Yes', no: 'No', why: 'Your password is needed for anything that moves money or changes who can.' },
-  error: { safaricomSaid: 'Safaricom said', meaning: 'What it means', whatToDo: 'What to do now', generic: 'Something went wrong on our side. Try again in a moment.', noReply: 'Studio’s answer did not arrive. Check your connection and try again in a moment.', tryAgain: 'Try again in a moment. If it keeps happening, check Settings.' },
+  error: { safaricomSaid: 'Safaricom said', meaning: 'What it means', whatToDo: 'What to do now', generic: 'Something went wrong on our side. Try again in a moment.', noReply: 'Studio’s answer did not arrive. Check your connection and try again in a moment.', tryAgain: 'Try again in a moment. If it keeps happening, check Settings.', exportFailed: 'Studio could not make the file. Try again in a moment.' },
   home: {
     finishSetup: 'Finish setting up',
     sandboxBanner: 'You are practising with pretend money.', goLive: 'Ready for real money? Go live',
@@ -324,6 +324,8 @@ export const copy = {
     clearCustomer: 'Show every customer',
     /** The owner's own label for the person, shown above the name Safaricom holds. */
     fromContact: 'Saved as',
+    /** Feature 3: every row the filters select, in a file for a spreadsheet. */
+    export: 'Export as a spreadsheet', exporting: 'Making the file…', exported: 'Saved to your downloads.',
   },
   standingOrders: {
     title: 'Standing orders', safaricom: 'M-Pesa Ratiba',
@@ -367,6 +369,7 @@ export const copy = {
     cancelSelected: (n: number) => `Cancel ${n} selected`, cancelled: (n: number) => (n === 1 ? 'Invoice cancelled.' : `${n} invoices cancelled.`),
     sent: (ref: string) => `Invoice ${ref} sent by SMS.`, bulkSent: (n: number) => `${n} invoices sent by SMS.`, back: 'All invoices',
     paid: 'Paid', payments: 'Payments', noPayments: 'Nothing paid yet.', viaMpesa: 'Paid through M-Pesa', viaOther: 'Recorded by hand',
+    export: 'Export as a spreadsheet', exporting: 'Making the file…', exported: 'Saved to your downloads.',
     cancel: 'Cancel this invoice', record: 'Record a payment', recorded: 'Payment recorded. Safaricom will stop reminders for it.',
     recordIntro: 'A payment made another way (cash, bank). Safaricom is told, so reminders stop.',
     recordDate: 'When was it paid?', recordAmount: 'How much?', recordReference: 'Reference (a receipt or note)', recordPayer: 'Who paid? (optional)',

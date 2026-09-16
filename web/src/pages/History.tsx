@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useEvents } from '../api/events';
+import { useSession } from '../app/session';
 import { ErrorCard, explainApiError, type Explained } from '../components/ErrorCard';
 import { Flash } from '../components/Flash';
 import { useToast } from '../components/Toast';
 import { Link, useSearchParams } from 'react-router';
-import { api } from '../api/client';
+import { api, saveDownload } from '../api/client';
 import type { BusinessView, Page, RequestView } from '../api/types';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -30,6 +31,12 @@ export function History() {
   const customerId = search.get('customer') ?? '';
   const customerName = search.get('customerName') ?? '';
   useEffect(() => { api.get<{ items: BusinessView[] }>('/api/businesses').then((r) => setBusinesses(r.items)).catch(() => setBusinesses([])); }, []);
+  // Feature 3: the file holds every row the filters select, not the seven on screen. It is the
+  // owner's own data, so only the owner (or somebody the owner gave history.export) may take it.
+  const { person, permissions } = useSession();
+  const mayExport = !!person?.is_owner || permissions.includes('history.export');
+  const [exporting, setExporting] = useState(false);
+  const [exportErr, setExportErr] = useState<Error | Explained | null>(null);
   // Keyset paging is forward-only on the server; Previous is the stack of cursors we came through.
   const [stack, setStack] = useState<string[]>([]);
   const cursor = stack[stack.length - 1] ?? null;
@@ -64,12 +71,26 @@ export function History() {
   const explained = lookup?.status === 'failed' && lookup.safaricomSaid && lookup.meaning && lookup.whatToDo ? { safaricomSaid: lookup.safaricomSaid, meaning: lookup.meaning, whatToDo: lookup.whatToDo } : null;
   const notHere = loaded && isReceipt && !items.some((r) => r.receipt === receiptTyped);
   const showLookup = askedFor === receiptTyped && (pending || lookup || lookupErr);
-  const params = useCallback((c?: string | null) => {
+  // One definition of what the filters mean, shared by the list and the export.
+  const filterParams = useCallback(() => {
     const p = new URLSearchParams();
-    p.set('limit', String(PAGE));
-    if (q.trim()) p.set('q', q.trim()); if (from) p.set('from', from); if (to) p.set('to', to); if (status) p.set('status', status); if (direction && DIRECTION_TYPES[direction]) p.set('type', DIRECTION_TYPES[direction]); if (business) p.set('businessId', business); if (customerId) p.set('customerId', customerId); if (c) p.set('cursor', c);
-    return p.toString();
+    if (q.trim()) p.set('q', q.trim()); if (from) p.set('from', from); if (to) p.set('to', to); if (status) p.set('status', status); if (direction && DIRECTION_TYPES[direction]) p.set('type', DIRECTION_TYPES[direction]); if (business) p.set('businessId', business); if (customerId) p.set('customerId', customerId);
+    return p;
   }, [q, from, to, status, direction, business, customerId]);
+  const params = useCallback((c?: string | null) => {
+    const p = filterParams();
+    p.set('limit', String(PAGE));
+    if (c) p.set('cursor', c);
+    return p.toString();
+  }, [filterParams]);
+  const exportFile = async () => {
+    setExporting(true); setExportErr(null);
+    try {
+      saveDownload(await api.download(`/api/requests/export.csv?${filterParams().toString()}`), 'history.csv');
+      toast.success(copy.history.exported);
+    } catch (e) { setExportErr(explainApiError(e)); toast.error(copy.error.exportFailed); }
+    finally { setExporting(false); }
+  };
   // A filter change starts again from the first page.
   useEffect(() => { setStack([]); }, [q, from, to, status, direction, business, customerId]);
   useEffect(() => {
@@ -98,7 +119,9 @@ export function History() {
               {businesses.map((b) => <option key={b.id} value={b.id}>{b.code} · {b.name}</option>)}
             </select>
           )}
+          {mayExport && <Button type="button" variant="secondary" disabled={exporting} onClick={() => void exportFile()}>{exporting ? copy.history.exporting : copy.history.export}</Button>}
         </div>
+        {exportErr && <div className="border-b border-line p-4"><ErrorCard error={exportErr} /></div>}
         {customerId && (
           <div className="flex flex-wrap items-center gap-3 border-b border-line bg-page px-4 py-2 text-sm">
             <span>{copy.history.oneCustomer(customerName || customerId)}</span>

@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.19.0 — take History and Invoices out as a spreadsheet
+
+- History and Invoices each get "Export as a spreadsheet". The file carries every row the filters
+  select, not only the page on screen, so a month of payments or invoices leaves in one press. The
+  button shows for the owner, or for somebody given the already-declared `history.export`.
+- The columns read the way the pages read. The kind of payment and the status are words
+  ("Business payment", "Paid"), a saved contact or customer name comes before Safaricom's own, and
+  an amount is shillings with two decimals, the shape a spreadsheet adds up.
+- Every cell is quoted, and a cell that starts with `=`, `+`, `-`, `@`, a tab or a carriage
+  return gets a leading apostrophe, so a customer's own text can never run as a formula.
+- Each export writes one audit entry naming the filters that were used. The search text stays out
+  of it, because it is often a phone number.
+- The file is named `history-YYYY-MM-DD.csv` or `invoices-YYYY-MM-DD.csv` after the day it was
+  made in Nairobi time, and it is never cached.
+
 ## 0.18.0 — several businesses on one paybill, sorted by what the payer types
 
 - One paybill can serve more than one business. Each business gets a three-digit code, 000 to 999,

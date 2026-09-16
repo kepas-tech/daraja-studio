@@ -262,13 +262,15 @@ Safaricom calls this: Account Statement · Where: History · Who: Anyone logged 
 1. Type a phone number, a name or an M-Pesa receipt in the search box.
 2. Narrow it down by date (from, to), by direction (In and out, Money in, Money out) and by status (Paid, Waiting, Failed, Needs a check, Preparing, Cancelled).
 3. Seven rows a page; Previous and Next at the bottom.
-4. Press a row to open the payment’s own page: amount, who, receipt, when, and the timeline (Created, Sent, Result) with where the result came from.
-5. A receipt that was not sent from here shows "This receipt was not sent from here" and a button, Ask Safaricom about this receipt. The answer lands on the same page within a few minutes.
+4. Press Export as a spreadsheet to save every row your filters select, not only the seven on screen, as a file you can open in Excel. The button shows for the owner and for anybody given permission to export.
+5. Press a row to open the payment’s own page: amount, who, receipt, when, and the timeline (Created, Sent, Result) with where the result came from.
+6. A receipt that was not sent from here shows "This receipt was not sent from here" and a button, Ask Safaricom about this receipt. The answer lands on the same page within a few minutes.
 
 | Method | Path | Who |
 |---|---|---|
 | GET | `/api/requests` | lookup.view; filters as query strings |
 | GET | `/api/requests/:id` | lookup.view |
+| GET | `/api/requests/export.csv` | history.export; the same filters as the list, every matching row |
 | POST | `/api/lookup` | lookup.view; body { receipt } |
 
 ### On a payment’s page
@@ -378,8 +380,9 @@ Safaricom calls this: Bill Manager · Where: Get paid → Invoices · Who: Owner
 2. New invoice: customer name, customer phone, what the invoice is for, account reference (up to 20 characters; payments are matched by it), billed period, due date, line items (optional, one per line: name, amount), amount. Send the invoice: the customer gets an SMS with a pay prompt.
 3. Many at once: one line per invoice (name, phone, invoice name, account, period, due date as year-month-day, amount). Studio checks every line, then Send them all.
 4. Show Open, Overdue, Paid, Cancelled or All; search by name, reference or account.
-5. Open an invoice to see its payments. Cancel this invoice stops it; tick several to cancel them together.
-6. Record a payment made another way (cash, bank): when, how much, a reference, who paid. Safaricom is told, so reminders stop.
+5. Press Export as a spreadsheet beside the filter to save every invoice your filter and search select, as a file you can open in Excel.
+6. Open an invoice to see its payments. Cancel this invoice stops it; tick several to cancel them together.
+7. Record a payment made another way (cash, bank): when, how much, a reference, who paid. Safaricom is told, so reminders stop.
 
 - Payments through M-Pesa land against the invoice the moment Safaricom reports them, and in History as "Invoice paid".
 - If Safaricom answers "not allowed" to the set-up, Bill Manager is not enabled for your app or number: tick it under Update App on the Daraja portal, or ask Safaricom’s API support to enable it for your paybill.
@@ -392,6 +395,7 @@ Safaricom calls this: Bill Manager · Where: Get paid → Invoices · Who: Owner
 | GET | `/api/invoices/settings` | invoices.manage |
 | POST | `/api/invoices/opt-in` | owner, password |
 | GET | `/api/invoices` | invoices.manage |
+| GET | `/api/invoices/export.csv` | history.export; filter and q, every matching row |
 | GET | `/api/invoices/:id` | invoices.manage |
 | POST | `/api/invoices` | invoices.manage |
 | POST | `/api/invoices/bulk/check` | invoices.manage |

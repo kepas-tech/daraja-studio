@@ -18,7 +18,7 @@ const state = vi.hoisted(() => ({ mayManage: true }));
 vi.mock('../app/session', () => ({
   useSession: () => ({
     status: 'ready', person: { id: 'p1', is_owner: false },
-    org: { id: 'o1', name: 'Test studio', shortcode: '4052037', environment: 'production' },
+    org: { id: 'o1', name: 'Test studio', shortcode: '600999', environment: 'production' },
     permissions: state.mayManage ? ['businesses.manage'] : [],
     refresh: async () => {},
   }),
@@ -65,7 +65,7 @@ describe('Businesses and their customers', () => {
     expect(within(customer).getByText('Jane Doe')).toBeInTheDocument();
     expect(within(customer).getByText('000000')).toBeInTheDocument();
     // The owner is told what to say to the payer: the paybill, then the account number.
-    expect(within(customer).getByText(copy.businesses.tellThem('4052037', '000000'))).toBeInTheDocument();
+    expect(within(customer).getByText(copy.businesses.tellThem('600999', '000000'))).toBeInTheDocument();
   });
 
   it('says routing is off with one business and on from the second', async () => {
