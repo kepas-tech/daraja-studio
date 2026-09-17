@@ -14,7 +14,7 @@ import { StatusPill } from '../components/StatusPill';
 import { STATUS_TONE } from '../components/RequestCard';
 import { copy } from '../copy/en';
 import { money, phone } from '../format';
-import type { BalanceView, BusinessSummaryRow, HomeSummary, Page, RequestView, SettingsView } from '../api/types';
+import type { BalanceView, BusinessSummaryRow, HomeSummary, Page, Problem, RequestView, SettingsView } from '../api/types';
 
 const RELOAD_ON: readonly string[] = ['operator.updated', 'setup.updated', 'balance.updated'];
 // The three things a business does most, as tiles above the fold.
@@ -31,6 +31,9 @@ export function Home() {
   // Feature 6: the last 24 hours, in one strip under the balance. Null until the read lands, and
   // left null if it fails: a summary that is missing is quieter than an error where it belongs.
   const [today, setToday] = useState<HomeSummary | null>(null);
+  // Brief 2, item 2: the states that mean something is wrong. Read with the rest of the page and
+  // re-read whenever anything happens, so the banner goes as soon as the state behind it clears.
+  const [problems, setProblems] = useState<Problem[]>([]);
   // These callbacks depend on primitives, never on the whole person object: SessionProvider sets a
   // new person object on every refresh, and depending on it changed the event handler and
   // reloadAll identity, so useEvents closed and reopened the stream whose own open refreshes the
@@ -44,6 +47,9 @@ export function Home() {
     api.get<Page<RequestView>>('/api/requests?limit=5').then((p) => setRecent(p.items)).catch(() => setRecent([]));
     api.get<{ items: BusinessSummaryRow[] }>('/api/businesses/summary').then((r) => setByBusiness(r.items)).catch(() => setByBusiness([]));
     api.get<HomeSummary>('/api/reports/summary').then(setToday).catch(() => setToday(null));
+    // `?? []` as well as the catch: a server that answered with an unexpected shape must not take the
+    // whole page down over a banner that is only ever extra.
+    api.get<{ items: Problem[] }>('/api/health/problems').then((r) => setProblems(r.items ?? [])).catch(() => setProblems([]));
   }, [personId]);
   useEffect(load, [load]);
   useEffect(loadMoney, [loadMoney]);
@@ -65,6 +71,20 @@ export function Home() {
   return (
     <>
       <PageHeader title={org?.safaricomName ?? org?.name ?? copy.appName} subtitle={org ? copy.home.shortcodeLine(org.shortcode ?? null, org.environment, org.safaricomName ? org.name : null, org.shortcodeKind) : null} />
+      {problems.length > 0 && (
+        <Flash tone="danger" className="mb-6" data-testid="home-problems">
+          <p className="font-semibold">{copy.home.problems.title}</p>
+          <ul className="space-y-1">
+            {problems.map((x) => (
+              <li key={x.kind}>
+                {copy.home.problems.sentence[x.kind]}{' '}
+                <Link to={copy.home.problems.to[x.kind] ?? '/settings'}>{copy.home.problems.open[x.kind] ?? copy.nav.find((e) => e.key === 'settings')?.label}</Link>
+                {x.detail && <span className="block text-sm">{copy.home.problems.detail[x.kind]?.(x.detail)}</span>}
+              </li>
+            ))}
+          </ul>
+        </Flash>
+      )}
       {alerts.length > 0 && (
         <Flash tone="danger" className="mb-6">
           <p className="font-semibold">{copy.home.finishSetup}</p>

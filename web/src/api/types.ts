@@ -164,6 +164,12 @@ export interface ReportsView {
   failures: ReportFailure[];
   byBusiness: BusinessSummaryRow[];
 }
+/**
+ * `GET /api/health/problems` (brief 2, item 2). One entry per state that means something is wrong;
+ * `detail` carries the specifics and is present only for the owner.
+ */
+export type ProblemKind = 'operator_down' | 'no_callback' | 'balance_refused';
+export interface Problem { kind: ProblemKind; detail: { name: string | null; minutes: number | null } | null }
 /** `GET /api/reports/summary`: the last 24 hours, for the strip on Home. */
 export interface HomeSummary { inCents: number; inCount: number; outCents: number; outCount: number; pending: number; failed: number }
 /**

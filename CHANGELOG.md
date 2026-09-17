@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.30.0 — Home says when something is wrong
+
+- Home now puts **Something is wrong** above everything else when it is: the operator Studio sends
+  with has stopped working, Safaricom has not answered any payment for ten minutes while sends are
+  still waiting, or the last balance check was refused.
+- One sentence and one link to the page that puts it right — Settings for an operator or a refused
+  balance, Waiting for payments that got no answer. It goes away by itself when the trouble does;
+  there is nothing to dismiss.
+- The owner also sees the line under it (which operator, how long), because fixing it is theirs.
+  Everybody else gets the sentence alone, and the server does not send them the specifics at all.
 ## 0.29.1 — the business code is Studio's too
 
 - The three-digit code in front of every account number is handed out the same way an account number

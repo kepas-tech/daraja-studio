@@ -32,6 +32,7 @@ import { settingsRoutes } from './settings/routes.js';
 import { peopleRoutes } from './people/routes.js';
 import { setupRoutes } from './setup/routes.js';
 import { healthRoutes } from './health/routes.js';
+import { problemsRoutes } from './health/problemsRoutes.js';
 import { sendRoutes, requestRoutes, balanceRoutes, lookupRoutes, waitingRoutes } from './money_out/routes.js';
 import { reversalRoutes } from './money_out/reversal.js';
 import { qrRoutes } from './qr/routes.js';
@@ -57,6 +58,7 @@ import type { BusinessesService } from './businesses/service.js';
 import type { InvoicesService } from './invoices/service.js';
 import type { Scheduler } from './scheduler/loop.js';
 import type { PushService } from './push/service.js';
+import type { ProblemService } from './health/problems.js';
 
 export interface AppDeps {
   config: Config;
@@ -81,6 +83,8 @@ export interface AppDeps {
   invoices: InvoicesService;
   /** Feature 2: the businesses one paybill serves, their account numbers, and the unmatched fixes. */
   businesses: BusinessesService;
+  /** Brief 2, item 2: the three states that mean something is wrong, for Home's banner. */
+  problems: ProblemService;
   /** Feature 12: web push to the devices that subscribed. Absent in tests that build the app without it. */
   push?: PushService;
   /** Present at boot; absent in tests that build the app without a scheduler. */
@@ -142,6 +146,8 @@ export function buildApp(deps: AppDeps): express.Express {
   app.use('/api/collect', collectRoutes(deps));
   app.use('/api/money-in', moneyInRoutes(deps));
   app.use('/api/approvals', approvalRoutes(deps));
+  // Brief 2, item 2: what Home's banner needs. Read-only, and the owner gets the specifics.
+  app.use('/api/health/problems', problemsRoutes(deps));
   // Feature 5: the Waiting page's three sections in one read.
   app.use('/api/waiting', waitingRoutes(deps));
   app.use('/api/send/bulk', bulkRoutes(deps));

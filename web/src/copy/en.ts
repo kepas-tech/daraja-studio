@@ -137,6 +137,33 @@ export const copy = {
   error: { safaricomSaid: 'Safaricom said', meaning: 'What it means', whatToDo: 'What to do now', generic: 'Something went wrong on our side. Try again in a moment.', noReply: 'Studio’s answer did not arrive. Check your connection and try again in a moment.', tryAgain: 'Try again in a moment. If it keeps happening, check Settings.', exportFailed: 'Studio could not make the file. Try again in a moment.' },
   home: {
     finishSetup: 'Finish setting up',
+    /**
+     * Brief 2, item 2: one sentence, one link to the place that puts it right. The server sends only
+     * the kind; every word here is the page's, and the detail line rides only for the owner.
+     */
+    problems: {
+      title: 'Something is wrong',
+      sentence: {
+        operator_down: 'The operator Studio sends with has stopped working, so payments are failing.',
+        no_callback: 'Safaricom has not answered any payment for a while, and some are still waiting.',
+        balance_refused: 'The last balance check was refused, so the balance shown may be out of date.',
+      } as Record<string, string>,
+      open: {
+        operator_down: 'Open Settings',
+        no_callback: 'Open Waiting',
+        balance_refused: 'Open Settings',
+      } as Record<string, string>,
+      to: {
+        operator_down: '/settings',
+        no_callback: '/approvals',
+        balance_refused: '/settings',
+      } as Record<string, string>,
+      detail: {
+        operator_down: (d: { name: string | null; minutes: number | null }) => (d.name ?? 'The operator') + (d.minutes === null ? ' is down.' : ' has been down for ' + d.minutes + ' minutes.'),
+        no_callback: (d: { name: string | null; minutes: number | null }) => (d.minutes === null ? 'Nothing has arrived from Safaricom.' : 'Nothing has arrived from Safaricom for ' + d.minutes + ' minutes.'),
+        balance_refused: (d: { name: string | null; minutes: number | null }) => (d.minutes === null ? 'The balance query was refused.' : 'The balance query was refused ' + d.minutes + ' minutes ago.'),
+      } as Record<string, (d: { name: string | null; minutes: number | null }) => string>,
+    },
     sandboxBanner: 'You are practising with pretend money.', goLive: 'Ready for real money? Go live',
     noOperator: 'You cannot send money yet. Add an API operator in Settings.',
     noPublicUrl: 'Safaricom cannot reach this studio yet. Test your public address in Settings.',

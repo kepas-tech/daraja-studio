@@ -23,6 +23,7 @@ import { createBusinessesService } from './businesses/service.js';
 import { createNotificationsService } from './notifications/service.js';
 import { createNotificationWriter } from './notifications/writer.js';
 import { createPushService } from './push/service.js';
+import { createProblemService } from './health/problems.js';
 import { createScheduler } from './scheduler/loop.js';
 import { ensureRecurring } from './db/jobs.js';
 import { buildHandlers } from './scheduler/handlers.js';
@@ -106,6 +107,8 @@ async function main() {
   const push = createPushService({ db, vapid: config.vapid });
   console.log(`web push: ${push.configured() ? 'on' : 'off (no VAPID keys)'}`);
   const notificationWriter = createNotificationWriter({ db, events, notifications, push, egressIps: config.egressIps });
+  // Brief 2, item 2: the three states Home's banner reports, read from what is already stored.
+  const problems = createProblemService({ db });
 
   await events.start();
   notificationWriter.start();
@@ -117,7 +120,7 @@ async function main() {
   const scheduler = createScheduler(db, buildHandlers({ db, events, settings, moneyOut, operators, moneyIn, bulk }));
   scheduler.start();
 
-  const app = buildApp({ config, db, keyring, orgs, settings, instance, cache, events, daraja, operators, settingsService, moneyOut, collect, moneyIn, bulk, invoices, businesses, push, fetchImpl, scheduler });
+  const app = buildApp({ config, db, keyring, orgs, settings, instance, cache, events, daraja, operators, settingsService, moneyOut, collect, moneyIn, bulk, invoices, businesses, push, problems, fetchImpl, scheduler });
   const listenFallback = db.getFallbackOrg();
   const envLabel = listenFallback
     ? await withOrg(listenFallback, async () => (await settings.get('daraja.environment')) ?? 'sandbox')

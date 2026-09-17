@@ -250,9 +250,11 @@ Where: Home · Who: Anyone logged in · Route: /
 7. Under the balance, a strip covers the last 24 hours: what came in, what went out, and how many payments are waiting or failed. Reports shows the same numbers over a longer window.
 8. Recent requests shows the last five; View all opens History.
 9. If something is still missing, Home says so at the top: no portal user (you cannot send yet), address not tested (Safaricom cannot reach you), passkey not set (Ask a customer to pay is off).
+10. Something is wrong appears above all of that when it is: the operator that sends has stopped working, Safaricom has not answered any payment for ten minutes while sends are still waiting, or the last balance check was refused. One sentence and one link to the page that puts it right. It goes away by itself when the trouble does, so there is nothing to dismiss. The owner also sees the line under it — which operator, and how long — because fixing it is theirs.
 
 | Method | Path | Who |
 |---|---|---|
+| GET | `/api/health/problems` | signed in; the owner also gets the specifics behind each sentence |
 | GET | `/api/balances/latest` | signed in |
 | POST | `/api/balances/refresh` | balances.view |
 | GET | `/api/requests?limit=5` | lookup.view |

@@ -19,6 +19,7 @@ import { createBulkService } from '../src/money_out/bulk.js';
 import { createInvoicesService } from '../src/invoices/service.js';
 import { createBusinessesService, type Rng } from '../src/businesses/service.js';
 import { createPushService } from '../src/push/service.js';
+import { createProblemService } from '../src/health/problems.js';
 import type { PushSender } from '../src/push/sender.js';
 import { hashPassword } from '../src/auth/password.js';
 import type { DarajaFactory } from '../src/sdk/client.js';
@@ -149,9 +150,10 @@ export function makeApp(extra: { fetchImpl?: typeof fetch; daraja?: DarajaFactor
   const businesses = createBusinessesService({ ...base, events, egressIps: base.config.egressIps, rng: extra.rng });
   // A real key pair would reach a real push service, so tests always hand in a fake sender.
   const push = createPushService({ db: base.db, vapid: base.config.vapid, sender: extra.pushSender });
+  const problems = createProblemService({ db: base.db });
   const deps: AppDeps = {
     ...base,
-    events, daraja, operators, settingsService, moneyOut, collect, moneyIn, bulk, invoices, businesses, push, fetchImpl: extra.fetchImpl,
+    events, daraja, operators, settingsService, moneyOut, collect, moneyIn, bulk, invoices, businesses, push, problems, fetchImpl: extra.fetchImpl,
   };
   const app = buildApp(deps);
   return { app, deps, close: async () => { await base.db.end(); } };
