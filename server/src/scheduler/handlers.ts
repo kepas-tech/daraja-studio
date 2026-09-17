@@ -164,5 +164,18 @@ export function buildHandlers(
     money_out_sweep: sweepHandler({ db: deps.db, moneyOut: deps.moneyOut }),
     housekeeping: housekeepingHandler({ db: deps.db }),
     daily: dailyHandler({ db: deps.db, settings: deps.settings, events: deps.events, moneyOut: deps.moneyOut }),
+    // Feature 9, one-shot: the debounced balance read a settled request asked for. It runs inside
+    // the organisation that enqueued it (the loop's own stamped-payload rule) and takes exactly the
+    // path the daily job and the Refresh button take, so nothing new ever talks to Safaricom.
+    balance_refresh: async () => {
+      try {
+        await deps.moneyOut.refreshBalance(null);
+      } catch (e) {
+        // The daily job's rule: a refusal Studio can explain (no proven public address, a check
+        // already in flight, Safaricom declining) is logged and dropped, never retried in a storm.
+        if (e instanceof HttpError && e.status >= 400 && e.status < 500) { console.error('balance refresh skipped', e.code); return; }
+        throw e;
+      }
+    },
   };
 }

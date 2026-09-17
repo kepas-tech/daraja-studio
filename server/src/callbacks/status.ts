@@ -3,6 +3,7 @@ import type { PoolClient } from 'pg';
 import type { CallbackHandler, CallbackVerdict } from './router.js';
 import { explain } from '../sdk/meaning.js';
 import { MONEY_TYPES } from '../money_out/registry.js';
+import { scheduleBalanceRefresh } from '../money_out/balanceRefresh.js';
 
 export const FAILED_STATUSES: ReadonlySet<string> = new Set(['failed', 'cancelled', 'reversed', 'expired', 'declined', 'rejected']);
 const FINAL = new Set(['completed', 'failed', 'cancelled', 'rejected']);
@@ -150,6 +151,9 @@ export const statusHandler: CallbackHandler = async ({ db, events, body }) => {
   if (outcome.verdict === 'applied_direct') {
     await events.publish('alert', { kind: 'status_query_unrecorded', id: outcome.targetId });
     await events.publish('request.updated', { id: outcome.targetId, status: outcome.applied });
+    // Feature 9: a payment recovered by a poll finished here, not in apply.ts, so the balance is
+    // asked for again on this path too. The helper collapses repeats into one query a minute.
+    await scheduleBalanceRefresh(db);
     return { verdict: 'applied_direct', requestId: outcome.targetId };
   }
 
@@ -161,6 +165,8 @@ export const statusHandler: CallbackHandler = async ({ db, events, body }) => {
       if (outcome.disagreed) await events.publish('alert', { kind: 'result_disagreement', id: outcome.targetId });
       if (outcome.amountMismatch) await events.publish('alert', { kind: 'status_amount_mismatch', id: outcome.targetId });
       await events.publish('request.updated', { id: outcome.targetId, status: outcome.applied });
+      // Feature 9: the same settled-payment rule as apply.ts, on the poll path.
+      await scheduleBalanceRefresh(db);
     } else if (outcome.unclear) {
       await events.publish('alert', { kind: 'status_unclear', id: outcome.targetId });
     }

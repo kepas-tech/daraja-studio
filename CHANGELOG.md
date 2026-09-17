@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.24.0 — the balance catches up with the last payment
+
+- Every payment that finishes now asks Safaricom for the balance again, at most once a minute, so
+  Home shows the balance after the last thing that happened instead of the one from this morning. A
+  busy minute costs one balance query, not one per payment. The daily refresh stays as it was.
+- Home gains one line: "Balance KES X · waiting to go out KES Y". The balance is the **Utility**
+  account, which is what sends come from; Y is the money promised and not yet gone. When more is on
+  its way out than there is to send, the line says so and points at moving float from Working.
+- No balance yet says so, rather than showing a zero.
+
 ## 0.23.0 — operator cards that say Active, Standby or DOWN
 
 - Settings › Daraja app now says plainly what each API operator is doing: **Active**, **Standby**,

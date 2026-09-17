@@ -4,6 +4,7 @@ import type { CallbackVerdict } from './router.js';
 import { kindsForPath, type RequestKind } from '../money_out/registry.js';
 import { explain } from '../sdk/meaning.js';
 import { clearOperatorFailures, failOperatorOnCredentialCode } from '../money_out/operatorHealth.js';
+import { scheduleBalanceRefresh } from '../money_out/balanceRefresh.js';
 
 /**
  * B0: one result application for every money-out kind.
@@ -86,5 +87,9 @@ export async function applyResult(
   else await failOperatorOnCredentialCode(deps.db, deps.events, outcome.operatorId, outcome.resultCode, outcome.resultDesc);
   if (outcome.funds) await deps.events.publish('balance.updated', { at: new Date().toISOString() });
   await deps.events.publish('request.updated', { id: outcome.requestId, status: outcome.success ? 'completed' : 'failed' });
+  // Feature 9: this result gave the row its final status, so the balance the owner reads should
+  // follow it — debounced to one quiet read a minute. A row settled by a poll instead
+  // (callbacks/status.ts, the lost-callback path) does not schedule one.
+  await scheduleBalanceRefresh(deps.db);
   return { verdict: 'applied', requestId: outcome.requestId };
 }

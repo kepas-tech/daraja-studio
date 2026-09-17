@@ -244,10 +244,12 @@ Where: Home · Who: Anyone logged in · Route: /
 1. The heading is the name Safaricom holds for your number. Under it: the number, Sandbox or Production, and your own business name.
 2. Utility account is the money you pay out to phones; Safaricom’s fees come from it too. Working account is where customer payments land; it also pays other paybills and tills.
 3. Refresh asks Safaricom for today’s balance. "As of" says when it was last read; "Charges paid" is the fees so far. A balance more than a day old is flagged.
-4. Three tiles open the pages used most: Send money, Ask a customer to pay, History.
-5. Under the balance, a strip covers the last 24 hours: what came in, what went out, and how many payments are waiting or failed. Reports shows the same numbers over a longer window.
-6. Recent requests shows the last five; View all opens History.
-7. If something is still missing, Home says so at the top: no portal user (you cannot send yet), address not tested (Safaricom cannot reach you), passkey not set (Ask a customer to pay is off).
+4. Studio also reads the balance by itself: every time a payment finishes, it asks Safaricom again within a minute, so the number follows the last thing that happened. Nothing is charged for this and the Refresh button still works.
+5. Under the figures, one line: "Balance KES X · waiting to go out KES Y". The first is the Utility account, the second is every payment that has not finished yet. When more is waiting than Utility holds, the line turns red and tells you to move float from Working first.
+6. Three tiles open the pages used most: Send money, Ask a customer to pay, History.
+7. Under the balance, a strip covers the last 24 hours: what came in, what went out, and how many payments are waiting or failed. Reports shows the same numbers over a longer window.
+8. Recent requests shows the last five; View all opens History.
+9. If something is still missing, Home says so at the top: no portal user (you cannot send yet), address not tested (Safaricom cannot reach you), passkey not set (Ask a customer to pay is off).
 
 | Method | Path | Who |
 |---|---|---|

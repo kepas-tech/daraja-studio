@@ -20,6 +20,10 @@ const STALE_MS = 24 * 3600 * 1000;
 
 export function BalanceHero({ balance, action, message, children, className = '' }: { balance: BalanceView | null | undefined; action?: ReactNode; message?: string | null; children?: ReactNode; className?: string }) {
   const stale = balance?.queriedAt ? Date.now() - new Date(balance.queriedAt).getTime() > STALE_MS : false;
+  // Feature 9: money on its way out, against the account sends come from. Only a real balance can
+  // answer "is there enough", so nothing is drawn while the first read is still in flight.
+  const waiting = balance?.waitingCents ?? 0;
+  const short = balance != null && balance.utilityCents !== null && waiting > balance.utilityCents;
   return (
     <Card className={className} bodyClassName="p-4 md:p-5">
       {message && <Flash tone="neutral" role="status" className="mb-4">{message}</Flash>}
@@ -31,6 +35,12 @@ export function BalanceHero({ balance, action, message, children, className = ''
         </div>
         {action}
       </div>
+      {balance !== undefined && (
+        <p className={`mt-4 text-sm ${short ? 'font-semibold text-danger' : 'text-muted'}`}>
+          {balance === null ? copy.home.balanceLine.none : copy.home.balanceLine.line(money(balance.utilityCents), money(waiting))}
+        </p>
+      )}
+      {short && <p className="mt-1 text-sm text-danger">{copy.home.balanceLine.short}</p>}
       <p className="mt-4 text-sm text-muted">{balance ? <>{copy.balances.asOf(when(balance.queriedAt))} · {copy.balances.charges}: {money(balance.chargesPaidCents)}</> : copy.balances.never}</p>
       {children}
     </Card>

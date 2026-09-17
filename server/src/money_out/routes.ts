@@ -10,7 +10,7 @@ import { EXPORT_MAX, nairobiStamp, sendCsv, shillings, toCsv, todayNairobi } fro
 import { statusLabel, whatLabel } from '../export/labels.js';
 import { clientIp } from '../util/ip.js';
 import { HttpError } from '../util/errors.js';
-import { KINDS } from './registry.js';
+import { KINDS, MONEY_TYPES } from './registry.js';
 
 const sendPhone = z.object({
   phone: z.string().trim().min(1).max(20),
@@ -167,19 +167,29 @@ export function requestRoutes(deps: AppDeps): Router {
   return r;
 }
 
+/** Feature 9: money that has left the account on its way out — not failed, not finished. */
+export const WAITING_STATUSES = ['pending', 'sent', 'awaiting_approval'];
+
 export function balanceRoutes(deps: AppDeps): Router {
   const r = Router();
   r.use(requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'balances.view'));
   r.get('/latest', async (_req, res, next) => {
     try {
-      const rows = await deps.db.query<{ working_cents: string | null; utility_cents: string | null; charges_paid_cents: string | null; queried_at: Date }>(
-        'SELECT working_cents, utility_cents, charges_paid_cents, queried_at FROM balances ORDER BY queried_at DESC LIMIT 1');
+      // Feature 9: Home reads the balance and what is still waiting to go out in one call. The
+      // waiting sum is scoped to this organisation by row-level security, the same as every read.
+      const rows = await deps.db.query<{ working_cents: string | null; utility_cents: string | null; charges_paid_cents: string | null; queried_at: Date; waiting_cents: string }>(
+        `SELECT working_cents, utility_cents, charges_paid_cents, queried_at,
+                (SELECT COALESCE(SUM(amount_cents), 0) FROM requests
+                  WHERE type = ANY($1) AND status = ANY($2)) AS waiting_cents
+           FROM balances ORDER BY queried_at DESC LIMIT 1`,
+        [MONEY_TYPES, WAITING_STATUSES]);
       const b = rows[0];
       res.json(b ? {
         workingCents: b.working_cents === null ? null : Number(b.working_cents),
         utilityCents: b.utility_cents === null ? null : Number(b.utility_cents),
         chargesPaidCents: b.charges_paid_cents === null ? null : Number(b.charges_paid_cents),
         queriedAt: b.queried_at.toISOString(),
+        waitingCents: Number(b.waiting_cents),
       } : null);
     } catch (e) { next(e); }
   });

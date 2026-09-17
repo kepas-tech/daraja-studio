@@ -144,6 +144,12 @@ export const copy = {
     shortcodeLine: (code: string | null, env: string, ownName: string | null, kind?: string | null) => [copy.org.numberLine(kind, code), copy.org.envLine[env] ?? env, ownName].filter(Boolean).join(' · '),
     latestBalance: 'Latest balance', noBalance: 'No balance yet', recent: 'Recent requests', noRecent: 'Nothing sent yet.',
     byBusiness: 'Today by business', in: 'In', out: 'Out',
+    /** Feature 9: what the balance is, and what has not gone out yet. "Balance" is the Utility account. */
+    balanceLine: {
+      line: (balance: string, waiting: string) => `Balance ${balance} · waiting to go out ${waiting}`,
+      short: 'Move float from Working before the next send. The float move is not built yet, so use the Safaricom portal for now.',
+      none: 'No balance yet, so Studio cannot say what is waiting to go out.',
+    },
     /** Feature 6: the last 24 hours in one strip under the balance. Money only, never housekeeping. */
     today: {
       last24h: 'Last 24 hours',

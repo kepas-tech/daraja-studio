@@ -121,7 +121,7 @@ export interface MoneyInView {
 export type NameCheck =
   | { available: true; name: string }
   | { available: false; reason: 'not_found' | 'not_enabled' | 'unavailable'; said: string | null };
-export interface BalanceView { workingCents: number | null; utilityCents: number | null; chargesPaidCents: number | null; queriedAt: string }
+export interface BalanceView { workingCents: number | null; utilityCents: number | null; chargesPaidCents: number | null; queriedAt: string; /** Feature 9: money-out that has not finished, in cents. */ waitingCents: number }
 /** `GET /api/contacts` (design 2026-09-16). Only what the page shows; the row's own id is the handle. */
 export interface ContactView {
   id: string; kind: 'phone' | 'till' | 'paybill';
