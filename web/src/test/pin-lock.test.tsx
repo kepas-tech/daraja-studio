@@ -12,13 +12,15 @@ import { copy } from '../copy/en';
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); localStorage.clear(); });
 beforeEach(() => { localStorage.clear(); });
 
-// The suite runs a dozen files at once, so the default one-second wait is a flake waiting to
-// happen on a loaded machine. Everything here that waits gets room.
-const SLOW = { timeout: 5000 };
+// The suite runs two dozen files at once and a jsdom environment costs half of that run, so the
+// default one-second wait is a flake waiting to happen here; five seconds proved too little on a
+// loaded machine. Everything in this file that waits gets ten.
+const SLOW = { timeout: 10_000 };
 const waitForSlow = (fn: () => unknown) => waitFor(fn, SLOW);
-// The test below boots the app twice, so its own budget has to clear both waits in it. Without
-// this the default five seconds is the same as one SLOW wait, and a loaded machine times it out.
-const TWO_BOOTS = 20_000;
+// Two of the tests below boot the app twice inside one test, or lock and open it again, and every
+// wait in them already gets five seconds of its own. The default five-second test budget cannot hold
+// two of those on a loaded machine, which is a flake in a test that is not about timing at all.
+const TWO_STEPS = 20_000;
 const openTheLock = () => screen.findByTestId('lock-screen', {}, SLOW);
 const signedIn = () => screen.findByRole('button', { name: copy.account.menu }, SLOW);
 const dots = () => Number(screen.getByTestId('pin-dots').dataset.filled);
@@ -184,7 +186,7 @@ describe('the lock screen, as the owner asked for it', () => {
     await openTheLock();
     await waitForSlow(() => expect(posts.map((p) => p.url)).toEqual(['/api/auth/lock', '/api/auth/open', '/api/auth/lock']));
     Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
-  });
+  }, TWO_STEPS);
 
   it('signs out from the lock screen', async () => {
     const { posts } = boot({ pin: { set: true, locked: true } });
@@ -219,7 +221,7 @@ describe('the fingerprint card and the Organisation list', () => {
     typePin(PIN);
     await signedIn();
     await waitForSlow(() => expect(screen.queryByTestId('bio-card')).toBeNull());
-  }, TWO_BOOTS);
+  }, TWO_STEPS);
 
   it('turns the fingerprint on from the card', async () => {
     const { create } = stubPlatformAuthenticator(true);
