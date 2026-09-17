@@ -14,7 +14,7 @@ import { StatusPill } from '../components/StatusPill';
 import { STATUS_TONE } from '../components/RequestCard';
 import { copy } from '../copy/en';
 import { money, phone } from '../format';
-import type { BalanceView, BusinessSummaryRow, Page, RequestView, SettingsView } from '../api/types';
+import type { BalanceView, BusinessSummaryRow, HomeSummary, Page, RequestView, SettingsView } from '../api/types';
 
 const RELOAD_ON: readonly string[] = ['operator.updated', 'setup.updated', 'balance.updated'];
 // The three things a business does most, as tiles above the fold.
@@ -28,6 +28,9 @@ export function Home() {
   // Feature 2: one line per business once there is more than one. Their own history, never cash:
   // M-Pesa holds one pool per shortcode.
   const [byBusiness, setByBusiness] = useState<BusinessSummaryRow[]>([]);
+  // Feature 6: the last 24 hours, in one strip under the balance. Null until the read lands, and
+  // left null if it fails: a summary that is missing is quieter than an error where it belongs.
+  const [today, setToday] = useState<HomeSummary | null>(null);
   // These callbacks depend on primitives, never on the whole person object: SessionProvider sets a
   // new person object on every refresh, and depending on it changed the event handler and
   // reloadAll identity, so useEvents closed and reopened the stream whose own open refreshes the
@@ -40,6 +43,7 @@ export function Home() {
     api.get<BalanceView | null>('/api/balances/latest').then(setBalance).catch(() => setBalance(null));
     api.get<Page<RequestView>>('/api/requests?limit=5').then((p) => setRecent(p.items)).catch(() => setRecent([]));
     api.get<{ items: BusinessSummaryRow[] }>('/api/businesses/summary').then((r) => setByBusiness(r.items)).catch(() => setByBusiness([]));
+    api.get<HomeSummary>('/api/reports/summary').then(setToday).catch(() => setToday(null));
   }, [personId]);
   useEffect(load, [load]);
   useEffect(loadMoney, [loadMoney]);
@@ -69,6 +73,12 @@ export function Home() {
       )}
       <ErrorCardSlot error={balances.err} />
       <BalanceHero balance={balance} message={balances.msg} className="mb-2" action={<Button type="button" variant="secondary" onClick={() => void balances.refresh()} disabled={balances.busy}>{balances.busy ? copy.balances.refreshing : copy.balances.refresh}</Button>} />
+      {today && (
+        <div data-testid="home-today" className="mt-2 mb-6 rounded-md border border-line bg-surface px-4 py-3 text-base">
+          <p><span className="font-semibold">{copy.home.today.last24h}</span>{' · '}{copy.home.today.in(money(today.inCents), today.inCount)} · {copy.home.today.out(money(today.outCents), today.outCount)}</p>
+          <p className="text-sm text-muted">{copy.home.today.waiting(today.pending)} · {copy.home.today.failed(today.failed)}</p>
+        </div>
+      )}
       {alerts.length === 0 && v && <p className="mb-6 text-sm text-muted">{copy.home.connected}</p>}
       {isOwner && v?.mode === 'sandbox' && (
         <Flash tone="neutral" className="mb-6" data-testid="sandbox-banner">

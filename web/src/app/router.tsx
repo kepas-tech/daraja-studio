@@ -14,6 +14,7 @@ import { SetupLayout } from '../pages/setup/SetupLayout';
 import { SendHub } from '../pages/send/SendHub';
 import { SendPhone } from '../pages/send/SendPhone';
 import { History } from '../pages/History';
+import { Reports } from '../pages/Reports';
 import { RequestDetail } from '../pages/RequestDetail';
 import { People } from '../pages/People';
 import { Contacts } from '../pages/Contacts';
@@ -85,6 +86,7 @@ function Gate() {
         <Route path="/advanced" element={<Advanced />} />
         <Route path="/guide" element={<Guide />} />
         <Route path="/history" element={<History />} />
+        <Route path="/reports" element={<Reports />} />
         <Route path="/requests/:id" element={<RequestDetail />} />
         {copy.nav.filter((e) => !e.available).map((e) => <Route key={e.key} path={e.path} element={<ComingSoon />} />)}
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.22.0 — Reports: how the week went, and why some payments failed
+
+- Reports, in the menu beside Home: money in and money out for every day in the window you pick
+  (7, 30 or 90 days), with the counts, the success rate, and "Why things failed — last 7 days"
+  grouped by Safaricom's own reason, each with the shillings it affected.
+- The success rate counts completed against completed plus failed. A payment that never got an
+  answer sits in its own column and is left out of the rate: calling "we do not know yet" a failure
+  would be wrong, and calling it a success would be worse.
+- The business filter every list already has narrows the numbers, and the per-day table leaves as a
+  spreadsheet for whoever holds `history.export`.
+- Home gains a 24-hour strip: what came in, what went out, and how many are waiting or failed.
+- Balance checks and payment lookups never count: they are housekeeping, not money. Days with
+  nothing show as zeros, so a gap in trade looks like a gap.
+
 ## 0.21.0 — one Waiting page for money that has not finished
 
 - "Waiting for approval" is now **Waiting**, and it holds three kinds of unfinished payment: sends

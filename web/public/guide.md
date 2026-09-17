@@ -229,7 +229,7 @@ Who: Anyone with a login · Route: /login
 ### The menu
 
 1. The left menu shows your business name, your paybill or till number and whether you are in Sandbox or Production.
-2. Home and History come first. Then Get paid (Ask a customer to pay, Money in, QR codes, Invoices), Pay out (Send money, Contacts, Bulk send, and Waiting whenever a send needs a person), and Manage (Businesses, Settings, Advanced).
+2. Home, Notifications, History and Reports come first. Then Get paid (Ask a customer to pay, Money in, QR codes, Invoices), Pay out (Send money, Contacts, Bulk send, and Waiting whenever a send needs a person), and Manage (Businesses, Settings, Advanced).
 3. Advanced opens a page of cards for things you set up once or use now and then: Standing orders, Express checkout, Bonga points, Bulk send, Reverse a payment.
 4. Below the line: How to use (this page) and Not possible via API.
 5. Your name at the top right opens the account menu: Organisation, Change password, Log out.
@@ -244,8 +244,9 @@ Where: Home · Who: Anyone logged in · Route: /
 2. Utility account is the money you pay out to phones; Safaricom’s fees come from it too. Working account is where customer payments land; it also pays other paybills and tills.
 3. Refresh asks Safaricom for today’s balance. "As of" says when it was last read; "Charges paid" is the fees so far. A balance more than a day old is flagged.
 4. Three tiles open the pages used most: Send money, Ask a customer to pay, History.
-5. Recent requests shows the last five; View all opens History.
-6. If something is still missing, Home says so at the top: no portal user (you cannot send yet), address not tested (Safaricom cannot reach you), passkey not set (Ask a customer to pay is off).
+5. Under the balance, a strip covers the last 24 hours: what came in, what went out, and how many payments are waiting or failed. Reports shows the same numbers over a longer window.
+6. Recent requests shows the last five; View all opens History.
+7. If something is still missing, Home says so at the top: no portal user (you cannot send yet), address not tested (Safaricom cannot reach you), passkey not set (Ask a customer to pay is off).
 
 | Method | Path | Who |
 |---|---|---|
@@ -273,6 +274,26 @@ Where: Home → Notifications · Who: Anyone logged in · Route: /notifications
 | GET | `/api/notifications/count` | signed in; the number on the bell |
 | POST | `/api/notifications/:id/read` | signed in; CSRF header |
 | POST | `/api/notifications/read-all` | signed in; CSRF header; answers { read } |
+
+### See how the days went
+
+Where: Home → Reports · Who: Anyone logged in · Route: /reports · Permission: lookup.view; the spreadsheet also needs history.export
+
+1. Open Reports from the menu, under Home.
+2. Choose how far back: Last 7 days, Last 30 days or Last 90 days. The choice applies to the table, to the failure list and to the file.
+3. The line under the buttons adds the window up: what came in, what went out, and the share of finished payments that went through. A payment Safaricom has not answered yet has its own column and is left out of that share.
+4. The table has one line per day, days with nothing included, so a quiet day reads as a quiet day. Money in and money out are in shillings; Paid, Failed and Needs a check are counts.
+5. Why things failed — last 7 days lists Safaricom’s own reason for each failure, with how many payments it explains and how much they came to.
+6. Export as a spreadsheet saves the day-by-day table with the same window and business you chose. The button shows for the owner and for anybody given permission to export.
+
+- Only money counts here. Balance checks and payment lookups are left out, and the numbers are the same ones History shows.
+- By business appears when you run more than one business: each one’s own money in and out for the window. It is history, not cash: M-Pesa holds one pool for the whole paybill.
+
+| Method | Path | Who |
+|---|---|---|
+| GET | `/api/reports` | lookup.view; days=7|30|90, businessId |
+| GET | `/api/reports/summary` | lookup.view; the last 24 hours on Home |
+| GET | `/api/reports/export.csv` | history.export; the same query as the page |
 
 ## History
 

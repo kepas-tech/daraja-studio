@@ -51,6 +51,7 @@ export const copy = {
     { key: 'home', label: 'Home', safaricom: null, path: '/', icon: 'home', group: 'home', phase: 1, available: true },
     { key: 'notifications', label: 'Notifications', safaricom: null, path: '/notifications', icon: 'bell', group: 'home', phase: 5, available: true },
     { key: 'history', label: 'History', safaricom: 'Account Statement', path: '/history', icon: 'list', group: 'home', phase: 2, available: true },
+    { key: 'reports', label: 'Reports', safaricom: null, path: '/reports', icon: 'document-report', group: 'home', phase: 5, available: true },
     { key: 'stk', label: 'Ask a customer to pay', safaricom: 'STK Push', path: '/ask-to-pay', icon: 'cellphone', group: 'in', phase: 3, available: true },
     { key: 'money-in', label: 'Money in', safaricom: null, path: '/money-in', icon: 'arrow-down-circle', group: 'in', phase: 3, available: true },
     { key: 'qr', label: 'QR codes', safaricom: 'Dynamic QR', path: '/qr', icon: 'grid-3', group: 'in', phase: 4, available: true },
@@ -63,7 +64,7 @@ export const copy = {
     { key: 'bulk', label: 'Bulk send', safaricom: 'Bulk Task › Bulk Payment', path: '/bulk', icon: 'document-list', group: 'out', phase: 5, available: true, advanced: true },
     { key: 'approvals', label: 'Waiting', safaricom: 'Review Transaction', path: '/approvals', icon: 'clipboard-check', group: 'out', phase: 5, available: true },
     { key: 'reverse', label: 'Reverse a payment', safaricom: 'Reversal', path: '/reverse', icon: 'arrow-left-circle', group: 'out', phase: 2, available: true, advanced: true },
-    { key: 'businesses', label: 'Businesses', safaricom: null, path: '/businesses', icon: 'document-report', group: 'manage', phase: 5, available: true },
+    { key: 'businesses', label: 'Businesses', safaricom: null, path: '/businesses', icon: 'grid-3', group: 'manage', phase: 5, available: true },
     { key: 'settings', label: 'Settings', safaricom: 'My Preference', path: '/settings', icon: 'cog', group: 'manage', phase: 1, available: true },
     { key: 'advanced', label: 'Advanced', safaricom: null, path: '/advanced', icon: 'lightbulb', group: 'manage', phase: 1, available: true },
     { key: 'guide', label: 'How to use', safaricom: null, path: '/guide', icon: 'question-circle', group: 'help', phase: 1, available: true },
@@ -143,6 +144,14 @@ export const copy = {
     shortcodeLine: (code: string | null, env: string, ownName: string | null, kind?: string | null) => [copy.org.numberLine(kind, code), copy.org.envLine[env] ?? env, ownName].filter(Boolean).join(' · '),
     latestBalance: 'Latest balance', noBalance: 'No balance yet', recent: 'Recent requests', noRecent: 'Nothing sent yet.',
     byBusiness: 'Today by business', in: 'In', out: 'Out',
+    /** Feature 6: the last 24 hours in one strip under the balance. Money only, never housekeeping. */
+    today: {
+      last24h: 'Last 24 hours',
+      in: (amount: string, n: number) => `In ${amount} from ${n} payment${n === 1 ? '' : 's'}`,
+      out: (amount: string, n: number) => `Out ${amount} to ${n} payment${n === 1 ? '' : 's'}`,
+      waiting: (n: number) => `${n} waiting`,
+      failed: (n: number) => `${n} failed`,
+    },
   },
   request: {
     status: { pending: 'Preparing', sent: 'Waiting', completed: 'Paid', failed: 'Failed', unknown: 'Needs a check', cancelled: 'Cancelled', rejected: 'Rejected', awaiting_approval: 'Waiting for approval' } as Record<string, string>,
@@ -326,6 +335,29 @@ export const copy = {
     /** The owner's own label for the person, shown above the name Safaricom holds. */
     fromContact: 'Saved as',
     /** Feature 3: every row the filters select, in a file for a spreadsheet. */
+    export: 'Export as a spreadsheet', exporting: 'Making the file…', exported: 'Saved to your downloads.',
+  },
+  reports: {
+    title: 'Reports',
+    intro: 'How the days went: what came in, what went out, which payments finished, and why the others failed.',
+    window: 'How far back?',
+    windows: { 7: 'Last 7 days', 30: 'Last 30 days', 90: 'Last 90 days' } as Record<string, string>,
+    business: 'Business', anyBusiness: 'Every business',
+    in: 'Money in', out: 'Money out',
+    totals: 'In this window',
+    totalIn: (amount: string, n: number) => `${amount} in from ${n} payment${n === 1 ? '' : 's'}`,
+    totalOut: (amount: string, n: number) => `${amount} out to ${n} payment${n === 1 ? '' : 's'}`,
+    /** The rate is made of two named numbers, so the page never shows a percentage on its own. */
+    rate: (percent: number, paid: number, failed: number) => `${percent}% of finished payments went through (${paid} paid, ${failed} failed).`,
+    rateNothing: 'Nothing has finished in this window yet.',
+    rateNote: 'A payment Safaricom has not answered yet is counted in its own column, not here.',
+    tableCaption: 'Day by day',
+    columns: { day: 'Day', in: 'Money in', inCount: 'Payments in', out: 'Money out', outCount: 'Payments out', paid: 'Paid', failed: 'Failed', unknown: 'Needs a check' },
+    failuresTitle: 'Why things failed — last 7 days',
+    failuresEmpty: 'Nothing failed in the last 7 days.',
+    failureColumns: { reason: 'What Safaricom said', count: 'How many', amount: 'Amount' },
+    byBusiness: 'By business',
+    byBusinessNote: 'Their own money in and out for this window, not cash: M-Pesa holds one pool for the whole paybill.',
     export: 'Export as a spreadsheet', exporting: 'Making the file…', exported: 'Saved to your downloads.',
   },
   notifications: {

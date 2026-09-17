@@ -7,8 +7,9 @@ truth — read it first. This file is a short index alongside it.
 
 Every menu item: Balances, Send money (phone), Look up a payment, History, People, Settings, Not
 possible via API, Ask a customer to pay, Reverse a payment, QR codes, Money in, Waiting for
-approval, Bulk send, Contacts, Businesses, Notifications, Invoices, Standing orders, Express
-checkout, Bonga points. Also shipped: Export as a spreadsheet on History and Invoices (0.19.0).
+approval, Bulk send, Contacts, Businesses, Notifications, Reports, Invoices, Standing orders,
+Express checkout, Bonga points. Also shipped: Export as a spreadsheet on History and Invoices
+(0.19.0), and the Waiting page over money that has not finished (0.21.0).
 
 ## Next
 

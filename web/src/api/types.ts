@@ -135,6 +135,21 @@ export interface CustomerView {
 }
 /** `GET /api/businesses/summary`: one row per business for the day, in cents. History, never cash. */
 export interface BusinessSummaryRow { businessId: string; code: string; name: string; inCents: number; outCents: number }
+/** `GET /api/reports` (feature 6). One line per Nairobi day in the window, days with nothing included. */
+export interface ReportDay { day: string; inCents: number; inCount: number; outCents: number; outCount: number; completed: number; failed: number; unknown: number }
+/** One reason Safaricom gave for a failure, with how many payments it explains and their total. */
+export interface ReportFailure { reason: string; count: number; amountCents: number }
+export interface ReportTotals { inCents: number; inCount: number; outCents: number; outCount: number; completed: number; failed: number; unknown: number }
+/** `GET /api/reports`. `byBusiness` is empty when one business was picked, or when there is only one. */
+export interface ReportsView {
+  window: { days: number; from: string; to: string };
+  days: ReportDay[];
+  totals: ReportTotals;
+  failures: ReportFailure[];
+  byBusiness: BusinessSummaryRow[];
+}
+/** `GET /api/reports/summary`: the last 24 hours, for the strip on Home. */
+export interface HomeSummary { inCents: number; inCount: number; outCents: number; outCount: number; pending: number; failed: number }
 /**
  * `GET /api/money-in/unmatched`: a c2b row that needs a decision. The three optional fields are what
  * the one-click fix needs to name itself (which business, which customer number was typed); the page
