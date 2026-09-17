@@ -781,6 +781,10 @@ export const copy = {
     goLive: { title: 'Go live', body: 'You are practising with pretend money. Once Safaricom has approved your app for real money, Studio takes you through the rest, one step at a time.', button: 'Go live' },
     deleteTitle: 'Delete this studio', deleteBody: 'Removes the organisation, its people, credentials and history. The install returns to first-run setup. This cannot be undone.',
     deleteButton: 'Delete this studio…', typeName: (name: string) => `Type ${name} to confirm`, deleted: 'Studio deleted.', ownerOnly: 'Only the owner can see this page.',
+    signOut: {
+      title: 'Sessions', body: 'Ends every session on every device, this one included, so a browser left open on a shared or lost phone cannot be used again. You will need your password to log in anywhere.',
+      button: 'Sign out everywhere', confirm: 'Sign out of every device?', done: 'Signed out everywhere. Log in again.',
+    },
   },
   notPossiblePage: {
     title: 'Not possible via API',

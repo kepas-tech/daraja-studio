@@ -91,6 +91,15 @@ export function Account() {
       <Card className="mb-6" bodyClassName="p-0">
         <SettingRow label={copy.account.people} value={<Link to="/people">{copy.settings.organisation.peopleLink}</Link>} />
       </Card>
+      <Card title={copy.account.signOut.title} className="mb-6" bodyClassName="space-y-3 p-4">
+        <p className="text-sm text-muted">{copy.account.signOut.body}</p>
+        <Button variant="secondary" onClick={() => stepUp.ask(copy.account.signOut.confirm, async (password) => {
+          await api.post('/api/auth/sign-out-everywhere', { password });
+          toast.success(copy.account.signOut.done);
+          await refresh();
+          nav('/login');
+        })}>{copy.account.signOut.button}</Button>
+      </Card>
       <Card title={copy.account.deleteTitle} className="border-danger" bodyClassName="space-y-3 p-4">
         <p className="text-sm text-muted">{copy.account.deleteBody}</p>
         <Button variant="danger" onClick={() => { setDeleteError(null); setConfirmDelete(true); }}>{copy.account.deleteButton}</Button>

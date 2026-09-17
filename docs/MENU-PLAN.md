@@ -82,6 +82,7 @@ Real work that adds no menu entry, tracked here for the same reason the send typ
 | Operator states, the two-try guard, Reinstate | Settings › Daraja app | live | 0.23.0, deployed 2026-09-17; the KEPAS Pay borrow list, item 8; the plan said a page under Organisation, the cards already live in Settings |
 | Balance after every settled request, and the Home line | Home | live | 0.24.0, deployed 2026-09-17; the KEPAS Pay borrow list, item 9; the refresh is debounced to one a minute |
 | Safaricom's charge on the review and in History, bands in Settings | Send money, History, Settings › Charges | live | 0.26.0, deployed 2026-09-17; the KEPAS Pay borrow list, item 11; display only, no platform fee |
+| Sign out everywhere | Organisation | live | 0.27.0, deployed 2026-09-17; the KEPAS Pay borrow list, item 12 (first half); the password is asked for first |
 
 ## Send types inside Send money
 

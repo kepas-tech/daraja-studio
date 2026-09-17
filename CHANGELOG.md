@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.27.0 — sign out everywhere
+
+- Organisation gains **Sign out everywhere**: one press ends every session this person holds, on
+  every device and in this browser too, for the phone left open or lent to somebody. The password
+  is asked for first, so a borrowed screen cannot end somebody else's session.
+- It is the same idea as the sign-out a password change already performs, offered on its own for
+  the case where nothing is wrong with the password.
+
 ## 0.26.0 — what Safaricom charges on each payment
 
 - The send review now says what the payment costs: "Safaricom's charge: KES 13, taken from

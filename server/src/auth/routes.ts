@@ -9,7 +9,7 @@ import { audit } from '../audit/log.js';
 import { DUMMY_HASH, hashPassword, MIN_PASSWORD_LENGTH, verifyPassword } from './password.js';
 import { clearCookieHeader, cookieHeader, createSession, destroySession } from './sessions.js';
 import { clearFailures, recordAttempt } from './lockout.js';
-import { requireAuth, requireCsrf } from './middleware.js';
+import { requireAuth, requireCsrf, requireStepUp } from './middleware.js';
 
 const loginSchema = z.object({ username: z.string().trim().min(1).max(200), password: z.string().min(1).max(512) });
 const changeSchema = z.object({ currentPassword: z.string().min(1), newPassword: z.string().min(MIN_PASSWORD_LENGTH).max(512) });
@@ -111,6 +111,22 @@ export function authRoutes(db: Db, config: Config): Router {
   r.post('/logout', requireAuth(db), requireCsrf, async (req, res, next) => {
     try {
       await destroySession(db, req.sessionId!);
+      res.setHeader('Set-Cookie', clearCookieHeader());
+      res.status(204).end();
+    } catch (e) { next(e); }
+  });
+
+  /**
+   * Feature 12: every session this person holds, on every device, including the one asking. The
+   * route the app already has for a password change signs the others out; this one exists for the
+   * owner who thinks a session on a lost or shared phone is still open. It takes the password
+   * (requireStepUp), so a borrowed screen cannot end somebody else's session, and it clears this
+   * browser's cookie so the tab lands on the login page rather than on a 401 loop.
+   */
+  r.post('/sign-out-everywhere', requireAuth(db), requireCsrf, requireStepUp(db), async (req, res, next) => {
+    try {
+      await db.query('DELETE FROM sessions WHERE person_id=$1', [req.person!.id]);
+      await audit(db, { personId: req.person!.id, action: 'auth.signed_out_everywhere', ip: clientIp(req) });
       res.setHeader('Set-Cookie', clearCookieHeader());
       res.status(204).end();
     } catch (e) { next(e); }

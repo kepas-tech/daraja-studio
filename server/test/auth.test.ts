@@ -60,6 +60,21 @@ describe('auth', () => {
     expect(me.status).toBe(401);
   });
 
+  it('signs out every session, this one included, and only with the password', async () => {
+    const first = await request(app).post('/api/auth/login').send({ username: 'owner', password: 'correct horse' });
+    const second = await request(app).post('/api/auth/login').send({ username: 'owner', password: 'correct horse' });
+    const other = second.headers['set-cookie'][0];
+    // The wrong password ends nothing.
+    const wrong = await request(app).post('/api/auth/sign-out-everywhere').set('Cookie', other).set('x-csrf-token', second.body.csrf).send({ password: 'not it' });
+    expect(wrong.status).toBe(403);
+    expect((await request(app).get('/api/auth/me').set('Cookie', other)).status).toBe(200);
+    const done = await request(app).post('/api/auth/sign-out-everywhere').set('Cookie', other).set('x-csrf-token', second.body.csrf).send({ password: 'correct horse' });
+    expect(done.status).toBe(204);
+    // Both sessions are gone: the one that asked, and the one from the other device.
+    expect((await request(app).get('/api/auth/me').set('Cookie', other)).status).toBe(401);
+    expect((await request(app).get('/api/auth/me').set('Cookie', first.headers['set-cookie'][0])).status).toBe(401);
+  });
+
   it('change-password requires the current password', async () => {
     const login = await request(app).post('/api/auth/login').send({ username: 'owner', password: 'correct horse' });
     const cookie = login.headers['set-cookie'][0];
