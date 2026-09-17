@@ -9,8 +9,11 @@
 -- later mint may hand the same digits to somebody else. What must not be lost is who held it, so
 -- number_history keeps one row per deleted thing: no more than that, and nothing blocks the reuse.
 
-UPDATE number_widths SET scope_kind = 'accounts' WHERE scope_kind = 'customers';
+-- The order matters: the old constraint does not allow 'accounts', so it is relaxed first, then the
+-- rows are relabelled, then it is put back with both new words. An install whose tracker already had
+-- rows (the live one did) would otherwise fail this file.
 ALTER TABLE number_widths DROP CONSTRAINT IF EXISTS number_widths_scope_kind_check;
+UPDATE number_widths SET scope_kind = 'accounts' WHERE scope_kind = 'customers';
 ALTER TABLE number_widths ADD CONSTRAINT number_widths_scope_kind_check
   CHECK (scope_kind IN ('accounts', 'sub_accounts'));
 
