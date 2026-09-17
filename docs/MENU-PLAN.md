@@ -66,7 +66,7 @@ Status values are exactly `live`, `building`, or `planned`. One slice is `buildi
 | 20 | Organisation (account menu) and Go live | — | live | — | 0.15.0, deployed 2026-09-16; Settings holds app behaviour only |
 | 21 | Contacts | `contacts` | live | F1 | 0.17.0, deployed 2026-09-17; the KEPAS Pay borrow list, item 1 |
 | 22 | Businesses | `businesses` | live | F2 | 0.18.0, deployed 2026-09-17; the KEPAS Pay borrow list, item 2 (customers ride with it) |
-| 23 | Notifications | `notifications` | live | F4 | 0.20.0, deployed 2026-09-17; the inbox and its bell, item 4 |
+| 23 | Notifications | `notifications` | live | F4 | 0.20.0, deployed 2026-09-17; the inbox and its bell, item 4; device notifications (web push) in 0.28.0 |
 | 24 | Reports | `reports` | live | F6 | 0.22.0, deployed 2026-09-17; per-day in and out, success rate and failure reasons, item 6 |
 | 25 | Who did what | `who-did-what` | live | F10 | 0.25.0, deployed 2026-09-17; the audit log with filters, item 10, owner only |
 
@@ -83,6 +83,7 @@ Real work that adds no menu entry, tracked here for the same reason the send typ
 | Balance after every settled request, and the Home line | Home | live | 0.24.0, deployed 2026-09-17; the KEPAS Pay borrow list, item 9; the refresh is debounced to one a minute |
 | Safaricom's charge on the review and in History, bands in Settings | Send money, History, Settings › Charges | live | 0.26.0, deployed 2026-09-17; the KEPAS Pay borrow list, item 11; display only, no platform fee |
 | Sign out everywhere | Organisation | live | 0.27.0, deployed 2026-09-17; the KEPAS Pay borrow list, item 12 (first half); the password is asked for first |
+| Notifications on this device | Notifications | live | 0.28.0, deployed 2026-09-17; the KEPAS Pay borrow list, item 12 (second half); a service worker and a VAPID key pair, and the button is absent when the server has no keys |
 
 ## Send types inside Send money
 

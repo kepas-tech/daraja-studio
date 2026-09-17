@@ -41,6 +41,8 @@ function mountPage(handlers: Record<string, (init?: RequestInit) => Response> = 
     if (h) return h(init);
     if (key === 'GET /api/notifications?filter=all&limit=50') return json({ items: [sent, failed, read], unread: 2, nextCursor: null });
     if (key === 'GET /api/notifications?filter=unread&limit=50') return json({ items: [sent, failed], unread: 2, nextCursor: null });
+    // The device card asks its own question; these tests are about the list, so push is off.
+    if (key === 'GET /api/push/key') return json({ configured: false, publicKey: null });
     throw new Error('unexpected fetch ' + key);
   });
   vi.stubGlobal('fetch', fetchMock);

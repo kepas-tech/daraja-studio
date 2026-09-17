@@ -11,7 +11,7 @@ export interface NotificationView {
 export interface NotificationPage { items: NotificationView[]; unread: number; nextCursor: string | null }
 export interface NotificationsService {
   /** One row for the event, or a bump of the row that already stands for it. */
-  write(c: Classified): Promise<{ created: boolean }>;
+  write(c: Classified): Promise<{ id: string; created: boolean }>;
   list(q: { filter: 'all' | 'unread'; limit: number; cursor?: string }): Promise<NotificationPage>;
   count(): Promise<number>;
   markRead(id: string): Promise<void>;
@@ -80,7 +80,7 @@ export function createNotificationsService(deps: { db: Db; events: EventHub }): 
       // What the bell listens to. Published by the writer's own process, so it also reaches the SSE
       // clients of this studio.
       await deps.events.publish('notification.created', { id: row.id }, org);
-      return { created: row.created };
+      return { id: row.id, created: row.created };
     },
 
     async list(q) {

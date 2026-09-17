@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import { api } from '../api/client';
 import { useEvents } from '../api/events';
 import { notificationsChanged } from '../api/notifications';
+import * as push from '../api/push';
 import type { NotificationPage, NotificationSeverity, NotificationView } from '../api/types';
 import { Button } from '../components/Button';
 import { Card, cardRow } from '../components/Card';
@@ -28,10 +29,13 @@ const DOT: Record<NotificationSeverity, string> = {
 
 const PAGE_SIZE = 50;
 type Filter = 'all' | 'unread';
+/** Feature 12: what the device card can show. 'hidden' is the no-keys state, which shows nothing. */
+type PushState = 'checking' | 'hidden' | 'unsupported' | 'off' | 'on' | 'denied';
 
 /** What happened while nobody was looking. Sentences, with the amount and the name already in them. */
 export function Notifications() {
   const c = copy.notifications;
+  const cp = c.push;
   const toast = useToast();
   const [filter, setFilter] = useState<Filter>('all');
   const [items, setItems] = useState<NotificationView[] | null>(null);
@@ -48,6 +52,50 @@ export function Notifications() {
   useEffect(() => { void load(); }, [load]);
   // A line written while this page is open shows up on its own.
   useEvents(useCallback((e) => { if (e.type === 'notification.created') void load(); }, [load]));
+
+  // Feature 12. What this browser can do is a fact about the browser; what this deployment can do
+  // is the server's answer. Both are asked once, when the page opens.
+  const [pushState, setPushState] = useState<PushState>('checking');
+  const [pushKey, setPushKey] = useState<string | null>(null);
+  const [pushBusy, setPushBusy] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      try {
+        const answer = await push.key();
+        if (!alive) return;
+        if (!answer.configured || !answer.publicKey) { setPushState('hidden'); return; }
+        if (!push.supported()) { setPushState('unsupported'); return; }
+        if (push.permission() === 'denied') { setPushState('denied'); return; }
+        setPushKey(answer.publicKey);
+        setPushState((await push.subscribedHere()) ? 'on' : 'off');
+      } catch {
+        // The card is a convenience. A read that fails hides it; the inbox itself is unaffected.
+        if (alive) setPushState('hidden');
+      }
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  const turnOn = async () => {
+    if (!pushKey) return;
+    setPushBusy(true);
+    try {
+      const answer = await push.turnOn(pushKey);
+      setPushState(answer === 'on' ? 'on' : 'denied');
+      if (answer === 'on') toast.success(cp.turnedOn);
+    } catch (e) { setErr(explainApiError(e)); } finally { setPushBusy(false); }
+  };
+  const turnOff = async () => {
+    setPushBusy(true);
+    try { await push.turnOff(); setPushState('off'); toast.success(cp.turnedOff); }
+    catch (e) { setErr(explainApiError(e)); } finally { setPushBusy(false); }
+  };
+  const sendTest = async () => {
+    setPushBusy(true);
+    try { const r = await push.sendTest(); toast.success(cp.testSent(r.sent, r.failed)); }
+    catch (e) { setErr(explainApiError(e)); } finally { setPushBusy(false); }
+  };
 
   // Both writes answer with the server's own count on the next read, so the page never guesses.
   const markAll = async () => {
@@ -72,6 +120,27 @@ export function Notifications() {
       <PageHeader title={c.title} />
       <p className="mb-4 text-base text-muted">{c.intro}</p>
       <ErrorCard error={err} />
+      {pushState !== 'checking' && pushState !== 'hidden' && (
+        <Card className="mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-base font-semibold">{cp.title}</p>
+              <p className="text-base text-muted">
+                {pushState === 'on' ? cp.on : pushState === 'denied' ? cp.denied : pushState === 'unsupported' ? cp.unsupported : cp.intro}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {pushState === 'off' && <Button disabled={pushBusy} onClick={() => void turnOn()}>{cp.enable}</Button>}
+              {pushState === 'on' && (
+                <>
+                  <Button variant="secondary" disabled={pushBusy} onClick={() => void sendTest()}>{cp.test}</Button>
+                  <Button variant="ghost" disabled={pushBusy} onClick={() => void turnOff()}>{cp.disable}</Button>
+                </>
+              )}
+            </div>
+          </div>
+        </Card>
+      )}
       <Card bodyClassName="p-0">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-page px-4 py-3">
           <div className="w-56"><Segmented name="filter" label={c.filterLabel} value={filter} options={[{ value: 'all', label: c.filters.all }, { value: 'unread', label: c.filters.unread }]} onChange={setFilter} /></div>

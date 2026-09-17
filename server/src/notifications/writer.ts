@@ -3,6 +3,7 @@ import type { EventHub, StudioEvent } from '../events/hub.js';
 import { getRequest, type RequestView } from '../money_out/reads.js';
 import { classify } from './classify.js';
 import type { NotificationsService } from './service.js';
+import type { PushService } from '../push/service.js';
 
 export interface NotificationWriter {
   start(): void;
@@ -15,7 +16,10 @@ export interface NotificationWriter {
 const NEEDS_REQUEST = new Set(['request.updated']);
 
 export function createNotificationWriter(deps: {
-  db: Db; events: EventHub; notifications: NotificationsService; egressIps?: string[];
+  db: Db; events: EventHub; notifications: NotificationsService;
+  /** Feature 12: the same line, out to the devices that asked for it. Absent when push is off. */
+  push?: PushService;
+  egressIps?: string[];
 }): NotificationWriter {
   let unsubscribe: (() => void) | null = null;
 
@@ -36,7 +40,10 @@ export function createNotificationWriter(deps: {
     await withOrg(org, async () => {
       const request = await loadRequest(e);
       const c = classify({ type: e.type, payload: e.payload, request });
-      if (c) await deps.notifications.write(c);
+      if (!c) return;
+      await deps.notifications.write(c);
+      // notify() swallows every failure of its own, so the inbox row is never at its mercy.
+      if (deps.push) await deps.push.notify(c);
     });
   }
 

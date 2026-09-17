@@ -410,6 +410,21 @@ export const copy = {
     repeated: (n: number) => '×' + n,
     repeatedTitle: (n: number) => 'The same thing happened ' + n + ' times.',
     severity: { info: 'For your information', success: 'Went well', warning: 'Needs a look', critical: 'Something is wrong' } as Record<string, string>,
+    push: {
+      title: 'On this device',
+      intro: 'Get a message on this device when something happens, even when Studio is closed. Each device is turned on on its own.',
+      on: 'Notifications are on for this device.',
+      denied: 'This browser is not allowing notifications for this site. Allow them in the browser settings, then open this page again.',
+      unsupported: 'This browser cannot show notifications. Chrome, Edge, Firefox or Safari on a phone can.',
+      enable: 'Turn on notifications on this device',
+      disable: 'Turn off on this device',
+      test: 'Send a test',
+      turnedOn: 'Notifications are on for this device.',
+      turnedOff: 'Notifications are off for this device.',
+      testSent: (sent: number, failed: number) => failed === 0
+        ? (sent === 1 ? 'One test sent to this device.' : sent + ' tests sent.')
+        : 'Sent to ' + sent + ' of ' + (sent + failed) + ' devices.',
+    },
   },
   standingOrders: {
     title: 'Standing orders', safaricom: 'M-Pesa Ratiba',

@@ -352,9 +352,12 @@ export const guide: GuideSection[] = [
           'Open this payment on a line about a payment opens that record in History.',
           'Mark as read clears one line; Mark all read at the top clears the bell.',
           'The page keeps itself up to date: a payment that finishes while the page is open gets its own line without a refresh.',
+          'On this device, at the top, turns on notifications the phone or computer shows while Studio is closed. Press Turn on notifications on this device and allow them when the browser asks. Send a test proves it works; Turn off on this device stops it for that one device.',
         ],
         notes: [
           'These lines are written by Studio from what Safaricom reports. They are not a message from Safaricom.',
+          'Device notifications are off unless the person who runs Studio has set the server up for them, and each device is turned on separately.',
+          'A message on a device shows the same sentence as the line here. Pressing it brings Studio back to the front, or opens that payment when Studio is not already running.',
           'A line that happens again does not make a second line: it moves to the top and its count goes up. Reading it does not bring it back.',
         ],
         api: [
@@ -362,6 +365,10 @@ export const guide: GuideSection[] = [
           { method: 'GET', path: '/api/notifications/count', who: 'signed in; the number on the bell' },
           { method: 'POST', path: '/api/notifications/:id/read', who: 'signed in; CSRF header' },
           { method: 'POST', path: '/api/notifications/read-all', who: 'signed in; CSRF header; answers { read }' },
+          { method: 'GET', path: '/api/push/key', who: 'signed in; answers { configured, publicKey }; configured false means this server has no push keys' },
+          { method: 'POST', path: '/api/push/subscribe', who: 'signed in; CSRF header; body { endpoint, keys: { p256dh, auth } }; answers { devices }' },
+          { method: 'POST', path: '/api/push/unsubscribe', who: 'signed in; CSRF header; body { endpoint }; 204' },
+          { method: 'POST', path: '/api/push/test', who: 'signed in; CSRF header; a test to your own devices' },
         ],
       },
       {

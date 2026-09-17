@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { vapidFromEnv, type Vapid } from './push/config.js';
 
 const schema = z.object({
   STUDIO_SMTP_HOST: z.string().optional(),
@@ -24,6 +25,11 @@ const schema = z.object({
   // Comma-separated addresses Safaricom sees this service coming from. Safaricom whitelists these
   // against the shortcode, and Studio names them when a call is refused for coming from elsewhere.
   STUDIO_EGRESS_IPS: z.preprocess((v) => (v === '' ? undefined : v), z.string().optional()),
+  // Web push (feature 12). All three or none; the shape is checked in push/config.ts, which warns
+  // and stays off rather than refusing to boot over an optional feature.
+  STUDIO_VAPID_PUBLIC_KEY: z.string().optional(),
+  STUDIO_VAPID_PRIVATE_KEY: z.string().optional(),
+  STUDIO_VAPID_SUBJECT: z.string().optional(),
 });
 
 export interface Config {
@@ -40,6 +46,8 @@ export interface Config {
   fakeSafaricom: boolean;
   /** Addresses Safaricom sees requests coming from, for the whitelist. Empty when unset. */
   egressIps: string[];
+  /** Web push keys. null = web push is off: no button, no sender, no service worker. */
+  vapid: Vapid | null;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv): Config {
@@ -72,5 +80,10 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
       .split(',')
       .map((s) => s.trim())
       .filter((s) => s.length > 0),
+    vapid: vapidFromEnv({
+      STUDIO_VAPID_PUBLIC_KEY: e.STUDIO_VAPID_PUBLIC_KEY,
+      STUDIO_VAPID_PRIVATE_KEY: e.STUDIO_VAPID_PRIVATE_KEY,
+      STUDIO_VAPID_SUBJECT: e.STUDIO_VAPID_SUBJECT,
+    }),
   };
 }

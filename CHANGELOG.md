@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.28.0 — a message on the device when something happens
+
+- Notifications can now reach the phone or the computer itself, even with Studio closed. The
+  Notifications page has one button that turns the device on, and **Send a test** proves it works.
+  Each device is turned on on its own, and **Turn off on this device** stops that one.
+- The message carries the same sentence as the line in the inbox, and pressing it opens that
+  payment. The same thing happening twice replaces the earlier message instead of stacking.
+- Off unless the person who runs Studio gives the server a push key pair. With no keys the page
+  shows nothing at all, and nothing is ever sent.
+
 ## 0.27.0 — sign out everywhere
 
 - Organisation gains **Sign out everywhere**: one press ends every session this person holds, on

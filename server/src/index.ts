@@ -22,6 +22,7 @@ import { createInvoicesService } from './invoices/service.js';
 import { createBusinessesService } from './businesses/service.js';
 import { createNotificationsService } from './notifications/service.js';
 import { createNotificationWriter } from './notifications/writer.js';
+import { createPushService } from './push/service.js';
 import { createScheduler } from './scheduler/loop.js';
 import { ensureRecurring } from './db/jobs.js';
 import { buildHandlers } from './scheduler/handlers.js';
@@ -101,7 +102,10 @@ async function main() {
   // Feature 4: the inbox. The writer follows the same hub the browser follows, so a line exists
   // before any page is opened.
   const notifications = createNotificationsService({ db, events });
-  const notificationWriter = createNotificationWriter({ db, events, notifications, egressIps: config.egressIps });
+  // Feature 12: off unless the deployment has a VAPID key pair, and harmless either way.
+  const push = createPushService({ db, vapid: config.vapid });
+  console.log(`web push: ${push.configured() ? 'on' : 'off (no VAPID keys)'}`);
+  const notificationWriter = createNotificationWriter({ db, events, notifications, push, egressIps: config.egressIps });
 
   await events.start();
   notificationWriter.start();
@@ -113,7 +117,7 @@ async function main() {
   const scheduler = createScheduler(db, buildHandlers({ db, events, settings, moneyOut, operators, moneyIn, bulk }));
   scheduler.start();
 
-  const app = buildApp({ config, db, keyring, orgs, settings, instance, cache, events, daraja, operators, settingsService, moneyOut, collect, moneyIn, bulk, invoices, businesses, fetchImpl, scheduler });
+  const app = buildApp({ config, db, keyring, orgs, settings, instance, cache, events, daraja, operators, settingsService, moneyOut, collect, moneyIn, bulk, invoices, businesses, push, fetchImpl, scheduler });
   const listenFallback = db.getFallbackOrg();
   const envLabel = listenFallback
     ? await withOrg(listenFallback, async () => (await settings.get('daraja.environment')) ?? 'sandbox')

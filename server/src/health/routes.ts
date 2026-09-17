@@ -63,6 +63,8 @@ export function healthRoutes(deps: AppDeps): Router {
         jobsPending: Number(n), version: VERSION,
         schedulerLastTickAt: deps.scheduler?.lastTickAt()?.toISOString() ?? null,
         sendCapCents: deps.config.maxSendCents,
+        // Whether web push has keys. A boolean, never a key.
+        pushConfigured: deps.config.vapid !== null,
         ...tenantFacts,
         ...orgFields,
       });
@@ -71,6 +73,7 @@ export function healthRoutes(deps: AppDeps): Router {
         ok: false, db: false,
         jobsPending: -1, version: VERSION,
         schedulerLastTickAt: null, sendCapCents: deps.config.maxSendCents,
+        pushConfigured: deps.config.vapid !== null,
         ...(loopback ? { orgCount: -1, dbRoleOk: false } : {}),
       });
     }

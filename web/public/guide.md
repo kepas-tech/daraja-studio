@@ -267,8 +267,11 @@ Where: Home → Notifications · Who: Anyone logged in · Route: /notifications
 4. Open this payment on a line about a payment opens that record in History.
 5. Mark as read clears one line; Mark all read at the top clears the bell.
 6. The page keeps itself up to date: a payment that finishes while the page is open gets its own line without a refresh.
+7. On this device, at the top, turns on notifications the phone or computer shows while Studio is closed. Press Turn on notifications on this device and allow them when the browser asks. Send a test proves it works; Turn off on this device stops it for that one device.
 
 - These lines are written by Studio from what Safaricom reports. They are not a message from Safaricom.
+- Device notifications are off unless the person who runs Studio has set the server up for them, and each device is turned on separately.
+- A message on a device shows the same sentence as the line here. Pressing it brings Studio back to the front, or opens that payment when Studio is not already running.
 - A line that happens again does not make a second line: it moves to the top and its count goes up. Reading it does not bring it back.
 
 | Method | Path | Who |
@@ -277,6 +280,10 @@ Where: Home → Notifications · Who: Anyone logged in · Route: /notifications
 | GET | `/api/notifications/count` | signed in; the number on the bell |
 | POST | `/api/notifications/:id/read` | signed in; CSRF header |
 | POST | `/api/notifications/read-all` | signed in; CSRF header; answers { read } |
+| GET | `/api/push/key` | signed in; answers { configured, publicKey }; configured false means this server has no push keys |
+| POST | `/api/push/subscribe` | signed in; CSRF header; body { endpoint, keys: { p256dh, auth } }; answers { devices } |
+| POST | `/api/push/unsubscribe` | signed in; CSRF header; body { endpoint }; 204 |
+| POST | `/api/push/test` | signed in; CSRF header; a test to your own devices |
 
 ### See how the days went
 

@@ -1,6 +1,6 @@
 {
   "name": "@daraja-studio/server",
-  "version": "0.27.0",
+  "version": "0.28.0",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
@@ -17,6 +17,7 @@
     "express": "5.2.1",
     "nodemailer": "10.0.3",
     "pg": "8.23.0",
+    "web-push": "3.6.7",
     "zod": "4.5.4"
   },
   "devDependencies": {
@@ -26,6 +27,7 @@
     "@types/nodemailer": "8.0.1",
     "@types/pg": "8.23.1",
     "@types/supertest": "7.2.1",
+    "@types/web-push": "3.6.4",
     "eslint": "10.10.0",
     "supertest": "7.2.2",
     "tsx": "4.23.13",

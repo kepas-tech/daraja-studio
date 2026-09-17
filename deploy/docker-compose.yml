@@ -33,6 +33,11 @@ services:
       STUDIO_SMTP_PASSWORD: ${STUDIO_SMTP_PASSWORD:-}
       STUDIO_SMTP_FROM: ${STUDIO_SMTP_FROM:-}
       STUDIO_EGRESS_IPS: "${STUDIO_EGRESS_IPS:-}"
+      # Web push (feature 12). All three come from deploy/.env and are needed together; leave them
+      # out and push is off with no button, no sender and no service worker.
+      STUDIO_VAPID_PUBLIC_KEY: "${STUDIO_VAPID_PUBLIC_KEY:-}"
+      STUDIO_VAPID_PRIVATE_KEY: "${STUDIO_VAPID_PRIVATE_KEY:-}"
+      STUDIO_VAPID_SUBJECT: "${STUDIO_VAPID_SUBJECT:-}"
     expose: ["8080"]
     healthcheck: { test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"], interval: 10s, timeout: 5s, retries: 10 }
 

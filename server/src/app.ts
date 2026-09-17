@@ -49,12 +49,14 @@ import { invoiceRoutes } from './invoices/routes.js';
 import { contactsRoutes } from './contacts/routes.js';
 import { businessesRoutes, customersRoutes } from './businesses/routes.js';
 import { notificationRoutes } from './notifications/routes.js';
+import { pushRoutes } from './push/routes.js';
 import { reportsRoutes } from './reports/routes.js';
 import { auditRoutes } from './audit/routes.js';
 import { feeRoutes } from './fees/routes.js';
 import type { BusinessesService } from './businesses/service.js';
 import type { InvoicesService } from './invoices/service.js';
 import type { Scheduler } from './scheduler/loop.js';
+import type { PushService } from './push/service.js';
 
 export interface AppDeps {
   config: Config;
@@ -79,6 +81,8 @@ export interface AppDeps {
   invoices: InvoicesService;
   /** Feature 2: the businesses one paybill serves, their customers, and the unmatched fixes. */
   businesses: BusinessesService;
+  /** Feature 12: web push to the devices that subscribed. Absent in tests that build the app without it. */
+  push?: PushService;
   /** Present at boot; absent in tests that build the app without a scheduler. */
   scheduler?: Pick<Scheduler, 'lastTickAt'>;
   /** The fetch every Safaricom-facing call goes through. Set only by the local demo and the tests. */
@@ -150,6 +154,8 @@ export function buildApp(deps: AppDeps): express.Express {
   app.use('/api/customers', customersRoutes(deps));
   // Feature 4: the inbox the writer fills and the bell reads.
   app.use('/api/notifications', notificationRoutes(deps));
+  // Feature 12: the browser's subscription and the test message. Off, harmlessly, without keys.
+  app.use('/api/push', pushRoutes(deps));
   // Feature 6: the week's numbers, read-only. Nothing under it writes a row.
   app.use('/api/reports', reportsRoutes(deps));
   // Feature 10: who did what. Owner only, and read-only — audit_log refuses every write by trigger.
@@ -181,6 +187,9 @@ export function buildApp(deps: AppDeps): express.Express {
       if ((req.path === '/guide.md' || req.path === '/llms.txt') && req.accepts(['text/markdown', 'text/plain', 'text/html']) === 'text/html') return res.sendFile(indexHtml);
       next();
     });
+    // The service worker (feature 12) must never be a stale one: a browser holds on to it far
+    // longer than an asset, so it alone is served no-cache while every other file keeps the hour.
+    app.get('/sw.js', (_req, res) => res.sendFile(path.join(webDir, 'sw.js'), { headers: { 'Cache-Control': 'no-cache' } }));
     app.use(express.static(webDir, { index: false, maxAge: '1h' }));
     app.get('/{*path}', (_req, res) => res.sendFile(indexHtml));
   }
