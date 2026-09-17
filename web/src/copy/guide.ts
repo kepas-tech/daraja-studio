@@ -776,6 +776,7 @@ export const guide: GuideSection[] = [
           'Payment categories: your own names for a send (Personal use, Rent, …); each goes to Safaricom as Business payment, Salary or Promotion. Add, Edit, Delete; keep at least one.',
           'Approvals: Second person, Off or "Hold sends of KES … or more". Change, type the amount, save with your password.',
           'Invoices: whether invoicing is set up and whether reminders are on. Set it up from the Invoices page.',
+          'Safaricom’s charges: the published bands behind the charge on each send. Correct them when Safaricom changes them.',
           'Advanced, folded shut: the B2C version for the mode in use (leave it on Automatic), Safaricom’s callback addresses (change only if Safaricom publishes new ones), and the callback secret (Show asks for your password; treat it like a password).',
         ],
         api: [
@@ -787,6 +788,30 @@ export const guide: GuideSection[] = [
           { method: 'PUT', path: '/api/settings/environments/:env/b2c-api', who: 'owner, password' },
           { method: 'PUT', path: '/api/settings/allowlist', who: 'owner, password' },
           { method: 'POST', path: '/api/settings/install-secret/reveal', who: 'owner, password' },
+        ],
+      },
+      {
+        key: 'settings-charges',
+        title: 'Correct what Safaricom charges',
+        where: ['Manage', 'Settings'],
+        who: 'Owner',
+        path: '/settings',
+        permission: 'owner',
+        steps: [
+          'Open Settings and find Safaricom’s charges.',
+          'Three lists: Money in (paybill), Money out to a phone, and Business payments. Each band has a From, a To and the charge, in whole shillings.',
+          'Type over a figure, press Add a band for a new one or Remove to drop one, then Save with your password.',
+          'The send review then says “Safaricom’s charge: KES …, taken from Utility” before you pay, and History shows the same figure on each row.',
+        ],
+        notes: [
+          'These are Safaricom’s published PayBill and Disbursement bands. Studio adds nothing of its own, so this is cost, never a fee you earn.',
+          'Changing a band never changes an old row: History keeps the charge that payment was costed at.',
+          'An amount no band covers shows no charge, rather than a guess.',
+        ],
+        api: [
+          { method: 'GET', path: '/api/fees', who: 'anyone signed in with lookup.view' },
+          { method: 'GET', path: '/api/fees/charge?kind=&amountCents=', who: 'anyone signed in with lookup.view' },
+          { method: 'PUT', path: '/api/fees/:kind', who: 'owner, password; body { bands: [{ minCents, maxCents, chargeCents }] }' },
         ],
       },
     ],

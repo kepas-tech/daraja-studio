@@ -17,6 +17,7 @@ import { enqueue } from '../db/jobs.js';
 import { PUBLIC_URL_UNVERIFIED } from './ready.js';
 import { KINDS, MONEY_TYPES, type CallbackUrls, type RequestKind, type RequestRow } from './registry.js';
 import { failOperatorOnCredentialCode } from './operatorHealth.js';
+import { createFeesService } from '../fees/service.js';
 import { getRequest, listRequests, listWaiting, waitingBadge, type Page, type RequestView, type WaitingView } from './reads.js';
 
 export interface SendInput { phone: string; amountCents: number; commandId: 'BusinessPayment' | 'SalaryPayment' | 'PromotionPayment'; category?: string; remarks?: string; occasion?: string; confirmDuplicate?: boolean; /** Feature 1: the saved phone contact this send is labelled with; checked below. */ contactId?: string; /** Feature 2: the business this send belongs to. Checked below; the last one used becomes the pickers' default. */ businessId?: string; /** M5: the batch this row belongs to; never accepted from a client. */ bulk?: { planId: string; index: number } }
@@ -129,6 +130,10 @@ function requireOrg(): string {
 }
 
 export function createMoneyOutService(deps: { db: Db; settings: Settings; daraja: DarajaFactory; events: EventHub; config: Config; orgs: OrgService }): MoneyOutService {
+  // Feature 11: the band this send falls in, stored on the row so History shows what it cost. Built
+  // from the same pool, so no dependency has to be threaded through every caller of this factory.
+  const fees = createFeesService({ db: deps.db });
+
   async function urls() {
     const publicUrl = await deps.settings.get('public.url');
     if (!publicUrl) throw new HttpError(409, 'public_url_unverified', 'Test your public address in Settings first.');
@@ -364,6 +369,11 @@ export function createMoneyOutService(deps: { db: Db; settings: Settings; daraja
         if (!business.active) throw new HttpError(409, 'business_inactive', 'That business is switched off. Switch it on to send under it.');
         savedBusinessId = business.id;
       }
+      // Feature 11: what Safaricom will charge for this send, from the organisation's own bands.
+      // Read before anything is written, and stored on the row: a later tariff change never
+      // rewrites what an old payment cost. An amount with no band stores nothing rather than a
+      // zero, which would read as free.
+      const chargeCents = await fees.chargeFor('b2c', input.amountCents);
       const cb = await urls();
 
       // Operator first: a 409 here writes nothing. Then the pending row and its audit entry, in
@@ -396,9 +406,9 @@ export function createMoneyOutService(deps: { db: Db; settings: Settings; daraja
           if (dup.rows[0]) throw new HttpError(409, 'duplicate_recent', 'You sent this already. Send it again?', { requestId: dup.rows[0].id, at: dup.rows[0].created_at.toISOString() });
         }
         const { rows } = await c.query<RequestRow>(
-          `INSERT INTO requests(type, subtype, originator_conversation_id, status, amount_cents, currency, recipient_kind, recipient_value, remarks, payload_json, created_by, operator_id, bulk_plan_id, contact_id, business_id)
-           VALUES ($1,$2,$3,'pending',$4,'KES','phone',$5,$6,$7::jsonb,$8,$9,$10,$11,$12) RETURNING *`,
-          [kind.type, commandId, randomUUID(), input.amountCents, phone, input.remarks ?? null, JSON.stringify({ occasion: input.occasion ?? null, category, ...(input.bulk ? { bulkIndex: input.bulk.index } : {}) }), actor.personId, operatorId, input.bulk?.planId ?? null, savedContactId, savedBusinessId]);
+          `INSERT INTO requests(type, subtype, originator_conversation_id, status, amount_cents, currency, recipient_kind, recipient_value, remarks, payload_json, created_by, operator_id, bulk_plan_id, contact_id, business_id, charge_cents)
+           VALUES ($1,$2,$3,'pending',$4,'KES','phone',$5,$6,$7::jsonb,$8,$9,$10,$11,$12,$13) RETURNING *`,
+          [kind.type, commandId, randomUUID(), input.amountCents, phone, input.remarks ?? null, JSON.stringify({ occasion: input.occasion ?? null, category, ...(input.bulk ? { bulkIndex: input.bulk.index } : {}) }), actor.personId, operatorId, input.bulk?.planId ?? null, savedContactId, savedBusinessId, chargeCents]);
         const r = rows[0];
         await c.query(
           `INSERT INTO audit_log(person_id, action, target, before_json, after_json, ip) VALUES ($1,$2,$3,$4::jsonb,$5::jsonb,$6)`,

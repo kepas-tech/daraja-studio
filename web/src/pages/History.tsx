@@ -166,6 +166,8 @@ export function History() {
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">{money(r.amountCents)}</td>
                   <td className="px-4 py-3"><StatusPill kind={STATUS_TONE[r.status] ?? 'muted'}>{copy.request.status[r.status] ?? r.status}</StatusPill></td>
+                  {/* Feature 11: what this row cost when it was written. Blank before the feature, and for an amount with no band. */}
+                  <td className="px-4 py-3 whitespace-nowrap">{r.chargeCents == null ? '—' : money(r.chargeCents)}</td>
                   <td className="px-4 py-3"><code className="text-sm">{r.receipt ?? '—'}</code></td>
                 </tr>))}</tbody>
             </table>

@@ -96,6 +96,9 @@ export interface RequestView {
   createdBy: { id: string; displayName: string } | null;
   approvedBy?: { id: string; displayName: string } | null;
   bulkPlanId?: string | null;
+  /** Feature 11: what Safaricom's band said this row costs, in cents. Null or absent on a row
+   * written before the feature, and on an amount no band covers — never a zero standing for unknown. */
+  chargeCents?: number | null;
 }
 export interface BulkRow { line: number; phone: string; amountCents: number; name: string | null; note: string | null }
 export interface BulkCheck { rows: BulkRow[]; errors: { line: number; message: string }[]; count: number; totalCents: number }
@@ -164,6 +167,9 @@ export type UnmatchedView = RequestView & {
   business?: { id: string; code: string; name: string } | null;
   customerNumber?: number | null;
 };
+export type FeeKind = 'c2b' | 'b2c' | 'b2b';
+/** GET /api/fees (feature 11). One published Safaricom tariff band, in cents. */
+export interface FeeBandView { id: string; kind: FeeKind; minCents: number; maxCents: number; chargeCents: number; updatedAt: string }
 export interface Page<T> { items: T[]; nextCursor: string | null }
 /** One section of the Waiting page: the newest rows shown, and the true total behind them. */
 export interface WaitingSection { items: RequestView[]; count: number }

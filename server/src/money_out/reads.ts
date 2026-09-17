@@ -29,6 +29,9 @@ export interface RequestView {
   customerId: string | null;
   businessName: string | null;
   customerName: string | null;
+  /** Feature 11: what Safaricom's band said this row costs, in cents. Null on a row written
+   * before the feature, and on an amount no band covers — never a zero standing in for unknown. */
+  chargeCents: number | null;
 }
 
 export type ViewRow = RequestRow & {
@@ -36,6 +39,8 @@ export type ViewRow = RequestRow & {
   contact_name?: string | null; business_name?: string | null; customer_name?: string | null; created_cursor?: string;
   /** Feature 2: columns selected by r.* that the base RequestRow predates. */
   account_reference?: string | null; business_id?: string | null; customer_id?: string | null;
+  /** Feature 11: the same, for the charge stored on the row. */
+  charge_cents?: string | number | null;
 };
 
 /** Every column the view needs, with the two display-name joins, plus a microsecond-exact text
@@ -107,6 +112,7 @@ export function toView(row: ViewRow, egressIps: string[] = []): RequestView {
     customerId: row.customer_id ?? null,
     businessName: row.business_name ?? null,
     customerName: row.customer_name ?? null,
+    chargeCents: row.charge_cents === null || row.charge_cents === undefined ? null : Number(row.charge_cents),
   };
 }
 

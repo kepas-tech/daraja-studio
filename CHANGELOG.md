@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.26.0 — what Safaricom charges on each payment
+
+- The send review now says what the payment costs: "Safaricom's charge: KES 13, taken from
+  Utility", from Safaricom's published PayBill and Disbursement tariffs. History carries the same
+  figure per row. Nothing is added on top — Studio sells nothing, so there is no margin here.
+- The bands are seeded from the public tariff (17 bands each for money in, money out to a phone,
+  and business payments) and an amount above the top band shows no charge rather than a guess.
+- Each row keeps the charge it was costed at: changing the tariff never rewrites history. The owner
+  can correct the bands under Settings › Charges when Safaricom changes them.
+- An amount with no band says so, instead of showing a zero that would read as free.
+
 ## 0.25.0 — Who did what
 
 - A new owner-only page, **Who did what**, shows every action Studio already records: who did it,

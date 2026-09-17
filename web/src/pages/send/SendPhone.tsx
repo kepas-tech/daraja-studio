@@ -80,6 +80,19 @@ export function SendPhone() {
   // W5 (spec §10): the cap is enforced server-side (service.ts) regardless — this is only so the
   // operator sees it before typing their password rather than after a 409 in the dialog.
   useEffect(() => { if (step === 'review') api.get<{ sendCapCents: number | null }>('/healthz').then((h) => setCap(h.sendCapCents)).catch(() => {}); }, [step]);
+  // Feature 11: what Safaricom charges for this send, asked once per review. `undefined` = still
+  // asking; `null` = no band covers this amount, and the line says so instead of showing a zero
+  // that would read as free.
+  const [charge, setCharge] = useState<number | null | undefined>(undefined);
+  useEffect(() => {
+    if (step !== 'review' || cents === null) return;
+    let live = true;
+    setCharge(undefined);
+    api.get<{ chargeCents: number | null }>(`/api/fees/charge?kind=b2c&amountCents=${cents}`)
+      .then((r) => { if (live) setCharge(r.chargeCents); })
+      .catch(() => { if (live) setCharge(null); });
+    return () => { live = false; };
+  }, [step, cents]);
 
   const [search, setSearch] = useSearchParams();
   useEffect(() => {
@@ -215,6 +228,8 @@ export function SendPhone() {
                 <span className="block text-sm text-muted">{nameLine}</span>
               </dd>
               <dt className="text-muted">{copy.request.amount}</dt><dd>{money(cents)}<span className="block text-sm text-muted">{copy.send.phone.review.feeNote}</span></dd>
+              <dt className="text-muted">{copy.send.phone.review.chargeLabel}</dt>
+              <dd>{charge === undefined ? copy.app.loading : charge === null ? copy.send.phone.review.chargeNone : copy.send.phone.review.charge(money(charge))}</dd>
               <dt className="text-muted">{copy.send.phone.kind}</dt><dd>{kind}</dd>
               {businesses.length > 1 && <><dt className="text-muted">{copy.businesses.title}</dt><dd>{businesses.find((b) => b.id === businessId)?.name ?? '—'}</dd></>}
               <dt className="text-muted">{copy.send.phone.review.balanceNow}</dt>

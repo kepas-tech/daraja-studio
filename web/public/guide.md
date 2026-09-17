@@ -618,7 +618,8 @@ Safaricom calls this: My Preference · Where: Manage → Settings · Who: Owner 
 3. Payment categories: your own names for a send (Personal use, Rent, …); each goes to Safaricom as Business payment, Salary or Promotion. Add, Edit, Delete; keep at least one.
 4. Approvals: Second person, Off or "Hold sends of KES … or more". Change, type the amount, save with your password.
 5. Invoices: whether invoicing is set up and whether reminders are on. Set it up from the Invoices page.
-6. Advanced, folded shut: the B2C version for the mode in use (leave it on Automatic), Safaricom’s callback addresses (change only if Safaricom publishes new ones), and the callback secret (Show asks for your password; treat it like a password).
+6. Safaricom’s charges: the published bands behind the charge on each send. Correct them when Safaricom changes them.
+7. Advanced, folded shut: the B2C version for the mode in use (leave it on Automatic), Safaricom’s callback addresses (change only if Safaricom publishes new ones), and the callback secret (Show asks for your password; treat it like a password).
 
 | Method | Path | Who |
 |---|---|---|
@@ -630,6 +631,25 @@ Safaricom calls this: My Preference · Where: Manage → Settings · Who: Owner 
 | PUT | `/api/settings/environments/:env/b2c-api` | owner, password |
 | PUT | `/api/settings/allowlist` | owner, password |
 | POST | `/api/settings/install-secret/reveal` | owner, password |
+
+### Correct what Safaricom charges
+
+Where: Manage → Settings · Who: Owner · Route: /settings · Permission: owner
+
+1. Open Settings and find Safaricom’s charges.
+2. Three lists: Money in (paybill), Money out to a phone, and Business payments. Each band has a From, a To and the charge, in whole shillings.
+3. Type over a figure, press Add a band for a new one or Remove to drop one, then Save with your password.
+4. The send review then says “Safaricom’s charge: KES …, taken from Utility” before you pay, and History shows the same figure on each row.
+
+- These are Safaricom’s published PayBill and Disbursement bands. Studio adds nothing of its own, so this is cost, never a fee you earn.
+- Changing a band never changes an old row: History keeps the charge that payment was costed at.
+- An amount no band covers shows no charge, rather than a guess.
+
+| Method | Path | Who |
+|---|---|---|
+| GET | `/api/fees` | anyone signed in with lookup.view |
+| GET | `/api/fees/charge?kind=&amountCents=` | anyone signed in with lookup.view |
+| PUT | `/api/fees/:kind` | owner, password; body { bands: [{ minCents, maxCents, chargeCents }] } |
 
 ## Organisation
 
