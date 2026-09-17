@@ -6,6 +6,12 @@ export type { DarajaScope };
 // Working-account balance for `b2b`; 2001 is a wrong PIN on `ratiba`/`bonga` but a bad initiator
 // credential on `b2c`/`b2b`). Only pairs present in the SDK's CATALOG as of @kepas/daraja-js 1.5.0
 // are listed here — everything else falls through to the generic message below rather than guessing.
+// TP40153 is not in the SDK's CATALOG at all — Studio knows it from KEPAS Pay's operator
+// classification. One pair of lines, used for every scope that can see it, so the same failure
+// reads the same way wherever it lands.
+const OPERATOR_CREDENTIAL_MEANING = "Safaricom refused this request because the API operator that signed it is not accepted. The payment itself did not fail, and no customer's money moved.";
+const OPERATOR_CREDENTIAL_WHAT_TO_DO = 'Open Settings › Daraja app, give this operator a new password or Security Credential, then press Reinstate on the operator card.';
+
 const WHAT_TO_DO: Record<string, string> = {
   'stk:1': 'The customer does not have enough M-Pesa balance. Ask them to top up, then send the request again.',
   'stk:1037': 'The customer did not answer the prompt. Ask them to keep the phone unlocked and try again.',
@@ -13,12 +19,16 @@ const WHAT_TO_DO: Record<string, string> = {
   'b2c:1': 'Your Utility account float is too low. Move float from Working to Utility (or top up), then send again.',
   'b2b:1': 'The Working account does not have enough funds. Fund it, then try again.',
   'b2b:21': 'Safaricom says this operator is not allowed to do this. Check its roles in the Safaricom portal.',
-  'b2c:2001': 'Safaricom rejected the API operator credential. In Settings, give this operator a new password or Security Credential (from the Safaricom portal), then send again.',
-  'b2c:8006': 'This API operator\'s Security Credential is locked. Reset the operator password on the M-Pesa org portal, then set the new credential in Settings.',
-  'b2b:2001': 'Safaricom rejected the API operator credential. In Settings, give this operator a new password or Security Credential (from the Safaricom portal), then try again.',
+  'b2c:2001': 'Safaricom rejected the API operator credential. In Settings, give this operator a new password or Security Credential (from the Safaricom portal), then press Reinstate on the operator card and send again.',
+  'b2c:8006': 'This API operator\'s Security Credential is locked. Reset the operator password on the M-Pesa org portal, then set the new credential in Settings and press Reinstate on the operator card.',
+  'b2b:2001': 'Safaricom rejected the API operator credential. In Settings, give this operator a new password or Security Credential (from the Safaricom portal), then press Reinstate on the operator card and try again.',
+  'b2c:TP40153': OPERATOR_CREDENTIAL_WHAT_TO_DO,
+  'b2b:TP40153': OPERATOR_CREDENTIAL_WHAT_TO_DO,
+  'balance:TP40153': OPERATOR_CREDENTIAL_WHAT_TO_DO,
+  'reversal:TP40153': OPERATOR_CREDENTIAL_WHAT_TO_DO,
   'status:25': 'Safaricom could not read the query. Check the receipt and try again; if it keeps happening, contact Safaricom API support with the text above.',
   'b2c:403.002.1001': 'On the Daraja portal, open the app whose key you saved and check that the B2C API is on it. If it is not, ask Safaricom API support to enable B2C for this shortcode, then try again.',
-  'balance:2001': 'On the M-Pesa business portal (Search › Organization Operator › your number › Detail on this user) the user must show Active, not Pending Active: a Business Manager presses Set Password there. It must hold the roles Balance Query ORG API and ORG B2C API initiator. Then add it here again with that password and the certificate for this environment (or a fresh Security Credential from the Daraja portal › Test Credentials).',
+  'balance:2001': 'On the M-Pesa business portal (Search › Organization Operator › your number › Detail on this user) the user must show Active, not Pending Active: a Business Manager presses Set Password there. It must hold the roles Balance Query ORG API and ORG B2C API initiator. Then add it here again with that password and the certificate for this environment (or a fresh Security Credential from the Daraja portal › Test Credentials), and press Reinstate on the operator card to test it.',
   // A v3 send only: the app itself is not subscribed to the B2C v3 gateway product (a separate
   // subscription from plain B2C). The general pair above stays for a v1 send with this same code.
   'b2c:403.002.1001:v3': "In Settings, under this environment's Daraja app, set the B2C API version to v1 and send again. Nothing was sent.",
@@ -39,6 +49,13 @@ const MEANING_FALLBACK: Record<string, string> = {
   // live rather than documented — so this is a hedged observation, not a claimed cause.
   'balance:403.002.1001': "Safaricom's gateway refused this request for this shortcode. On a hosted service the usual cause is an address Safaricom has not whitelisted yet; it can also mean this API is not enabled on the app.",
   'status:403.002.1001': "Safaricom's gateway refused this request for this shortcode. On a hosted service the usual cause is an address Safaricom has not whitelisted yet; it can also mean this API is not enabled on the app.",
+  // TP40153, on the four scopes that can see it. The SDK's catalog has no entry, so without these
+  // the meaning would fall through to "Safaricom did not explain this code" and leave the owner
+  // thinking the payment failed on its own.
+  'b2c:TP40153': OPERATOR_CREDENTIAL_MEANING,
+  'b2b:TP40153': OPERATOR_CREDENTIAL_MEANING,
+  'balance:TP40153': OPERATOR_CREDENTIAL_MEANING,
+  'reversal:TP40153': OPERATOR_CREDENTIAL_MEANING,
 };
 
 export interface Explanation {

@@ -202,7 +202,7 @@ export const guide: GuideSection[] = [
           'The password is set by a portal user who has the Set Restricted ORG API PASSWORD role (a Business Manager): on the same list press Detail on the user’s row, then Set Password at the top right; type it twice and Submit. Use letters, numbers and only # & % $ as symbols; never @ or a full stop, and no brackets. The user then shows as Active.',
           'Type the username and that password into Studio’s "API operator" screen, with the certificate (next task). Studio asks Safaricom for your balance with them and keeps the user only if Safaricom accepts it.',
         ],
-        notes: ['A user with access channel Web that holds the same roles also works; the roles are what count.', 'Studio never keeps the password itself, only a scrambled version made with Safaricom’s certificate.', 'Too many wrong tries lock the user ("security credential is locked"); the Business Administrator unlocks it on the portal.'],
+        notes: ['A user with access channel Web that holds the same roles also works; the roles are what count.', 'Studio never keeps the password itself, only a scrambled version made with Safaricom’s certificate.', 'Too many wrong tries lock the user ("security credential is locked"); the Business Administrator unlocks it on the portal.', 'Safaricom sometimes refuses one call and accepts the next with the same password, so Studio only marks the user DOWN after two refusals inside ten minutes. The card then shows "1 of 2 failures"; after you give it a new password, Reinstate tests it again.'],
         links: [how.operatorCreate, how.operatorPassword],
       },
       {
@@ -804,7 +804,7 @@ export const guide: GuideSection[] = [
         steps: [
           'Business: the name in the menu and on receipts, the nominated number and the notification phone.',
           'Mode: Sandbox for practice, or Production for real money. Switching a finished Studio to Production asks you to type your paybill or till number back, then your password. While you are in Sandbox, a Go live card sits under it (next task).',
-          'Sandbox and Production, one card each, the one in use first and open, the other behind Show. The top line says Ready or what is still needed. Then: your paybill or till number (Change; Check the name with Safaricom), the Daraja app codes (Replace, with the Safaricom clicks), the passkey (Replace), the certificate, and your API operators (Add operator, Test again, New credential, Turn off). Each form shows "Where to get it".',
+          'Sandbox and Production, one card each, the one in use first and open, the other behind Show. The top line says Ready or what is still needed. Then: your paybill or till number (Change; Check the name with Safaricom), the Daraja app codes (Replace, with the Safaricom clicks), the passkey (Replace), the certificate, and your API operators. Each operator card says Active, Standby, DOWN or Switched off, when its password runs out, how many times it has just failed, and, when it is DOWN, what Safaricom refused; beside it are Reinstate or Test again, New password, and Turn off. Each form shows "Where to get it".',
           'Who can log in: Manage people opens the People page.',
           'Delete this studio, at the bottom: removes the business, its people, its Safaricom details and its history, and returns Studio to first-run setup. It asks for your password and the business name typed exactly. It cannot be undone.',
         ],

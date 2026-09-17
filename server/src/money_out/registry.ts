@@ -103,5 +103,7 @@ export const LEDGER_TYPES: string[] = [...MONEY_TYPES, ...COLLECT_TYPES, ...MONE
 export const kindsForPath = (path: RequestKind['callbackPath']): RequestKind[] =>
   [...Object.values(KINDS), ...Object.values(COLLECT_KINDS)].filter((k) => k.callbackPath === path);
 
-/** Safaricom result codes that mean the API operator credential itself is bad or locked. */
-export const CREDENTIAL_CODES: ReadonlySet<string> = new Set(['2001', '8006']);
+/** Safaricom result codes that mean the API operator credential itself is bad or locked.
+ * TP40153 is not in the SDK's catalog (it reaches Studio as a plain code with Safaricom's own
+ * text); KEPAS Pay classifies it as a credential failure, and Studio does the same. */
+export const CREDENTIAL_CODES: ReadonlySet<string> = new Set(['2001', '8006', 'TP40153']);

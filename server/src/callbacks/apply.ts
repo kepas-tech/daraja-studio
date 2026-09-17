@@ -3,7 +3,7 @@ import type { EventHub } from '../events/hub.js';
 import type { CallbackVerdict } from './router.js';
 import { kindsForPath, type RequestKind } from '../money_out/registry.js';
 import { explain } from '../sdk/meaning.js';
-import { failOperatorOnCredentialCode } from '../money_out/operatorHealth.js';
+import { clearOperatorFailures, failOperatorOnCredentialCode } from '../money_out/operatorHealth.js';
 
 /**
  * B0: one result application for every money-out kind.
@@ -80,7 +80,10 @@ export async function applyResult(
   });
 
   if (outcome.verdict !== 'applied') return outcome satisfies CallbackVerdict;
-  if (!outcome.success) await failOperatorOnCredentialCode(deps.db, deps.events, outcome.operatorId, outcome.resultCode, outcome.resultDesc);
+  // Feature 8: a settled request is the operator working, so it clears the two-try guard; a
+  // credential-class failure counts against it instead.
+  if (outcome.success) await clearOperatorFailures(deps.db, outcome.operatorId);
+  else await failOperatorOnCredentialCode(deps.db, deps.events, outcome.operatorId, outcome.resultCode, outcome.resultDesc);
   if (outcome.funds) await deps.events.publish('balance.updated', { at: new Date().toISOString() });
   await deps.events.publish('request.updated', { id: outcome.requestId, status: outcome.success ? 'completed' : 'failed' });
   return { verdict: 'applied', requestId: outcome.requestId };

@@ -13,11 +13,14 @@ import { callbackUrls } from '../sdk/callbackUrls.js';
 import { enqueueOn } from '../db/jobs.js';
 import { audit } from '../audit/log.js';
 import { explain } from '../sdk/meaning.js';
+import { clearOperatorFailures } from '../money_out/operatorHealth.js';
 import { HttpError } from '../util/errors.js';
 
 export interface OperatorView {
   id: string; name: string; environment: Env; status: 'pending' | 'verified' | 'failed' | 'disabled'; priority: number;
   rotatedAt: string; lastProbeAt: string | null; lastError: string | null; expiresAt: string;
+  /** Feature 8: credential failures inside the last ten minutes, and when the operator went DOWN. */
+  consecutiveFailures: number; lastFailureAt: string | null; downSince: string | null;
 }
 export interface Actor { personId: string | null; ip: string }
 
@@ -283,6 +286,9 @@ export function createOperatorService(deps: { db: Db; settings: Settings; keyrin
         return request;
       });
       if (!req) return;
+      // Safaricom accepted the call, so the credential works: a probe is the way back from the
+      // two-try guard, and the count must not outlive the failure it counted (feature 8).
+      await clearOperatorFailures(deps.db, id);
       await deps.events.publish('operator.updated', { operatorId: id, status: 'pending' });
     },
 
@@ -331,11 +337,12 @@ export function createOperatorService(deps: { db: Db; settings: Settings; keyrin
     },
 
     async list(env) {
-      const rows = await deps.db.query<{ id: string; name: string; environment: Env; status: OperatorView['status']; priority: number; rotated_at: Date; last_probe_at: Date | null; last_error: string | null }>(
-        'SELECT id, name, environment, status, priority, rotated_at, last_probe_at, last_error FROM operators WHERE environment=$1 ORDER BY priority ASC, created_at ASC', [env]);
+      const rows = await deps.db.query<{ id: string; name: string; environment: Env; status: OperatorView['status']; priority: number; rotated_at: Date; last_probe_at: Date | null; last_error: string | null; consecutive_failures: number; last_failure_at: Date | null; down_since: Date | null }>(
+        'SELECT id, name, environment, status, priority, rotated_at, last_probe_at, last_error, consecutive_failures, last_failure_at, down_since FROM operators WHERE environment=$1 ORDER BY priority ASC, created_at ASC', [env]);
       return rows.map((r) => ({
         id: r.id, name: r.name, environment: r.environment, status: r.status, priority: r.priority,
         rotatedAt: r.rotated_at.toISOString(), lastProbeAt: r.last_probe_at?.toISOString() ?? null, lastError: r.last_error,
+        consecutiveFailures: r.consecutive_failures, lastFailureAt: r.last_failure_at?.toISOString() ?? null, downSince: r.down_since?.toISOString() ?? null,
         expiresAt: new Date(r.rotated_at.getTime() + PASSWORD_EXPIRY_DAYS * 86_400_000).toISOString(),
       }));
     },

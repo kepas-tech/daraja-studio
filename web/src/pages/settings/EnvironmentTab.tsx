@@ -38,6 +38,14 @@ function keyStatusText(slot: EnvSlotView): string {
   return `${secretText(slot.consumerKey)} · ${copy.settings.secret.verifiedAt(when(slot.credsVerifiedAt))}`;
 }
 
+/** The password's own 90-day clock, in days rather than a date: "in 12 days" reads faster than a date. */
+function expiryLine(expiresAt: string): string {
+  const days = Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86_400_000);
+  if (days > 0) return copy.settings.expiresIn(days);
+  const over = Math.floor((Date.now() - new Date(expiresAt).getTime()) / 86_400_000);
+  return over === 0 ? copy.settings.expiredToday : copy.settings.expiredAgo(over);
+}
+
 /** What one environment still lacks before it can move money, in the person's words. */
 export function envMissing(slot: EnvSlotView): string[] {
   const m: string[] = [];
@@ -149,7 +157,9 @@ export function EnvironmentTab({ env, slot, isActiveMode, reload, stepUp }: { en
               <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2"><span className="font-medium">{o.name}</span><StatusPill kind={tone[o.status]}>{copy.settings.operatorStatus[o.status]}</StatusPill></div>
-                  <div className="text-sm text-muted">{copy.settings.expires(new Date(o.expiresAt).toLocaleDateString())}</div>
+                  <div className="text-sm text-muted">{expiryLine(o.expiresAt)}</div>
+                  {o.status !== 'failed' && o.status !== 'disabled' && o.consecutiveFailures > 0 && <div className="text-sm text-danger">{copy.settings.failures(o.consecutiveFailures)}</div>}
+                  {o.status === 'failed' && <div className="text-sm text-danger">{copy.settings.downHelp}</div>}
                   {o.lastError && <div className="text-sm text-danger">{o.lastError}</div>}
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -157,7 +167,7 @@ export function EnvironmentTab({ env, slot, isActiveMode, reload, stepUp }: { en
                     try { await api.post(`/api/settings/operators/${o.id}/probe`); toast.info(copy.settings.probeSent); }
                     catch (e) { toast.error(toastText(e)); }
                     await reload();
-                  }}>{copy.settings.probe}</Button>
+                  }}>{o.status === 'failed' ? copy.settings.reinstate : copy.settings.probe}</Button>
                   <Button variant="secondary" onClick={() => setRotating(open ? null : o.id)}>{open ? copy.confirm.cancel : copy.settings.rotateCredential}</Button>
                   {o.status !== 'disabled' && <Button variant="danger" onClick={() => stepUp.ask(copy.settings.confirm.disable(o.name), async (password) => { await api.post(`/api/settings/operators/${o.id}/disable`, { password }); toast.success(copy.settings.saved); await reload(); })}>{copy.settings.disable}</Button>}
                 </div>

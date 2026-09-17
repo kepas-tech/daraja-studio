@@ -127,8 +127,10 @@ describe('money out: send', () => {
     expect(v.status).toBe('failed');
     expect(v.safaricomSaid).toBe('The initiator information is invalid.');
     expect(v.whatToDo).toMatch(/operator/i);
-    const [op] = await deps.db.query<{ status: string; last_error: string }>('SELECT status, last_error FROM operators WHERE id=$1', [opId]);
-    expect(op.status).toBe('failed');
+    const [op] = await deps.db.query<{ status: string; last_error: string; consecutive_failures: number }>('SELECT status, last_error, consecutive_failures FROM operators WHERE id=$1', [opId]);
+    // Feature 8: one refusal counts against the operator; the second inside ten minutes takes it DOWN.
+    expect(op.status).toBe('verified');
+    expect(op.consecutive_failures).toBe(1);
     expect(op.last_error).toMatch(/initiator information/);
   });
 

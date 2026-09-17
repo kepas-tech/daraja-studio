@@ -114,7 +114,7 @@ describe('fake safaricom scenarios', () => {
     expect(m.body.checked.note).toBe('Portal shows it paid');
   });
 
-  it('rejects synchronously with a credential code: failed with three lines, operator failed, next send blocked', async () => {
+  it('rejects synchronously with a credential code: failed with three lines, operator down on the second try, next send blocked', async () => {
     fake.rejectsSync('2001', 'The initiator information is invalid.');
     const r = await send();
     expect(r.status).toBe(201);
@@ -122,18 +122,33 @@ describe('fake safaricom scenarios', () => {
     expect(r.body.safaricomSaid).toBe('The initiator information is invalid.');
     expect(r.body.meaning).toBeTruthy();
     expect(r.body.whatToDo).toMatch(/operator/i);
-    expect((await deps.db.query<{ status: string }>(`SELECT status FROM operators`))[0].status).toBe('failed');
+    // Feature 8: one refusal only counts. The operator stays active until a second one lands
+    // inside the window, so a stale password the next call survives does not stop every send.
+    expect((await deps.db.query<{ status: string; consecutive_failures: number }>('SELECT status, consecutive_failures FROM operators'))[0])
+      .toMatchObject({ status: 'verified', consecutive_failures: 1 });
+    // rejectsSync is one-shot, so the fake is armed again for the second try.
+    fake.rejectsSync('2001', 'The initiator information is invalid.');
+    const second = await send({ confirmDuplicate: true });
+    expect(second.body.status).toBe('failed');
+    expect((await deps.db.query<{ status: string; consecutive_failures: number }>('SELECT status, consecutive_failures FROM operators'))[0])
+      .toMatchObject({ status: 'failed', consecutive_failures: 2 });
     const again = await send({ confirmDuplicate: true });
     expect(again.status).toBe(409);
     expect(again.body.error.code).toBe('no_operator');
   });
 
-  it('credential error in the result callback: failed and operator failed', async () => {
+  it('credential error in the result callback: failed, and the operator down on the second try', async () => {
     fake.credentialError();
     const r = await send();
     await fake.settle();
     expect((await status(r.body.id)).status).toBe('failed');
-    expect((await deps.db.query<{ status: string }>(`SELECT status FROM operators`))[0].status).toBe('failed');
+    expect((await deps.db.query<{ status: string; consecutive_failures: number }>('SELECT status, consecutive_failures FROM operators'))[0])
+      .toMatchObject({ status: 'verified', consecutive_failures: 1 });
+    const second = await send({ confirmDuplicate: true });
+    await fake.settle();
+    expect((await status(second.body.id)).status).toBe('failed');
+    expect((await deps.db.query<{ status: string; consecutive_failures: number }>('SELECT status, consecutive_failures FROM operators'))[0])
+      .toMatchObject({ status: 'failed', consecutive_failures: 2 });
   });
 
   // 'auto' (the default) tries v3 first; a synchronous 403.002.1001 gateway refusal is

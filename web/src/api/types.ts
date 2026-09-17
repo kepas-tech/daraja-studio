@@ -52,6 +52,8 @@ export interface PersonView {
 export interface OperatorView {
   id: string; name: string; environment: Env; status: 'pending' | 'verified' | 'failed' | 'disabled'; priority: number;
   rotatedAt: string; lastProbeAt: string | null; lastError: string | null; expiresAt: string;
+  /** Feature 8: credential failures inside the last ten minutes, and when the operator went DOWN. */
+  consecutiveFailures: number; lastFailureAt: string | null; downSince: string | null;
 }
 /** `GET /api/signup/status` — the whole of what the wizard resumes from (spec 4.2). */
 export interface EnvSlotView {

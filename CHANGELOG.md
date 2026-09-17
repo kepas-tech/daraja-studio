@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.23.0 — operator cards that say Active, Standby or DOWN
+
+- Settings › Daraja app now says plainly what each API operator is doing: **Active**, **Standby**,
+  **DOWN**, or switched off; how many of the two allowed failures have happened; when the password
+  expires; and a **Reinstate** button that asks Safaricom to check it again.
+- One credential failure no longer takes an operator down. Two inside ten minutes does, and any
+  success — a probe Safaricom accepts, or a payment that settles — clears the count. A stale
+  password that the next call survives no longer costs a day of sending.
+- Safaricom's `TP40153` joins 2001 and 8006 as a credential-class code, and all three now read as
+  the operator's problem rather than the payment's: what Safaricom said, that the credential is what
+  failed, and the steps in Settings that fix it.
+
 ## 0.22.0 — Reports: how the week went, and why some payments failed
 
 - Reports, in the menu beside Home: money in and money out for every day in the window you pick

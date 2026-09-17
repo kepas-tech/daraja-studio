@@ -68,7 +68,7 @@ describe('/cb/b2c', () => {
     } finally { unsub(); await deps.events.stop(); }
   });
 
-  it('a credential failure marks the request failed with three lines and the operator failed', async () => {
+  it('a credential failure fails the request with three lines and counts one operator failure', async () => {
     const { reqId, opId } = await seed('OCB2');
     await request(app).post('/cb/sekret/b2c').set('X-Forwarded-For', SAF_IP).send(b2cBody('OCB2', 2001));
     const [row] = await deps.db.query<{ status: string; result_code: string; result_desc: string; meaning: string }>('SELECT status, result_code, result_desc, meaning FROM requests WHERE id=$1', [reqId]);
@@ -76,8 +76,11 @@ describe('/cb/b2c', () => {
     expect(row.result_code).toBe('2001');
     expect(row.result_desc).toBe('The initiator information is invalid.');
     expect(row.meaning).toBeTruthy();
-    const [op] = await deps.db.query<{ status: string; last_error: string }>('SELECT status, last_error FROM operators WHERE id=$1', [opId]);
-    expect(op.status).toBe('failed');
+    const [op] = await deps.db.query<{ status: string; last_error: string; consecutive_failures: number }>('SELECT status, last_error, consecutive_failures FROM operators WHERE id=$1', [opId]);
+    // Feature 8: the first refusal only counts against the operator; the second inside ten minutes
+    // takes it DOWN (test/operator-failures.test.ts owns that rule).
+    expect(op.status).toBe('verified');
+    expect(op.consecutive_failures).toBe(1);
     expect(op.last_error).toMatch(/initiator information/);
     expect((await deps.db.query('SELECT 1 FROM balances')).length).toBe(0);
   });

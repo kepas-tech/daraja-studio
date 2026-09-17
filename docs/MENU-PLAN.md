@@ -77,7 +77,8 @@ Real work that adds no menu entry, tracked here for the same reason the send typ
 
 | Button | Where | Status | Evidence |
 |---|---|---|---|
-| Export as a spreadsheet | History, Invoices | live | 0.19.0, deployed 2026-09-17; the KEPAS Pay borrow list, item 3; behind the already-declared `history.export` |
+| Export as a spreadsheet | History, Invoices, Reports | live | 0.19.0, deployed 2026-09-17; the KEPAS Pay borrow list, item 3; behind the already-declared `history.export`; Reports joined in 0.22.0 |
+| Operator states, the two-try guard, Reinstate | Settings › Daraja app | live | 0.23.0, deployed 2026-09-17; the KEPAS Pay borrow list, item 8; the plan said a page under Organisation, the cards already live in Settings |
 
 ## Send types inside Send money
 

@@ -203,7 +203,8 @@ describe('M3: reverse a payment', () => {
     expect(r.body.safaricomSaid).toBe('The initiator information is invalid.');
     expect(r.body.meaning).toBeTruthy();
     expect(r.body.whatToDo).toBeTruthy();
-    expect((await deps.db.query<{ status: string }>('SELECT status FROM operators'))[0].status).toBe('failed');
+    // Feature 8: one refusal counts against the operator; the second inside ten minutes takes it DOWN.
+    expect((await deps.db.query<{ status: string; consecutive_failures: number }>('SELECT status, consecutive_failures FROM operators'))[0]).toMatchObject({ status: 'verified', consecutive_failures: 1 });
   });
 
   it('rule 4b: a refusal that says the customer already spent the money explains itself honestly', async () => {
