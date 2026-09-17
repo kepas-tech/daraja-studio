@@ -1,9 +1,9 @@
 import type { Db } from '../db/pool.js';
 import type { EventHub } from '../events/hub.js';
 import type { CallbackVerdict } from './router.js';
-import { kindsForPath, type RequestKind } from '../money_out/registry.js';
+import { CREDENTIAL_CODES, kindsForPath, type RequestKind } from '../money_out/registry.js';
 import { explain } from '../sdk/meaning.js';
-import { clearOperatorFailures, failOperatorOnCredentialCode } from '../money_out/operatorHealth.js';
+import { clearOperatorFailures, recordOperatorRefusal } from '../money_out/operatorHealth.js';
 import { scheduleBalanceRefresh } from '../money_out/balanceRefresh.js';
 
 /**
@@ -19,8 +19,15 @@ import { scheduleBalanceRefresh } from '../money_out/balanceRefresh.js';
  * which is a property of the API, not of what we called it. Once the row is known, its own kind
  * re-parses the body so kind-specific fields are read by the kind that understands them.
  */
+/**
+ * Brief 2, item 7: send the row again with the next verified operator, after a credential-class
+ * refusal. Answers whether it went out again. The money-out service owns the sending; the result
+ * path only decides that this refusal is one that may be retried.
+ */
+export type Failover = (requestId: string, failedOperatorId: string | null) => Promise<boolean>;
+
 export async function applyResult(
-  deps: { db: Db; events: EventHub },
+  deps: { db: Db; events: EventHub; failover?: Failover },
   path: RequestKind['callbackPath'],
   body: unknown,
 ): Promise<CallbackVerdict> {
@@ -41,7 +48,7 @@ export async function applyResult(
   type Outcome =
     | { verdict: 'unmatched' }
     | { verdict: 'duplicate'; requestId: string }
-    | { verdict: 'applied'; requestId: string; operatorId: string | null; funds: boolean; success: boolean; resultCode: number; resultDesc: string };
+    | { verdict: 'applied'; requestId: string; operatorId: string | null; funds: boolean; success: boolean; resultCode: number; resultDesc: string; meaning: string; retriable: boolean; failoverPending: boolean };
 
   const outcome: Outcome = await deps.db.tx(async (c) => {
     // Which row this is, before anything is written: the match is on either identifier because a
@@ -64,29 +71,65 @@ export async function applyResult(
     const ex = explain(kind.scope, r.resultCode, r.resultDesc);
     const hasFunds = r.success && (r.utilityCents != null || r.workingCents != null);
 
-    const upd = await c.query<{ id: string }>(
-      `UPDATE requests SET status=$2, conversation_id=COALESCE(conversation_id,$3), result_at=now(), result_source='callback',
-         result_code=$4, result_desc=$5, meaning=$6, retriable=$7, receipt=COALESCE($8, receipt), recipient_name=COALESCE($9, recipient_name), raw_result_json=$10::jsonb
-       WHERE id=$1 AND status IN ('pending','sent','unknown')
-       RETURNING id`,
-      [row.id, r.success ? 'completed' : 'failed', r.conversationId || null, String(r.resultCode), r.resultDesc, ex.meaning, ex.retriable,
-        r.receipt ?? null, r.recipientName ?? null, JSON.stringify(body)]);
+    // Brief 2, item 7: a credential-class refusal means Safaricom turned the request down outright,
+    // so when another verified operator is attached this result does not end the row — it goes back
+    // in flight for that operator instead, and is never written final on the way (the requests table
+    // refuses to rewrite a final row, and it is right to). Only the row is put back here; the send
+    // itself happens after this transaction, where an HTTP call belongs.
+    const refusedCredential = !r.success && row.operator_id !== null && CREDENTIAL_CODES.has(String(r.resultCode));
+    const failoverPending = refusedCredential && deps.failover !== undefined
+      && (await c.query<{ id: string }>(
+        `SELECT id FROM operators WHERE status='verified' AND id IS DISTINCT FROM $1::uuid ORDER BY priority ASC, created_at ASC LIMIT 1`,
+        [row.operator_id])).rows.length > 0;
+
+    const upd = failoverPending
+      ? await c.query<{ id: string }>(
+        `UPDATE requests SET status='pending', conversation_id=COALESCE(conversation_id,$2), result_at=NULL, result_source=NULL,
+             result_code=NULL, result_desc=NULL, meaning=NULL, retriable=NULL,
+             receipt=COALESCE($3, receipt), recipient_name=COALESCE($4, recipient_name), raw_result_json=$5::jsonb,
+             poll_attempts=0, last_poll_at=now(), payload_json = payload_json - 'ackOriginatorConversationId'
+           WHERE id=$1 AND status IN ('pending','sent','unknown')
+           RETURNING id`,
+        [row.id, r.conversationId || null, r.receipt ?? null, r.recipientName ?? null, JSON.stringify(body)])
+      : await c.query<{ id: string }>(
+        `UPDATE requests SET status=$2, conversation_id=COALESCE(conversation_id,$3), result_at=now(), result_source='callback',
+             result_code=$4, result_desc=$5, meaning=$6, retriable=$7, receipt=COALESCE($8, receipt), recipient_name=COALESCE($9, recipient_name), raw_result_json=$10::jsonb
+           WHERE id=$1 AND status IN ('pending','sent','unknown')
+           RETURNING id`,
+        [row.id, r.success ? 'completed' : 'failed', r.conversationId || null, String(r.resultCode), r.resultDesc, ex.meaning, ex.retriable,
+          r.receipt ?? null, r.recipientName ?? null, JSON.stringify(body)]);
     if (!upd.rows[0]) return { verdict: 'duplicate' as const, requestId: row.id };
 
     if (hasFunds) {
       await c.query(`INSERT INTO balances(working_cents, utility_cents, charges_paid_cents, raw) VALUES ($1,$2,NULL,$3::jsonb)`,
         [r.workingCents ?? null, r.utilityCents ?? null, JSON.stringify({ source: `${kind.type}_result`, utilityCents: r.utilityCents ?? null, workingCents: r.workingCents ?? null })]);
     }
-    return { verdict: 'applied' as const, requestId: row.id, operatorId: row.operator_id, funds: hasFunds, success: r.success, resultCode: r.resultCode, resultDesc: r.resultDesc };
+    return { verdict: 'applied' as const, requestId: row.id, operatorId: row.operator_id, funds: hasFunds, success: r.success, resultCode: r.resultCode, resultDesc: r.resultDesc, meaning: ex.meaning, retriable: ex.retriable, failoverPending };
   });
 
   if (outcome.verdict !== 'applied') return outcome satisfies CallbackVerdict;
   // Feature 8: a settled request is the operator working, so it clears the two-try guard; a
   // credential-class failure counts against it instead.
   if (outcome.success) await clearOperatorFailures(deps.db, outcome.operatorId);
-  else await failOperatorOnCredentialCode(deps.db, deps.events, outcome.operatorId, outcome.resultCode, outcome.resultDesc);
+  // Brief 2, item 7: a credential refusal means Safaricom turned the request down outright, so the
+  // same row goes out again with the next verified operator when one is attached. The intermediate
+  // failure is then never announced as the end of the payment — the re-send publishes its own line,
+  // and the result of that attempt is the one the owner reads.
+  let again = false;
+  if (!outcome.success) {
+    const refused = await recordOperatorRefusal(deps.db, deps.events, outcome.operatorId, outcome.resultCode, outcome.resultDesc);
+    if (refused && outcome.failoverPending && deps.failover) {
+      try { again = await deps.failover(outcome.requestId, outcome.operatorId); }
+      catch (e) { console.error('failover after a credential refusal failed', outcome.requestId, e instanceof Error ? e.message : e); }
+      // Nothing picked the row up (the operator went down in between, say): fail it rather than
+      // leave it in flight with nobody sending it. Allowed — the row never became final.
+      if (!again) await deps.db.query(
+        `UPDATE requests SET status='failed', result_at=now(), result_code=$2, result_desc=$3, meaning=$4, retriable=$5 WHERE id=$1 AND status='pending'`,
+        [outcome.requestId, String(outcome.resultCode), outcome.resultDesc, outcome.meaning, outcome.retriable]);
+    }
+  }
   if (outcome.funds) await deps.events.publish('balance.updated', { at: new Date().toISOString() });
-  await deps.events.publish('request.updated', { id: outcome.requestId, status: outcome.success ? 'completed' : 'failed' });
+  if (!again) await deps.events.publish('request.updated', { id: outcome.requestId, status: outcome.success ? 'completed' : 'failed' });
   // Feature 9: this result gave the row its final status, so the balance the owner reads should
   // follow it — debounced to one quiet read a minute. A row settled by a poll instead
   // (callbacks/status.ts, the lost-callback path) does not schedule one.

@@ -163,6 +163,7 @@ export function Notifications() {
                     <p className="text-sm text-muted">{when(n.updatedAt)}</p>
                     <div className="flex flex-wrap items-center gap-2 pt-1">
                       {n.data.requestId && <Link className="text-base" to={`/requests/${n.data.requestId}`}>{c.openPayment}</Link>}
+                      {typeof n.data.href === 'string' && <Link className="text-base" to={n.data.href}>{c.openOperators}</Link>}
                       {!n.readAt && <Button variant="ghost" onClick={() => void markOne(n)}>{c.markRead}</Button>}
                     </div>
                   </div>

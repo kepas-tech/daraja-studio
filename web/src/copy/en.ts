@@ -485,6 +485,7 @@ export const copy = {
     markedAll: (n: number) => (n === 1 ? 'One line marked as read.' : n + ' lines marked as read.'),
     markRead: 'Mark as read',
     openPayment: 'Open this payment',
+    openOperators: 'Open the operator cards',
     repeated: (n: number) => '×' + n,
     repeatedTitle: (n: number) => 'The same thing happened ' + n + ' times.',
     severity: { info: 'For your information', success: 'Went well', warning: 'Needs a look', critical: 'Something is wrong' } as Record<string, string>,

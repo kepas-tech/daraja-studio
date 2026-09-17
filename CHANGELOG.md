@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.37.0 — the operator pool, the rest of it
+
+- **One request in flight per operator.** A send takes a short lease on the operator that signs it,
+  so a batch going out on a credential Safaricom has just started refusing cannot burn both tries in
+  the same second. The lease goes back the moment Safaricom answers, and it runs out on its own if a
+  process dies holding it — the queue drains instead of stalling behind it.
+- **A refused send moves to the next operator.** When Safaricom turns a payment down with a
+  credential code (2001, 8006, TP40153) and another verified operator is attached, the same row goes
+  out again with that one — on the send path and when the refusal arrives as a result callback. The
+  row keeps its number, its links and its author, and nothing final is written for an attempt that is
+  about to be repeated.
+- **A word when nothing is left.** When the last verified operator goes down, one critical line
+  reaches the inbox and the phone: “No working operator left. Payments out cannot go until you fix
+  one.”, linked to the operator cards.
+
 ## 0.36.0 — a fingerprint that looks like one
 
 - The fingerprint icon is Studio's own drawing now: three concentric ridges around a core loop, on

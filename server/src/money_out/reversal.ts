@@ -19,7 +19,8 @@ import { requirePermission } from '../permissions/middleware.js';
 import { requireMoneyReady } from './ready.js';
 import { getRequest, type RequestView } from './reads.js';
 import { KINDS, LEDGER_TYPES, type RequestRow } from './registry.js';
-import { failOperatorOnCredentialCode } from './operatorHealth.js';
+import { recordOperatorRefusal } from './operatorHealth.js';
+import type { Failover } from '../callbacks/apply.js';
 import { AUTH_FAILED_MEANING, UNCONFIRMED } from './service.js';
 
 /**
@@ -80,7 +81,7 @@ export interface ReversalService {
   request(input: { receipt: string; remarks?: string }, actor: { personId: string; ip: string }): Promise<RequestView>;
 }
 
-export function createReversalService(deps: { db: Db; settings: Settings; daraja: DarajaFactory; events: EventHub; config: Config; orgs: OrgService }): ReversalService {
+export function createReversalService(deps: { db: Db; settings: Settings; daraja: DarajaFactory; events: EventHub; config: Config; orgs: OrgService; /** Brief 2, item 7. */ failover?: Failover }): ReversalService {
   async function urls() {
     const publicUrl = await deps.settings.get('public.url');
     if (!publicUrl) throw new HttpError(409, 'public_url_unverified', 'Test your public address in Settings first.');
@@ -163,10 +164,18 @@ export function createReversalService(deps: { db: Db; settings: Settings; daraja
           // operator is told that, not a generic "Safaricom refused".
           const spent = isSettledByRecipientSpend(desc);
           const ex = code !== null ? explain(kind.scope, code, desc) : null;
+          // Brief 2, item 7: a credential refusal is Safaricom turning the reversal down outright, so
+          // with another verified operator attached the row is never failed here — it goes out again
+          // with that operator, which publishes its own events and answers with the fresh row. The
+          // refusal is counted either way.
+          if (code !== null && await recordOperatorRefusal(deps.db, deps.events, operatorId, code, desc)
+              && deps.failover && await deps.failover(row.id, operatorId)) {
+            const again = await getRequest(deps.db, row.id, deps.config.egressIps);
+            if (again) return again;
+          }
           await deps.db.query(
             `UPDATE requests SET status='failed', result_at=now(), result_code=$2, result_desc=$3, meaning=$4, retriable=$5 WHERE id=$1 AND status='pending'`,
             [row.id, code, desc, spent ? SPENT_MEANING : (ex?.meaning ?? desc), spent ? false : (ex?.retriable ?? false)]);
-          if (code !== null) await failOperatorOnCredentialCode(deps.db, deps.events, operatorId, code, desc);
           status = 'failed';
         } else {
           await deps.db.query(
@@ -195,7 +204,7 @@ function parse<T>(schema: z.ZodType<T>, value: unknown): T {
 }
 
 export function reversalRoutes(deps: AppDeps): Router {
-  const service = createReversalService(deps);
+  const service = createReversalService({ ...deps, failover: (requestId, failedOperatorId) => deps.moneyOut.failover(requestId, failedOperatorId) });
   const r = Router();
   // The pre-check, so the operator sees the payment and the amount before a password is asked and
   // before Safaricom is called. It refuses a receipt that never settled, in the same words the

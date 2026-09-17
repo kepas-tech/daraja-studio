@@ -93,7 +93,7 @@ async function main() {
   const daraja = createDarajaFactory({ settings, cache, db, keyring, fetchImpl });
   const operators = createOperatorService({ db, settings, keyring, daraja, events, orgs, config });
   const settingsService = createSettingsService({ db, config, settings, instance, cache, daraja, operators, orgs });
-  const moneyOut = createMoneyOutService({ db, settings, daraja, events, config, orgs });
+  const moneyOut = createMoneyOutService({ db, settings, cache, daraja, events, config, orgs });
   const collect = createCollectService({ db, settings, daraja, events, config, orgs });
   const moneyIn = createMoneyInService({ db, settings, daraja, events, orgs });
   const bulk = createBulkService({ db, settings, config, events, moneyOut });

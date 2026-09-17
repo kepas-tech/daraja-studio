@@ -14,8 +14,8 @@ import { REVERSAL_QUEUE_TIMEOUT, SPENT_MEANING } from '../money_out/reversal.js'
  * the generic path lands on "Safaricom did not explain this code" — true but useless. The honest
  * sentence is written here instead, and a second event tells any open page to re-read the row.
  */
-export const reversalHandler: CallbackHandler = async ({ db, events, body }) => {
-  const verdict = await applyResult({ db, events }, 'reversal', body);
+export const reversalHandler: CallbackHandler = async ({ db, events, body, failover }) => {
+  const verdict = await applyResult({ db, events, failover }, 'reversal', body);
   if (verdict.verdict !== 'applied' || !verdict.requestId) return verdict;
   let spent = false;
   try {

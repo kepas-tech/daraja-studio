@@ -121,7 +121,7 @@ export function buildApp(deps: AppDeps): express.Express {
   app.use(
     '/cb',
     express.json({ limit: '256kb', verify: (req, _res, buf) => { (req as Request).rawBody = buf.toString('utf8'); } }),
-    callbackRoutes({ ...deps, handlers: { selftest: selftestHandler, balance: balanceHandler, b2c: b2cHandler, 'b2c/timeout': b2cTimeoutHandler, status: statusHandler, stk: stkHandler, reversal: reversalHandler, 'reversal/timeout': reversalTimeoutHandler, 'c2b/validate': c2bValidateHandler, 'c2b/confirm': c2bConfirmHandler, billmanager: billManagerHandler(deps.invoices), ratiba: ratibaHandler, express: expressHandler } }),
+    callbackRoutes({ ...deps, failover: (requestId, failedOperatorId) => deps.moneyOut.failover(requestId, failedOperatorId), handlers: { selftest: selftestHandler, balance: balanceHandler, b2c: b2cHandler, 'b2c/timeout': b2cTimeoutHandler, status: statusHandler, stk: stkHandler, reversal: reversalHandler, 'reversal/timeout': reversalTimeoutHandler, 'c2b/validate': c2bValidateHandler, 'c2b/confirm': c2bConfirmHandler, billmanager: billManagerHandler(deps.invoices), ratiba: ratibaHandler, express: expressHandler } }),
     callbackErrorHandler(deps),
   );
   app.use(express.json({ limit: '256kb' }));

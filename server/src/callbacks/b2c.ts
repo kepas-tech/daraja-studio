@@ -6,4 +6,4 @@ import { applyResult } from './apply.js';
  * a business wallet. The handler names only the path; `applyResult` resolves which row and which
  * kind this result belongs to, and refuses to apply it to a kind that answers elsewhere.
  */
-export const b2cHandler: CallbackHandler = async ({ db, events, body }) => applyResult({ db, events }, 'b2c', body);
+export const b2cHandler: CallbackHandler = async ({ db, events, body, failover }) => applyResult({ db, events, failover }, 'b2c', body);

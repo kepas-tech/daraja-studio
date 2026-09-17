@@ -8,11 +8,15 @@ import { HttpError } from '../util/errors.js';
 
 export const PASSKEY_NOT_SET = 'not-set';
 
+/** Which operators a pick must not choose: the ones a request has already been refused by
+ *  (brief 2, item 7), so a failover never lands back on the operator that just said no. */
+export interface PickOptions { exclude?: string[] }
+
 export interface DarajaFactory {
   /** Tier-A client, or the best verified operator attached when one exists. Never throws for a missing operator. */
-  get(operatorId?: string): Promise<Daraja>;
+  get(operatorId?: string, opts?: PickOptions): Promise<Daraja>;
   /** Tier-C client. Throws 409 `no_operator` unless a usable operator is attached. */
-  getForOperator(operatorId?: string): Promise<Daraja>;
+  getForOperator(operatorId?: string, opts?: PickOptions): Promise<Daraja>;
   /**
    * Forget one organisation's cached client (`orgId`), or every organisation's. **The no-argument
    * form is a full flush across every organisation this process has ever built a client for, and
@@ -203,7 +207,7 @@ export function createDarajaFactory(deps: { settings: Settings; cache: Cache; db
     return { cfg: await slotConfig(deps, mode), mode };
   }
 
-  async function pickOperator(mode: Env, operatorId?: string): Promise<OperatorRow | null> {
+  async function pickOperator(mode: Env, operatorId?: string, exclude: string[] = []): Promise<OperatorRow | null> {
     if (operatorId) {
       const rows = await deps.db.query<OperatorRow>('SELECT id, name, credential_enc, status, environment FROM operators WHERE id=$1', [operatorId]);
       const op = rows[0];
@@ -222,16 +226,18 @@ export function createDarajaFactory(deps: { settings: Settings; cache: Cache; db
       return op;
     }
     const rows = await deps.db.query<OperatorRow>(
-      `SELECT id, name, credential_enc, status, environment FROM operators WHERE status='verified' AND environment=$1 ORDER BY priority ASC, created_at ASC LIMIT 1`,
-      [mode],
+      `SELECT id, name, credential_enc, status, environment FROM operators
+        WHERE status='verified' AND environment=$1 AND id <> ALL($2::uuid[])
+        ORDER BY priority ASC, created_at ASC LIMIT 1`,
+      [mode, exclude],
     );
     return rows[0] ?? null;
   }
 
-  async function build(operatorId: string | undefined, requireOperator: boolean): Promise<Daraja> {
+  async function build(operatorId: string | undefined, requireOperator: boolean, exclude: string[] = []): Promise<Daraja> {
     const orgId = requireOrg();
     const { cfg, mode } = await baseConfig();
-    const op = await pickOperator(mode, operatorId);
+    const op = await pickOperator(mode, operatorId, exclude);
     if (requireOperator && !op) throw new HttpError(409, 'no_operator', `${NO_OPERATOR_MESSAGE} You are in ${mode} mode.`);
     const key = sha256(JSON.stringify([orgId, mode, cfg.consumerKey, cfg.consumerSecret, cfg.shortcode, cfg.passkey, op?.id ?? null, op?.credential_enc ?? null]));
     const hit = clients.get(orgId);
@@ -256,8 +262,8 @@ export function createDarajaFactory(deps: { settings: Settings; cache: Cache; db
   }
 
   const factory: DarajaFactory = {
-    get: (operatorId) => build(operatorId, false),
-    getForOperator: (operatorId) => build(operatorId, true),
+    get: (operatorId, opts) => build(operatorId, false, opts?.exclude ?? []),
+    getForOperator: (operatorId, opts) => build(operatorId, true, opts?.exclude ?? []),
     invalidate(orgId?: string) {
       if (orgId === undefined) clients.clear();
       else clients.delete(orgId);
@@ -276,8 +282,8 @@ export function createDarajaFactory(deps: { settings: Settings; cache: Cache; db
     /** The same three calls, bound to another organisation. For code that acts across organisations. */
     forOrg(orgId: string) {
       return {
-        get: (operatorId?: string) => withOrg(orgId, () => factory.get(operatorId)),
-        getForOperator: (operatorId?: string) => withOrg(orgId, () => factory.getForOperator(operatorId)),
+        get: (operatorId?: string, opts?: PickOptions) => withOrg(orgId, () => factory.get(operatorId, opts)),
+        getForOperator: (operatorId?: string, opts?: PickOptions) => withOrg(orgId, () => factory.getForOperator(operatorId, opts)),
         stkEnabled: () => withOrg(orgId, () => factory.stkEnabled()),
         stkStatus: () => withOrg(orgId, () => factory.stkStatus()),
       };

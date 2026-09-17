@@ -3,6 +3,7 @@ import { DarajaAPIError, DarajaAuthError, DarajaConnectionError, normalizePhone,
 import type { Config } from '../config.js';
 import type { Db } from '../db/pool.js';
 import { currentOrgId } from '../db/pool.js';
+import type { Cache } from '../db/cache.js';
 import type { Settings, Env } from '../settings/store.js';
 import type { DarajaFactory } from '../sdk/client.js';
 import type { EventHub } from '../events/hub.js';
@@ -16,7 +17,8 @@ import { parseCategories } from '../settings/categories.js';
 import { enqueue } from '../db/jobs.js';
 import { PUBLIC_URL_UNVERIFIED } from './ready.js';
 import { KINDS, MONEY_TYPES, type CallbackUrls, type RequestKind, type RequestRow } from './registry.js';
-import { failOperatorOnCredentialCode } from './operatorHealth.js';
+import { recordOperatorRefusal } from './operatorHealth.js';
+import { createOperatorLock } from './operatorLock.js';
 import { createFeesService } from '../fees/service.js';
 import { resolveAccount } from '../businesses/lookup.js';
 import { getRequest, listRequests, listWaiting, waitingBadge, type Page, type RequestView, type WaitingView } from './reads.js';
@@ -43,6 +45,12 @@ export interface MoneyOutService {
   lookup(receipt: string, actor: Actor): Promise<{ requestId: string }>;
   /** M4: a second person sends a held row down the ordinary path. */
   release(requestId: string, actor: Actor): Promise<RequestView>;
+  /**
+   * Brief 2, item 7: send a row that a credential-class refusal just failed again with the next
+   * verified operator. True when it went out again, false when there was no other operator to use —
+   * which is the caller's answer to "did anything change".
+   */
+  failover(requestId: string, failedOperatorId: string | null): Promise<boolean>;
   refuse(requestId: string, reason: string, actor: Actor): Promise<RequestView>;
   listAwaiting(): Promise<Page<RequestView>>;
   /** Feature 5: the Waiting page's three sections. `canDecide` is the release route's own gate. */
@@ -75,7 +83,7 @@ const SAFARICOM_OCID = "COALESCE(payload_json->>'ackOriginatorConversationId', o
  * SAME row on v1 cannot cause a double payment. `e.resultCode` is set only when the studio's own
  * code constructs the error AFTER already receiving an ack (the `ack.responseCode !== '0'` check
  * below) — that shape must never retry, ack or no ack, because Safaricom already saw the request.
- * The HTTP status must be checked too, not just the error code: a 5xx carrying this same
+ * The HTTP status must be checked too, not only the error code: a 5xx carrying this same
  * `errorCode` in its body is NOT the gateway's "nothing was queued" guarantee — it could mean the
  * request reached Safaricom before an upstream failure — so it must fall through to the existing
  * `maybeQueued` ("unknown") handling below instead of ever retrying.
@@ -106,7 +114,7 @@ export function syncRejection(e: DarajaAPIError): { code: string | null; desc: s
  * failure, say), means the same thing from the operator's chair — the call to Safaricom did not
  * complete — so both collapse to the same `safaricom_unreachable` line rather than inventing a
  * meaning decision 4 never named. `details` carries the catalog meaning alongside Safaricom's own
- * text so a `safaricom_rejected` response still shows the house three lines, not just one. */
+ * text so a `safaricom_rejected` response still shows the house three lines, not only one. */
 export function sdkCallError(e: unknown, scope: DarajaScope, egressIps: string[]): HttpError {
   if (e instanceof DarajaAuthError) return new HttpError(502, 'daraja_auth', e.message);
   if (e instanceof DarajaAPIError) {
@@ -130,10 +138,13 @@ function requireOrg(): string {
   return orgId;
 }
 
-export function createMoneyOutService(deps: { db: Db; settings: Settings; daraja: DarajaFactory; events: EventHub; config: Config; orgs: OrgService }): MoneyOutService {
+export function createMoneyOutService(deps: { db: Db; settings: Settings; cache: Cache; daraja: DarajaFactory; events: EventHub; config: Config; orgs: OrgService }): MoneyOutService {
   // Feature 11: the band this send falls in, stored on the row so History shows what it cost. Built
   // from the same pool, so no dependency has to be threaded through every caller of this factory.
   const fees = createFeesService({ db: deps.db });
+  // Brief 2, item 7: one request in flight per operator, which is what makes the two-try guard hold
+  // when a batch is going out on a credential Safaricom has just started refusing.
+  const lock = createOperatorLock({ cache: deps.cache });
 
   async function urls() {
     const publicUrl = await deps.settings.get('public.url');
@@ -216,14 +227,65 @@ export function createMoneyOutService(deps: { db: Db; settings: Settings; daraja
     await deps.settings.set(`env.${env}.b2cApiDetectedAt`, new Date().toISOString());
   }
 
+  /** The operator row id behind a built client, or null when no operator is attached at all. */
+  async function operatorIdFor(client: Daraja): Promise<string | null> {
+    return (await deps.db.query<{ id: string }>(`SELECT id FROM operators WHERE name=$1`, [client.config?.initiator ?? '']))[0]?.id ?? null;
+  }
+
   /**
-   * Everything after the row exists: the Safaricom call, the ack, and every way it can go wrong.
-   * Shared by send() and release() (M4) so a released send takes exactly the path a direct one does.
+   * Brief 2, item 7. The next verified operator that has not already refused this request, with its
+   * client. Null means nobody is left to try, which is where the row fails for real.
    */
-  async function dispatch(kind: RequestKind, row: RequestRow, client: Daraja, cb: CallbackUrls, operatorId: string | null): Promise<RequestView> {
+  async function nextOperator(exclude: string[]): Promise<{ id: string; client: Daraja } | null> {
+    let client: Daraja;
+    try {
+      client = await deps.daraja.getForOperator(undefined, { exclude });
+    } catch (e) {
+      if (e instanceof HttpError && e.code === 'no_operator') return null;
+      throw e;
+    }
+    const id = await operatorIdFor(client);
+    if (!id || exclude.includes(id)) return null;
+    // The pick ran a moment ago; a concurrent refusal may have taken this operator down since. The
+    // exclude check is repeated here so the rule holds even if a picker ever ignores the option: an
+    // operator that already refused this request must never be handed it again.
+    const [row] = await deps.db.query<{ status: string }>('SELECT status FROM operators WHERE id=$1', [id]);
+    return row?.status === 'verified' ? { id, client } : null;
+  }
+
+  /**
+   * Move a row that is still in flight to another operator. Only the wire identifiers change: the
+   * row keeps its id, its links and its author, so the next result settles it exactly as a first
+   * attempt would. The refused attempt's ack id is dropped, so a redelivered callback for that
+   * attempt can never land on this row again, and last_poll_at is set so the sweep does not poll the
+   * row in the seconds between here and the new ack.
+   *
+   * Deliberately never writes a final status on the way: the requests table refuses to rewrite a
+   * final row, and it is right to, so a request that is about to be tried again is simply never
+   * declared dead.
+   */
+  async function moveRow(rowId: string, operatorId: string): Promise<RequestRow | null> {
+    const rows = await deps.db.query<RequestRow>(
+      `UPDATE requests SET operator_id=$2, originator_conversation_id=$3, poll_attempts=0, last_poll_at=now(),
+              payload_json = payload_json - 'ackOriginatorConversationId'
+        WHERE id=$1 AND status='pending' RETURNING *`,
+      [rowId, operatorId, randomUUID()]);
+    return rows[0] ?? null;
+  }
+
+  /**
+   * One attempt: the Safaricom call behind the operator's one in-flight slot, the ack, and every way
+   * it can go wrong. Returns the credential-class code when that is what Safaricom said, which is
+   * the caller's signal that the same row may be sent again with another operator. The event is
+   * published by dispatch(), once, with the status the request actually ended on.
+   */
+  async function attempt(kind: RequestKind, row: RequestRow, client: Daraja, cb: CallbackUrls, operatorId: string | null, tried: string[]): Promise<{ status: string; refused: string | null; next: { id: string; client: Daraja; row: RequestRow } | null }> {
       const { version: initialVersion, setting: b2cApiSetting, env: b2cApiEnv } = await resolveB2cVersion();
       let versionUsed: 'v1' | 'v3' = initialVersion;
+      let refused: string | null = null;
       let status: string;
+      // Taken last, so the slot can never be held by a call that failed before it reached Safaricom.
+      const ticket = await lock.acquire(operatorId);
       try {
         let ack: { conversationId: string; originatorConversationId: string; responseCode: string; responseDescription: string };
         try {
@@ -249,7 +311,7 @@ export function createMoneyOutService(deps: { db: Db; settings: Settings; daraja
           }
         }
         if (ack.responseCode !== '0') throw new DarajaAPIError(ack.responseDescription, { resultCode: Number(ack.responseCode), resultDesc: ack.responseDescription, scope: kind.scope });
-        const payloadPatch: Record<string, unknown> = { b2cApiUsed: versionUsed };
+        const payloadPatch: Record<string, unknown> = kind.versionFallback === true ? { b2cApiUsed: versionUsed } : {};
         if (ack.originatorConversationId && ack.originatorConversationId !== row.originator_conversation_id) payloadPatch.ackOriginatorConversationId = ack.originatorConversationId;
         await deps.db.query(
           `UPDATE requests SET status='sent', conversation_id=$2, sent_at=now(), payload_json = payload_json || $3::jsonb WHERE id=$1 AND status='pending'`,
@@ -270,7 +332,7 @@ export function createMoneyOutService(deps: { db: Db; settings: Settings; daraja
         const maybeQueued = e instanceof DarajaConnectionError
           || (e instanceof DarajaAPIError && typeof httpStatus === 'number' && httpStatus >= 500)
           || (e instanceof DarajaAPIError && e.message.includes(DUPLICATE_ID));
-        const b2cApiUsed = JSON.stringify({ b2cApiUsed: versionUsed });
+        const b2cApiUsed = JSON.stringify(kind.versionFallback === true ? { b2cApiUsed: versionUsed } : {});
         if (maybeQueued) {
           // The request may already have reached Safaricom (connection error, a 5xx that could
           // mean it queued the payment before failing, or Safaricom saying the id already
@@ -288,19 +350,55 @@ export function createMoneyOutService(deps: { db: Db; settings: Settings; daraja
         } else if (e instanceof DarajaAPIError) {
           const { code, desc } = syncRejection(e);
           const ex = code !== null ? explain(kind.scope, code, desc, { b2cApiUsed: versionUsed }) : null;
+          // Brief 2, item 7: a credential-class refusal is Safaricom turning the request down
+          // outright. When another verified operator is attached, this row is not failed at all: it
+          // is moved to that operator and sent again, so nothing final is ever written on the way.
+          if (code !== null && await recordOperatorRefusal(deps.db, deps.events, operatorId, code, desc)) {
+            const next = await nextOperator([...tried, ...(operatorId ? [operatorId] : [])]);
+            const moved = next ? await moveRow(row.id, next.id) : null;
+            if (next && moved) { refused = code; return { status: 'pending', refused, next: { id: next.id, client: next.client, row: moved } }; }
+          }
           await deps.db.query(
             `UPDATE requests SET status='failed', result_at=now(), result_code=$2, result_desc=$3, meaning=$4, retriable=$5, payload_json = payload_json || $6::jsonb WHERE id=$1 AND status='pending'`,
             [row.id, code, desc, ex?.meaning ?? desc, ex?.retriable ?? false, b2cApiUsed]);
-          if (code !== null) await failOperatorOnCredentialCode(deps.db, deps.events, operatorId, code, desc);
           status = 'failed';
         } else {
           await deps.db.query(`UPDATE requests SET status='failed', result_at=now(), result_desc=$2, meaning=$3, payload_json = payload_json || $4::jsonb WHERE id=$1 AND status='pending'`, [row.id, 'Studio could not send the request.', 'Something went wrong on our side before Safaricom was reached.', b2cApiUsed]);
           console.error('send failed before Safaricom', row.id, e instanceof Error ? e.name : 'error');
           status = 'failed';
         }
+      } finally {
+        // The slot goes back the instant Safaricom has answered, ack or refusal: what the next send
+        // waits for is this call, never the result callback minutes later.
+        await lock.release(operatorId, ticket);
       }
-      await deps.events.publish('request.updated', { id: row.id, status });
-      return view(row.id);
+      return { status, refused, next: null };
+  }
+
+  /**
+   * Everything after the row exists: the Safaricom call, the ack, and every way it can go wrong.
+   * Shared by send() and release() (M4) so a released send takes exactly the path a direct one does.
+   *
+   * Brief 2, item 7: when a refusal is credential-class and another verified operator is attached,
+   * the same row goes out again with that operator instead of failing. Safe because those codes mean
+   * Safaricom rejected the request outright — no money moved, so the second attempt cannot be a
+   * duplicate payment. The row keeps its id and its links; the next result settles it as a first
+   * attempt would.
+   */
+  async function dispatch(kind: RequestKind, row: RequestRow, client: Daraja, cb: CallbackUrls, operatorId: string | null, tried: string[] = operatorId ? [operatorId] : []): Promise<RequestView> {
+    let useClient = client;
+    let useOperatorId = operatorId;
+    let useRow = row;
+    for (;;) {
+      const outcome = await attempt(kind, useRow, useClient, cb, useOperatorId, tried);
+      if (!outcome.next) {
+        await deps.events.publish('request.updated', { id: useRow.id, status: outcome.status });
+        return view(useRow.id);
+      }
+      console.warn('credential refusal, sent again with the next operator', useRow.id, outcome.refused, outcome.next.id);
+      tried.push(outcome.next.id);
+      useRow = outcome.next.row; useClient = outcome.next.client; useOperatorId = outcome.next.id;
+    }
   }
 
   return {
@@ -397,7 +495,7 @@ export function createMoneyOutService(deps: { db: Db; settings: Settings; daraja
       // (1.5.0), the sweep resolves such a row by it; meanwhile the ack's own id is kept
       // on the row so a human can still find it on the Safaricom side.
       const client = await deps.daraja.getForOperator();
-      const operatorId = (await deps.db.query<{ id: string }>(`SELECT id FROM operators WHERE name=$1`, [client.config?.initiator ?? '']))[0]?.id ?? null;
+      const operatorId = await operatorIdFor(client);
       // W3: the duplicate guard used to be a plain SELECT outside any transaction, so two
       // concurrent identical sends could both see no prior row and both insert. The advisory
       // lock below is taken first, inside the same transaction as the guard SELECT and the
@@ -456,13 +554,32 @@ export function createMoneyOutService(deps: { db: Db; settings: Settings; daraja
       if (!kind) throw new HttpError(409, 'not_held', NOT_HELD);
       const cb = await urls();
       const client = await deps.daraja.getForOperator();
-      const operatorId = (await deps.db.query<{ id: string }>(`SELECT id FROM operators WHERE name=$1`, [client.config?.initiator ?? '']))[0]?.id ?? null;
+      const operatorId = await operatorIdFor(client);
       // The atomic flip is the double-press guard: a second Release finds no held row and stops.
       const [row] = await deps.db.query<RequestRow>(
         `UPDATE requests SET status='pending', approved_by=$2, operator_id=$3 WHERE id=$1 AND status='awaiting_approval' RETURNING *`, [requestId, actor.personId, operatorId]);
       if (!row) throw new HttpError(409, 'not_held', NOT_HELD);
       await audit(deps.db, { personId: actor.personId, action: 'request.released', target: requestId, ip: actor.ip });
       return dispatch(kind, row, client, cb, operatorId);
+    },
+
+    // Brief 2, item 7: the half a caller needs when it caught the refusal itself (the reversal
+    // path) or when the result callback already put the row back in flight. The row is still
+    // pending; this picks the next verified operator, moves the row onto it and sends.
+    async failover(requestId, failedOperatorId) {
+      const [row] = await deps.db.query<RequestRow>(`SELECT * FROM requests WHERE id=$1 AND status='pending'`, [requestId]);
+      if (!row) return false;
+      const kind = KINDS[row.type];
+      if (!kind) return false;
+      const tried = failedOperatorId ? [failedOperatorId] : [];
+      const next = await nextOperator(tried);
+      if (!next) return false;
+      const moved = await moveRow(requestId, next.id);
+      if (!moved) return false;
+      tried.push(next.id);
+      console.warn('credential refusal, sent again with the next operator', requestId, next.id);
+      await dispatch(kind, moved, next.client, await urls(), next.id, tried);
+      return true;
     },
 
     async refuse(requestId, reason, actor) {
@@ -531,7 +648,7 @@ export function createMoneyOutService(deps: { db: Db; settings: Settings; daraja
         `SELECT id, ${SAFARICOM_OCID} AS originator_conversation_id, status, poll_attempts, type, last_poll_at FROM requests WHERE id=$1 AND org_id=$2`, [requestId, orgId]);
       if (!t || !MONEY_TYPES.includes(t.type)) throw new HttpError(404, 'not_found', 'That request does not exist.');
       if (t.status !== 'sent' && t.status !== 'pending' && t.status !== 'unknown') throw new HttpError(409, 'not_pending', 'This request already has its result.');
-      // A cooldown, not just the step-up the guard stack already lacks: without it, an
+      // A cooldown, not only the step-up the guard stack already lacks: without it, an
       // operator holding only `send.phone` could burn the whole 5-poll budget in a burst and hit
       // Safaricom's status API on every click, mirroring the sweep's own 2-minute pacing.
       if (t.last_poll_at && t.last_poll_at.getTime() > Date.now() - 2 * 60_000) {
@@ -552,10 +669,10 @@ export function createMoneyOutService(deps: { db: Db; settings: Settings; daraja
       // money request: the `old` CTE runs against the pre-update row, so `old.checked_note`
       // is the previous note even though the UPDATE it feeds has already overwritten the column
       // — no separate read-then-write race window. The status/type guard is repeated on the
-      // UPDATE's own qualification, not just the CTE: under READ COMMITTED, Postgres
+      // UPDATE's own qualification, not only the CTE: under READ COMMITTED, Postgres
       // re-checks only the UPDATE's own qual against the latest row version before writing, so a
       // row finalised by a concurrent callback between the CTE's snapshot and the UPDATE's lock
-      // must still fail the write, not just miss the CTE.
+      // must still fail the write, not only miss the CTE.
       const rows = await deps.db.query<{ id: string; previous_note: string | null }>(
         `WITH old AS (
            SELECT id, checked_note FROM requests WHERE id=$1 AND status='unknown' AND type = ANY($4)
@@ -583,7 +700,7 @@ export function createMoneyOutService(deps: { db: Db; settings: Settings; daraja
       if (inFlight[0]) throw new HttpError(409, 'refresh_in_flight', 'A balance check is already on its way. Give it a few minutes.');
       const client = await deps.daraja.getForOperator();
       const cb = await urls();
-      const operatorId = (await deps.db.query<{ id: string }>(`SELECT id FROM operators WHERE name=$1`, [client.config?.initiator ?? '']))[0]?.id ?? null;
+      const operatorId = await operatorIdFor(client);
       let ack: { conversationId: string; originatorConversationId: string };
       try {
         ack = await client.balance.query({ resultUrl: cb.balance, queueTimeoutUrl: cb.balance, remarks: 'studio balance' });

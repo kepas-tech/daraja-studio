@@ -50,6 +50,29 @@ export async function failOperatorOnCredentialCode(db: Db, events: EventHub, ope
 }
 
 /**
+ * Brief 2, item 7: the last verified operator just went down, so nothing can go out until somebody
+ * fixes one. One event; the notification writer's own dedupe key is what keeps a second failure in
+ * the same outage to a bump rather than a second line in the inbox.
+ */
+export async function warnWhenNoOperatorLeft(db: Db, events: EventHub): Promise<boolean> {
+  const rows = await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM operators WHERE status='verified'`);
+  if ((rows[0]?.n ?? 0) > 0) return false;
+  await events.publish('alert', { kind: 'operators_exhausted' });
+  return true;
+}
+
+/**
+ * A credential-class refusal, counted against the operator, plus the word when that was the last
+ * operator standing. True means the code really was a credential refusal, which is also what lets
+ * the caller send the same row again with the next operator.
+ */
+export async function recordOperatorRefusal(db: Db, events: EventHub, operatorId: string | null, code: string | number, resultDesc: string): Promise<boolean> {
+  const counted = await failOperatorOnCredentialCode(db, events, operatorId, code, resultDesc);
+  if (counted) await warnWhenNoOperatorLeft(db, events);
+  return counted;
+}
+
+/**
  * Any success clears the guard: Safaricom accepting a probe (what the Reinstate button calls), or a
  * request of this operator settling successfully. Both callers use this one helper so the count can
  * never outlive the failure it counted.

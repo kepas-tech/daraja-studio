@@ -122,6 +122,18 @@ export function classify(e: ClassifyInput): Classified | null {
     };
   }
 
+  // Brief 2, item 7: the last verified operator just went down, so nothing can go out until one is
+  // fixed. The link points at the cards the owner fixes it on (Organisation › the environment).
+  if (e.type === 'alert' && payload.kind === 'operators_exhausted') {
+    return {
+      severity: 'critical', category: 'operators', type: 'operators.exhausted',
+      title: 'No working operator left',
+      body: 'Payments out cannot go until you fix one.',
+      data: { href: '/account' },
+      dedupeKey: 'operators:exhausted',
+    };
+  }
+
   // Brief 2, item 1: a scope's numbers ran out and the next width opened. The owner should hear it:
   // the numbers their payers are told grow by a digit, and nothing else about them changes.
   if (e.type === 'accounts.width_grew') {

@@ -8,6 +8,7 @@ import type { EventHub } from '../events/hub.js';
 import type { OrgService, OrgView } from '../orgs/service.js';
 import { clientIp } from '../util/ip.js';
 import { inAllowlist, parseAllowlist } from './allowlist.js';
+import type { Failover } from './apply.js';
 import { sha256 } from '../crypto/secrets.js';
 
 export type CallbackVerdict = { verdict: 'applied' | 'unmatched' | 'duplicate' | 'applied_direct' | 'unmatched_final' | 'off_range'; requestId?: string; /** A body the provider wants back instead of the generic ack (Bill Manager wants `rescode 200`). */ ack?: unknown };
@@ -16,12 +17,16 @@ export type CallbackVerdict = { verdict: 'applied' | 'unmatched' | 'duplicate' |
 export type CallbackHandler = (ctx: {
   db: Db; cache: Cache; events: EventHub; body: unknown; rawId: string;
   sourcePolicy: { inAllowlist: boolean; environment: Env };
+  /** Brief 2, item 7: the money-out failover, for a result a credential refusal can be re-sent from. */
+  failover?: Failover;
 }) => Promise<CallbackVerdict>;
 
 const ACK = { ResultCode: 0, ResultDesc: 'Accepted' };
 
 interface RouteDeps {
   db: Db; settings: Settings; cache: Cache; events: EventHub; orgs: OrgService;
+  /** Brief 2, item 7. Absent in tests that build the callback stack without a money-out service. */
+  failover?: Failover;
   handlers: Record<string, CallbackHandler>;
 }
 
@@ -84,7 +89,7 @@ export function callbackRoutes(deps: RouteDeps): Router {
         } else {
           const h = Object.hasOwn(deps.handlers, sub) ? deps.handlers[sub] : undefined;
           if (h) {
-            const outcome = await h({ db: deps.db, cache: deps.cache, events: deps.events, body: req.body, rawId: raw.id, sourcePolicy: { inAllowlist: inList, environment } });
+            const outcome = await h({ db: deps.db, cache: deps.cache, events: deps.events, body: req.body, rawId: raw.id, sourcePolicy: { inAllowlist: inList, environment }, failover: deps.failover });
             if (outcome.ack !== undefined) ack = outcome.ack;
             const finalVerdict = sub === 'selftest' && outcome.verdict === 'applied' ? 'selftest' : outcome.verdict;
             await deps.db.query('UPDATE callbacks_raw SET verdict=$2, matched_request_id=$3 WHERE id=$1', [raw.id, finalVerdict, outcome.requestId ?? null]);
