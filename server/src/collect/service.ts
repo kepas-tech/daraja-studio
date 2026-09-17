@@ -14,6 +14,7 @@ import { COLLECT_KINDS, type RequestKind, type RequestRow } from '../money_out/r
 import { enqueue } from '../db/jobs.js';
 import { AUTH_FAILED_MEANING, UNCONFIRMED, sdkCallError as sdkError, syncRejection } from '../money_out/service.js';
 import { getRequest, type RequestView } from '../money_out/reads.js';
+import { resolveAccount } from '../businesses/lookup.js';
 
 export interface CollectInput {
   phone: string;
@@ -21,6 +22,8 @@ export interface CollectInput {
   accountReference: string;
   description?: string;
   confirmDuplicate?: boolean;
+  /** Brief 2, item 1: a saved account. When it is named, its full number is the reference Safaricom sees. */
+  accountId?: string;
 }
 export interface Actor { personId: string; ip: string }
 export type RatibaFrequency = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8';
@@ -93,6 +96,8 @@ export function createCollectService(deps: { db: Db; settings: Settings; daraja:
   interface Prepared {
     recipientKind: 'phone' | 'shortcode'; recipientValue: string; amountCents: number; remarks: string | null; accountReference: string | null;
     payload: Record<string, unknown>; confirmDuplicate?: boolean; duplicateMessage: string; timeoutMs?: number; onAccepted?: () => Promise<void>;
+    /** Brief 2, item 1: the account this money is for, when the operator picked one. */
+    businessId?: string; accountId?: string;
   }
   /**
    * One path for every money-in request: the row exists before Safaricom hears of it, the
@@ -119,9 +124,9 @@ export function createCollectService(deps: { db: Db; settings: Settings; daraja:
           if (dup.rows[0]) throw new HttpError(409, 'duplicate_recent', p.duplicateMessage, { requestId: dup.rows[0].id, at: dup.rows[0].created_at.toISOString() });
         }
         const { rows } = await c.query<RequestRow>(
-          `INSERT INTO requests(type, subtype, originator_conversation_id, status, amount_cents, currency, recipient_kind, recipient_value, remarks, account_reference, payload_json, created_by)
-           VALUES ($1,NULL,$2,'pending',$3,'KES',$4,$5,$6,$7,$8::jsonb,$9) RETURNING *`,
-          [kind.type, randomUUID(), p.amountCents, p.recipientKind, p.recipientValue, p.remarks, p.accountReference, JSON.stringify(p.payload), actor.personId]);
+          `INSERT INTO requests(type, subtype, originator_conversation_id, status, amount_cents, currency, recipient_kind, recipient_value, remarks, account_reference, payload_json, created_by, business_id, account_id)
+           VALUES ($1,NULL,$2,'pending',$3,'KES',$4,$5,$6,$7,$8::jsonb,$9,$10,$11) RETURNING *`,
+          [kind.type, randomUUID(), p.amountCents, p.recipientKind, p.recipientValue, p.remarks, p.accountReference, JSON.stringify(p.payload), actor.personId, p.businessId ?? null, p.accountId ?? null]);
         const r = rows[0]!;
         await c.query(
           `INSERT INTO audit_log(person_id, action, target, before_json, after_json, ip) VALUES ($1,$2,$3,$4::jsonb,$5::jsonb,$6)`,
@@ -201,7 +206,10 @@ export function createCollectService(deps: { db: Db; settings: Settings; daraja:
       try { phone = normalizePhone(input.phone); } catch { throw new HttpError(400, 'bad_phone', 'Enter a Kenyan mobile number such as 0712 345 678.'); }
       if (!Number.isInteger(input.amountCents) || input.amountCents <= 0) throw new HttpError(400, 'bad_amount', 'Enter an amount in shillings.');
       if (kind.wholeShillings && input.amountCents % 100 !== 0) throw new HttpError(400, 'whole_shillings', 'Safaricom prompts for whole shillings. Remove the cents.');
-      const reference = input.accountReference.trim();
+      // Brief 2, item 1: picking a saved account fills the reference the customer's prompt carries with
+      // the full account number, so the payment that comes back sorts itself. Nothing else changes.
+      const picked = input.accountId ? await resolveAccount(deps.db, input.accountId) : null;
+      const reference = (picked ? picked.fullNumber : input.accountReference).trim();
       if (!reference) throw new HttpError(400, 'bad_reference', 'Enter what this payment is for, such as an invoice number.');
       const description = input.description?.trim() || 'Payment';
 
@@ -209,6 +217,7 @@ export function createCollectService(deps: { db: Db; settings: Settings; daraja:
 
       return start(kind, {
         recipientKind: 'phone', recipientValue: phone, amountCents: input.amountCents, remarks: reference, accountReference: null,
+        ...(picked ? { businessId: picked.businessId, accountId: picked.id } : {}),
         payload: { accountReference: reference, description }, confirmDuplicate: input.confirmDuplicate, duplicateMessage: 'You asked for this already. Ask again?',
         // Safaricom accepted a push on this shortcode, which is the only proof a passkey can ever
         // have: no read-only Daraja call uses it. Recorded once, and never on a refusal.

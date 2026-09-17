@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api/client';
-import type { BusinessView, CustomerView } from '../api/types';
+import type { AccountView, BusinessView } from '../api/types';
 import { useSession } from '../app/session';
 import { Button } from '../components/Button';
 import { Card, cardRow } from '../components/Card';
@@ -49,12 +49,15 @@ function BusinessForm({ existing, offered, error, onSave, onCancel }: { existing
   );
 }
 
-interface CustomerDraft { name: string; phone: string; note: string }
+interface AccountDraft { name: string; phone: string; note: string }
 
-/** One customer under one business. The number is Studio's to give, never typed here. */
-function CustomerForm({ existing, error, onSave, onCancel }: { existing: CustomerView | null; error: Error | Explained | null; onSave: (draft: CustomerDraft) => Promise<void>; onCancel: () => void }) {
+/**
+ * One account — a customer, or something under a customer. There is no number box anywhere: Studio
+ * draws the number and never lets it be typed, so the only words here are the owner's own.
+ */
+function AccountForm({ existing, error, onSave, onCancel }: { existing: AccountView | null; error: Error | Explained | null; onSave: (draft: AccountDraft) => Promise<void>; onCancel: () => void }) {
   const c = copy.businesses;
-  const [draft, setDraft] = useState<CustomerDraft>({ name: existing?.name ?? '', phone: existing?.phone ?? '', note: existing?.note ?? '' });
+  const [draft, setDraft] = useState<AccountDraft>({ name: existing?.name ?? '', phone: existing?.phone ?? '', note: existing?.note ?? '' });
   const phoneOk = draft.phone.trim().length === 0 || normalizeKe(draft.phone) !== null;
   return (
     <div className="space-y-3">
@@ -71,9 +74,9 @@ function CustomerForm({ existing, error, onSave, onCancel }: { existing: Custome
 }
 
 /**
- * More than one business on one paybill. A code per business and a minted number per customer make
- * the payer's account number the whole routing rule, so nobody has to guess which business a
- * payment belongs to. One business only means routing is off and nothing is stripped.
+ * More than one business on one paybill. A code per business and a Studio-minted number per account
+ * make the payer's account number the whole routing rule, so nobody has to guess which business a
+ * payment belongs to. A number carries its own width, and the page says which width is in use.
  */
 export function Businesses() {
   const c = copy.businesses;
@@ -81,14 +84,15 @@ export function Businesses() {
   const { person, permissions, org } = useSession();
   const mayManage = !!person?.is_owner || permissions.includes('businesses.manage');
   const [data, setData] = useState<{ items: BusinessView[]; lastUsedId: string | null } | null>(null);
-  const [customers, setCustomers] = useState<Record<string, CustomerView[]>>({});
+  const [accounts, setAccounts] = useState<Record<string, AccountView[]>>({});
   const [err, setErr] = useState<Error | Explained | null>(null);
   const [formErr, setFormErr] = useState<Error | Explained | null>(null);
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
-  const [addingCustomer, setAddingCustomer] = useState<string | null>(null);
-  const [editingCustomer, setEditingCustomer] = useState<string | null>(null);
+  // The business a new customer is being added to, or the customer a new account is being added to.
+  const [addingTo, setAddingTo] = useState<string | null>(null);
+  const [editingAccount, setEditingAccount] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try { setData(await api.get<{ items: BusinessView[]; lastUsedId: string | null }>('/api/businesses')); setErr(null); }
@@ -96,17 +100,17 @@ export function Businesses() {
   }, []);
   useEffect(() => { void load(); }, [load]);
 
-  const loadCustomers = useCallback(async (businessId: string) => {
+  const loadAccounts = useCallback(async (businessId: string) => {
     try {
-      const r = await api.get<{ items: CustomerView[] }>('/api/businesses/' + businessId + '/customers');
-      setCustomers((m) => ({ ...m, [businessId]: r.items }));
+      const r = await api.get<{ items: AccountView[] }>('/api/businesses/' + businessId + '/accounts');
+      setAccounts((m) => ({ ...m, [businessId]: r.items }));
     } catch (e) { toast.error(toastText(e)); }
   }, [toast]);
 
   const open = (businessId: string) => {
     const next = openId === businessId ? null : businessId;
-    setOpenId(next); setAddingCustomer(null); setEditingCustomer(null); setFormErr(null);
-    if (next as string | null) void loadCustomers(next as string);
+    setOpenId(next); setAddingTo(null); setEditingAccount(null); setFormErr(null);
+    if (next as string | null) void loadAccounts(next as string);
   };
 
   const saveBusiness = async (draft: BusinessDraft) => {
@@ -128,22 +132,40 @@ export function Businesses() {
     } catch (e) { toast.error(toastText(e)); }
   };
 
-  const saveCustomer = async (business: BusinessView, draft: CustomerDraft, id?: string) => {
+  const body = (draft: AccountDraft) => ({ name: draft.name.trim(), phone: normalizeKe(draft.phone) ?? undefined, note: draft.note.trim() || undefined });
+
+  const saveAccount = async (business: BusinessView, draft: AccountDraft) => {
     setFormErr(null);
-    const body = { name: draft.name.trim(), phone: normalizeKe(draft.phone) ?? undefined, note: draft.note.trim() || undefined };
     try {
-      if (id) await api.put('/api/customers/' + id, body);
-      else {
-        const made = await api.post<CustomerView>('/api/businesses/' + business.id + '/customers', body);
-        toast.success(c.customerAdded(made.name, made.accountNumber));
-      }
-      setAddingCustomer(null); setEditingCustomer(null);
-      await Promise.all([load(), loadCustomers(business.id)]);
+      const made = await api.post<AccountView>('/api/businesses/' + business.id + '/accounts', body(draft));
+      toast.success(c.accountAdded(made.name, made.fullNumber));
+      setAddingTo(null);
+      await Promise.all([load(), loadAccounts(business.id)]);
     } catch (e) { setFormErr(explainApiError(e)); }
   };
 
-  const retire = async (business: BusinessView, x: CustomerView) => {
-    try { await api.del('/api/customers/' + x.id); toast.success(c.retired); await Promise.all([load(), loadCustomers(business.id)]); }
+  const saveUnder = async (business: BusinessView, parent: AccountView, draft: AccountDraft) => {
+    setFormErr(null);
+    try {
+      const made = await api.post<AccountView>('/api/accounts/' + parent.id + '/children', body(draft));
+      toast.success(c.accountAdded(made.name, made.fullNumber));
+      setAddingTo(null);
+      await Promise.all([load(), loadAccounts(business.id)]);
+    } catch (e) { setFormErr(explainApiError(e)); }
+  };
+
+  const editAccount = async (business: BusinessView, draft: AccountDraft, id: string) => {
+    setFormErr(null);
+    try {
+      await api.put('/api/accounts/' + id, body(draft));
+      toast.success(c.saved);
+      setEditingAccount(null);
+      await loadAccounts(business.id);
+    } catch (e) { setFormErr(explainApiError(e)); }
+  };
+
+  const retire = async (business: BusinessView, x: AccountView) => {
+    try { await api.del('/api/accounts/' + x.id); toast.success(c.retired); await Promise.all([load(), loadAccounts(business.id)]); }
     catch (e) { toast.error(toastText(e)); }
   };
 
@@ -179,7 +201,8 @@ export function Businesses() {
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <span className="flex min-w-0 flex-col">
                       <span className="text-base font-medium"><code>{b.code}</code> · {b.name}{!b.active && <span className="text-muted"> · {c.off}</span>}</span>
-                      <span className="text-sm text-muted">{c.customerCount(b.customerCount)}</span>
+                      <span className="text-sm text-muted">{c.accountCount(b.accountCount)}</span>
+                      <span className="text-sm text-muted" data-testid={'numbers-' + b.id}>{c.numbersLine(b.numbers.width, b.numbers.used, b.numbers.capacity)}</span>
                     </span>
                     <span className="flex flex-wrap items-center gap-2">
                       <Button type="button" variant="secondary" onClick={() => open(b.id)}>{c.customers}</Button>
@@ -194,29 +217,58 @@ export function Businesses() {
 
                   {openId === b.id && (
                     <div className="space-y-3 rounded-md border border-line bg-page p-3">
-                      {addingCustomer === b.id ? (
-                        <CustomerForm existing={null} error={formErr} onSave={(d) => saveCustomer(b, d)} onCancel={() => { setAddingCustomer(null); setFormErr(null); }} />
-                      ) : mayManage && <Button type="button" variant="secondary" onClick={() => { setFormErr(null); setEditingCustomer(null); setAddingCustomer(b.id); }}>{c.addCustomer}</Button>}
-                      {(customers[b.id] ?? []).length === 0 && addingCustomer !== b.id && <p className="text-sm text-muted">{c.noCustomers}</p>}
+                      {addingTo === b.id ? (
+                        <AccountForm existing={null} error={formErr} onSave={(d) => saveAccount(b, d)} onCancel={() => { setAddingTo(null); setFormErr(null); }} />
+                      ) : mayManage && <Button type="button" variant="secondary" onClick={() => { setFormErr(null); setEditingAccount(null); setAddingTo(b.id); }}>{c.addCustomer}</Button>}
+                      {(accounts[b.id] ?? []).length === 0 && addingTo !== b.id && <p className="text-sm text-muted">{c.noCustomers}</p>}
                       <ul>
-                        {(customers[b.id] ?? []).map((x) => (
-                          <li key={x.id} data-testid={'customer-' + x.id} className="border-t border-line py-2 first:border-t-0">
-                            {editingCustomer === x.id ? (
-                              <CustomerForm existing={x} error={formErr} onSave={(d) => saveCustomer(b, d, x.id)} onCancel={() => { setEditingCustomer(null); setFormErr(null); }} />
+                        {(accounts[b.id] ?? []).map((x) => (
+                          <li key={x.id} data-testid={'account-' + x.id} className="border-t border-line py-2 first:border-t-0">
+                            {editingAccount === x.id ? (
+                              <AccountForm existing={x} error={formErr} onSave={(d) => editAccount(b, d, x.id)} onCancel={() => { setEditingAccount(null); setFormErr(null); }} />
                             ) : (
-                              <div className="flex flex-wrap items-center justify-between gap-3">
-                                <span className="flex min-w-0 flex-col">
-                                  <span className="text-base">{x.name}</span>
-                                  <span className="text-sm text-muted">{c.account}: <code>{x.accountNumber}</code>{x.phone ? ' · ' + phone(x.phone) : ''}</span>
-                                  <span className="text-sm text-muted">{c.tellThem(org?.shortcode ?? null, x.accountNumber)}</span>
-                                  {x.note && <span className="text-sm text-muted">{x.note}</span>}
-                                </span>
-                                {mayManage && (
-                                  <span className="flex flex-wrap items-center gap-2">
-                                    <Button type="button" variant="secondary" onClick={() => { setFormErr(null); setAddingCustomer(null); setEditingCustomer(x.id); }}>{c.editCustomer}</Button>
-                                    <Button type="button" variant="danger" onClick={() => void retire(b, x)}>{c.retire}</Button>
+                              <div className="space-y-2">
+                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                  <span className="flex min-w-0 flex-col">
+                                    <span className="text-base">{x.name}</span>
+                                    <span className="text-lg" data-testid={'full-' + x.id}><code>{x.fullNumber}</code>{x.phone ? <span className="text-sm text-muted"> · {phone(x.phone)}</span> : null}</span>
+                                    <span className="text-sm text-muted">{c.tellThem(org?.shortcode ?? null, x.fullNumber)}</span>
+                                    {x.note && <span className="text-sm text-muted">{x.note}</span>}
                                   </span>
-                                )}
+                                  {mayManage && (
+                                    <span className="flex flex-wrap items-center gap-2">
+                                      <Button type="button" variant="secondary" onClick={() => { setFormErr(null); setAddingTo(null); setEditingAccount(x.id); }}>{c.editCustomer}</Button>
+                                      <Button type="button" variant="danger" onClick={() => void retire(b, x)}>{c.retire}</Button>
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div className="space-y-2 rounded-md border border-line p-2">
+                                  <p className="text-sm font-medium">{c.accountsUnder(x.name)}</p>
+                                  {x.children.length === 0 && addingTo !== x.id && <p className="text-sm text-muted">{c.noAccountsUnder}</p>}
+                                  <ul>
+                                    {x.children.map((k) => (
+                                      <li key={k.id} data-testid={'account-' + k.id} className="py-1">
+                                        {editingAccount === k.id ? (
+                                          <AccountForm existing={k} error={formErr} onSave={(d) => editAccount(b, d, k.id)} onCancel={() => { setEditingAccount(null); setFormErr(null); }} />
+                                        ) : (
+                                          <div className="flex flex-wrap items-center justify-between gap-3">
+                                            <span className="text-base"><code>{k.fullNumber}</code> · {k.name}{k.note ? <span className="text-sm text-muted"> · {k.note}</span> : null}</span>
+                                            {mayManage && (
+                                              <span className="flex flex-wrap items-center gap-2">
+                                                <Button type="button" variant="secondary" onClick={() => { setFormErr(null); setEditingAccount(k.id); }}>{c.editCustomer}</Button>
+                                                <Button type="button" variant="danger" onClick={() => void retire(b, k)}>{c.retire}</Button>
+                                              </span>
+                                            )}
+                                          </div>
+                                        )}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                  {addingTo === x.id ? (
+                                    <AccountForm existing={null} error={formErr} onSave={(d) => saveUnder(b, x, d)} onCancel={() => { setAddingTo(null); setFormErr(null); }} />
+                                  ) : mayManage && <Button type="button" variant="secondary" onClick={() => { setFormErr(null); setEditingAccount(null); setAddingTo(x.id); }}>{c.addAccount}</Button>}
+                                </div>
                               </div>
                             )}
                           </li>

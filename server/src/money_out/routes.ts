@@ -25,8 +25,10 @@ const sendPhone = z.object({
   // Feature 1: a saved phone contact the operator picked on the review screen. The phone above is
   // still the number that will be dialled; the service refuses the pair when they disagree.
   contactId: z.string().uuid().optional(),
-  // Feature 2: which business this send belongs to. Optional, so nothing that worked before changes.
+  // Feature 2: which business this send belongs to. Brief 2, item 1 adds the account it is for.
+  // Optional, both, so nothing that worked before changes.
   businessId: z.string().uuid().optional(),
+  accountId: z.string().uuid().optional(),
 });
 
 // A YYYY-MM-DD that fails to round-trip through Date (2026-02-30, 2026-13-45, ...) is calendar-
@@ -43,8 +45,9 @@ const listSchema = z.object({
   type: z.string().optional(), status: z.enum(['pending', 'sent', 'completed', 'failed', 'unknown', 'cancelled', 'rejected', 'awaiting_approval']).optional(),
   from: dayString.optional(), to: dayString.optional(),
   q: z.string().trim().max(60).optional(), limit: z.coerce.number().int().min(1).max(100).default(25), cursor: z.string().max(200).optional(),
-  // Feature 2: History and Money in narrow by business, and a customer link narrows to one customer.
-  businessId: z.string().uuid().optional(), customerId: z.string().uuid().optional(),
+  // Brief 2, item 1: History and Money in narrow by business, and an account link narrows to one
+  // account — naming a customer includes the accounts under it.
+  businessId: z.string().uuid().optional(), accountId: z.string().uuid().optional(),
 }).refine((v) => !v.from || !v.to || v.from <= v.to, { message: 'The end date must be on or after the start date.', path: ['to'] });
 const checkedSchema = z.object({ note: z.string().trim().min(1).max(500) });
 
@@ -60,7 +63,7 @@ function historyRow(r: RequestView): unknown[] {
     nairobiStamp(r.createdAt),
     whatLabel(r),
     r.recipient.value ?? '',
-    r.contactName ?? r.customerName ?? r.recipient.name ?? '',
+    r.contactName ?? r.accountName ?? r.recipient.name ?? '',
     r.businessName ?? '',
     shillings(r.amountCents),
     statusLabel(r.status),
@@ -123,7 +126,7 @@ export function requestRoutes(deps: AppDeps): Router {
         personId: req.person!.id, ip: clientIp(req), action: 'history.exported',
         after: {
           type: filter.type ?? null, status: qy.status ?? null, from: qy.from ?? null, to: qy.to ?? null,
-          businessId: qy.businessId ?? null, customerId: qy.customerId ?? null, searched: Boolean(qy.q),
+          businessId: qy.businessId ?? null, accountId: qy.accountId ?? null, searched: Boolean(qy.q),
         },
       });
       sendCsv(res, `history-${todayNairobi()}.csv`, toCsv(HISTORY_COLUMNS, items.map(historyRow)));

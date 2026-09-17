@@ -4,11 +4,14 @@ import type { AppDeps } from '../app.js';
 import { audit } from '../audit/log.js';
 import { explain } from '../sdk/meaning.js';
 import { HttpError } from '../util/errors.js';
+import { resolveAccount } from '../businesses/lookup.js';
 
 const inputSchema = z.object({
   accountReference: z.string().trim().min(1).max(32),
   amountCents: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).default(0),
   trxCode: z.enum(['PB', 'BG']),
+  /** Brief 2, item 1: a saved account. When it is named, its full number is the reference in the code. */
+  accountId: z.string().uuid().optional(),
 }).strict();
 
 const failure = (code: string, said: string, meaning: string, whatToDo: string, status = 502) =>
@@ -45,10 +48,14 @@ export function createQrService(deps: Pick<AppDeps, 'db' | 'daraja'>) {
       if (!parsed.success) throw failure('qr_invalid', 'No request was sent to Safaricom.',
         'Enter a reference of 1–32 characters, a valid amount, and Pay Bill or Buy Goods.', 'Check the fields and try again.', 400);
       const input = parsed.data;
+      // Brief 2, item 1: a picked account decides the reference itself, so the code the payer scans
+      // carries the full account number and the payment sorts itself when it arrives.
+      const picked = input.accountId ? await resolveAccount(deps.db, input.accountId) : null;
+      const accountReference = picked ? picked.fullNumber : input.accountReference;
       const { client, ...details } = await context();
       let answer;
       try {
-        answer = await client.qr.generate({ accountReference: input.accountReference, amount: input.amountCents / 100,
+        answer = await client.qr.generate({ accountReference, amount: input.amountCents / 100,
           trxCode: input.trxCode, size: 400, merchantName: details.merchantName });
       } catch (e) {
         if (e instanceof DarajaAPIError) {
@@ -70,7 +77,7 @@ export function createQrService(deps: Pick<AppDeps, 'db' | 'daraja'>) {
       if (!answer || answer.responseCode !== '00') throw malformed();
       const imageUrl = pngDataUrl(answer.qrCode);
       await audit(deps.db, { ...actor, action: 'qr.generated', after: { amountCents: input.amountCents, trxCode: input.trxCode } });
-      return { ...details, ...input, imageUrl };
+      return { ...details, ...input, accountReference, imageUrl };
     },
   };
 }

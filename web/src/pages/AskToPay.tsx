@@ -13,7 +13,7 @@ import { ErrorCard } from '../components/ErrorCard';
 import { Flash } from '../components/Flash';
 import { TaskCard } from '../components/TaskCard';
 import { Questionnaire } from '../components/Questionnaire';
-import { CustomerPicker } from '../components/CustomerPicker';
+import { AccountPicker } from '../components/AccountPicker';
 import { useToast } from '../components/Toast';
 import { copy } from '../copy/en';
 import { money, normalizeKe, phone, when } from '../format';
@@ -31,6 +31,8 @@ export function AskToPay() {
   const [step, setStep] = useState<Step>('form');
   const [to, setTo] = useState('');
   const [cents, setCents] = useState<number | null>(null);
+  // Brief 2, item 1: the saved account the reference was filled from, when one was picked.
+  const [pickedAccount, setPickedAccount] = useState('');
   const [reference, setReference] = useState('');
   const [description, setDescription] = useState('');
   const [busy, setBusy] = useState(false);
@@ -74,7 +76,7 @@ export function AskToPay() {
     setBusy(true); setErr(null);
     try {
       const r = await api.post<RequestView>('/api/collect/stk', {
-        phone: to, amountCents: cents, accountReference: reference.trim(),
+        phone: to, amountCents: cents, accountReference: reference.trim(), accountId: pickedAccount || undefined,
         description: description.trim() || undefined,
         confirmDuplicate: again || confirmDuplicate || undefined,
       });
@@ -98,7 +100,7 @@ export function AskToPay() {
           { key: 'amount', question: copy.askToPay.amount, valid: cents !== null && cents % 100 === 0, render: () => <MoneyInput label={copy.askToPay.amount} labelHidden valueCents={cents} onChange={setCents} wholeShillings autoFocus /> },
           { key: 'reference', question: copy.askToPay.reference, hint: copy.askToPay.referenceHint, valid: reference.trim().length > 0, render: () => (
             <div className="space-y-3">
-              <CustomerPicker label={copy.askToPay.pickCustomer} onPick={(x) => setReference(x.accountNumber)} />
+              <AccountPicker label={copy.askToPay.pickCustomer} onPick={(x) => { setPickedAccount(x.id); setReference(x.fullNumber); }} />
               <p className="text-sm text-muted">{copy.askToPay.pickCustomerHint}</p>
               <TextField label={copy.askToPay.reference} labelHidden value={reference} onChange={(e) => setReference(e.target.value)} maxLength={12} autoFocus />
             </div>

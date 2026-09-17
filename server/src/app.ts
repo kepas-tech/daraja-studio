@@ -47,7 +47,7 @@ import { billManagerHandler } from './callbacks/billmanager.js';
 import { expressHandler, ratibaHandler } from './callbacks/collectKinds.js';
 import { invoiceRoutes } from './invoices/routes.js';
 import { contactsRoutes } from './contacts/routes.js';
-import { businessesRoutes, customersRoutes } from './businesses/routes.js';
+import { accountsRoutes, businessesRoutes } from './businesses/routes.js';
 import { notificationRoutes } from './notifications/routes.js';
 import { pushRoutes } from './push/routes.js';
 import { reportsRoutes } from './reports/routes.js';
@@ -79,7 +79,7 @@ export interface AppDeps {
   bulk: BulkService;
   /** M7: Safaricom Bill Manager. */
   invoices: InvoicesService;
-  /** Feature 2: the businesses one paybill serves, their customers, and the unmatched fixes. */
+  /** Feature 2: the businesses one paybill serves, their account numbers, and the unmatched fixes. */
   businesses: BusinessesService;
   /** Feature 12: web push to the devices that subscribed. Absent in tests that build the app without it. */
   push?: PushService;
@@ -148,10 +148,10 @@ export function buildApp(deps: AppDeps): express.Express {
   app.use('/api/invoices', invoiceRoutes(deps));
   // Feature 1: the saved contact book, read by Send to phone and Bulk send.
   app.use('/api/contacts', contactsRoutes(deps));
-  // Feature 2: businesses and their customers. The customer routes sit at their own address,
-  // because a customer id already names its business; the design's paths are exactly these.
+  // Brief 2, item 1: businesses and their account numbers. The account routes sit at their own
+  // address, because an account id already names its business; the design's paths are these.
   app.use('/api/businesses', businessesRoutes(deps));
-  app.use('/api/customers', customersRoutes(deps));
+  app.use('/api/accounts', accountsRoutes(deps));
   // Feature 4: the inbox the writer fills and the bell reads.
   app.use('/api/notifications', notificationRoutes(deps));
   // Feature 12: the browser's subscription and the test message. Off, harmlessly, without keys.

@@ -86,10 +86,12 @@ export interface RequestView {
   contactName: string | null;
   /** What the payer typed on their phone (c2b) or the reference the request carried. */
   accountReference: string | null;
-  /** Feature 2: the business and customer this row belongs to, when routing named one. */
-  businessName: string | null; customerName: string | null;
-  /** Feature 2: the customer's id, so Money in can offer History filtered to that customer. Optional until the server sends it. */
-  customerId?: string | null;
+  /** Brief 2, item 1: the business and account this row belongs to, when the number named one. */
+  businessName: string | null; accountName: string | null;
+  /** The full account number the payer's digits add up to, when the row is labelled. */
+  accountNumber?: string | null;
+  /** The account's id, so Money in can offer History filtered to that account. Optional until the server sends it. */
+  accountId?: string | null;
   createdAt: string; sentAt: string | null; resultAt: string | null; resultSource: 'callback' | 'poll' | 'ack' | null;
   safaricomSaid: string | null; meaning: string | null; whatToDo: string | null; retriable: boolean; pollAttempts: number;
   checked: { by: { id: string; displayName: string } | null; at: string; note: string } | null;
@@ -131,12 +133,21 @@ export interface ContactView {
   name: string; phone: string | null; shortcode: string | null;
   accountReference: string | null; note: string | null; createdAt: string;
 }
-/** `GET /api/businesses` (design 2026-09-16, feature 2). Routing by the first three digits. */
-export interface BusinessView { id: string; code: string; name: string; active: boolean; customerCount: number; createdAt: string }
-/** `GET /api/businesses/:id/customers`. `display` is the minted number zero-padded to three digits; `accountNumber` is what the payer types. */
-export interface CustomerView {
-  id: string; businessId: string; number: number; display: string; accountNumber: string;
-  name: string; phone: string | null; note: string | null; createdAt: string;
+/** `GET /api/businesses` (brief 2, item 1). Routing by the first three digits. */
+export interface BusinessView {
+  id: string; code: string; name: string; active: boolean; accountCount: number; createdAt: string;
+  /** The open number width for this business's customers, for the plain line the page shows. */
+  numbers: { width: number; capacity: number; used: number };
+}
+/**
+ * `GET /api/businesses/:id/accounts`. Studio mints every digit: `number` is this level's own digits
+ * (its width is written into them), `fullNumber` is what the payer types, and `children` are the
+ * live accounts under a customer — always empty for an account that is itself under one.
+ */
+export interface AccountView {
+  id: string; businessId: string; parentId: string | null; number: string; fullNumber: string;
+  name: string; phone: string | null; note: string | null; createdAt: string; retiredAt: string | null;
+  children: AccountView[];
 }
 /** `GET /api/businesses/summary`: one row per business for the day, in cents. History, never cash. */
 export interface BusinessSummaryRow { businessId: string; code: string; name: string; inCents: number; outCents: number }
@@ -156,16 +167,18 @@ export interface ReportsView {
 /** `GET /api/reports/summary`: the last 24 hours, for the strip on Home. */
 export interface HomeSummary { inCents: number; inCount: number; outCents: number; outCount: number; pending: number; failed: number }
 /**
- * `GET /api/money-in/unmatched`: a c2b row that needs a decision. The three optional fields are what
- * the one-click fix needs to name itself (which business, which customer number was typed); the page
- * falls back to the business name and the first three digits when an older server does not send them.
+ * `GET /api/money-in/unmatched`: a c2b row that needs a decision, and why. The optional fields are
+ * what the one-click fix needs to name itself (which business, and for no_sub, which customer's
+ * number was typed); the page falls back to the business name when an older server sends none.
  */
+export type UnmatchedReason = 'no_business' | 'no_account' | 'no_sub' | 'too_many';
 export type UnmatchedView = RequestView & {
-  reason: 'no_business' | 'no_customer';
+  reason: UnmatchedReason;
   businessId?: string | null;
   /** The business the first three digits name, when the server sends it as its own object. */
   business?: { id: string; code: string; name: string } | null;
-  customerNumber?: number | null;
+  /** For no_sub: the customer whose number was named. */
+  customerName?: string | null;
 };
 export type FeeKind = 'c2b' | 'b2c' | 'b2b';
 /** GET /api/fees (feature 11). One published Safaricom tariff band, in cents. */

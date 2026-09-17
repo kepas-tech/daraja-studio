@@ -15,6 +15,8 @@ const optIn = z.object({ email: z.string().trim().email().max(120), officialCont
 const invoice = z.object({
   customerName: z.string().trim().min(1).max(80), customerPhone: z.string().trim().min(1).max(20), invoiceName: z.string().trim().min(1).max(80),
   accountReference: z.string().trim().min(1).max(20), billedPeriod: z.string().trim().min(1).max(40), dueDate: day, amountCents: z.number().int().positive(),
+  /** Brief 2, item 1: a saved account. Its full number becomes the invoice's account reference. */
+  accountId: z.string().uuid().optional(),
   items: z.array(z.object({ name: z.string().trim().min(1).max(80), amountCents: z.number().int().positive() })).max(50).optional(),
 });
 const bulkText = z.object({ text: z.string().max(400_000) });

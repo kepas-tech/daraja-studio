@@ -379,34 +379,36 @@ Safaricom calls this: C2B · Where: Get paid → Money in · Who: Owner turns it
 | POST | `/api/money-in/register` | owner, password; answers 202 and works in the background |
 | POST | `/api/money-in/check` | money_in.view |
 
-### Run more than one business on one number
+### How account numbers work
 
 Where: Manage → Businesses · Who: Anyone signed in can look; the owner, or a role given the permission, changes them · Route: /businesses · Permission: businesses.manage
 
 1. Open Businesses in the menu. With one business, routing is off: every payment belongs to it, and the page says so.
 2. Add a business: a name, and a three-digit code from 000 to 999. Studio offers the next free one; you can type your own.
-3. From the day there are two, payers must start the account number with the business code. Tell them: pay your number, account 001007.
-4. Open a business and press Add a customer. Studio gives the customer the next number and shows the whole account number to give the payer.
-5. A payment arrives with the code and the customer number. Money in shows which customer it belongs to, and History filters by business or by one customer.
-6. A payment whose account number names no business, or a number no customer holds, waits in Money in under Payments we could not sort. Assign a business, or create the customer the payer typed, in one press.
-7. Send money and Bulk send ask which business the money is from once there are two; the last one you used is the default.
-8. Ask a customer to pay, QR codes and Invoices can pick a saved customer, and Studio fills the account reference with their account number.
+3. An account number has three parts: the business code (three digits, 000 to 999), the customer number, and, if you want to tell things apart under one customer, an account under it. So 000 is the business, 000359 is a customer, and 000359123 is the account under that customer.
+4. Every digit is Studio’s to choose: it draws the number and nobody types one. Add a customer with a name and a phone number and the number appears at once, with the sentence to give the payer: pay 123456, account 000359.
+5. A number says how long it is. A customer number starts at three digits; when all 900 of them are used, new ones get four digits, then five. The line under each business says which length is in use: Customer numbers: 3 digits, 412 of 900 used. Old numbers keep their length, so nothing a payer already knows changes.
+6. From the day there are two businesses, payers must start the account number with the code. Money in shows which account a payment belongs to, and History filters by business or by one account.
+7. A payment whose digits name no business, no account, or no account under a customer waits in Money in under Payments we could not sort. Pick an account for it, or add the customer, and Studio labels the payment with the new account.
+8. Ask a customer to pay, QR codes and Invoices can pick a business, then a customer, then one of the accounts under them; Studio fills the full number.
 
-- A business is switched off, never deleted, so an old account number keeps meaning what it meant. A customer number is never reused either.
+- A business is switched off, never deleted, so an old account number keeps meaning what it meant. Retiring an account keeps its number out of circulation for ever: it is never given to anyone else.
+- Numbers are drawn at random, so a payer cannot guess a neighbour’s number from their own, and no number is ever issued twice. The length is written into the number itself, so the digits a payer types can never be read as somebody else’s account.
+- When all 900 numbers of a length are used, the next length opens, Studio writes it in the record of what it did, and the bell tells you: Customer numbers for Shop now have 4 digits.
 - One business means nothing is stripped from the account number and nothing is unmatched.
 - Balances stay one pool: M-Pesa holds one balance per paybill. The line per business on Home is that business own history, not cash.
 
 | Method | Path | Who |
 |---|---|---|
-| GET | `/api/businesses` | signed in |
+| GET | `/api/businesses` | signed in; each business carries its open number length and how much of it is used |
 | POST | `/api/businesses` | businesses.manage; body { name, code? } |
 | PUT | `/api/businesses/:id` | businesses.manage; body { name, active } |
-| GET | `/api/businesses/:id/customers` | signed in; q narrows by name or number |
-| POST | `/api/businesses/:id/customers` | businesses.manage; Studio mints the next number |
-| POST | `/api/businesses/:id/customers/claim` | businesses.manage; body { number, name }; claims the number the payer typed |
-| PUT | `/api/customers/:id` | businesses.manage |
-| DELETE | `/api/customers/:id` | businesses.manage; retires the number |
-| POST | `/api/businesses/assign/:requestId` | businesses.manage; body { businessId, customerId? } |
+| GET | `/api/businesses/:id/accounts` | signed in; q narrows by name or number; customers carry their accounts nested |
+| POST | `/api/businesses/:id/accounts` | businesses.manage; body { name, phone?, note? }; Studio draws the number |
+| POST | `/api/accounts/:id/children` | businesses.manage; an account under a customer; Studio draws its number too |
+| PUT | `/api/accounts/:id` | businesses.manage; the words around the number only, which is never edited |
+| DELETE | `/api/accounts/:id` | businesses.manage; retires it and everything under it; the number is never reissued |
+| POST | `/api/businesses/assign/:requestId` | businesses.manage; body { businessId, accountId? } |
 | GET | `/api/businesses/summary` | signed in; per business in and out for the day |
 
 ### QR codes

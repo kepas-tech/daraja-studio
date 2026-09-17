@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.29.0 — an account number that can never be mixed up
+
+- Account numbers are now three levels, all drawn by Studio: a three-digit business code, a customer
+  number, and an account under a customer for the room, the plot or the child. `000` is a business,
+  `000359` a customer, `000359123` an account under them.
+- Nobody types a number and no form has a box for one. Studio draws each one at random, so a payer
+  cannot guess a neighbour's number, and a retired number is never given out again.
+- The length of a number is written into the number itself: a customer number starts at three digits,
+  and when all 900 of them are used the next ones are four digits, then five. The Businesses page
+  says where each business stands — "Customer numbers: 3 digits, 412 of 900 used" — and the bell
+  tells you when a length runs out: "Customer numbers for Shop now have 4 digits."
+- A payment is sorted by what the payer typed, and now always one way: the digits say their own
+  length, so they can never be read as somebody else's account. Money in names the reason when a
+  payment needs a person — no business has this code, no account with this number, no such account
+  under that customer, or too many digits — and one press labels it.
+- Ask a customer to pay, QR codes and Invoices pick a business, then a customer, then one of the
+  accounts under them, and Studio fills the full number.
 ## 0.28.0 — a message on the device when something happens
 
 - Notifications can now reach the phone or the computer itself, even with Studio closed. The

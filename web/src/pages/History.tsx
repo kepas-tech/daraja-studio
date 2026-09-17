@@ -24,12 +24,12 @@ export function History() {
   const toast = useToast();
   const [q, setQ] = useState(''); const [from, setFrom] = useState(''); const [to, setTo] = useState(''); const [status, setStatus] = useState(''); const [direction, setDirection] = useState('');
   const [items, setItems] = useState<RequestView[]>([]); const [next, setNext] = useState<string | null>(null); const [loaded, setLoaded] = useState(false);
-  // Feature 2: a business narrows every list; a single customer arrives as a link from Money in.
+  // Brief 2, item 1: a business narrows every list; a single account arrives as a link from Money in.
   const [businesses, setBusinesses] = useState<BusinessView[]>([]);
   const [business, setBusiness] = useState('');
   const [search, setSearch] = useSearchParams();
-  const customerId = search.get('customer') ?? '';
-  const customerName = search.get('customerName') ?? '';
+  const accountId = search.get('account') ?? '';
+  const accountName = search.get('accountName') ?? '';
   useEffect(() => { api.get<{ items: BusinessView[] }>('/api/businesses').then((r) => setBusinesses(r.items)).catch(() => setBusinesses([])); }, []);
   // Feature 3: the file holds every row the filters select, not the seven on screen. It is the
   // owner's own data, so only the owner (or somebody the owner gave history.export) may take it.
@@ -74,9 +74,9 @@ export function History() {
   // One definition of what the filters mean, shared by the list and the export.
   const filterParams = useCallback(() => {
     const p = new URLSearchParams();
-    if (q.trim()) p.set('q', q.trim()); if (from) p.set('from', from); if (to) p.set('to', to); if (status) p.set('status', status); if (direction && DIRECTION_TYPES[direction]) p.set('type', DIRECTION_TYPES[direction]); if (business) p.set('businessId', business); if (customerId) p.set('customerId', customerId);
+    if (q.trim()) p.set('q', q.trim()); if (from) p.set('from', from); if (to) p.set('to', to); if (status) p.set('status', status); if (direction && DIRECTION_TYPES[direction]) p.set('type', DIRECTION_TYPES[direction]); if (business) p.set('businessId', business); if (accountId) p.set('accountId', accountId);
     return p;
-  }, [q, from, to, status, direction, business, customerId]);
+  }, [q, from, to, status, direction, business, accountId]);
   const params = useCallback((c?: string | null) => {
     const p = filterParams();
     p.set('limit', String(PAGE));
@@ -92,7 +92,7 @@ export function History() {
     finally { setExporting(false); }
   };
   // A filter change starts again from the first page.
-  useEffect(() => { setStack([]); }, [q, from, to, status, direction, business, customerId]);
+  useEffect(() => { setStack([]); }, [q, from, to, status, direction, business, accountId]);
   useEffect(() => {
     const t = setTimeout(() => { api.get<Page<RequestView>>(`/api/requests?${params(cursor)}`).then((r) => { setItems(r.items); setNext(r.nextCursor); setLoaded(true); }).catch(() => setLoaded(true)); }, 200);
     return () => clearTimeout(t);
@@ -122,10 +122,10 @@ export function History() {
           {mayExport && <Button type="button" variant="secondary" disabled={exporting} onClick={() => void exportFile()}>{exporting ? copy.history.exporting : copy.history.export}</Button>}
         </div>
         {exportErr && <div className="border-b border-line p-4"><ErrorCard error={exportErr} /></div>}
-        {customerId && (
+        {accountId && (
           <div className="flex flex-wrap items-center gap-3 border-b border-line bg-page px-4 py-2 text-sm">
-            <span>{copy.history.oneCustomer(customerName || customerId)}</span>
-            <button type="button" className="cursor-pointer text-brand underline" onClick={() => { const p = new URLSearchParams(search); p.delete('customer'); p.delete('customerName'); setSearch(p); }}>{copy.history.clearCustomer}</button>
+            <span>{copy.history.oneAccount(accountName || accountId)}</span>
+            <button type="button" className="cursor-pointer text-brand underline" onClick={() => { const p = new URLSearchParams(search); p.delete('account'); p.delete('accountName'); setSearch(p); }}>{copy.history.clearAccount}</button>
           </div>
         )}
         {notHere && (

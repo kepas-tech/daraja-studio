@@ -16,6 +16,8 @@ const askToPay = z.object({
   // Safaricom shows this to the payer and puts it on their statement, so it is the one field a
   // business uses to recognise the payment later. Required, unlike a send's optional remarks.
   accountReference: z.string().trim().min(1).max(12),
+  /** Brief 2, item 1: a saved account instead of typed words. Its full number becomes the reference. */
+  accountId: z.string().uuid().optional(),
   description: z.string().trim().max(13).optional(),
   confirmDuplicate: z.boolean().optional(),
 });

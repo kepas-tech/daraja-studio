@@ -20,7 +20,7 @@ const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOSt
 const row = (over: Record<string, unknown> = {}) => ({
   id: 'r1', type: 'b2c', subtype: 'BusinessPayment', status: 'sent', amountCents: 500000, currency: 'KES',
   recipient: { kind: 'phone', value: '254700123456', name: null }, remarks: null, receipt: null, category: 'Rent',
-  contactName: null, accountReference: null, businessName: null, customerName: null,
+  contactName: null, accountReference: null, businessName: null, accountName: null,
   createdAt: ago(30), sentAt: ago(3.5), resultAt: null, resultSource: null, safaricomSaid: null, meaning: null,
   whatToDo: null, retriable: false, pollAttempts: 1, checked: null, createdBy: { id: 'owner', displayName: 'Amina' },
   approvedBy: null, ...over,

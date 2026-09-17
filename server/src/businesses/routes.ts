@@ -7,10 +7,13 @@ import { clientIp } from '../util/ip.js';
 import { HttpError } from '../util/errors.js';
 
 /**
- * Feature 2. Reading is open to any signed-in person, because the Send, Bulk, Ask-to-pay, QR and
- * invoice screens all pick from this list; writing takes the new businesses.manage, which is in no
- * role preset — deciding whose money a payment is, and minting the number a payer will use, is the
- * owner's job. Every write lands in audit_log.
+ * Brief 2, item 1. Reading is open to any signed-in person, because the Send, Bulk, Ask-to-pay, QR
+ * and invoice screens all pick from this list; writing takes the new businesses.manage, which is in
+ * no role preset — deciding whose money a payment is, and naming the account a payer will use, is
+ * the owner's job. Every write lands in audit_log.
+ *
+ * No account body has a number field, and every one of them is strict: a client that sends a number
+ * for Studio to use gets a 400 rather than a row. The number is always minted here.
  */
 
 const name = z.string().trim().min(1).max(80);
@@ -23,9 +26,9 @@ const createSchema = z.object({
   code: z.string().trim().regex(/^[0-9]{3}$/, 'A business code is three digits, like 007.').optional(),
 });
 const updateSchema = z.object({ name, active: z.boolean() });
-const customerSchema = z.object({ name, phone, note });
-const claimSchema = customerSchema.extend({ number: z.number().int().min(0).max(999_999_999) });
-const assignSchema = z.object({ businessId: uuid, customerId: uuid.nullish() });
+/** Strict on purpose: a number is Studio's to mint, so it is not a field of any account body. */
+const accountSchema = z.object({ name, phone, note }).strict();
+const assignSchema = z.object({ businessId: uuid, accountId: uuid.nullish() });
 const listSchema = z.object({ q: z.string().trim().max(80).optional() });
 const isRealDay = (s: string) => {
   const d = new Date(s + 'T00:00:00Z');
@@ -34,7 +37,7 @@ const isRealDay = (s: string) => {
 const daySchema = z.object({ day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(isRealDay, { message: 'Enter a real date.' }).optional() });
 const isUuid = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 const NOT_FOUND = 'That business does not exist.';
-const CUSTOMER_NOT_FOUND = 'That customer does not exist.';
+const ACCOUNT_NOT_FOUND = 'That account does not exist.';
 
 function parse<T>(schema: z.ZodType<T>, body: unknown): T {
   const r = schema.safeParse(body);
@@ -70,7 +73,7 @@ export function businessesRoutes(deps: AppDeps): Router {
       const id = String(req.params.requestId);
       if (!isUuid(id)) throw new HttpError(404, 'not_found', 'That payment does not exist.');
       const b = parse(assignSchema, req.body);
-      res.json(await deps.businesses.assign(id, b.businessId, b.customerId ?? null, actor(req)));
+      res.json(await deps.businesses.assign(id, b.businessId, b.accountId ?? null, actor(req)));
     } catch (e) { next(e); }
   });
 
@@ -83,55 +86,56 @@ export function businessesRoutes(deps: AppDeps): Router {
     } catch (e) { next(e); }
   });
 
-  r.get('/:id/customers', async (req, res, next) => {
+  r.get('/:id/accounts', async (req, res, next) => {
     try {
       const id = String(req.params.id);
       if (!isUuid(id)) throw new HttpError(404, 'not_found', NOT_FOUND);
       const q = parse(listSchema, req.query).q;
-      res.json({ items: await deps.businesses.customers(id, q) });
+      res.json({ items: await deps.businesses.accounts(id, q) });
     } catch (e) { next(e); }
   });
 
-  r.post('/:id/customers', requirePermission(deps.db, 'businesses.manage'), async (req, res, next) => {
+  r.post('/:id/accounts', requirePermission(deps.db, 'businesses.manage'), async (req, res, next) => {
     try {
       const id = String(req.params.id);
       if (!isUuid(id)) throw new HttpError(404, 'not_found', NOT_FOUND);
-      const b = parse(customerSchema, req.body);
-      res.status(201).json(await deps.businesses.addCustomer(id, b, actor(req)));
-    } catch (e) { next(e); }
-  });
-
-  r.post('/:id/customers/claim', requirePermission(deps.db, 'businesses.manage'), async (req, res, next) => {
-    try {
-      const id = String(req.params.id);
-      if (!isUuid(id)) throw new HttpError(404, 'not_found', NOT_FOUND);
-      const b = parse(claimSchema, req.body);
-      res.status(201).json(await deps.businesses.claimCustomer(id, b.number, b, actor(req)));
+      const b = parse(accountSchema, req.body);
+      res.status(201).json(await deps.businesses.addAccount(id, b, actor(req)));
     } catch (e) { next(e); }
   });
 
   return r;
 }
 
-/** The customer routes live at their own address, because a customer id already names its business. */
-export function customersRoutes(deps: AppDeps): Router {
+/** The account routes live at their own address, because an account id already names its business. */
+export function accountsRoutes(deps: AppDeps): Router {
   const r = Router();
   r.use(requireAuth(deps.db), requireCsrf);
+
+  // An account under a customer. Refused a level deeper: an account under an account is not allowed.
+  r.post('/:id/children', requirePermission(deps.db, 'businesses.manage'), async (req, res, next) => {
+    try {
+      const id = String(req.params.id);
+      if (!isUuid(id)) throw new HttpError(404, 'not_found', ACCOUNT_NOT_FOUND);
+      const b = parse(accountSchema, req.body);
+      res.status(201).json(await deps.businesses.addChild(id, b, actor(req)));
+    } catch (e) { next(e); }
+  });
 
   r.put('/:id', requirePermission(deps.db, 'businesses.manage'), async (req, res, next) => {
     try {
       const id = String(req.params.id);
-      if (!isUuid(id)) throw new HttpError(404, 'not_found', CUSTOMER_NOT_FOUND);
-      const b = parse(customerSchema, req.body);
-      res.json(await deps.businesses.updateCustomer(id, b, actor(req)));
+      if (!isUuid(id)) throw new HttpError(404, 'not_found', ACCOUNT_NOT_FOUND);
+      const b = parse(accountSchema, req.body);
+      res.json(await deps.businesses.updateAccount(id, b, actor(req)));
     } catch (e) { next(e); }
   });
 
   r.delete('/:id', requirePermission(deps.db, 'businesses.manage'), async (req, res, next) => {
     try {
       const id = String(req.params.id);
-      if (!isUuid(id)) throw new HttpError(404, 'not_found', CUSTOMER_NOT_FOUND);
-      await deps.businesses.retireCustomer(id, actor(req));
+      if (!isUuid(id)) throw new HttpError(404, 'not_found', ACCOUNT_NOT_FOUND);
+      await deps.businesses.retireAccount(id, actor(req));
       res.status(204).end();
     } catch (e) { next(e); }
   });

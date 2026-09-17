@@ -6,7 +6,7 @@ import { ErrorCard, type Explained } from '../components/ErrorCard';
 import { Card } from '../components/Card';
 import { Flash } from '../components/Flash';
 import { Questionnaire } from '../components/Questionnaire';
-import { CustomerPicker } from '../components/CustomerPicker';
+import { AccountPicker } from '../components/AccountPicker';
 import { Segmented } from '../components/Segmented';
 import { MoneyInput } from '../components/MoneyInput';
 import { PageHeader } from '../components/PageHeader';
@@ -30,6 +30,8 @@ export function Qr() {
   const allowed = !!session.person?.is_owner || session.permissions.includes('qr.generate');
   const [details, setDetails] = useState<Details | null>(null);
   const [attempt, setAttempt] = useState(0);
+  // Brief 2, item 1: the saved account the reference was filled from, when one was picked.
+  const [pickedAccount, setPickedAccount] = useState('');
   const [reference, setReference] = useState('');
   const [trxCode, setTrxCode] = useState<'PB' | 'BG'>('PB');
   const [amount, setAmount] = useState<number | null>(null);
@@ -52,7 +54,7 @@ export function Qr() {
     if (!valid || sending.current) return;
     sending.current = true; setBusy(true); setResult(null); setError(null);
     try {
-      const answer = await api.post<Generated>('/api/qr', { accountReference: reference.trim(), trxCode, amountCents: customerAmount ? 0 : amount });
+      const answer = await api.post<Generated>('/api/qr', { accountReference: reference.trim(), accountId: pickedAccount || undefined, trxCode, amountCents: customerAmount ? 0 : amount });
       if (typeof answer?.imageUrl !== 'string' || !/^data:image\/png;base64,[A-Za-z0-9+/]+=*$/.test(answer.imageUrl)) throw new Error(text.badResponse);
       setResult(answer);
     } catch (e) { setError(errorLines(e)); }
@@ -69,7 +71,7 @@ export function Qr() {
           { key: 'type', question: text.type, valid: true, render: () => <Segmented name="trxCode" label={text.type} value={trxCode} options={[{ value: 'PB', label: text.paybill }, { value: 'BG', label: text.till }]} onChange={(v) => { changed(); setTrxCode(v); }} /> },
           { key: 'reference', question: text.reference, hint: text.referenceHint, valid: reference.trim().length > 0 && reference.trim().length <= 32, render: () => (
             <div className="space-y-3">
-              <CustomerPicker label={text.pickCustomer} onPick={(x) => { changed(); setReference(x.accountNumber); }} />
+              <AccountPicker label={text.pickCustomer} onPick={(x) => { changed(); setPickedAccount(x.id); setReference(x.fullNumber); }} />
               <TextField label={text.reference} labelHidden value={reference} maxLength={32} onChange={(e) => { changed(); setReference(e.target.value); }} autoFocus />
             </div>
           ) },

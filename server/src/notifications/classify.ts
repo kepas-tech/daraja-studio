@@ -1,7 +1,7 @@
 import type { RequestView } from '../money_out/reads.js';
 
 export type Severity = 'info' | 'success' | 'warning' | 'critical';
-export type NotificationCategory = 'money_out' | 'money_in' | 'approvals' | 'operators' | 'invoices';
+export type NotificationCategory = 'money_out' | 'money_in' | 'approvals' | 'operators' | 'invoices' | 'accounts';
 
 export interface Classified {
   severity: Severity;
@@ -36,7 +36,7 @@ function kes(cents: number | null): string {
  * leaks into a screenshot.
  */
 function nameOf(r: RequestView): string | null {
-  return r.contactName ?? r.customerName ?? r.recipient.name ?? null;
+  return r.contactName ?? r.accountName ?? r.recipient.name ?? null;
 }
 
 /** " to Joseph" / " from Joseph" / nothing at all when no name is known. */
@@ -119,6 +119,24 @@ export function classify(e: ClassifyInput): Classified | null {
       severity: 'critical', category: 'operators', type: 'operator.failed', title: 'Operator problem',
       body: 'The operator stopped working. Sends will fail until it is fixed. Open Organisation to see it.',
       data: { operatorId }, dedupeKey: 'operator:' + operatorId + ':failed',
+    };
+  }
+
+  // Brief 2, item 1: a scope's numbers ran out and the next width opened. The owner should hear it:
+  // the numbers their payers are told grow by a digit, and nothing else about them changes.
+  if (e.type === 'accounts.width_grew') {
+    const width = typeof payload.width === 'number' ? payload.width : null;
+    if (width === null) return null;
+    const businessId = typeof payload.businessId === 'string' ? payload.businessId : null;
+    const accountId = typeof payload.accountId === 'string' ? payload.accountId : null;
+    const who = payload.scope === 'sub_accounts'
+      ? 'Accounts under ' + (typeof payload.accountName === 'string' ? payload.accountName : 'a customer')
+      : 'Customer numbers for ' + (typeof payload.businessName === 'string' ? payload.businessName : 'a business');
+    return {
+      severity: 'info', category: 'accounts', type: 'accounts.width_grew', title: 'Longer account numbers',
+      body: who + ' now have ' + width + ' digits. All 900 shorter numbers are used.',
+      data: { businessId, accountId, width },
+      dedupeKey: 'accounts:width:' + (accountId ?? businessId ?? 'unknown') + ':' + width,
     };
   }
 

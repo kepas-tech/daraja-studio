@@ -16,7 +16,7 @@ import { PageHeader } from '../components/PageHeader';
 import { PasswordConfirmDialog } from '../components/PasswordConfirmDialog';
 import { PhoneInput } from '../components/PhoneInput';
 import { Questionnaire } from '../components/Questionnaire';
-import { CustomerPicker } from '../components/CustomerPicker';
+import { AccountPicker } from '../components/AccountPicker';
 import { Segmented } from '../components/Segmented';
 import { StatusPill } from '../components/StatusPill';
 import { TextField } from '../components/TextField';
@@ -156,7 +156,7 @@ function OptIn({ settings, stepUp, onDone }: { settings: InvoicesSettingsView; s
 
 function NewInvoice({ onCancel, onDone }: { onCancel: () => void; onDone: (inv: InvoiceView) => void }) {
   const c = copy.invoices.form;
-  const [f, setF] = useState({ customerName: '', customerPhone: '', invoiceName: '', accountReference: '', billedPeriod: '', dueDate: '', items: '' });
+  const [f, setF] = useState({ customerName: '', customerPhone: '', invoiceName: '', accountReference: '', billedPeriod: '', dueDate: '', items: '', accountId: '' });
   const [cents, setCents] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<Error | Explained | null>(null);
@@ -167,7 +167,7 @@ function NewInvoice({ onCancel, onDone }: { onCancel: () => void; onDone: (inv: 
   const submit = async () => {
     if (busy || amount === null) return;
     setBusy(true); setErr(null);
-    try { onDone(await api.post<InvoiceView>('/api/invoices', { ...f, items: items.length ? items : undefined, amountCents: amount })); }
+    try { onDone(await api.post<InvoiceView>('/api/invoices', { ...f, accountId: f.accountId || undefined, items: items.length ? items : undefined, amountCents: amount })); }
     catch (e) { setErr(e instanceof ApiError ? explainApiError(e) : new Error(copy.error.generic)); }
     finally { setBusy(false); }
   };
@@ -179,7 +179,7 @@ function NewInvoice({ onCancel, onDone }: { onCancel: () => void; onDone: (inv: 
         { key: 'invoice', question: c.invoiceName, valid: f.invoiceName.trim().length > 0, render: () => <TextField label={c.invoiceName} labelHidden value={f.invoiceName} onChange={(e) => setF({ ...f, invoiceName: e.target.value })} autoFocus /> },
         { key: 'account', question: c.accountReference, hint: c.accountHint, valid: f.accountReference.trim().length > 0 && f.accountReference.trim().length <= 20, render: () => (
           <div className="space-y-3">
-            <CustomerPicker label={c.pickCustomer} onPick={(x) => setF((prev) => ({ ...prev, accountReference: x.accountNumber, customerName: prev.customerName.trim() || x.name, customerPhone: prev.customerPhone.trim() || (x.phone ?? '') }))} />
+            <AccountPicker label={c.pickCustomer} onPick={(x) => setF((prev) => ({ ...prev, accountId: x.id, accountReference: x.fullNumber, customerName: prev.customerName.trim() || x.name, customerPhone: prev.customerPhone.trim() || (x.phone ?? '') }))} />
             <p className="text-sm text-muted">{c.pickCustomerHint}</p>
             <TextField label={c.accountReference} labelHidden value={f.accountReference} onChange={(e) => setF({ ...f, accountReference: e.target.value })} autoFocus />
           </div>

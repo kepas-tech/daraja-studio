@@ -13,10 +13,11 @@ import { PUBLIC_URL_UNVERIFIED } from '../money_out/ready.js';
 import { syncRejection } from '../money_out/service.js';
 import { parseInvoices, type InvoiceRow, type InvoiceRowError } from './parse.js';
 import { EXPORT_MAX } from '../export/csv.js';
+import { resolveAccount } from '../businesses/lookup.js';
 
 export interface Actor { personId: string; ip: string }
 export interface OptInInput { email: string; officialContact: string; sendReminders: boolean; logo?: string }
-export interface InvoiceInput { customerName: string; customerPhone: string; invoiceName: string; accountReference: string; billedPeriod: string; dueDate: string; amountCents: number; items?: { name: string; amountCents: number }[] }
+export interface InvoiceInput { customerName: string; customerPhone: string; invoiceName: string; accountReference: string; billedPeriod: string; dueDate: string; amountCents: number; items?: { name: string; amountCents: number }[]; /** Brief 2, item 1: a saved account. When it is named, its full number is the invoice's account reference. */ accountId?: string }
 export interface PaymentInput { paymentDate: string; amountCents: number; reference: string; payer: string }
 export type InvoiceStatus = 'sent' | 'partly_paid' | 'paid' | 'cancelled' | 'overdue';
 export interface InvoiceView {
@@ -189,10 +190,13 @@ export function createInvoicesService(deps: { db: Db; settings: Settings; daraja
     async runOptIn(input, actor) {
       const env = await mode();
       const s = await deps.settings.getMany(['public.url', `env.${env}.billManagerAppKey`]);
+      // The outcome is written before the started flag is cleared, so the page can never catch a
+      // settled state with no outcome: registering false always means the error or the app key is
+      // already there. Nothing is written after the flag is cleared.
       const finish = async (error: string | null) => {
-        await deps.settings.delete(`env.${env}.billManagerOptInStartedAt`);
         if (error) await deps.settings.set(`env.${env}.billManagerOptInError`, error.slice(0, 600));
         else await deps.settings.delete(`env.${env}.billManagerOptInError`);
+        await deps.settings.delete(`env.${env}.billManagerOptInStartedAt`);
         await deps.events.publish('invoice.updated', { settings: true, environment: env, ok: !error });
       };
       const startedAt = Date.now();
@@ -224,6 +228,10 @@ export function createInvoicesService(deps: { db: Db; settings: Settings; daraja
     },
     async create(input, actor) {
       const key = await appKey();
+      // Brief 2, item 1: a picked account decides the reference itself, so the payer is billed
+      // against the full account number and the payment that comes back sorts itself.
+      const picked = input.accountId ? await resolveAccount(deps.db, input.accountId) : null;
+      const accountReference = picked ? picked.fullNumber : input.accountReference.trim();
       let phone: string;
       try { phone = normalizePhone(input.customerPhone); } catch { throw new HttpError(400, 'bad_phone', 'Enter a Kenyan mobile number such as 0712 345 678.'); }
       const items = (input.items ?? []).filter((i) => i.name.trim() && i.amountCents > 0);
@@ -238,14 +246,14 @@ export function createInvoicesService(deps: { db: Db; settings: Settings; daraja
         try {
           await client.billManager.sendInvoice({
             appKey: key, externalReference: reference, billedFullName: input.customerName.trim(), billedPhoneNumber: phone, billedPeriod: input.billedPeriod.trim(), invoiceName: input.invoiceName.trim(),
-            dueDate: input.dueDate, accountReference: input.accountReference.trim(), amount: input.amountCents / 100,
+            dueDate: input.dueDate, accountReference, amount: input.amountCents / 100,
             ...(items.length ? { invoiceItems: items.map((i) => ({ itemName: i.name.trim(), amount: i.amountCents / 100 })) } : {}),
           });
         } catch (e) { threeLines(e); }
         const ins = await c.query<{ id: string }>(
           `INSERT INTO customer_invoices(seq, external_reference, customer_name, customer_phone, invoice_name, account_reference, billed_period, due_date, amount_cents, items, created_by)
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8::date,$9,$10::jsonb,$11) RETURNING id`,
-          [seq, reference, input.customerName.trim(), phone, input.invoiceName.trim(), input.accountReference.trim(), input.billedPeriod.trim(), input.dueDate, input.amountCents, JSON.stringify(items), actor.personId]);
+          [seq, reference, input.customerName.trim(), phone, input.invoiceName.trim(), accountReference, input.billedPeriod.trim(), input.dueDate, input.amountCents, JSON.stringify(items), actor.personId]);
         await c.query(`INSERT INTO audit_log(person_id, action, target, before_json, after_json, ip) VALUES ($1,'invoice.sent',$2,NULL,$3::jsonb,$4)`, [actor.personId, ins.rows[0].id, JSON.stringify({ reference, amountCents: input.amountCents }), actor.ip]);
         return ins.rows[0].id;
       });

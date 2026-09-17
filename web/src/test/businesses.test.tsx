@@ -2,11 +2,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { useState } from 'react';
 import { MemoryRouter } from 'react-router';
-import type { BusinessView, CustomerView } from '../api/types';
+import type { AccountView, BusinessView } from '../api/types';
 import { AskToPay } from '../pages/AskToPay';
 import { Businesses } from '../pages/Businesses';
 import { Bulk } from '../pages/Bulk';
-import { CustomerPicker } from '../components/CustomerPicker';
+import { AccountPicker } from '../components/AccountPicker';
 import { History } from '../pages/History';
 import { Home } from '../pages/Home';
 import { MoneyIn } from '../pages/MoneyIn';
@@ -31,9 +31,11 @@ vi.stubGlobal('EventSource', FakeEventSource);
 afterEach(() => { cleanup(); state.mayManage = true; });
 
 const at = '2026-09-17T08:00:00Z';
-const kepas: BusinessView = { id: 'b1', code: '000', name: 'Kepas Hardware', active: true, customerCount: 1, createdAt: at };
-const rentals: BusinessView = { id: 'b2', code: '001', name: 'Rentals', active: true, customerCount: 0, createdAt: at };
-const jane: CustomerView = { id: 'k1', businessId: 'b1', number: 0, display: '000', accountNumber: '000000', name: 'Jane Doe', phone: '254712345678', note: null, createdAt: at };
+const kepas: BusinessView = { id: 'b1', code: '000', name: 'Kepas Hardware', active: true, accountCount: 1, numbers: { width: 3, capacity: 900, used: 1 }, createdAt: at };
+const rentals: BusinessView = { id: 'b2', code: '001', name: 'Rentals', active: true, accountCount: 0, numbers: { width: 3, capacity: 900, used: 0 }, createdAt: at };
+/** Jane is a customer account at 000359 with one account under her, Room 4 at 000359123. */
+const room: AccountView = { id: 'k2', businessId: 'b1', parentId: 'k1', number: '123', fullNumber: '000359123', name: 'Room 4', phone: null, note: null, createdAt: at, retiredAt: null, children: [] };
+const jane: AccountView = { id: 'k1', businessId: 'b1', parentId: null, number: '359', fullNumber: '000359', name: 'Jane Doe', phone: '254712345678', note: null, createdAt: at, retiredAt: null, children: [room] };
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 type Handlers = Record<string, (init?: RequestInit) => Response>;
@@ -44,7 +46,7 @@ function mountBusinesses(handlers: Handlers = {}, items: BusinessView[] = [kepas
     const h = handlers[key];
     if (h) return h(init);
     if (key === 'GET /api/businesses') return json({ items, lastUsedId: null });
-    if (key === 'GET /api/businesses/b1/customers') return json({ items: [jane] });
+    if (key === 'GET /api/businesses/b1/accounts') return json({ items: [jane] });
     throw new Error('unexpected fetch ' + key);
   });
   vi.stubGlobal('fetch', fetchMock);
@@ -52,20 +54,25 @@ function mountBusinesses(handlers: Handlers = {}, items: BusinessView[] = [kepas
   return fetchMock;
 }
 
-describe('Businesses and their customers', () => {
-  it('lists a business with its code and opens its customers, whose account number is code plus number', async () => {
+describe('Businesses and their accounts', () => {
+  it('lists a business with its code, its number width, and a customer whose full number is printed', async () => {
     mountBusinesses();
     const row = await screen.findByTestId('business-b1');
     expect(within(row).getByText(/Kepas Hardware/)).toBeInTheDocument();
     expect(within(row).getByText('000')).toBeInTheDocument();
-    expect(within(row).getByText(copy.businesses.customerCount(1))).toBeInTheDocument();
+    expect(within(row).getByText(copy.businesses.accountCount(1))).toBeInTheDocument();
+    // The width in use, in the owner's words: 3 digits, 1 of 900 used.
+    expect(within(row).getByTestId('numbers-b1')).toHaveTextContent('Customer numbers: 3 digits, 1 of 900 used');
 
     fireEvent.click(within(row).getByRole('button', { name: copy.businesses.customers }));
-    const customer = await screen.findByTestId('customer-k1');
+    const customer = await screen.findByTestId('account-k1');
     expect(within(customer).getByText('Jane Doe')).toBeInTheDocument();
-    expect(within(customer).getByText('000000')).toBeInTheDocument();
-    // The owner is told what to say to the payer: the paybill, then the account number.
-    expect(within(customer).getByText(copy.businesses.tellThem('600999', '000000'))).toBeInTheDocument();
+    expect(within(customer).getByTestId('full-k1')).toHaveTextContent('000359');
+    // The owner is told what to say to the payer: the paybill, then the full account number.
+    expect(within(customer).getByText(copy.businesses.tellThem('600999', '000359'))).toBeInTheDocument();
+    // And the account under her is right there, printed with its own full number.
+    expect(within(customer).getByText(copy.businesses.accountsUnder('Jane Doe'))).toBeInTheDocument();
+    expect(within(customer).getByText(/000359123/)).toBeInTheDocument();
   });
 
   it('says routing is off with one business and on from the second', async () => {
@@ -82,7 +89,6 @@ describe('Businesses and their customers', () => {
     mountBusinesses({ 'POST /api/businesses': (init) => { posted = JSON.parse(String(init?.body)); return json({ ...rentals, id: 'b9', code: '002', name: 'Farm' }, 201); } });
     await screen.findByTestId('business-b1');
     fireEvent.click(screen.getByRole('button', { name: copy.businesses.add }));
-    // 000 and 001 are taken, so the form offers 002.
     expect(screen.getByText(copy.businesses.codeNext('002'))).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText(copy.businesses.name), { target: { value: 'Farm' } });
     fireEvent.click(screen.getByRole('button', { name: copy.businesses.save }));
@@ -97,29 +103,44 @@ describe('Businesses and their customers', () => {
     await waitFor(() => expect(puts).toEqual([{ name: 'Kepas Hardware', active: false }]));
   });
 
-  it('adds a customer, sends the normalised phone, and shows the account number the payer must use', async () => {
+  it('adds a customer with a name and phone only — no form anywhere carries a number', async () => {
     let posted: unknown = null;
     mountBusinesses({
-      'POST /api/businesses/b1/customers': (init) => { posted = JSON.parse(String(init?.body)); return json({ ...jane, id: 'k9', number: 1, display: '001', accountNumber: '000001', name: 'Peter' }, 201); },
-      'GET /api/businesses/b1/customers': () => json({ items: [jane, { ...jane, id: 'k9', number: 1, display: '001', accountNumber: '000001', name: 'Peter' }] }),
+      'POST /api/businesses/b1/accounts': (init) => { posted = JSON.parse(String(init?.body)); return json({ ...jane, id: 'k9', number: '482', fullNumber: '000482', name: 'Peter', children: [] }, 201); },
+      'GET /api/businesses/b1/accounts': () => json({ items: [jane, { ...jane, id: 'k9', number: '482', fullNumber: '000482', name: 'Peter', children: [] }] }),
     });
     const row = await screen.findByTestId('business-b1');
     fireEvent.click(within(row).getByRole('button', { name: copy.businesses.customers }));
     fireEvent.click(await screen.findByRole('button', { name: copy.businesses.addCustomer }));
+    // No label anywhere on the form is a number box: Studio draws the number, not the owner.
+    expect(screen.queryByLabelText(/account number/i)).toBeNull();
     fireEvent.change(screen.getByLabelText(copy.businesses.customerName), { target: { value: 'Peter' } });
     fireEvent.change(screen.getByLabelText(copy.businesses.customerPhone), { target: { value: '0712 000 001' } });
     fireEvent.click(screen.getByRole('button', { name: copy.businesses.save }));
     await waitFor(() => expect(posted).toEqual({ name: 'Peter', phone: '254712000001', note: undefined }));
-    expect(await screen.findByText('000001')).toBeInTheDocument();
+    expect(await screen.findByText('000482')).toBeInTheDocument();
+  });
+
+  it('adds an account under a customer, which the server numbers too', async () => {
+    let posted: unknown = null;
+    mountBusinesses({
+      'POST /api/accounts/k1/children': (init) => { posted = JSON.parse(String(init?.body)); return json({ ...room, id: 'k7', number: '482', fullNumber: '000359482', name: 'Room 7' }, 201); },
+    });
+    const row = await screen.findByTestId('business-b1');
+    fireEvent.click(within(row).getByRole('button', { name: copy.businesses.customers }));
+    fireEvent.click(await screen.findByRole('button', { name: copy.businesses.addAccount }));
+    fireEvent.change(screen.getByLabelText(copy.businesses.customerName), { target: { value: 'Room 7' } });
+    fireEvent.click(screen.getByRole('button', { name: copy.businesses.save }));
+    await waitFor(() => expect(posted).toEqual({ name: 'Room 7', phone: undefined, note: undefined }));
   });
 
   it('retires a customer without touching anyone else', async () => {
     let deleted = 0;
-    mountBusinesses({ 'DELETE /api/customers/k1': () => { deleted += 1; return new Response(null, { status: 204 }); } });
+    mountBusinesses({ 'DELETE /api/accounts/k1': () => { deleted += 1; return new Response(null, { status: 204 }); } });
     const row = await screen.findByTestId('business-b1');
     fireEvent.click(within(row).getByRole('button', { name: copy.businesses.customers }));
-    const customer = await screen.findByTestId('customer-k1');
-    fireEvent.click(within(customer).getByRole('button', { name: copy.businesses.retire }));
+    const customer = await screen.findByTestId('account-k1');
+    fireEvent.click(within(customer).getAllByRole('button', { name: copy.businesses.retire })[0]!);
     await waitFor(() => expect(deleted).toBe(1));
   });
 
@@ -135,27 +156,37 @@ describe('Businesses and their customers', () => {
 });
 
 function PickerHarness() {
-  const [picked, setPicked] = useState<CustomerView | null>(null);
-  // The picker's own row also prints the account number, so the harness labels its copy.
-  return <><CustomerPicker onPick={setPicked} />{picked && <p>Picked {picked.accountNumber}</p>}</>;
+  const [picked, setPicked] = useState<AccountView | null>(null);
+  // The picker's own rows also print numbers, so the harness labels its copy.
+  return <><AccountPicker onPick={setPicked} />{picked && <p>Picked {picked.fullNumber}</p>}</>;
 }
 
-describe('The saved-customer picker', () => {
-  it('hands the page the customer whose account number the payer will type', async () => {
+describe('The saved-account picker', () => {
+  function mountPicker() {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const key = 'GET ' + String(input);
       if (key === 'GET /api/businesses') return json({ items: [kepas], lastUsedId: null });
-      if (key === 'GET /api/businesses/b1/customers') return json({ items: [jane] });
+      if (key === 'GET /api/businesses/b1/accounts') return json({ items: [jane] });
       throw new Error('unexpected fetch ' + key);
     }));
     render(<MemoryRouter><PickerHarness /></MemoryRouter>);
+  }
+
+  it('hands the page the customer whose full number the payer will type', async () => {
+    mountPicker();
     fireEvent.click(await screen.findByRole('button', { name: new RegExp(jane.name) }));
-    expect(await screen.findByText('Picked 000000')).toBeInTheDocument();
+    expect(await screen.findByText('Picked 000359')).toBeInTheDocument();
+  });
+
+  it('offers the accounts under a customer too, and hands back the one that was picked', async () => {
+    mountPicker();
+    fireEvent.click(await screen.findByRole('button', { name: new RegExp(room.name) }));
+    expect(await screen.findByText('Picked 000359123')).toBeInTheDocument();
   });
 });
 
 const balance = { workingCents: 1400, utilityCents: 3439200, chargesPaidCents: 0, queriedAt: at };
-const sent = { id: 'r1', type: 'b2c', subtype: 'BusinessPayment', status: 'sent', amountCents: 100, currency: 'KES', recipient: { kind: 'phone', value: '254712345678', name: null }, remarks: null, receipt: null, category: 'Business payment', contactName: null, createdAt: at, sentAt: at, resultAt: null, resultSource: null, safaricomSaid: null, meaning: null, whatToDo: null, retriable: false, pollAttempts: 0, checked: null, createdBy: null };
+const sent = { id: 'r1', type: 'b2c', subtype: 'BusinessPayment', status: 'sent', amountCents: 100, currency: 'KES', recipient: { kind: 'phone', value: '254712345678', name: null }, remarks: null, receipt: null, category: 'Business payment', contactName: null, accountName: null, createdAt: at, sentAt: at, resultAt: null, resultSource: null, safaricomSaid: null, meaning: null, whatToDo: null, retriable: false, pollAttempts: 0, checked: null, createdBy: null };
 
 describe('Sending money, tagged with a business', () => {
   function mountSend(items: BusinessView[], lastUsedId: string | null) {
@@ -176,20 +207,17 @@ describe('Sending money, tagged with a business', () => {
 
   it('asks which business from the second one on, defaults to the last used, and sends it', async () => {
     const body = mountSend([kepas, rentals], rentals.id);
-    // The first question is the business, already answered by the last-used default.
     expect(await screen.findByLabelText(copy.send.phone.business)).toHaveValue(rentals.id);
     next();
     answer(copy.send.phone.recipient, '0712345678');
     answer(copy.send.phone.amount, '1', { exact: false });
     next();
-    // The last question's button reads Review, not Continue.
     fireEvent.click(screen.getByRole('button', { name: copy.send.phone.next }));
     await screen.findByText(copy.send.phone.review.title);
     fireEvent.click(screen.getByRole('button', { name: copy.send.phone.send }));
     fireEvent.change(screen.getByLabelText(copy.confirm.yourPassword), { target: { value: 'studio-pw' } });
     fireEvent.click(screen.getByRole('button', { name: copy.confirm.confirm }));
     await screen.findByText(copy.send.phone.result.sent);
-    // The number goes as typed; the server normalises it (contacts.test.tsx asserts the same).
     expect(body()).toMatchObject({ phone: '0712345678', businessId: rentals.id });
   });
 
@@ -199,7 +227,8 @@ describe('Sending money, tagged with a business', () => {
     expect(screen.queryByLabelText(copy.send.phone.business)).toBeNull();
   });
 });
-describe('History, narrowed by business and by customer', () => {
+
+describe('History, narrowed by business and by account', () => {
   it('offers a business filter once one exists and sends the choice as businessId', async () => {
     const urls: string[] = [];
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
@@ -214,16 +243,18 @@ describe('History, narrowed by business and by customer', () => {
     await waitFor(() => expect(urls.some((u) => u.includes('businessId=b2'))).toBe(true));
   });
 
-  it('names the customer it was opened for and can clear that filter', async () => {
+  it('names the account it was opened for and can clear that filter', async () => {
+    const urls: string[] = [];
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input);
+      const url = String(input); urls.push(url);
       if (url.includes('/api/businesses')) return json({ items: [kepas], lastUsedId: null });
       return json({ items: [], nextCursor: null });
     }));
-    render(<MemoryRouter initialEntries={['/history?customer=k1&customerName=Jane%20Doe']}><History /></MemoryRouter>);
-    expect(await screen.findByText(copy.history.oneCustomer('Jane Doe'))).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: copy.history.clearCustomer }));
-    await waitFor(() => expect(screen.queryByText(copy.history.oneCustomer('Jane Doe'))).toBeNull());
+    render(<MemoryRouter initialEntries={['/history?account=k1&accountName=Jane%20Doe']}><History /></MemoryRouter>);
+    expect(await screen.findByText(copy.history.oneAccount('Jane Doe'))).toBeInTheDocument();
+    await waitFor(() => expect(urls.some((u) => u.includes('accountId=k1'))).toBe(true));
+    fireEvent.click(screen.getByRole('button', { name: copy.history.clearAccount }));
+    await waitFor(() => expect(screen.queryByText(copy.history.oneAccount('Jane Doe'))).toBeNull());
   });
 });
 
@@ -243,7 +274,6 @@ describe('Bulk send, tagged with a business', () => {
     render(<MemoryRouter><Bulk /></MemoryRouter>);
     fireEvent.change(await screen.findByLabelText(copy.bulk.paste), { target: { value: '0712345678,10' } });
     fireEvent.click(screen.getByRole('button', { name: copy.bulk.check }));
-    // The question appears only once the list has passed its check, as the page's own flow has it.
     expect(await screen.findByLabelText(copy.bulk.business)).toHaveValue(rentals.id);
     fireEvent.click(screen.getByRole('button', { name: copy.bulk.send }));
     fireEvent.change(screen.getByLabelText(copy.confirm.yourPassword), { target: { value: 'studio-pw' } });
@@ -251,7 +281,8 @@ describe('Bulk send, tagged with a business', () => {
     await waitFor(() => expect(posted).toMatchObject({ businessId: rentals.id }));
   });
 });
-const c2b = { id: 'r9', type: 'c2b', subtype: 'Pay Bill', status: 'completed', amountCents: 30000, currency: 'KES', recipient: { kind: 'phone', value: '254700123456', name: 'Robert' }, remarks: null, receipt: 'RI9', category: null, contactName: null, accountReference: '999123', businessName: null, customerName: null, createdAt: at, sentAt: at, resultAt: at, resultSource: 'callback', safaricomSaid: null, meaning: null, whatToDo: null, retriable: false, pollAttempts: 0, checked: null, createdBy: null };
+
+const c2b = { id: 'r9', type: 'c2b', subtype: 'Pay Bill', status: 'completed', amountCents: 30000, currency: 'KES', recipient: { kind: 'phone', value: '254700123456', name: 'Robert' }, remarks: null, receipt: 'RI9', category: null, contactName: null, accountReference: '999123', businessName: null, accountName: null, createdAt: at, sentAt: at, resultAt: at, resultSource: 'callback', safaricomSaid: null, meaning: null, whatToDo: null, retriable: false, pollAttempts: 0, checked: null, createdBy: null };
 const moneyInView = { mode: 'production', c2bRegisteredAt: at, pullRegisteredAt: at, pullCheckedAt: null, nominatedNumber: null, publicVerified: true, registering: false, lastError: null, alreadyRegistered: false };
 
 function mountMoneyIn(unmatched: unknown[], handlers: Handlers = {}) {
@@ -263,7 +294,7 @@ function mountMoneyIn(unmatched: unknown[], handlers: Handlers = {}) {
     if (key === 'GET /api/money-in/recent') return json({ items: [], nextCursor: null });
     if (key === 'GET /api/money-in/unmatched') return json({ items: unmatched });
     if (key === 'GET /api/businesses') return json({ items: [kepas, rentals], lastUsedId: null });
-    if (key === 'GET /api/businesses/b1/customers') return json({ items: [jane] });
+    if (key === 'GET /api/businesses/b1/accounts') return json({ items: [jane] });
     throw new Error('unexpected fetch ' + key);
   }));
   render(<MemoryRouter><MoneyIn /></MemoryRouter>);
@@ -272,27 +303,41 @@ function mountMoneyIn(unmatched: unknown[], handlers: Handlers = {}) {
 describe('Money in, sorting what the account number did not', () => {
   it('picks a business for a code nobody owns and assigns the payment to it', async () => {
     let posted: unknown = null;
-    mountMoneyIn([{ ...c2b, reason: 'no_business', businessId: null, customerNumber: null }], {
+    mountMoneyIn([{ ...c2b, reason: 'no_business', businessId: null, customerName: null }], {
       'POST /api/businesses/assign/r9': (init) => { posted = JSON.parse(String(init?.body)); return json(c2b); },
     });
     expect(await screen.findByText(copy.moneyIn.unmatched.noBusiness('999123'))).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText(copy.moneyIn.unmatched.whichBusiness), { target: { value: 'b2' } });
     fireEvent.click(screen.getByRole('button', { name: copy.moneyIn.unmatched.assign }));
-    await waitFor(() => expect(posted).toEqual({ businessId: 'b2', customerId: undefined }));
+    await waitFor(() => expect(posted).toEqual({ businessId: 'b2', accountId: undefined }));
   });
 
-  it('creates the customer number the payer typed, then assigns the payment to it', async () => {
+  it('says which customer has no such account, and labels the payment with one that exists', async () => {
+    let posted: unknown = null;
+    mountMoneyIn([{ ...c2b, reason: 'no_sub', businessId: 'b1', businessName: 'Kepas Hardware', customerName: 'Jane Doe' }], {
+      'POST /api/businesses/assign/r9': (init) => { posted = JSON.parse(String(init?.body)); return json(c2b); },
+    });
+    expect(await screen.findByText(copy.moneyIn.unmatched.noSub('999123', 'Jane Doe'))).toBeInTheDocument();
+    // The account the payment should carry is picked, never typed: Studio owns every number. The
+    // list arrives with its own fetch, so wait for the account under Jane to be there to pick.
+    await screen.findByRole('option', { name: /Room 4/ });
+    fireEvent.change(screen.getByLabelText(copy.moneyIn.unmatched.orExisting), { target: { value: 'k2' } });
+    fireEvent.click(screen.getByRole('button', { name: copy.moneyIn.unmatched.assign }));
+    await waitFor(() => expect(posted).toEqual({ businessId: 'b1', accountId: 'k2' }));
+  });
+
+  it('adds a customer in that business and labels the payment with the account Studio just made', async () => {
     const calls: string[] = [];
-    mountMoneyIn([{ ...c2b, reason: 'no_customer', businessId: 'b1', businessName: 'Kepas Hardware', customerNumber: 123 }], {
-      'POST /api/businesses/b1/customers/claim': (init) => { calls.push('claim ' + String(init?.body)); return json({ ...jane, id: 'k9', number: 123, display: '123', accountNumber: '000123', name: 'Robert' }, 201); },
+    mountMoneyIn([{ ...c2b, reason: 'no_account', businessId: 'b1', businessName: 'Kepas Hardware', customerName: null }], {
+      'POST /api/businesses/b1/accounts': (init) => { calls.push('create ' + String(init?.body)); return json({ ...jane, id: 'k9', number: '482', fullNumber: '000482', name: 'Robert', children: [] }, 201); },
       'POST /api/businesses/assign/r9': (init) => { calls.push('assign ' + String(init?.body)); return json(c2b); },
     });
-    expect(await screen.findByText(copy.moneyIn.unmatched.noCustomer('999123'))).toBeInTheDocument();
+    expect(await screen.findByText(copy.moneyIn.unmatched.noAccount('999123'))).toBeInTheDocument();
     // The name starts as the payer's own name from the confirmation, and may be corrected.
-    fireEvent.click(screen.getByRole('button', { name: copy.moneyIn.unmatched.createCustomer(123, 'Kepas Hardware') }));
+    fireEvent.click(screen.getByRole('button', { name: copy.moneyIn.unmatched.addCustomer('Kepas Hardware') }));
     await waitFor(() => expect(calls).toHaveLength(2));
-    expect(JSON.parse(calls[0]!.slice('claim '.length))).toEqual({ number: 123, name: 'Robert' });
-    expect(JSON.parse(calls[1]!.slice('assign '.length))).toEqual({ businessId: 'b1', customerId: 'k9' });
+    expect(JSON.parse(calls[0]!.slice('create '.length))).toEqual({ name: 'Robert' });
+    expect(JSON.parse(calls[1]!.slice('assign '.length))).toEqual({ businessId: 'b1', accountId: 'k9' });
   });
 
   it('says nothing at all when every payment found its place', async () => {
@@ -321,7 +366,6 @@ describe('Home, a line per business', () => {
     ]);
     const row = await screen.findByTestId('home-business-b1');
     expect(within(row).getByText(/Kepas Hardware/)).toBeInTheDocument();
-    // The amounts sit in their own spans, so the row's whole text is the honest thing to check.
     expect(row).toHaveTextContent('KES 1,500');
     expect(row).toHaveTextContent('KES 500');
     expect(row).toHaveTextContent(copy.home.in);
@@ -335,19 +379,19 @@ describe('Home, a line per business', () => {
     expect(screen.queryByTestId('home-business-b1')).toBeNull();
   });
 });
-describe('Asking a customer to pay, from a saved customer', () => {
-  it('fills the account reference with that customer account number', async () => {
+
+describe('Asking a customer to pay, from a saved account', () => {
+  it('fills the account reference with the full number of the account that was picked', async () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
-      if (url.includes('/api/businesses/b1/customers')) return json({ items: [jane] });
+      if (url.includes('/api/businesses/b1/accounts')) return json({ items: [jane] });
       if (url.includes('/api/businesses')) return json({ items: [kepas], lastUsedId: null });
       return json({});
     }));
     render(<MemoryRouter><AskToPay /></MemoryRouter>);
     answer(copy.askToPay.phone, '0712345678');
     answer(copy.askToPay.amount, '1', { exact: false });
-    // Now on the reference question, which carries the picker above the field.
-    fireEvent.click(await screen.findByRole('button', { name: new RegExp(jane.name) }));
-    expect(screen.getByLabelText(copy.askToPay.reference)).toHaveValue('000000');
+    fireEvent.click(await screen.findByRole('button', { name: new RegExp(room.name) }));
+    expect(screen.getByLabelText(copy.askToPay.reference)).toHaveValue('000359123');
   });
 });
