@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.34.0 — the SDK's own words for TP40153
+
+- `@kepas/daraja-js` **1.6.3 carries `TP40153`** in its own result-code catalog for b2c, b2b, balance
+  and reversal, so Studio no longer keeps its own copy of what the code means: the cause — the API
+  operator has no permission for this API, or is not in this organisation — now comes from the SDK.
+- **Studio still says the one thing the SDK cannot know**: what the refusal means for the money.
+  Every credential refusal keeps the line "The payment itself did not fail, and no customer's money
+  moved.", and the action still says to give this operator a new credential and press Reinstate.
+
 ## 0.33.0 — the lock screen, and a fingerprint
 
 - The lock screen is now the one the owner asked for: the studio's mark, six dots filling as you

@@ -4,13 +4,13 @@ export type { DarajaScope };
 // Keyed by `${scope}:${code}` — the same numeric code means different things on different
 // endpoints (e.g. resultCode 1 is the customer's balance for `stk`/`b2c` but the platform's own
 // Working-account balance for `b2b`; 2001 is a wrong PIN on `ratiba`/`bonga` but a bad initiator
-// credential on `b2c`/`b2b`). Only pairs present in the SDK's CATALOG as of @kepas/daraja-js 1.5.0
+// credential on `b2c`/`b2b`). Only pairs present in the SDK's CATALOG as of @kepas/daraja-js 1.6.3
 // are listed here — everything else falls through to the generic message below rather than guessing.
-// TP40153 is not in the SDK's CATALOG at all — Studio knows it from KEPAS Pay's operator
-// classification. One pair of lines, used for every scope that can see it, so the same failure
-// reads the same way wherever it lands.
-const OPERATOR_CREDENTIAL_MEANING = "Safaricom refused this request because the API operator that signed it is not accepted. The payment itself did not fail, and no customer's money moved.";
 const OPERATOR_CREDENTIAL_WHAT_TO_DO = 'Open Settings › Daraja app, give this operator a new password or Security Credential, then press Reinstate on the operator card.';
+// The cause for a credential refusal now comes from the SDK's own catalog. What the catalog cannot
+// say is what the refusal means for the money, so Studio adds that one line wherever the action
+// below is the operator-credential one — on every scope that can see the code.
+const OPERATOR_CREDENTIAL_IMPACT = "The payment itself did not fail, and no customer's money moved.";
 
 const WHAT_TO_DO: Record<string, string> = {
   'stk:1': 'The customer does not have enough M-Pesa balance. Ask them to top up, then send the request again.',
@@ -49,13 +49,6 @@ const MEANING_FALLBACK: Record<string, string> = {
   // live rather than documented — so this is a hedged observation, not a claimed cause.
   'balance:403.002.1001': "Safaricom's gateway refused this request for this shortcode. On a hosted service the usual cause is an address Safaricom has not whitelisted yet; it can also mean this API is not enabled on the app.",
   'status:403.002.1001': "Safaricom's gateway refused this request for this shortcode. On a hosted service the usual cause is an address Safaricom has not whitelisted yet; it can also mean this API is not enabled on the app.",
-  // TP40153, on the four scopes that can see it. The SDK's catalog has no entry, so without these
-  // the meaning would fall through to "Safaricom did not explain this code" and leave the owner
-  // thinking the payment failed on its own.
-  'b2c:TP40153': OPERATOR_CREDENTIAL_MEANING,
-  'b2b:TP40153': OPERATOR_CREDENTIAL_MEANING,
-  'balance:TP40153': OPERATOR_CREDENTIAL_MEANING,
-  'reversal:TP40153': OPERATOR_CREDENTIAL_MEANING,
 };
 
 export interface Explanation {
@@ -107,12 +100,16 @@ export function explain(
   // set keeps the v3-specific meaning below (the SDK still saw a v3 rejection) but shows the
   // whitelist `whatToDo`, because whitelisting is the likelier cause on a hosted service.
   const whitelisted = egressIps.length > 0 && String(code) === WHITELIST_CODE && WHITELIST_SCOPES.has(scope);
+  const whatToDo = whitelisted
+    ? whitelistAdvice(egressIps)
+    : (versionedKey && WHAT_TO_DO[versionedKey]) ?? WHAT_TO_DO[key] ?? (catalogued && c.retriable ? 'You can try again.' : 'If this keeps happening, contact Safaricom API support with the text above.');
+  const cause = (versionedKey && MEANING_FALLBACK[versionedKey]) ?? (catalogued && c.meaning ? c.meaning : (MEANING_FALLBACK[key] ?? 'Safaricom did not explain this code. The exact text is above.'));
   return {
     safaricomSaid: resultDesc,
-    meaning: (versionedKey && MEANING_FALLBACK[versionedKey]) ?? (catalogued && c.meaning ? c.meaning : (MEANING_FALLBACK[key] ?? 'Safaricom did not explain this code. The exact text is above.')),
-    whatToDo: whitelisted
-      ? whitelistAdvice(egressIps)
-      : (versionedKey && WHAT_TO_DO[versionedKey]) ?? WHAT_TO_DO[key] ?? (catalogued && c.retriable ? 'You can try again.' : 'If this keeps happening, contact Safaricom API support with the text above.'),
+    // The SDK names the cause, Studio says what it means for the money. Only where the action is
+    // the operator-credential one, so no other code picks this line up.
+    meaning: whatToDo === OPERATOR_CREDENTIAL_WHAT_TO_DO ? `${cause} ${OPERATOR_CREDENTIAL_IMPACT}` : cause,
+    whatToDo,
     retriable: catalogued ? !!c.retriable : false,
     catalogued,
   };

@@ -183,14 +183,16 @@ describe('TP40153, the other credential code', () => {
     expect(op.consecutive_failures).toBe(2);
   });
 
-  it('its three lines name the operator credential, not the payment, on every scope that can see it', () => {
+  it('is catalogued on every scope that can see it, naming the operator and keeping Studio\'s impact line', () => {
     const ex = explain('b2c', 'TP40153', 'The initiator information is invalid.');
     expect(ex.safaricomSaid).toBe('The initiator information is invalid.');
+    expect(ex.catalogued).toBe(true);
     expect(ex.meaning).toMatch(/operator/i);
     expect(ex.meaning).toMatch(/did not fail/i);
     expect(ex.whatToDo).toMatch(/Reinstate/);
     for (const scope of ['b2c', 'b2b', 'balance', 'reversal'] as const) {
       const e = explain(scope, 'TP40153', 'The initiator information is invalid.');
+      expect(e.catalogued).toBe(true);
       expect(e.meaning).not.toMatch(/did not explain this code/);
       expect(e.whatToDo).toMatch(/Reinstate/);
     }
