@@ -56,8 +56,8 @@ export function ChargesSection({ stepUp }: { stepUp: StepUp }) {
     if (bands.length === 0) { setErr(new Error(c.empty)); return; }
     if (bands.some((b) => ![b.minCents, b.maxCents, b.chargeCents].every((n) => Number.isInteger(n) && n >= 0))) { setErr(new Error(c.error)); return; }
     setErr(null);
-    stepUp.ask(c.confirm, async (password) => {
-      await api.put('/api/fees/' + kind, { bands, password });
+    stepUp.ask(c.confirm, async (confirm) => {
+      await api.put('/api/fees/' + kind, { bands, ...confirm });
       toast.success(copy.settings.saved);
       await load();
     });

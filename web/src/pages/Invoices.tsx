@@ -138,8 +138,8 @@ function OptIn({ settings, stepUp, onDone }: { settings: InvoicesSettingsView; s
   const [contact, setContact] = useState(settings.phone ?? '');
   const [reminders, setReminders] = useState<'yes' | 'no'>(settings.reminders ? 'yes' : 'no');
   const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-  const submit = () => stepUp.ask(c.confirm, async (password) => {
-    await api.post('/api/invoices/opt-in', { email: email.trim(), officialContact: normalizeKe(contact) ?? contact, sendReminders: reminders === 'yes', password });
+  const submit = () => stepUp.ask(c.confirm, async (confirm) => {
+    await api.post('/api/invoices/opt-in', { email: email.trim(), officialContact: normalizeKe(contact) ?? contact, sendReminders: reminders === 'yes', ...confirm });
     onDone();
   });
   return (

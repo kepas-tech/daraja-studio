@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { AppDeps } from '../app.js';
 import type { Config } from '../config.js';
 import type { Settings } from '../settings/store.js';
-import { requireAuth, requireCsrf, requireHttps } from '../auth/middleware.js';
+import { requireAuth, requireCsrf, requireHttps, requireUnlocked } from '../auth/middleware.js';
 import { requirePermission } from '../permissions/middleware.js';
 import { PUBLIC_URL_UNVERIFIED } from '../money_out/ready.js';
 import { ORG_CLOSED, ORG_SUSPENDED } from '../http/orgActive.js';
@@ -65,11 +65,12 @@ export function requireCollectReady(deps: { config: Config; settings: Settings }
  * No step-up password here, unlike every send route. A password is asked for before money leaves
  * the organisation or before who may move it changes (`copy.confirm.why`); asking a customer to pay
  * does neither. A counter clerk raises these all day, and a password on each would either stop the
- * till or teach them to share one.
+ * till or teach them to share one. Brief 2, item 3 adds the lock's own gate instead: a phone put
+ * down cannot raise one of these at all until its PIN is entered.
  */
 export function collectRoutes(deps: AppDeps): Router {
   const r = Router();
-  r.post('/stk', requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'stk.request'), requireCollectReady(deps), async (req, res, next) => {
+  r.post('/stk', requireAuth(deps.db), requireCsrf, requireUnlocked, requirePermission(deps.db, 'stk.request'), requireCollectReady(deps), async (req, res, next) => {
     try {
       const b = parse(askToPay, req.body);
       const v = await deps.collect.askToPay(b, { personId: req.person!.id, ip: clientIp(req) });
@@ -78,16 +79,16 @@ export function collectRoutes(deps: AppDeps): Router {
   });
   const actor = (req: Parameters<typeof clientIp>[0] & { person?: { id: string } }) => ({ personId: req.person!.id, ip: clientIp(req) });
   // M8, M9, M10: money in like STK, so the same readiness and no step-up password.
-  r.post('/ratiba', requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'standing_orders.manage'), requireCollectReady(deps), async (req, res, next) => {
+  r.post('/ratiba', requireAuth(deps.db), requireCsrf, requireUnlocked, requirePermission(deps.db, 'standing_orders.manage'), requireCollectReady(deps), async (req, res, next) => {
     try { res.status(201).json(await deps.collect.standingOrder(parse(standingOrder, req.body), actor(req))); } catch (e) { next(e); }
   });
-  r.post('/express', requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'express.checkout'), requireCollectReady(deps), async (req, res, next) => {
+  r.post('/express', requireAuth(deps.db), requireCsrf, requireUnlocked, requirePermission(deps.db, 'express.checkout'), requireCollectReady(deps), async (req, res, next) => {
     try { res.status(201).json(await deps.collect.expressCheckout(parse(expressCheckout, req.body), actor(req))); } catch (e) { next(e); }
   });
   r.post('/bonga/calculate', requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'bonga.redeem'), async (req, res, next) => {
     try { res.json(await deps.collect.bongaCalculate(parse(bongaCalculate, req.body).points)); } catch (e) { next(e); }
   });
-  r.post('/bonga/redeem', requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'bonga.redeem'), requireCollectReady(deps), async (req, res, next) => {
+  r.post('/bonga/redeem', requireAuth(deps.db), requireCsrf, requireUnlocked, requirePermission(deps.db, 'bonga.redeem'), requireCollectReady(deps), async (req, res, next) => {
     try { res.status(201).json(await deps.collect.bongaRedeem(parse(bongaRedeem, req.body), actor(req))); } catch (e) { next(e); }
   });
   return r;

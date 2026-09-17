@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.32.0 — a PIN lock for the phone
+
+- Studio can now be locked behind a **6-digit PIN**, set under Organisation with your password. It is
+  asked when the page comes back from the background and after 30 quiet minutes, and while it is owed
+  the app is not on screen at all.
+- The PIN is **scrambled with the same argon2 as a password** and never stored, shown or logged. Five
+  wrong tries lock it for 15 minutes.
+- It also replaces the password on anything that moves money or changes who can: six digits instead
+  of a long password on a phone. **Your password always works instead**, so a forgotten PIN is never
+  a locked door.
+- The lock is held by the server, not the screen: the session in Postgres is unlocked or not, so a
+  money action or a request for money from a locked session is refused outright, and a page that is
+  never touched locks itself after 30 minutes.
+
 ## 0.31.0 — accounts, sub-accounts, and a delete that really deletes
 
 - The thing money comes in for is an **account**, and the thing under it a **sub-account**: a clinic,

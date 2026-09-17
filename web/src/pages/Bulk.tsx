@@ -75,8 +75,8 @@ export function Bulk() {
     catch (e) { setErr(e instanceof ApiError ? explainApiError(e) : new Error(copy.error.generic)); }
     finally { setBusy(false); }
   };
-  const send = () => check && stepUp.ask(c.confirm(check.count, money(check.totalCents)), async (password) => {
-    const plan = await api.post<BulkPlanView>('/api/send/bulk', { text, category: category || undefined, businessId: businessId || undefined, password });
+  const send = () => check && stepUp.ask(c.confirm(check.count, money(check.totalCents)), async (confirm) => {
+    const plan = await api.post<BulkPlanView>('/api/send/bulk', { text, category: category || undefined, businessId: businessId || undefined, ...confirm });
     toast.success(c.queued);
     nav(`/bulk/${plan.id}`);
   });
@@ -202,7 +202,7 @@ export function BulkDetail() {
         </div>
       </Card>
       <div className="mt-4 flex flex-wrap gap-2">
-        {retriable && plan.status !== 'sending' && <Button type="button" onClick={() => stepUp.ask(c.confirmRetry, async (password) => { setPlan(await api.post<BulkPlanView>(`/api/send/bulk/${plan.id}/retry`, { password })); toast.success(c.queued); })}>{c.retry}</Button>}
+        {retriable && plan.status !== 'sending' && <Button type="button" onClick={() => stepUp.ask(c.confirmRetry, async (confirm) => { setPlan(await api.post<BulkPlanView>(`/api/send/bulk/${plan.id}/retry`, { ...confirm })); toast.success(c.queued); })}>{c.retry}</Button>}
         <a className="inline-flex min-h-11 items-center rounded-md border border-line bg-page px-4 font-semibold text-ink hover:bg-line/60 hover:no-underline" href={`data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`} download={`bulk-${plan.id.slice(0, 8)}.csv`}>{c.download}</a>
       </div>
       <PasswordConfirmDialog {...stepUp.dialogProps} />

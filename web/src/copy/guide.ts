@@ -300,6 +300,26 @@ export const guide: GuideSection[] = [
         ],
       },
       {
+        key: 'pin',
+        title: 'Lock Studio with a PIN',
+        where: ['Organisation'],
+        who: 'Owner',
+        path: '/account',
+        steps: [
+          'On Organisation, under PIN lock, type a 6-digit PIN twice and press Set the PIN. Studio asks for your password to confirm it, then scrambles the PIN and keeps only that.',
+          'From then on Studio asks for the PIN when the page comes back and after 30 minutes without a touch, and shows nothing else until it is typed.',
+          'Five wrong PINs lock the PIN for 15 minutes. Your password always works instead: press "Use your password instead" on the lock screen, or on any confirmation Studio asks for.',
+          'On a send, or anything else that moves money, the PIN replaces the password — the same six digits, instead of typing a long password on a phone.',
+          'Change or remove the PIN on Organisation, next to where you set it. Both ask for your password (or the PIN) first.',
+        ],
+        api: [
+          { method: 'PUT', path: '/api/auth/pin', who: 'owner, password or PIN; body { newPin }' },
+          { method: 'DELETE', path: '/api/auth/pin', who: 'owner, password or PIN' },
+          { method: 'POST', path: '/api/auth/open', who: 'signed in; body { pin } or { password }' },
+          { method: 'POST', path: '/api/auth/lock', who: 'signed in; locks this session now' },
+        ],
+      },
+      {
         key: 'menu',
         title: 'The menu',
         steps: [

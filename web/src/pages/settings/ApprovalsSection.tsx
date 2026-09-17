@@ -23,8 +23,8 @@ export function ApprovalsSection({ view, reload, stepUp }: { view: SettingsView;
           <>
             <MoneyInput label={c.field} valueCents={cents} onChange={setCents} wholeShillings hint={c.hint} />
             <div className="flex flex-wrap gap-2">
-              <Button onClick={() => stepUp.ask(c.confirm, async (password) => {
-                await api.put('/api/settings/approval-threshold', { cents: cents ?? 0, password });
+              <Button onClick={() => stepUp.ask(c.confirm, async (confirm) => {
+                await api.put('/api/settings/approval-threshold', { cents: cents ?? 0, ...confirm });
                 toast.success(copy.settings.saved);
                 await reload();
                 close();

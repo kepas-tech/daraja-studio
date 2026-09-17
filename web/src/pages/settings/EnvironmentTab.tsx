@@ -94,8 +94,8 @@ export function EnvironmentTab({ env, slot, isActiveMode, reload, stepUp }: { en
                     await reload();
                   } catch (err) { toast.error(toastText(err)); }
                 }}>{copy.settings.organisation.checkName}</Button>
-                <Button disabled={!shortcode} onClick={() => stepUp.ask(copy.settings.confirm.saveShortcode, async (password) => {
-                  const r = await api.put<{ verifiedName: string | null; verifyError: string | null }>(`/api/settings/environments/${env}/shortcode`, { shortcode, password });
+                <Button disabled={!shortcode} onClick={() => stepUp.ask(copy.settings.confirm.saveShortcode, async (confirm) => {
+                  const r = await api.put<{ verifiedName: string | null; verifyError: string | null }>(`/api/settings/environments/${env}/shortcode`, { shortcode, ...confirm });
                   if (r.verifiedName) toast.success(copy.settings.shortcode.knownAs(r.verifiedName));
                   else if (r.verifyError) toast.info(`${copy.settings.saved} ${r.verifyError}`);
                   else toast.info(copy.settings.shortcode.unverified);
@@ -111,8 +111,8 @@ export function EnvironmentTab({ env, slot, isActiveMode, reload, stepUp }: { en
         }>
           {(close) => (
             <><SafaricomHow links={[how.keys]} />
-            <Questionnaire doneLabel={copy.settings.save} onCancel={close} onDone={() => stepUp.ask(copy.settings.confirm.replaceCreds, async (password) => {
-              const r = await api.post<{ ok: boolean; message: string }>(`/api/settings/environments/${env}/daraja`, { ...creds, password });
+            <Questionnaire doneLabel={copy.settings.save} onCancel={close} onDone={() => stepUp.ask(copy.settings.confirm.replaceCreds, async (confirm) => {
+              const r = await api.post<{ ok: boolean; message: string }>(`/api/settings/environments/${env}/daraja`, { ...creds, ...confirm });
               if (!r.ok) { toast.error(copy.settings.darajaReplaceFailed(r.message)); return; }
               toast.success(r.message);
               setCreds({ consumerKey: '', consumerSecret: '' });
@@ -130,8 +130,8 @@ export function EnvironmentTab({ env, slot, isActiveMode, reload, stepUp }: { en
             <>
               <SafaricomHow links={[how.passkeyProduction, how.passkeySandbox]} />
               <TextField label={copy.settings.newPasskey} type="password" value={pk} onChange={(e) => setPk(e.target.value)} autoComplete="off" />
-              <Button disabled={!pk} onClick={() => stepUp.ask(copy.settings.confirm.replacePasskey, async (password) => {
-                await api.post(`/api/settings/environments/${env}/passkey`, { passkey: pk, password });
+              <Button disabled={!pk} onClick={() => stepUp.ask(copy.settings.confirm.replacePasskey, async (confirm) => {
+                await api.post(`/api/settings/environments/${env}/passkey`, { passkey: pk, ...confirm });
                 toast.success(copy.settings.secret.replaced);
                 setPk('');
                 await reload();
@@ -169,13 +169,13 @@ export function EnvironmentTab({ env, slot, isActiveMode, reload, stepUp }: { en
                     await reload();
                   }}>{o.status === 'failed' ? copy.settings.reinstate : copy.settings.probe}</Button>
                   <Button variant="secondary" onClick={() => setRotating(open ? null : o.id)}>{open ? copy.confirm.cancel : copy.settings.rotateCredential}</Button>
-                  {o.status !== 'disabled' && <Button variant="danger" onClick={() => stepUp.ask(copy.settings.confirm.disable(o.name), async (password) => { await api.post(`/api/settings/operators/${o.id}/disable`, { password }); toast.success(copy.settings.saved); await reload(); })}>{copy.settings.disable}</Button>}
+                  {o.status !== 'disabled' && <Button variant="danger" onClick={() => stepUp.ask(copy.settings.confirm.disable(o.name), async (confirm) => { await api.post(`/api/settings/operators/${o.id}/disable`, { ...confirm }); toast.success(copy.settings.saved); await reload(); })}>{copy.settings.disable}</Button>}
                 </div>
               </div>
               {open && (
                 <div className="px-4 pb-4">
-                  <Questionnaire doneLabel={rMode === 'modePassword' ? copy.settings.rotate : copy.settings.rotateCredential} onCancel={() => setRotating(null)} onDone={() => stepUp.ask(copy.settings.confirm.rotate(o.name), async (password) => {
-                    const body = rMode === 'modePassword' ? { operatorPassword: rForm.operatorPassword, password } : { credential: rForm.credential, password };
+                  <Questionnaire doneLabel={rMode === 'modePassword' ? copy.settings.rotate : copy.settings.rotateCredential} onCancel={() => setRotating(null)} onDone={() => stepUp.ask(copy.settings.confirm.rotate(o.name), async (confirm) => {
+                    const body = rMode === 'modePassword' ? { operatorPassword: rForm.operatorPassword, ...confirm } : { credential: rForm.credential, ...confirm };
                     await api.post(`/api/settings/operators/${o.id}/rotate`, body);
                     toast.success(copy.settings.secret.replaced);
                     setRotateForm({ ...rotateForm, [o.id]: { operatorPassword: '', credential: '' } });
@@ -195,10 +195,10 @@ export function EnvironmentTab({ env, slot, isActiveMode, reload, stepUp }: { en
         {adding && (
           <div className="space-y-4 border-t border-line bg-page p-4">
             <SafaricomHow links={newOpMode === 'modePassword' ? [how.operatorCreate, how.operatorPassword, how.certificateSandbox, how.certificateProduction] : [how.operatorCreate, how.operatorPassword, how.credential]} />
-            <Questionnaire doneLabel={copy.setup.operator.add} onCancel={() => setAdding(false)} onDone={() => stepUp.ask(copy.settings.confirm.add(newOp.name), async (password) => {
+            <Questionnaire doneLabel={copy.setup.operator.add} onCancel={() => setAdding(false)} onDone={() => stepUp.ask(copy.settings.confirm.add(newOp.name), async (confirm) => {
               const body = newOpMode === 'modePassword'
-                ? { name: newOp.name, operatorPassword: newOp.operatorPassword, certPem: newOp.certPem, password }
-                : { name: newOp.name, credential: newOp.credential, password };
+                ? { name: newOp.name, operatorPassword: newOp.operatorPassword, certPem: newOp.certPem, ...confirm }
+                : { name: newOp.name, credential: newOp.credential, ...confirm };
               await api.post(`/api/settings/environments/${env}/operators`, body);
               toast.success(copy.settings.saved);
               setNewOp({ name: '', operatorPassword: '', certPem: '', credential: '' });

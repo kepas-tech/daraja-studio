@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api/client';
+import type { Confirm } from '../api/types';
 import type { AccountView, BusinessView, HistoryEntry } from '../api/types';
 import { useSession } from '../app/session';
 import { Button } from '../components/Button';
@@ -169,12 +170,12 @@ export function Businesses() {
   };
 
   /** Delete, once the typed name and the password have both been given. */
-  const confirmDelete = async (password: string) => {
+  const confirmDelete = async (confirm: Confirm) => {
     if (!deleting) return;
     setBusy(true);
     try {
-      if (deleting.kind === 'business') await api.del('/api/businesses/' + deleting.id, { name: deleting.name, password });
-      else await api.del('/api/accounts/' + deleting.id, { name: deleting.name, password });
+      if (deleting.kind === 'business') await api.del('/api/businesses/' + deleting.id, { name: deleting.name, ...confirm });
+      else await api.del('/api/accounts/' + deleting.id, { name: deleting.name, ...confirm });
       toast.success(c.accountDeleted(deleting.name));
       const businessId = deleting.businessId;
       setDeleting(null);
@@ -318,7 +319,7 @@ export function Businesses() {
       <PasswordConfirmDialog open={deleting !== null} danger busy={busy}
         title={deleting ? c.deleteTitle(deleting.name) : ''}
         challenge={deleting ? { label: c.typeName(deleting.name), expected: deleting.name } : undefined}
-        onConfirm={(pw) => void confirmDelete(pw)} onCancel={() => setDeleting(null)} />
+        onConfirm={(confirm) => void confirmDelete(confirm)} onCancel={() => setDeleting(null)} />
     </>
   );
 }

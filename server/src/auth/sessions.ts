@@ -2,28 +2,40 @@ import type { Db } from '../db/pool.js';
 import { randomSecret } from '../crypto/secrets.js';
 import type { OrgStatus, OrgView } from '../orgs/service.js';
 import type { PersonRole } from './middleware.js';
+import { PIN_IDLE_MINUTES } from './pin.js';
 
 export const SESSION_COOKIE = 'studio_session';
 export const SESSION_IDLE_HOURS = 12;
 
-export interface SessionRow { id: string; person_id: string; csrf_token: string; expires_at: Date; org_id: string }
+export interface SessionRow {
+  id: string; person_id: string; csrf_token: string; expires_at: Date; org_id: string;
+  pin_entered_at: Date | null;
+  /** Whether the PIN was entered recently enough to still count (PIN_IDLE_MINUTES, brief 2 item 3). */
+  pin_fresh: boolean;
+}
 
 export async function createSession(db: Db, personId: string, ip: string, ua: string) {
   const id = randomSecret(32);
   const csrf = randomSecret(24);
+  // A login is unlocked: the password was just typed, and the PIN is there for the times the app is
+  // picked up again, not to be asked twice in a row. Every later page load locks it (auth/routes.ts).
   await db.query(
-    `INSERT INTO sessions(id, person_id, csrf_token, expires_at, ip, user_agent)
-     VALUES ($1,$2,$3, now() + ($4 || ' hours')::interval, $5, $6)`,
+    `INSERT INTO sessions(id, person_id, csrf_token, expires_at, pin_entered_at, ip, user_agent)
+     VALUES ($1,$2,$3, now() + ($4 || ' hours')::interval, now(), $5, $6)`,
     [id, personId, csrf, String(SESSION_IDLE_HOURS), ip, ua.slice(0, 300)],
   );
   return { id, csrf };
 }
 
 export async function loadSession(db: Db, id: string): Promise<SessionRow | null> {
+  // pin_fresh is computed by the database against its own clock, so the idle window never depends
+  // on the app server's time: a PIN entered longer ago than PIN_IDLE_MINUTES reads as locked here.
   const rows = await db.query<SessionRow>(
     `UPDATE sessions SET expires_at = now() + ($2 || ' hours')::interval
-     WHERE id=$1 AND expires_at > now() RETURNING id, person_id, csrf_token, expires_at, org_id`,
-    [id, String(SESSION_IDLE_HOURS)],
+     WHERE id=$1 AND expires_at > now()
+     RETURNING id, person_id, csrf_token, expires_at, org_id, pin_entered_at,
+               (pin_entered_at IS NOT NULL AND pin_entered_at > now() - ($3 || ' minutes')::interval) AS pin_fresh`,
+    [id, String(SESSION_IDLE_HOURS), String(PIN_IDLE_MINUTES)],
   );
   return rows[0] ?? null;
 }
@@ -33,6 +45,8 @@ export interface PersonWithHash {
   status: 'active' | 'suspended'; must_change_password: boolean;
   email: string | null; role: PersonRole; is_host_admin: boolean;
   password_hash: string;
+  /** The argon2 hash of the optional PIN, or null when no PIN is set (brief 2, item 3). */
+  pin_hash: string | null;
 }
 
 /**
@@ -53,7 +67,7 @@ export async function loadSessionWithOrg(
     }
   >(
     `SELECT p.id, p.username, p.display_name, p.is_owner, p.status, p.must_change_password,
-            p.email, p.role, p.is_host_admin, p.password_hash,
+            p.email, p.role, p.is_host_admin, p.password_hash, p.pin_hash,
             o.id AS org_id, o.slug AS org_slug, o.name AS org_name, o.status AS org_status,
             o.is_host AS org_is_host, o.suspend_reason AS org_suspend_reason
        FROM people p JOIN orgs o ON o.id = p.org_id

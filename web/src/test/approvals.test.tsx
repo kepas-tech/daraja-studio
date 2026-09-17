@@ -4,7 +4,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { Approvals } from '../pages/Approvals';
 import { ApprovalsSection } from '../pages/settings/ApprovalsSection';
 import { copy } from '../copy/en';
-import type { SettingsView } from '../api/types';
+import type { Confirm, SettingsView } from '../api/types';
 
 class FakeEventSource {
   listeners: Record<string, EventListener[]> = {};
@@ -75,7 +75,7 @@ describe('Waiting for approval', () => {
 describe('Settings › Approvals', () => {
   const slot = { shortcode: null, consumerKey: 'none', consumerSecret: 'none', credsVerifiedAt: null, passkey: 'none', certPem: 'none', b2cApi: { setting: 'auto', detected: null, detectedAt: null }, ready: { creds: false, operator: false }, operators: [] };
   const view = { mode: 'sandbox', environments: { sandbox: slot, production: slot }, org: { name: 'APIONE', nominatedNumber: '', notificationPhone: '' }, stkEnabled: false, publicUrl: null, publicVerifiedAt: null, httpsSeen: false, allowlist: [], setupCompletedAt: 'x', sendCategories: [], approvalThresholdCents: 0 } as unknown as SettingsView;
-  const stepUp = { ask: vi.fn((_t: string, run: (pw: string) => Promise<void>) => { void run('pw'); }), dialogProps: { open: false, title: '', busy: false, error: null, onConfirm: () => {}, onCancel: () => {} } };
+  const stepUp = { ask: vi.fn((_t: string, run: (confirm: Confirm) => Promise<void>) => { void run({ password: 'pw' }); }), dialogProps: { open: false, title: '', busy: false, error: null, pin: false, onConfirm: () => {}, onCancel: () => {} } };
 
   it('shows Off, and saving a threshold puts the cents', async () => {
     let put: unknown = null;

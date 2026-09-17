@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { api } from '../api/client';
 import { useEvents } from '../api/events';
-import type { RequestView } from '../api/types';
+import type { Confirm, RequestView } from '../api/types';
 import { Button } from '../components/Button';
 import { TextField } from '../components/TextField';
 import { PasswordConfirmDialog } from '../components/PasswordConfirmDialog';
@@ -87,10 +87,10 @@ export function Reverse() {
     return () => clearInterval(t);
   }, [step, request?.status, reload]);
 
-  const submit = async (password: string) => {
+  const submit = async (confirm: Confirm) => {
     setBusy(true); setDialogError(null); setErr(null);
     try {
-      const r = await api.post<RequestView>('/api/send/reversal', { receipt: clean, password });
+      const r = await api.post<RequestView>('/api/send/reversal', { receipt: clean, ...confirm });
       setRequest(r); setConfirm(false); setStep('result');
       toast.show(r.status === 'completed' ? 'success' : r.status === 'failed' ? 'error' : 'info', resultCopy[r.status] ?? r.status);
     } catch (e) {
@@ -133,7 +133,7 @@ export function Reverse() {
             <Flash tone="danger" role="alert">{copy.reverse.irreversible}</Flash>
             <ErrorCard error={err} />
           </TaskCard>
-          <PasswordConfirmDialog open={confirm} title={copy.reverse.confirmTitle(money(found.amountCents), found.receipt)} busy={busy} error={dialogError} onConfirm={(pw) => void submit(pw)} onCancel={() => setConfirm(false)} />
+          <PasswordConfirmDialog open={confirm} title={copy.reverse.confirmTitle(money(found.amountCents), found.receipt)} busy={busy} error={dialogError} onConfirm={(confirm) => void submit(confirm)} onCancel={() => setConfirm(false)} />
         </>
       )}
 

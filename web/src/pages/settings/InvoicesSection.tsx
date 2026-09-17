@@ -31,8 +31,8 @@ export function InvoicesSection({ stepUp }: { stepUp: StepUp }) {
             <PhoneInput label={copy.invoices.optIn.contact} value={contact} onChange={setContact} />
             <Segmented name="invoice-reminders" label={copy.invoices.optIn.reminders} value={reminders} options={[{ value: 'yes', label: copy.confirm.yes }, { value: 'no', label: copy.confirm.no }]} onChange={setReminders} />
             <div className="flex flex-wrap gap-2">
-              <Button onClick={() => stepUp.ask(copy.invoices.optIn.confirm, async (password) => {
-                await api.post('/api/invoices/opt-in', { email: email.trim(), officialContact: normalizeKe(contact) ?? contact, sendReminders: reminders === 'yes', password });
+              <Button onClick={() => stepUp.ask(copy.invoices.optIn.confirm, async (confirm) => {
+                await api.post('/api/invoices/opt-in', { email: email.trim(), officialContact: normalizeKe(contact) ?? contact, sendReminders: reminders === 'yes', ...confirm });
                 toast.success(copy.settings.saved); await load(); close();
               })}>{copy.settings.save}</Button>
               <Button variant="secondary" onClick={close}>{copy.confirm.cancel}</Button>

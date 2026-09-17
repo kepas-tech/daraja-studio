@@ -227,6 +227,23 @@ Who: Anyone with a login · Route: /login
 | POST | `/api/auth/change-password` | signed in |
 | POST | `/api/auth/logout` | signed in |
 
+### Lock Studio with a PIN
+
+Where: Organisation · Who: Owner · Route: /account
+
+1. On Organisation, under PIN lock, type a 6-digit PIN twice and press Set the PIN. Studio asks for your password to confirm it, then scrambles the PIN and keeps only that.
+2. From then on Studio asks for the PIN when the page comes back and after 30 minutes without a touch, and shows nothing else until it is typed.
+3. Five wrong PINs lock the PIN for 15 minutes. Your password always works instead: press "Use your password instead" on the lock screen, or on any confirmation Studio asks for.
+4. On a send, or anything else that moves money, the PIN replaces the password — the same six digits, instead of typing a long password on a phone.
+5. Change or remove the PIN on Organisation, next to where you set it. Both ask for your password (or the PIN) first.
+
+| Method | Path | Who |
+|---|---|---|
+| PUT | `/api/auth/pin` | owner, password or PIN; body { newPin } |
+| DELETE | `/api/auth/pin` | owner, password or PIN |
+| POST | `/api/auth/open` | signed in; body { pin } or { password } |
+| POST | `/api/auth/lock` | signed in; locks this session now |
+
 ### The menu
 
 1. The left menu shows your business name, your paybill or till number and whether you are in Sandbox or Production.

@@ -21,9 +21,9 @@ export function CategoriesSection({ items, reload, stepUp }: { items: SendCatego
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState<{ name: string; commandId: CommandId }>({ name: '', commandId: 'BusinessPayment' });
 
-  const save = (next: { id?: string; name: string; commandId: CommandId }[], after: () => void) => stepUp.ask(c.confirm, async (password) => {
+  const save = (next: { id?: string; name: string; commandId: CommandId }[], after: () => void) => stepUp.ask(c.confirm, async (confirm) => {
     try {
-      await api.put('/api/settings/send-categories', { items: next, password });
+      await api.put('/api/settings/send-categories', { items: next, ...confirm });
       toast.success(c.saved);
       after();
       await reload();

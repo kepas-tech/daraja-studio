@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { api, ApiError } from '../api/client';
 import { useEvents } from '../api/events';
-import type { EnvSlotView, SettingsView } from '../api/types';
+import type { Confirm, EnvSlotView, SettingsView } from '../api/types';
 import { useSession } from '../app/session';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -43,7 +43,7 @@ interface StepProps {
   footer: (primary: ReactNode) => ReactNode;
   next: () => void;
   back: () => void;
-  withPassword: (fn: (pw: string) => Promise<void>) => void;
+  withPassword: (fn: (confirm: Confirm) => Promise<void>) => void;
   reload: () => Promise<SettingsView>;
   setErr: (e: Error | Explained | null) => void;
 }
@@ -63,8 +63,8 @@ function NumberStep(p: StepProps) {
       <TextField label={copy.settings.shortcode.label} inputMode="numeric" value={n} onChange={(e) => setN(e.target.value)} autoFocus />
       {p.footer(unchanged
         ? <Button type="button" onClick={p.next}>{c.continueLabel}</Button>
-        : <Button type="button" disabled={p.busy || !/^\d{5,7}$/.test(n)} onClick={() => p.withPassword(async (pw) => {
-            const r = await api.put<{ verifiedName: string | null; verifyError: string | null }>('/api/settings/environments/production/shortcode', { shortcode: n, password: pw });
+        : <Button type="button" disabled={p.busy || !/^\d{5,7}$/.test(n)} onClick={() => p.withPassword(async (confirm) => {
+            const r = await api.put<{ verifiedName: string | null; verifyError: string | null }>('/api/settings/environments/production/shortcode', { shortcode: n, ...confirm });
             toast.success(r.verifiedName ? copy.settings.shortcode.knownAs(r.verifiedName) : copy.settings.saved);
             await p.reload(); p.next();
           })}>{copy.settings.save}</Button>)}
@@ -83,8 +83,8 @@ function KeysStep(p: StepProps) {
       <SafaricomHow links={[how.keys]} />
       {done
         ? p.footer(<Button type="button" onClick={p.next}>{c.continueLabel}</Button>)
-        : <Questionnaire doneLabel={copy.settings.save} busy={p.busy} onCancel={p.back} onDone={() => p.withPassword(async (pw) => {
-            const r = await api.post<{ ok: boolean; message: string }>('/api/settings/environments/production/daraja', { ...f, password: pw });
+        : <Questionnaire doneLabel={copy.settings.save} busy={p.busy} onCancel={p.back} onDone={() => p.withPassword(async (confirm) => {
+            const r = await api.post<{ ok: boolean; message: string }>('/api/settings/environments/production/daraja', { ...f, ...confirm });
             if (!r.ok) { p.setErr(new Error(r.message)); return; }
             toast.success(r.message);
             await p.reload(); p.next();
@@ -106,9 +106,9 @@ function SwitchStep(p: StepProps) {
       {!p.live && <TextField label={c.switchMode.field} inputMode="numeric" value={typed} onChange={(e) => setTyped(e.target.value)} autoFocus />}
       {p.footer(p.live
         ? <Button type="button" onClick={p.next}>{c.continueLabel}</Button>
-        : <Button type="button" disabled={p.busy || !typed} onClick={() => p.withPassword(async (pw) => {
+        : <Button type="button" disabled={p.busy || !typed} onClick={() => p.withPassword(async (confirm) => {
             try {
-              await api.put('/api/settings/mode', { environment: 'production', confirmShortcode: typed, password: pw });
+              await api.put('/api/settings/mode', { environment: 'production', confirmShortcode: typed, ...confirm });
             } catch (e) { if (e instanceof ApiError && e.code === 'confirm_shortcode') { toast.error(e.message); return; } throw e; }
             toast.success(copy.settings.mode.switched('production'));
             await p.reload(); p.next();
@@ -132,9 +132,9 @@ function PasskeyStep(p: StepProps) {
       <SafaricomHow links={[how.passkeyProduction]} />
       {done
         ? p.footer(<Button type="button" onClick={p.next}>{c.continueLabel}</Button>)
-        : <Questionnaire doneLabel={refused ? pk.retry : pk.test} busy={p.busy} onCancel={p.back} onDone={() => { if (!normalised) return; p.withPassword(async (pw) => {
+        : <Questionnaire doneLabel={refused ? pk.retry : pk.test} busy={p.busy} onCancel={p.back} onDone={() => { if (!normalised) return; p.withPassword(async (confirm) => {
             setRefused(false);
-            const r = await api.post<{ proven: boolean }>('/api/settings/environments/production/passkey/prove', { passkey: passkey.trim(), phone: normalised, password: pw });
+            const r = await api.post<{ proven: boolean }>('/api/settings/environments/production/passkey/prove', { passkey: passkey.trim(), phone: normalised, ...confirm });
             if (!r.proven) { setRefused(true); return; }
             await p.reload(); p.next();
           }); }} steps={[
@@ -164,10 +164,10 @@ function OperatorStep(p: StepProps) {
         </li>))}</ul>}
       {done
         ? p.footer(<Button type="button" onClick={p.next}>{c.continueLabel}</Button>)
-        : <Questionnaire doneLabel={o.add} busy={p.busy} onCancel={p.back} onDone={() => p.withPassword(async (pw) => {
+        : <Questionnaire doneLabel={o.add} busy={p.busy} onCancel={p.back} onDone={() => p.withPassword(async (confirm) => {
             const body = mode === 'modePassword'
-              ? { name: f.name, operatorPassword: f.operatorPassword, certPem: f.certPem, password: pw }
-              : { name: f.name, credential: f.credential, password: pw };
+              ? { name: f.name, operatorPassword: f.operatorPassword, certPem: f.certPem, ...confirm }
+              : { name: f.name, credential: f.credential, ...confirm };
             await api.post('/api/settings/environments/production/operators', body);
             toast.info(o.pending);
             setF({ name: '', operatorPassword: '', certPem: '', credential: '' });
@@ -196,14 +196,14 @@ const STEPS: Record<Exclude<StepKey, 'need' | 'done'>, (p: StepProps) => ReactNo
  * mode in use.
  */
 export function GoLive() {
-  const { person } = useSession();
+  const { person, pinSet } = useSession();
   const nav = useNavigate();
   const [v, setV] = useState<SettingsView | null>(null);
   const [err, setErr] = useState<Error | Explained | null>(null);
   const [i, setI] = useState(0);
-  const [password, setPassword] = useState<string | null>(null);
+  const [secret, setSecret] = useState<Confirm | null>(null);
   const [asking, setAsking] = useState(false);
-  const [pending, setPending] = useState<((pw: string) => void) | null>(null);
+  const [pending, setPending] = useState<((confirm: Confirm) => void) | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => { const d = await api.get<SettingsView>('/api/settings'); setV(d); return d; }, []);
@@ -228,16 +228,16 @@ export function GoLive() {
     );
   }
 
-  /** Run `fn` with the password, asking for it first when this is the first save or the last one was refused. */
-  const withPassword = (fn: (pw: string) => Promise<void>) => {
-    const run = (pw: string) => {
+  /** Run `fn` with the confirmation, asking for it first when this is the first save or the last one was refused. */
+  const withPassword = (fn: (confirm: Confirm) => Promise<void>) => {
+    const run = (confirm: Confirm) => {
       setBusy(true); setErr(null);
-      fn(pw).catch((e) => {
-        if (e instanceof ApiError && e.status === 403) { setPassword(null); setPending(() => run); setAsking(true); return; }
+      fn(confirm).catch((e) => {
+        if (e instanceof ApiError && e.status === 403) { setSecret(null); setPending(() => run); setAsking(true); return; }
         setErr(explainApiError(e));
       }).finally(() => setBusy(false));
     };
-    if (password) run(password);
+    if (secret) run(secret);
     else { setPending(() => run); setAsking(true); }
   };
   const next = () => setI((n) => Math.min(n + 1, steps.length - 1));
@@ -273,7 +273,8 @@ export function GoLive() {
         )}
       </Card>
       <PasswordConfirmDialog open={asking} title={c.once} busy={busy} onCancel={() => { setAsking(false); setPending(null); }}
-        onConfirm={(pw) => { setPassword(pw); setAsking(false); const p = pending; setPending(null); p?.(pw); }} />
+        pin={pinSet}
+        onConfirm={(confirm) => { setSecret(confirm); setAsking(false); const p = pending; setPending(null); p?.(confirm); }} />
     </div>
   );
 }

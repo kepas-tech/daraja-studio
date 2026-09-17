@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { api } from '../api/client';
 import { useEvents } from '../api/events';
-import type { RequestView } from '../api/types';
+import type { Confirm, RequestView } from '../api/types';
 import { Button } from '../components/Button';
 import { TextField } from '../components/TextField';
 import { ErrorCard, explainApiError, type Explained } from '../components/ErrorCard';
@@ -32,9 +32,9 @@ export function RequestDetail() {
     return () => clearInterval(t);
   }, [r, load]);
   const check = async () => { setErr(null); try { await api.post(`/api/requests/${id}/check`); setMsg(copy.request.checkSent); toast.info(copy.request.checkSent); } catch (e) { setErr(explainApiError(e)); } };
-  const markChecked = async (password: string) => {
+  const markChecked = async (confirm: Confirm) => {
     setBusy(true); setDialogError(null);
-    try { setR(await api.post<RequestView>(`/api/requests/${id}/checked`, { note, password })); setConfirm(false); setNote(''); toast.success(copy.request.markedChecked); }
+    try { setR(await api.post<RequestView>(`/api/requests/${id}/checked`, { note, ...confirm })); setConfirm(false); setNote(''); toast.success(copy.request.markedChecked); }
     catch (e) { setDialogError(explainApiError(e)); } finally { setBusy(false); }
   };
   if (err && !r) return <><PageHeader title={copy.request.notFoundTitle} /><ErrorCard error={err} /></>;
@@ -65,7 +65,7 @@ export function RequestDetail() {
           {r.checked && <><dt className="text-muted">{copy.request.timeline.checked}</dt><dd>{when(r.checked.at)}</dd></>}
         </dl>
       </div>
-      <PasswordConfirmDialog open={confirm} title={copy.request.markCheckedConfirm} busy={busy} error={dialogError} onConfirm={(pw) => void markChecked(pw)} onCancel={() => setConfirm(false)} />
+      <PasswordConfirmDialog open={confirm} title={copy.request.markCheckedConfirm} busy={busy} error={dialogError} onConfirm={(confirm) => void markChecked(confirm)} onCancel={() => setConfirm(false)} />
     </>
   );
 }

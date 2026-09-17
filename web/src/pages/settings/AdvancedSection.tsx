@@ -46,8 +46,8 @@ export function AdvancedSection({ view, reload, stepUp }: { view: SettingsView; 
                 ))}
               </div>
               {slot.b2cApi.detected && <p className="text-sm text-muted">{copy.settings.b2cApi.detected(slot.b2cApi.detected, when(slot.b2cApi.detectedAt))}</p>}
-              <Button disabled={b2cApi === slot.b2cApi.setting} onClick={() => stepUp.ask(copy.settings.confirm.saveB2cApi, async (password) => {
-                await api.put(`/api/settings/environments/${env}/b2c-api`, { version: b2cApi, password });
+              <Button disabled={b2cApi === slot.b2cApi.setting} onClick={() => stepUp.ask(copy.settings.confirm.saveB2cApi, async (confirm) => {
+                await api.put(`/api/settings/environments/${env}/b2c-api`, { version: b2cApi, ...confirm });
                 toast.success(copy.settings.b2cApi.saved);
                 await reload();
                 close();
@@ -60,8 +60,8 @@ export function AdvancedSection({ view, reload, stepUp }: { view: SettingsView; 
           {(close) => (
             <>
               <TextField label={copy.settings.allowlistFieldLabel} value={allow} onChange={(e) => setAllow(e.target.value)} />
-              <Button onClick={() => stepUp.ask(copy.settings.confirm.allowlist, async (password) => {
-                await api.put('/api/settings/allowlist', { allowlist: allow.split(',').map((s) => s.trim()).filter(Boolean), password });
+              <Button onClick={() => stepUp.ask(copy.settings.confirm.allowlist, async (confirm) => {
+                await api.put('/api/settings/allowlist', { allowlist: allow.split(',').map((s) => s.trim()).filter(Boolean), ...confirm });
                 toast.success(copy.settings.saved);
                 await reload();
                 close();
@@ -78,8 +78,8 @@ export function AdvancedSection({ view, reload, stepUp }: { view: SettingsView; 
           </div>
           {secret
             ? <Button variant="secondary" onClick={() => setSecret(null)}>{copy.settings.hideSecret}</Button>
-            : <Button variant="secondary" onClick={() => stepUp.ask(copy.settings.confirm.reveal, async (password) => {
-                const r = await api.post<{ secret: string }>('/api/settings/install-secret/reveal', { password });
+            : <Button variant="secondary" onClick={() => stepUp.ask(copy.settings.confirm.reveal, async (confirm) => {
+                const r = await api.post<{ secret: string }>('/api/settings/install-secret/reveal', { ...confirm });
                 setSecret(r.secret);
               })}>{copy.settings.revealSecret}</Button>}
         </div>

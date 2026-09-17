@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { api, ApiError } from '../api/client';
-import { useSession } from '../app/session';
+import { markJustLoggedIn, useSession } from '../app/session';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { TextField } from '../components/TextField';
@@ -20,7 +20,9 @@ export function Login() {
         <Card title={copy.login.title}>
           <form className="space-y-4" onSubmit={async (e) => {
             e.preventDefault(); setBusy(true); setErr(null);
-            try { const r = await api.post<{ csrf: string }>('/api/auth/login', { username: u, password: p }); api.setCsrf(r.csrf); await refresh(); }
+            // The password was just typed here, so a PIN is not asked for on top of it; a later page
+            // load asks (Brief 2, item 3).
+            try { const r = await api.post<{ csrf: string }>('/api/auth/login', { username: u, password: p }); api.setCsrf(r.csrf); markJustLoggedIn(); await refresh(); }
             catch (e2) { setErr(e2 instanceof ApiError ? e2 : new Error(copy.error.generic)); }
             finally { setBusy(false); }
           }}>

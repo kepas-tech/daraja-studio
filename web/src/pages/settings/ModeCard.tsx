@@ -24,10 +24,10 @@ export function ModeCard({ view, reload, stepUp, onSwitched }: { view: SettingsV
   const [pendingEnv, setPendingEnv] = useState<Env | null>(null);
   const [confirmShortcode, setConfirmShortcode] = useState('');
 
-  const doSwitch = (env: Env, confirm: string | undefined) => {
-    stepUp.ask(copy.settings.confirm.switchMode(env), async (password) => {
+  const doSwitch = (env: Env, typed: string | undefined) => {
+    stepUp.ask(copy.settings.confirm.switchMode(env), async (confirm) => {
       try {
-        const r = await api.put<{ mode: Env; ready: { creds: boolean; operator: boolean } }>('/api/settings/mode', { environment: env, confirmShortcode: confirm, password });
+        const r = await api.put<{ mode: Env; ready: { creds: boolean; operator: boolean } }>('/api/settings/mode', { environment: env, confirmShortcode: typed, ...confirm });
         toast.success(copy.settings.mode.switched(r.mode));
         setPendingEnv(null); setConfirmShortcode('');
         await reload();

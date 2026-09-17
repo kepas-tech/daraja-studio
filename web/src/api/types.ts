@@ -37,8 +37,19 @@ export interface SetupSaved {
 export interface Me {
   person: Person; csrf: string; permissions: string[];
   org?: OrgSummary;
+  /**
+   * Brief 2, item 3. `set` is whether a PIN exists, `locked` whether this session is waiting for
+   * it. Optional because a page rendered against an older server sends neither, and that absence
+   * has to read as "no PIN" rather than as a lock nobody can open.
+   */
+  pin?: { set: boolean; locked: boolean };
   /** The only host-admin signal the web reads. `person.is_host_admin` is never consulted. */
 }
+/**
+ * What a confirmation carries: the owner's own password, or the PIN once one is set (brief 2,
+ * item 3). A step-up route reads exactly one of these, and neither is ever logged.
+ */
+export type Confirm = { password: string } | { pin: string };
 export interface SecretState { saved: boolean; last4: string | null }
 export type B2cApiSetting = 'auto' | 'v1' | 'v3';
 export type AssignableRole = 'operator' | 'viewer' | 'approver' | 'custom';

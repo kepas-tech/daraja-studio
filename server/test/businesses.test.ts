@@ -158,12 +158,6 @@ describe('businesses and their account numbers', () => {
     (await h(request(app).post(`/api/accounts/` + parentId + `/sub-accounts`)).send({ name })).body;
   const rows = async (id: string) => (await deps.db.query<{ business_id: string | null; account_id: string | null }>(`SELECT business_id, account_id FROM requests WHERE id=$1`, [id]))[0];
   const seen = async (ref: string) => rows((await recordC2b(deps, payment({ billRefNumber: ref }), 'callback')).requestId);
-  /** Open a width by hand: the tests about the number itself should not have to fill a real 900. */
-  const openWidth = async (businessId: string, width: number) => {
-    await deps.db.query(`UPDATE number_widths SET closed_at=now() WHERE scope_kind='accounts' AND scope_id=$1 AND closed_at IS NULL`, [businessId]);
-    await deps.db.query(`INSERT INTO number_widths(scope_kind, scope_id, width) VALUES ('accounts',$1,$2)`, [businessId, width]);
-  };
-
   it('the database refuses a bad code, a duplicate number, and a shape no reader could split', async () => {
     await addBusiness('Shop');
     await expect(deps.db.query(`INSERT INTO businesses(code, name) VALUES ('12','Bad')`)).rejects.toMatchObject({ code: '23514' });

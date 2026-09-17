@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { api } from '../api/client';
+import type { Confirm } from '../api/types';
 import { useEvents } from '../api/events';
 import type { Env, SettingsView } from '../api/types';
 import { useSession } from '../app/session';
@@ -16,6 +17,7 @@ import { copy } from '../copy/en';
 import { BusinessCard } from './settings/BusinessRow';
 import { EnvironmentTab, envMissing } from './settings/EnvironmentTab';
 import { ModeCard } from './settings/ModeCard';
+import { PinCard } from './settings/PinCard';
 import { useStepUp } from './settings/useStepUp';
 
 const ENVS: Env[] = ['sandbox', 'production'];
@@ -49,10 +51,10 @@ export function Account() {
   if (err && !v) return <><PageHeader title={copy.account.title} /><ErrorCard error={err} /></>;
   if (!v) return <Loading />;
 
-  const wipe = async (password: string) => {
+  const wipe = async (confirm: Confirm) => {
     setDeleting(true); setDeleteError(null);
     try {
-      await api.post('/api/org/wipe', { confirmName: org?.name ?? v.org.name, password });
+      await api.post('/api/org/wipe', { confirmName: org?.name ?? v.org.name, ...confirm });
       toast.success(copy.account.deleted);
       setConfirmDelete(false);
       await refresh();
@@ -93,20 +95,21 @@ export function Account() {
       </Card>
       <Card title={copy.account.signOut.title} className="mb-6" bodyClassName="space-y-3 p-4">
         <p className="text-sm text-muted">{copy.account.signOut.body}</p>
-        <Button variant="secondary" onClick={() => stepUp.ask(copy.account.signOut.confirm, async (password) => {
-          await api.post('/api/auth/sign-out-everywhere', { password });
+        <Button variant="secondary" onClick={() => stepUp.ask(copy.account.signOut.confirm, async (confirm) => {
+          await api.post('/api/auth/sign-out-everywhere', { ...confirm });
           toast.success(copy.account.signOut.done);
           await refresh();
           nav('/login');
         })}>{copy.account.signOut.button}</Button>
       </Card>
+      <PinCard stepUp={stepUp} />
       <Card title={copy.account.deleteTitle} className="border-danger" bodyClassName="space-y-3 p-4">
         <p className="text-sm text-muted">{copy.account.deleteBody}</p>
         <Button variant="danger" onClick={() => { setDeleteError(null); setConfirmDelete(true); }}>{copy.account.deleteButton}</Button>
       </Card>
       <PasswordConfirmDialog open={confirmDelete} danger title={copy.account.deleteTitle} busy={deleting} error={deleteError}
         challenge={{ label: copy.account.typeName(org?.name ?? v.org.name), expected: org?.name ?? v.org.name }}
-        onConfirm={(pw) => void wipe(pw)} onCancel={() => setConfirmDelete(false)} />
+        onConfirm={(confirm) => void wipe(confirm)} onCancel={() => setConfirmDelete(false)} />
       <PasswordConfirmDialog {...stepUp.dialogProps} />
     </>
   );

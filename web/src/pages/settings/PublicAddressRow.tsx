@@ -28,8 +28,8 @@ export function PublicAddressCard({ view, reload, stepUp }: { view: SettingsView
           <>
             <TextField label={copy.setup.publicUrl.field} hint={copy.setup.publicUrl.hint} value={url} onChange={(e) => setUrl(e.target.value)} />
             <div className="flex flex-wrap gap-2">
-              <Button variant="secondary" onClick={() => stepUp.ask(copy.settings.confirm.publicUrl, async (password) => {
-                await api.put('/api/settings/public-url', { url, password });
+              <Button variant="secondary" onClick={() => stepUp.ask(copy.settings.confirm.publicUrl, async (confirm) => {
+                await api.put('/api/settings/public-url', { url, ...confirm });
                 toast.success(copy.settings.saved);
                 await reload();
               })}>{copy.settings.save}</Button>

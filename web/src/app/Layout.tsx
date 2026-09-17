@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet } from 'react-router';
 import { Nav } from './Nav';
 import { useSession } from './session';
+import { LockScreen } from './LockScreen';
+import { useLockWatchers } from './useLockWatchers';
 import { api } from '../api/client';
 import { Flash } from '../components/Flash';
 import { Icon } from '../components/Icon';
@@ -45,7 +47,11 @@ function AccountMenu() {
 }
 
 export function Layout() {
-  const { org } = useSession();
+  const { org, pinSet, pinLocked } = useSession();
+  useLockWatchers();
+  // Brief 2, item 3: while the PIN is owed, the app is not on screen at all — no header, no page,
+  // nothing half-typed for a hand that is not the owner's to finish.
+  if (pinSet && pinLocked) return <LockScreen />;
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-surface text-ink">
       <header className="flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-line bg-surface px-4 py-2 md:px-6">

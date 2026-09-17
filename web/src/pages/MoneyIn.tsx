@@ -159,8 +159,8 @@ export function MoneyIn() {
     return () => clearInterval(t);
   }, [view?.registering, load]);
 
-  const turnOn = () => stepUp.ask(c.confirmTurnOn, async (password) => {
-    const v = await api.post<MoneyInView>('/api/money-in/register', { password });
+  const turnOn = () => stepUp.ask(c.confirmTurnOn, async (confirm) => {
+    const v = await api.post<MoneyInView>('/api/money-in/register', { ...confirm });
     justStarted.current = true; setView(v); toast.info(c.registering);
   });
   const registered = !!view?.c2bRegisteredAt;

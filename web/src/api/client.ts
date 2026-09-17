@@ -4,6 +4,12 @@ export class ApiError extends Error {
   constructor(public status: number, public code: string, message: string, public details?: unknown) { super(message); }
 }
 let csrf = '';
+/**
+ * One listener for "the server says this session is locked". Any route behind the PIN gate answers
+ * 423 session_locked, and the screen it has to raise is the same whichever call was refused, so the
+ * client reports it here instead of every page learning about it.
+ */
+let lockedHandler: (() => void) | null = null;
 async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
   const headers: Record<string, string> = { accept: 'application/json' };
   if (body !== undefined) headers['content-type'] = 'application/json';
@@ -17,6 +23,7 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
   }
   if (!r.ok) {
     const e = (data as { error?: { code: string; message: string; details?: unknown } } | null)?.error ?? { code: 'http_' + r.status, message: copy.error.generic };
+    if (e.code === 'session_locked') lockedHandler?.();
     throw new ApiError(r.status, e.code, e.message, e.details);
   }
   return data as T;
@@ -78,4 +85,6 @@ export const api = {
   /** A CSV or other file behind the same session and permission gates as the pages. */
   download: (p: string) => download(p),
   setCsrf(t: string) { csrf = t; },
+  /** Called when any answer says the session is locked. One listener: the session provider owns it. */
+  onLocked(fn: (() => void) | null) { lockedHandler = fn; },
 };

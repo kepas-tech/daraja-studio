@@ -83,8 +83,8 @@ export function Approvals() {
   useEffect(() => { load().catch((e) => setErr(explainApiError(e))); }, [load]);
   useEvents(useCallback((e) => { if (e.type === 'request.updated') void load().catch(() => {}); }, [load]));
 
-  const release = (r: RequestView) => stepUp.ask(c.confirmRelease(money(r.amountCents)), async (password) => {
-    await api.post(`/api/approvals/${r.id}/release`, { password });
+  const release = (r: RequestView) => stepUp.ask(c.confirmRelease(money(r.amountCents)), async (confirm) => {
+    await api.post(`/api/approvals/${r.id}/release`, { ...confirm });
     toast.success(c.released);
     await load();
   });

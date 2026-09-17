@@ -6,6 +6,7 @@ import type { OrgView } from '../orgs/service.js';
 import { HttpError } from '../util/errors.js';
 import { verifyPassword } from './password.js';
 import { clearFailures, recordAttempt } from './lockout.js';
+import { checkPin } from './pin.js';
 
 export type PersonRole = 'owner' | 'operator' | 'viewer' | 'approver' | 'custom';
 
@@ -31,6 +32,10 @@ declare global {
     interface Request {
       person?: Person; personHash?: string; sessionId?: string; csrf?: string; rawBody?: string;
       org?: OrgView; authProblem?: string;
+      /** The optional PIN's hash, kept off request.person so it can never be serialised (brief 2, item 3). */
+      personPinHash?: string | null;
+      /** A PIN is set and this session has not been unlocked recently: actions wait. */
+      pinLocked?: boolean;
     }
   }
 }
@@ -87,9 +92,22 @@ export const requireHostAdmin: RequestHandler = (req, _res, next) => {
   next(new HttpError(404, 'not_found', 'Not found.'));
 };
 
+/**
+ * The confirmation in front of anything that moves money or changes who can: the owner's own
+ * password, or — once a PIN is set (brief 2, item 3) — that PIN, which is what makes a phone
+ * bearable to use. While the session is locked, nothing here runs at all: the caller has to enter
+ * the PIN first, so a phone picked up off a table cannot spend by sending a password it does not have.
+ */
 export function requireStepUp(db: Db): RequestHandler {
   return async (req, _res, next) => {
     try {
+      if (req.pinLocked) throw new HttpError(423, 'session_locked', 'Enter your PIN to continue.');
+      const pin = typeof req.body?.pin === 'string' ? req.body.pin : '';
+      if (req.personPinHash && pin) {
+        await checkPin(db, req.person!.id, req.personPinHash, pin);
+        delete req.body.pin;
+        return next();
+      }
       const key = `stepup:${req.person!.id}`;
       const attempt = await recordAttempt(db, [key]);
       if (attempt.lockedUntil && attempt.lockedUntil > new Date()) {
@@ -101,10 +119,22 @@ export function requireStepUp(db: Db): RequestHandler {
       }
       await clearFailures(db, [key]);
       delete req.body.password;
+      // A stray one must never reach a route handler, where a schema might carry it onward.
+      delete req.body.pin;
       next();
     } catch (e) { next(e); }
   };
 }
+
+/**
+ * The lock's gate on its own, for the actions that never ask for a password: asking a payer's phone
+ * for money, a standing order, an express checkout, a Bonga redemption. Reads are not gated — the
+ * lock is about what a hand that is not yours could do, not about what it could see.
+ */
+export const requireUnlocked: RequestHandler = (req, _res, next) => {
+  if (req.pinLocked) return next(new HttpError(423, 'session_locked', 'Enter your PIN to continue.'));
+  next();
+};
 
 export function requireHttps(config: Config): RequestHandler {
   return (req, _res, next) => {

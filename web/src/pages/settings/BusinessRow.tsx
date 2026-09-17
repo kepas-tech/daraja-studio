@@ -30,8 +30,8 @@ export function BusinessCard({ view, reload, stepUp }: { view: SettingsView; rel
       }>
         {(close) => (
           <Questionnaire doneLabel={copy.settings.save} onCancel={close} intro={copy.settings.orgPortalNote(copy.settings.portalOnly)}
-            onDone={() => stepUp.ask(copy.settings.confirm.org, async (password) => {
-              await api.put('/api/settings/org', { ...org, password });
+            onDone={() => stepUp.ask(copy.settings.confirm.org, async (confirm) => {
+              await api.put('/api/settings/org', { ...org, ...confirm });
               toast.success(copy.settings.saved);
               // The name sits in the menu header and the page title; both read the session.
               await Promise.all([reload(), refresh()]);

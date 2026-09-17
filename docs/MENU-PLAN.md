@@ -86,6 +86,7 @@ Real work that adds no menu entry, tracked here for the same reason the send typ
 | Notifications on this device | Notifications | live | 0.28.0, deployed 2026-09-17; the KEPAS Pay borrow list, item 12 (second half); a service worker and a VAPID key pair, and the button is absent when the server has no keys |
 | Account numbers and the accounts under a customer | Businesses, Ask to pay, QR codes, Invoices | live | 0.29.0, deployed 2026-09-17; brief 2, item 1; Studio draws every number, no form has a box for one, and the payer's digits say their own length |
 | Something is wrong, on Home | Home | live | 0.30.0, deployed 2026-09-17; brief 2, item 2; an operator DOWN, a quiet Safaricom with sends pending, or a refused balance, each with one link and no dismiss button |
+| PIN lock | Organisation | live | 0.32.0, deployed 2026-09-17; brief 2, item 3; a 6-digit PIN set with the password, asked on return to the page and after 30 quiet minutes, and taken instead of the password on anything that moves money |
 
 ## Send types inside Send money
 

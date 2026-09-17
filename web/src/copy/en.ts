@@ -133,7 +133,21 @@ export const copy = {
       resume: (name: string) => `Switch ${name} back on?`,
     },
   },
-  confirm: { yourPassword: 'Your password', confirm: 'Confirm', cancel: 'Cancel', yes: 'Yes', no: 'No', why: 'Your password is needed for anything that moves money or changes who can.' },
+  confirm: {
+    yourPassword: 'Your password', yourPin: 'Your PIN',
+    usePassword: 'Use your password instead', usePin: 'Use your PIN instead',
+    confirm: 'Confirm', cancel: 'Cancel', yes: 'Yes', no: 'No',
+    why: 'Your password is needed for anything that moves money or changes who can.',
+    whyPin: 'Your PIN is needed for anything that moves money or changes who can.',
+  },
+  // Brief 2, item 3. The screen that covers everything while the PIN is owed.
+  lock: {
+    title: 'Studio is locked',
+    pinBody: 'Enter your PIN.',
+    passwordBody: 'Enter your password.',
+    continueLabel: 'Continue',
+    signedInAs: (name: string) => `Signed in as ${name}`,
+  },
   error: { safaricomSaid: 'Safaricom said', meaning: 'What it means', whatToDo: 'What to do now', generic: 'Something went wrong on our side. Try again in a moment.', noReply: 'Studio’s answer did not arrive. Check your connection and try again in a moment.', tryAgain: 'Try again in a moment. If it keeps happening, check Settings.', exportFailed: 'Studio could not make the file. Try again in a moment.' },
   home: {
     finishSetup: 'Finish setting up',
@@ -845,6 +859,17 @@ export const copy = {
     signOut: {
       title: 'Sessions', body: 'Ends every session on every device, this one included, so a browser left open on a shared or lost phone cannot be used again. You will need your password to log in anywhere.',
       button: 'Sign out everywhere', confirm: 'Sign out of every device?', done: 'Signed out everywhere. Log in again.',
+    },
+    // Brief 2, item 3: the lock a phone gets, and the six digits that opens it.
+    pin: {
+      title: 'PIN lock',
+      off: 'Add a 6-digit PIN. Studio then asks for it when you come back to your phone, and again after 30 minutes away. It is scrambled like a password, and never shown or written down.',
+      on: 'PIN lock is on. Studio asks for your PIN when you come back to your phone, and again after 30 minutes away. Your password still works everywhere, this page included.',
+      set: 'Set the PIN', change: 'Change the PIN', remove: 'Remove the PIN',
+      newPin: 'PIN (6 digits)', repeat: 'Type it again',
+      sixDigits: 'A PIN is exactly 6 digits.', mismatch: 'The two PINs are not the same.',
+      saved: 'PIN saved.', removed: 'PIN removed.',
+      confirmSet: 'Set this PIN?', confirmRemove: 'Remove the PIN?',
     },
   },
   notPossiblePage: {

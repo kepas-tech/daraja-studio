@@ -30,7 +30,7 @@ const slot = (operators: OperatorView[]): EnvSlotView => ({
 
 const stepUp: StepUp = {
   ask: vi.fn(),
-  dialogProps: { open: false, title: '', busy: false, error: null, onConfirm: vi.fn(), onCancel: vi.fn() },
+  dialogProps: { open: false, title: '', busy: false, error: null, pin: false, onConfirm: vi.fn(), onCancel: vi.fn() },
 };
 
 function renderTab(operators: OperatorView[]) {

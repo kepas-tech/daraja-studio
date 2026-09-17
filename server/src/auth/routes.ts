@@ -9,7 +9,8 @@ import { audit } from '../audit/log.js';
 import { DUMMY_HASH, hashPassword, MIN_PASSWORD_LENGTH, verifyPassword } from './password.js';
 import { clearCookieHeader, cookieHeader, createSession, destroySession } from './sessions.js';
 import { clearFailures, recordAttempt } from './lockout.js';
-import { requireAuth, requireCsrf, requireStepUp } from './middleware.js';
+import { checkPin, hashPin, PIN_LENGTH, PIN_PATTERN, pinKey } from './pin.js';
+import { requireAuth, requireCsrf, requireOwner, requireStepUp } from './middleware.js';
 
 const loginSchema = z.object({ username: z.string().trim().min(1).max(200), password: z.string().min(1).max(512) });
 const changeSchema = z.object({ currentPassword: z.string().min(1), newPassword: z.string().min(MIN_PASSWORD_LENGTH).max(512) });
@@ -93,6 +94,9 @@ export function authRoutes(db: Db, config: Config): Router {
         person: maskHostAdmin(req.person!),
         csrf: req.csrf,
         permissions: perms.map((p) => p.permission),
+        // Brief 2, item 3. Only these two facts about the PIN ever leave the server: whether one is
+        // set, and whether this session is waiting for it. Never the hash, never the PIN.
+        pin: { set: req.personPinHash != null, locked: req.pinLocked === true },
         // Spec 5.1. `slug` is deliberately absent: it is a host-admin handle, not a tenant's.
         org: {
           id: org.id, name: org.name, status: org.status, environment,
@@ -128,6 +132,72 @@ export function authRoutes(db: Db, config: Config): Router {
       await db.query('DELETE FROM sessions WHERE person_id=$1', [req.person!.id]);
       await audit(db, { personId: req.person!.id, action: 'auth.signed_out_everywhere', ip: clientIp(req) });
       res.setHeader('Set-Cookie', clearCookieHeader());
+      res.status(204).end();
+    } catch (e) { next(e); }
+  });
+
+  /**
+   * Brief 2, item 3: the PIN lock. Owner only, because the phone that carries Studio is the owner's.
+   * Setting one takes the password (requireStepUp) and the PIN is hashed with the same argon2id as a
+   * password: it is never stored, never logged and never written into an audit row — the audit says
+   * only that one was set, and when.
+   */
+  r.put('/pin', requireAuth(db), requireCsrf, requireOwner, requireStepUp(db), async (req, res, next) => {
+    try {
+      const newPin = typeof req.body?.newPin === 'string' ? req.body.newPin.trim() : '';
+      if (!PIN_PATTERN.test(newPin)) throw new HttpError(400, 'invalid', `A PIN is exactly ${PIN_LENGTH} digits.`);
+      await db.query('UPDATE people SET pin_hash=$2, pin_set_at=now() WHERE id=$1', [req.person!.id, await hashPin(newPin)]);
+      // The session that just proved the password may use the new PIN straight away.
+      await db.query('UPDATE sessions SET pin_entered_at = now() WHERE id=$1', [req.sessionId]);
+      await audit(db, { personId: req.person!.id, action: 'auth.pin_set', ip: clientIp(req) });
+      res.status(204).end();
+    } catch (e) { next(e); }
+  });
+
+  r.delete('/pin', requireAuth(db), requireCsrf, requireOwner, requireStepUp(db), async (req, res, next) => {
+    try {
+      await db.query('UPDATE people SET pin_hash=NULL, pin_set_at=NULL WHERE id=$1', [req.person!.id]);
+      await clearFailures(db, [pinKey(req.person!.id)]);
+      await audit(db, { personId: req.person!.id, action: 'auth.pin_removed', ip: clientIp(req) });
+      res.status(204).end();
+    } catch (e) { next(e); }
+  });
+
+  /**
+   * This is its own route because it is the one action a locked session may take. The PIN is
+   * counted and locks after five wrong tries; the password is always the way back in for a forgotten
+   * PIN, counted on the password's own key so a phone left alone cannot be walked into either.
+   */
+  r.post('/open', requireAuth(db), requireCsrf, async (req, res, next) => {
+    try {
+      const pw = typeof req.body?.password === 'string' ? req.body.password : '';
+      const pin = typeof req.body?.pin === 'string' ? req.body.pin : '';
+      if (pw) {
+        const key = `stepup:${req.person!.id}`;
+        const attempt = await recordAttempt(db, [key]);
+        if (attempt.lockedUntil && attempt.lockedUntil > new Date()) {
+          throw new HttpError(423, 'locked', 'Too many wrong tries. Wait 15 minutes and try again.');
+        }
+        if (!req.personHash || !(await verifyPassword(req.personHash, pw))) throw new HttpError(403, 'step_up_required', 'Your password is wrong.');
+        await clearFailures(db, [key]);
+      } else if (pin && req.personPinHash) {
+        await checkPin(db, req.person!.id, req.personPinHash, pin);
+      } else {
+        throw new HttpError(400, 'invalid', 'Enter your PIN.');
+      }
+      await db.query('UPDATE sessions SET pin_entered_at = now() WHERE id=$1', [req.sessionId]);
+      res.status(204).end();
+    } catch (e) { next(e); }
+  });
+
+  /**
+   * Locking has nothing to prove: it is what a phone put down does, and refusing it would leave the
+   * session open. Called when the page goes to the background, on a fresh page load, and after
+   * PIN_IDLE_MINUTES without a touch (web/src/app/useLockWatchers.ts).
+   */
+  r.post('/lock', requireAuth(db), requireCsrf, async (req, res, next) => {
+    try {
+      await db.query('UPDATE sessions SET pin_entered_at = NULL WHERE id=$1', [req.sessionId]);
       res.status(204).end();
     } catch (e) { next(e); }
   });

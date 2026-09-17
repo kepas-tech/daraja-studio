@@ -48,13 +48,13 @@ export function People() {
   if (err && !people) return <><PageHeader title={copy.people.title} safaricom={copy.people.safaricom} /><ErrorCard error={err} /></>;
   if (!people) return <Loading />;
 
-  const addPerson = () => stepUp.ask(copy.people.confirm.add(form.displayName || form.username), async (password) => {
+  const addPerson = () => stepUp.ask(copy.people.confirm.add(form.displayName || form.username), async (confirm) => {
     await api.post<PersonView>('/api/people', {
       displayName: form.displayName.trim(),
       username: form.username.trim().toLowerCase(),
       role: form.role,
       temporaryPassword: form.temporaryPassword,
-      password,
+      ...confirm,
     });
     setHandOver({ username: form.username.trim().toLowerCase(), password: form.temporaryPassword });
     setAdding(false);
@@ -62,16 +62,16 @@ export function People() {
     await load();
   });
 
-  const changeRole = (p: PersonView, role: AssignableRole) => stepUp.ask(copy.people.confirm.role(p.displayName), async (password) => {
-    await api.put(`/api/people/${p.id}/role`, { role, password });
+  const changeRole = (p: PersonView, role: AssignableRole) => stepUp.ask(copy.people.confirm.role(p.displayName), async (confirm) => {
+    await api.put(`/api/people/${p.id}/role`, { role, ...confirm });
     toast.success(copy.settings.saved);
     await load();
   });
 
   const reset = (p: PersonView) => {
     const temporaryPassword = suggestPassword();
-    stepUp.ask(copy.people.confirm.reset(p.displayName), async (password) => {
-      await api.post(`/api/people/${p.id}/reset-password`, { temporaryPassword, password });
+    stepUp.ask(copy.people.confirm.reset(p.displayName), async (confirm) => {
+      await api.post(`/api/people/${p.id}/reset-password`, { temporaryPassword, ...confirm });
       setHandOver({ username: p.username, password: temporaryPassword });
       await load();
     });
@@ -79,8 +79,8 @@ export function People() {
 
   const setActive = (p: PersonView, on: boolean) => stepUp.ask(
     on ? copy.people.confirm.resume(p.displayName) : copy.people.confirm.suspend(p.displayName),
-    async (password) => {
-      await api.post(`/api/people/${p.id}/${on ? 'resume' : 'suspend'}`, { password });
+    async (confirm) => {
+      await api.post(`/api/people/${p.id}/${on ? 'resume' : 'suspend'}`, { ...confirm });
       await load();
     },
   );

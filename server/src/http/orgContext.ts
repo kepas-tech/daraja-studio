@@ -2,6 +2,7 @@ import type { RequestHandler } from 'express';
 import type { Db } from '../db/pool.js';
 import { withOrg, withSystem } from '../db/pool.js';
 import { loadSessionWithOrg, readCookie, SESSION_COOKIE } from '../auth/sessions.js';
+import { isLocked } from '../auth/pin.js';
 
 /**
  * Resolves the organisation once, at the front of the request, and runs everything after it inside
@@ -30,11 +31,15 @@ export function orgContext(deps: { db: Db }): RequestHandler {
         }
         req.sessionId = found.session.id;
         req.csrf = found.session.csrf_token;
-        const { password_hash, ...person } = found.person;
+        // Both hashes stay off request.person: it is handed to route modules and serialised back to
+        // the browser by /api/auth/me, and only the fact that a PIN exists may leave the server.
+        const { password_hash, pin_hash, ...person } = found.person;
         // Everything downstream — routes, services, jobs enqueued by them — is this organisation.
         return withOrg(found.org.id, async () => {
           req.person = person;
           req.personHash = password_hash;
+          req.personPinHash = pin_hash;
+          req.pinLocked = isLocked(pin_hash, found.session.pin_fresh);
           req.org = found.org;
           next();
         });
