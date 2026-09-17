@@ -16,6 +16,9 @@ beforeEach(() => { localStorage.clear(); });
 // happen on a loaded machine. Everything here that waits gets room.
 const SLOW = { timeout: 5000 };
 const waitForSlow = (fn: () => unknown) => waitFor(fn, SLOW);
+// The test below boots the app twice, so its own budget has to clear both waits in it. Without
+// this the default five seconds is the same as one SLOW wait, and a loaded machine times it out.
+const TWO_BOOTS = 20_000;
 const openTheLock = () => screen.findByTestId('lock-screen', {}, SLOW);
 const signedIn = () => screen.findByRole('button', { name: copy.account.menu }, SLOW);
 const dots = () => Number(screen.getByTestId('pin-dots').dataset.filled);
@@ -212,7 +215,7 @@ describe('the fingerprint card and the Organisation list', () => {
     typePin(PIN);
     await signedIn();
     await waitForSlow(() => expect(screen.queryByTestId('bio-card')).toBeNull());
-  });
+  }, TWO_BOOTS);
 
   it('turns the fingerprint on from the card', async () => {
     const { create } = stubPlatformAuthenticator(true);
