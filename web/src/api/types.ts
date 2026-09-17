@@ -186,3 +186,13 @@ export interface NotificationView {
   count: number; readAt: string | null; createdAt: string; updatedAt: string;
 }
 export interface NotificationPage { items: NotificationView[]; unread: number; nextCursor: string | null }
+/**
+ * `GET /api/audit` (feature 10). One row of the studio's own record. `before` and `after` are the
+ * stored JSON, shown to the owner exactly as they were written; `person` is null for a row nobody
+ * signed (a job, a callback).
+ */
+export interface AuditRow {
+  id: string; at: string; action: string;
+  person: { id: string; displayName: string } | null;
+  target: string | null; before: unknown; after: unknown; ip: string | null;
+}

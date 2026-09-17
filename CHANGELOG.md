@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.25.0 — Who did what
+
+- A new owner-only page, **Who did what**, shows every action Studio already records: who did it,
+  what they did, what it was done to, the before and after values, and the address it came from.
+  Newest first, with filters for a person, an action, a date range, and a search box.
+- The log is the one Studio already keeps and it is append-only at the database level: nothing on
+  this page can change or remove a row. Nothing new is recorded for it either.
+
 ## 0.24.0 — the balance catches up with the last payment
 
 - Every payment that finishes now asks Safaricom for the balance again, at most once a minute, so

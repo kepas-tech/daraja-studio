@@ -19,6 +19,7 @@ import { RequestDetail } from '../pages/RequestDetail';
 import { People } from '../pages/People';
 import { Contacts } from '../pages/Contacts';
 import { Businesses } from '../pages/Businesses';
+import { WhoDidWhat } from '../pages/WhoDidWhat';
 import { Notifications } from '../pages/Notifications';
 import { ChangePassword } from '../pages/ChangePassword';
 import { Qr } from '../pages/Qr';
@@ -65,6 +66,7 @@ function Gate() {
         <Route path="/people" element={<People />} />
         <Route path="/contacts" element={<Contacts />} />
         <Route path="/businesses" element={<Businesses />} />
+        <Route path="/who-did-what" element={<WhoDidWhat />} />
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/not-possible" element={<NotPossible />} />
         <Route path="/send" element={<SendHub />} />

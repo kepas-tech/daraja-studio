@@ -18,6 +18,14 @@ function stubCounts(c: { count?: number; enabled?: boolean; badge?: number; unre
 }
 stubCounts();
 
+/**
+ * The one entry only the owner is offered: the audit page. These tests render Nav without a
+ * session, which is a signed-out shape, so the owner-only link is correctly absent; the rule
+ * itself is asserted below.
+ */
+const OWNER_ONLY = new Set(['who-did-what']);
+const visibleToAnybody = (e: { key: string; advanced?: boolean }) => !e.advanced && !OWNER_ONLY.has(e.key);
+
 afterEach(cleanup);
 
 describe('Nav', () => {
@@ -32,7 +40,7 @@ describe('Nav', () => {
   });
   it('renders every destination without needing the menu to be opened first', () => {
     const { container } = render(<MemoryRouter><Nav /></MemoryRouter>);
-    for (const e of copy.nav.filter((x) => !x.advanced)) {
+    for (const e of copy.nav.filter(visibleToAnybody)) {
       expect(container.querySelector(`a[href="${e.path}"]`)).not.toBeNull();
     }
   });
@@ -92,7 +100,7 @@ describe('Nav', () => {
       const link = document.querySelector<HTMLAnchorElement>(`a[href="${e.path}"]`)!;
       expect(within(link).getByText('Coming soon')).toBeInTheDocument();
     }
-    for (const e of finished.filter((x) => !x.advanced)) {
+    for (const e of finished.filter(visibleToAnybody)) {
       const link = document.querySelector<HTMLAnchorElement>(`a[href="${e.path}"]`)!;
       expect(within(link).queryByText('Coming soon')).not.toBeInTheDocument();
     }
@@ -105,15 +113,21 @@ describe('Nav', () => {
     expect(within(link).queryByText('Coming soon')).not.toBeInTheDocument();
     expect(copy.nav.find((e) => e.key === 'stk')!.available).toBe(true);
   });
+  it('offers the owner-only audit page to nobody else', () => {
+    render(<MemoryRouter><Nav /></MemoryRouter>);
+    expect(document.querySelector('a[href="/who-did-what"]')).toBeNull();
+    expect(copy.nav.find((e) => e.key === 'who-did-what')!.available).toBe(true);
+  });
+
   it('renders every nav entry with its Safaricom name', () => {
     render(<MemoryRouter><Nav /></MemoryRouter>);
     // Advanced destinations live on the Advanced page (advanced.test.tsx), not in the menu.
-    for (const e of copy.nav.filter((x) => !x.advanced)) {
+    for (const e of copy.nav.filter(visibleToAnybody)) {
       expect(screen.getByText(e.label)).toBeInTheDocument();
       if (e.safaricom) expect(screen.getByText(e.safaricom)).toBeInTheDocument();
     }
     expect(copy.nav.map((e) => e.key)).toEqual([
-      'home','notifications','history','reports','stk','money-in','qr','invoices','standing-orders','express','bonga','send','contacts','bulk','approvals','reverse','businesses','settings','advanced','guide','not-possible',
+      'home','notifications','history','reports','stk','money-in','qr','invoices','standing-orders','express','bonga','send','contacts','bulk','approvals','reverse','businesses','who-did-what','settings','advanced','guide','not-possible',
     ]);
   });
 });

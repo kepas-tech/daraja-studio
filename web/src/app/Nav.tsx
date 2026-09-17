@@ -55,7 +55,7 @@ function Item({ e, onPick, badge }: { e: NavEntry; onPick: () => void; badge?: n
 const heading = 'px-3 pt-5 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted';
 
 export function Nav() {
-  const { org } = useSession();
+  const { org, person } = useSession();
   // The open state is ours, not the browser's: a <details> element is content-hidden when closed in
   // current Chrome, so its links were never painted or clickable. Owning the state keeps the
   // open/closed decision somewhere a test can assert (see nav.test.tsx).
@@ -64,8 +64,11 @@ export function Nav() {
   const live = copy.nav.filter((e) => e.available);
   const { approvals, waiting, unread } = useMenuCounts();
   // Waiting fills while Settings › Approvals is on, or while a row waits for a person (held, or
-  // never answered by Safaricom); hidden only when there is nothing to do there at all.
-  const shown = (e: NavEntry) => e.key !== 'approvals' || approvals.enabled || waiting > 0;
+  // never answered by Safaricom); hidden only when there is nothing to do there at all. Who did
+  // what is the owner's own record of who changed what, so nobody else is offered the link.
+  const shown = (e: NavEntry) =>
+    (e.key !== 'approvals' || approvals.enabled || waiting > 0) &&
+    (e.key !== 'who-did-what' || !!person?.is_owner);
   const badge = (e: NavEntry) => (e.key === 'approvals' ? waiting : e.key === 'notifications' ? unread : undefined);
   return (
     <nav aria-label={copy.app.navLabel} className="w-full shrink-0 border-b border-line bg-page md:w-60 md:overflow-y-auto md:border-r md:border-b-0">

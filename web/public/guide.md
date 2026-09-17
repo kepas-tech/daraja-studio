@@ -661,6 +661,23 @@ Where: your name, top right → Organisation · Who: Owner · Route: /account ·
 | PUT | `/api/auth/display-name` | signed in |
 | POST | `/api/org/wipe` | owner, password, name typed |
 
+### See who changed what
+
+Where: your name, top right → Organisation → Who did what · Who: Owner · Route: /who-did-what · Permission: owner
+
+1. Open Who did what from the menu, under Manage. The list starts with the newest change and shows who made it, what they did, what it was done to, and when.
+2. The filters narrow the list: pick a person, pick an action, set a date range, or type into the search box. A change with nobody behind it — a job or a message from Safaricom — says Nobody signed in.
+3. Show opens one line: the values before and after the change, and the address the change came from.
+4. Previous and Next walk further back, one page at a time.
+
+- This is a record, not a control: nothing on it can be changed or removed, and Studio itself never edits or deletes a line.
+- Only the owner sees it. Anybody else who opens the address is refused.
+
+| Method | Path | Who |
+|---|---|---|
+| GET | `/api/audit` | owner; personId, action, from, to, q, limit, cursor |
+| GET | `/api/audit/actions` | owner; the actions the filter offers |
+
 ### Go live: from pretend money to real money
 
 Safaricom calls this: Go Live · Where: your name, top right → Organisation → Go live · Who: Owner · Route: /go-live · Permission: owner

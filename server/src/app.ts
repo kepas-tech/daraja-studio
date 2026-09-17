@@ -50,6 +50,7 @@ import { contactsRoutes } from './contacts/routes.js';
 import { businessesRoutes, customersRoutes } from './businesses/routes.js';
 import { notificationRoutes } from './notifications/routes.js';
 import { reportsRoutes } from './reports/routes.js';
+import { auditRoutes } from './audit/routes.js';
 import type { BusinessesService } from './businesses/service.js';
 import type { InvoicesService } from './invoices/service.js';
 import type { Scheduler } from './scheduler/loop.js';
@@ -150,6 +151,8 @@ export function buildApp(deps: AppDeps): express.Express {
   app.use('/api/notifications', notificationRoutes(deps));
   // Feature 6: the week's numbers, read-only. Nothing under it writes a row.
   app.use('/api/reports', reportsRoutes(deps));
+  // Feature 10: who did what. Owner only, and read-only — audit_log refuses every write by trigger.
+  app.use('/api/audit', auditRoutes(deps));
   app.use('/api/requests', requestRoutes(deps));
   app.use('/api/balances', balanceRoutes(deps));
   app.use('/api/lookup', lookupRoutes(deps));

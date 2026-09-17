@@ -827,6 +827,28 @@ export const guide: GuideSection[] = [
         ],
       },
       {
+        key: 'who-did-what',
+        title: 'See who changed what',
+        where: ['your name, top right', 'Organisation', 'Who did what'],
+        who: 'Owner',
+        path: '/who-did-what',
+        permission: 'owner',
+        steps: [
+          'Open Who did what from the menu, under Manage. The list starts with the newest change and shows who made it, what they did, what it was done to, and when.',
+          'The filters narrow the list: pick a person, pick an action, set a date range, or type into the search box. A change with nobody behind it — a job or a message from Safaricom — says Nobody signed in.',
+          'Show opens one line: the values before and after the change, and the address the change came from.',
+          'Previous and Next walk further back, one page at a time.',
+        ],
+        notes: [
+          'This is a record, not a control: nothing on it can be changed or removed, and Studio itself never edits or deletes a line.',
+          'Only the owner sees it. Anybody else who opens the address is refused.',
+        ],
+        api: [
+          { method: 'GET', path: '/api/audit', who: 'owner; personId, action, from, to, q, limit, cursor' },
+          { method: 'GET', path: '/api/audit/actions', who: 'owner; the actions the filter offers' },
+        ],
+      },
+      {
         key: 'go-live',
         title: 'Go live: from pretend money to real money',
         safaricom: 'Go Live',
