@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.29.1 — the business code is Studio's too
+
+- The three-digit code in front of every account number is handed out the same way an account number
+  is: nobody types one. **Add a business** asks for a name only, and the page says which code Studio
+  will give it — the next free one, lowest first. Two people adding a business at the same moment can
+  never be given the same code.
+- The API refuses a code sent from a client, exactly as it refuses an account number, and the refusal
+  writes nothing at all.
 ## 0.29.0 — an account number that can never be mixed up
 
 - Account numbers are now three levels, all drawn by Studio: a three-digit business code, a customer

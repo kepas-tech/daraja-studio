@@ -253,8 +253,8 @@ export const copy = {
     addIntro: 'A name for the business.',
     name: 'Business name',
     code: 'Three-digit code',
-    codeHint: 'Three digits, 000 to 999. The payer starts the account number with it.',
-    codeNext: (code: string) => 'Studio will offer ' + code + ', the next free code. Type another three digits to pick your own.',
+    /** Studio gives the code; nobody types one. The offered one is shown before the press. */
+    codeNext: (code: string) => 'Studio will give this business the code ' + code + ', the next free one.',
     save: 'Save', cancel: 'Cancel', edit: 'Change', saved: 'Saved.',
     on: 'On', off: 'Switched off',
     switchOff: 'Switch off', switchOn: 'Switch on',

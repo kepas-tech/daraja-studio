@@ -21,12 +21,12 @@ const phone = z.string().trim().min(1).max(20).optional();
 const note = z.string().trim().max(200).optional();
 const uuid = z.string().uuid();
 
-const createSchema = z.object({
-  name,
-  code: z.string().trim().regex(/^[0-9]{3}$/, 'A business code is three digits, like 007.').optional(),
-});
 const updateSchema = z.object({ name, active: z.boolean() });
-/** Strict on purpose: a number is Studio's to mint, so it is not a field of any account body. */
+/**
+ * Strict on purpose, both of them: a business code and an account number are Studio's to give, so
+ * neither is a field of any body a client sends. A body that carries one is a 400, not a row.
+ */
+const createSchema = z.object({ name }).strict();
 const accountSchema = z.object({ name, phone, note }).strict();
 const assignSchema = z.object({ businessId: uuid, accountId: uuid.nullish() });
 const listSchema = z.object({ q: z.string().trim().max(80).optional() });
@@ -63,7 +63,7 @@ export function businessesRoutes(deps: AppDeps): Router {
   r.post('/', requirePermission(deps.db, 'businesses.manage'), async (req, res, next) => {
     try {
       const b = parse(createSchema, req.body);
-      res.status(201).json(await deps.businesses.create(b.name, b.code, actor(req)));
+      res.status(201).json(await deps.businesses.create(b.name, actor(req)));
     } catch (e) { next(e); }
   });
 

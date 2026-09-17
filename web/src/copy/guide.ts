@@ -497,7 +497,7 @@ export const guide: GuideSection[] = [
         permission: 'businesses.manage',
         steps: [
           'Open Businesses in the menu. With one business, routing is off: every payment belongs to it, and the page says so.',
-          'Add a business: a name, and a three-digit code from 000 to 999. Studio offers the next free one; you can type your own.',
+          'Add a business: a name, and nothing else. Studio gives it the next free three-digit code, lowest first, and the page says which one before you press Save.',
           'An account number has three parts: the business code (three digits, 000 to 999), the customer number, and, if you want to tell things apart under one customer, an account under it. So 000 is the business, 000359 is a customer, and 000359123 is the account under that customer.',
           'Every digit is Studio\u2019s to choose: it draws the number and nobody types one. Add a customer with a name and a phone number and the number appears at once, with the sentence to give the payer: pay 123456, account 000359.',
           'A number says how long it is. A customer number starts at three digits; when all 900 of them are used, new ones get four digits, then five. The line under each business says which length is in use: Customer numbers: 3 digits, 412 of 900 used. Old numbers keep their length, so nothing a payer already knows changes.',
@@ -514,7 +514,7 @@ export const guide: GuideSection[] = [
         ],
         api: [
           { method: 'GET', path: '/api/businesses', who: 'signed in; each business carries its open number length and how much of it is used' },
-          { method: 'POST', path: '/api/businesses', who: 'businesses.manage; body { name, code? }' },
+          { method: 'POST', path: '/api/businesses', who: 'businesses.manage; body { name } only, Studio gives the next free code' },
           { method: 'PUT', path: '/api/businesses/:id', who: 'businesses.manage; body { name, active }' },
           { method: 'GET', path: '/api/businesses/:id/accounts', who: 'signed in; q narrows by name or number; customers carry their accounts nested' },
           { method: 'POST', path: '/api/businesses/:id/accounts', who: 'businesses.manage; body { name, phone?, note? }; Studio draws the number' },

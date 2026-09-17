@@ -384,7 +384,7 @@ Safaricom calls this: C2B · Where: Get paid → Money in · Who: Owner turns it
 Where: Manage → Businesses · Who: Anyone signed in can look; the owner, or a role given the permission, changes them · Route: /businesses · Permission: businesses.manage
 
 1. Open Businesses in the menu. With one business, routing is off: every payment belongs to it, and the page says so.
-2. Add a business: a name, and a three-digit code from 000 to 999. Studio offers the next free one; you can type your own.
+2. Add a business: a name, and nothing else. Studio gives it the next free three-digit code, lowest first, and the page says which one before you press Save.
 3. An account number has three parts: the business code (three digits, 000 to 999), the customer number, and, if you want to tell things apart under one customer, an account under it. So 000 is the business, 000359 is a customer, and 000359123 is the account under that customer.
 4. Every digit is Studio’s to choose: it draws the number and nobody types one. Add a customer with a name and a phone number and the number appears at once, with the sentence to give the payer: pay 123456, account 000359.
 5. A number says how long it is. A customer number starts at three digits; when all 900 of them are used, new ones get four digits, then five. The line under each business says which length is in use: Customer numbers: 3 digits, 412 of 900 used. Old numbers keep their length, so nothing a payer already knows changes.
@@ -401,7 +401,7 @@ Where: Manage → Businesses · Who: Anyone signed in can look; the owner, or a 
 | Method | Path | Who |
 |---|---|---|
 | GET | `/api/businesses` | signed in; each business carries its open number length and how much of it is used |
-| POST | `/api/businesses` | businesses.manage; body { name, code? } |
+| POST | `/api/businesses` | businesses.manage; body { name } only, Studio gives the next free code |
 | PUT | `/api/businesses/:id` | businesses.manage; body { name, active } |
 | GET | `/api/businesses/:id/accounts` | signed in; q narrows by name or number; customers carry their accounts nested |
 | POST | `/api/businesses/:id/accounts` | businesses.manage; body { name, phone?, note? }; Studio draws the number |

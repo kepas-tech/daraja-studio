@@ -79,7 +79,10 @@ Under `pg_advisory_xact_lock(hashtext('accounts:' || scope_id))`, in one transac
    have 4 digits." Both happen outside the mint's transaction.
 
 The draw is injected (`rng`), so tests pin the number a run produces. The default is `crypto.randomInt`.
-Business codes stay sequential: the lowest of `000`–`999` this organisation has not used.
+
+Business codes stay sequential and are just as much Studio's: the next free code, lowest first,
+chosen under `pg_advisory_xact_lock(hashtext('businesses'))` in the same transaction as the insert.
+No route takes a code from a client.
 
 ## Parsing what the payer typed — `server/src/businesses/match.ts`
 
@@ -97,12 +100,15 @@ cases, where only the account is in doubt. The account id is stored only on exac
 
 ## API — `/api/businesses` and `/api/accounts`
 
-Writes keep `businesses.manage`. **No route accepts a number**: every account body schema is
-`.strict()`, so a client that sends `number` or `fullNumber` gets 400 `invalid`, and the old
-`POST /api/businesses/:id/customers/claim` is gone.
+Writes keep `businesses.manage`. **No route accepts a number, and none accepts a business code**:
+the business and account body schemas are `.strict()`, so a client that sends `code`, `number` or
+`fullNumber` gets 400 `invalid`, and the old `POST /api/businesses/:id/customers/claim` is gone. A
+business is created with a name; the code is the next free one, lowest first, chosen under an
+advisory lock in the same transaction as the insert.
 
 | Method | Path | Body | Answer |
 |---|---|---|---|
+| POST | `/api/businesses` | `{ name }` | 201, Studio gives the next free code |
 | GET | `/api/businesses` | — | each business carries `numbers: { width, capacity, used }` |
 | GET | `/api/businesses/:id/accounts` | `q?` | customers with their live accounts nested |
 | POST | `/api/businesses/:id/accounts` | `{ name, phone?, note? }` | 201, Studio draws the number |

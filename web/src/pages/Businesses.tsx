@@ -13,21 +13,21 @@ import { useToast } from '../components/Toast';
 import { copy } from '../copy/en';
 import { normalizeKe, phone } from '../format';
 
-const CODE = /^[0-9]{3}$/;
-/** The code the form offers: the lowest of 000-999 this organisation has not used. */
+/** The code the form shows as the one Studio will give: the lowest of 000-999 not yet used. */
 function nextFreeCode(taken: string[]): string {
   for (let i = 0; i < 1000; i++) { const code = String(i).padStart(3, '0'); if (!taken.includes(code)) return code; }
   return '999';
 }
 
-interface BusinessDraft { name: string; code: string }
+interface BusinessDraft { name: string }
 
-/** One business: a name, and the three digits every account number starts with. */
+/**
+ * One business: a name, and nothing else. The three-digit code every account number starts with is
+ * Studio's to give — the next free one, lowest first — so there is no box for it here.
+ */
 function BusinessForm({ existing, offered, error, onSave, onCancel }: { existing: BusinessView | null; offered: string; error: Error | Explained | null; onSave: (draft: BusinessDraft) => Promise<void>; onCancel: () => void }) {
   const c = copy.businesses;
   const [name, setName] = useState(existing?.name ?? '');
-  const [code, setCode] = useState(existing?.code ?? offered);
-  const codeOk = CODE.test(code.trim());
   return (
     <div className="space-y-3">
       <p className="text-base text-muted">{c.addIntro}</p>
@@ -35,14 +35,11 @@ function BusinessForm({ existing, offered, error, onSave, onCancel }: { existing
       {existing ? (
         <p className="text-sm text-muted">{c.code}: <code>{existing.code}</code></p>
       ) : (
-        <div className="space-y-1">
-          <TextField label={c.code} inputMode="numeric" value={code} maxLength={3} hint={c.codeHint} onChange={(e) => setCode(e.target.value)} />
-          <p className="text-sm text-muted">{c.codeNext(offered)}</p>
-        </div>
+        <p className="text-sm text-muted">{c.codeNext(offered)}</p>
       )}
       <ErrorCard error={error} />
       <div className="flex gap-2">
-        <Button type="button" disabled={name.trim().length === 0 || (!existing && !codeOk)} onClick={() => void onSave({ name, code })}>{c.save}</Button>
+        <Button type="button" disabled={name.trim().length === 0} onClick={() => void onSave({ name })}>{c.save}</Button>
         <Button type="button" variant="secondary" onClick={onCancel}>{c.cancel}</Button>
       </div>
     </div>
@@ -117,7 +114,7 @@ export function Businesses() {
     setFormErr(null);
     try {
       if (editing) await api.put('/api/businesses/' + editing, { name: draft.name.trim(), active: data?.items.find((b) => b.id === editing)?.active ?? true });
-      else await api.post('/api/businesses', { name: draft.name.trim(), code: CODE.test(draft.code.trim()) ? draft.code.trim() : undefined });
+      else await api.post('/api/businesses', { name: draft.name.trim() });
       toast.success(c.saved);
       setAdding(false); setEditing(null);
       await load();

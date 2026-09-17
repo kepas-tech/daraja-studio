@@ -151,7 +151,7 @@ describe('businesses and their account numbers', () => {
     queue = [];
   });
   const h = (r: request.Test) => r.set('Cookie', s.cookie).set('x-csrf-token', s.csrf);
-  const addBusiness = async (name: string, code?: string) => (await h(request(app).post('/api/businesses')).send(code ? { name, code } : { name })).body;
+  const addBusiness = async (name: string) => (await h(request(app).post('/api/businesses')).send({ name })).body;
   const addAccount = async (businessId: string, name: string, extra: Record<string, unknown> = {}) =>
     (await h(request(app).post(`/api/businesses/` + businessId + `/accounts`)).send({ name, ...extra })).body;
   const addChild = async (parentId: string, name: string) =>
@@ -168,7 +168,7 @@ describe('businesses and their account numbers', () => {
     await addBusiness('Shop');
     await expect(deps.db.query(`INSERT INTO businesses(code, name) VALUES ('12','Bad')`)).rejects.toMatchObject({ code: '23514' });
     await expect(deps.db.query(`INSERT INTO businesses(code, name) VALUES ('000','Same code')`)).rejects.toMatchObject({ code: '23505' });
-    const b = await addBusiness('Second', '001');
+    const b = await addBusiness('Second');
     await deps.db.query(`INSERT INTO accounts(business_id, number, name) VALUES ($1, '359', 'Jane')`, [b.id]);
     await expect(deps.db.query(`INSERT INTO accounts(business_id, number, name) VALUES ($1, '359', 'Again')`, [b.id]))
       .rejects.toMatchObject({ code: '23505' });
@@ -193,7 +193,7 @@ describe('businesses and their account numbers', () => {
     await expect(deps.db.query(`UPDATE accounts SET number='899' WHERE id=$1`, [kid.id])).rejects.toMatchObject({ code: '23514' });
     await expect(deps.db.query(`UPDATE accounts SET parent_id=NULL WHERE id=$1`, [kid.id])).rejects.toMatchObject({ code: '23514' });
     // An account under an account is not allowed, and a parent must be in the same business.
-    const other = await addBusiness('Other', '001');
+    const other = await addBusiness('Other');
     await expect(deps.db.query(`INSERT INTO accounts(business_id, parent_id, number, name) VALUES ($1,$2,'456','Deeper')`, [b.id, kid.id]))
       .rejects.toMatchObject({ code: '23514' });
     await expect(deps.db.query(`INSERT INTO accounts(business_id, parent_id, number, name) VALUES ($1,$2,'456','Elsewhere')`, [other.id, parent.id]))
@@ -274,7 +274,7 @@ describe('businesses and their account numbers', () => {
     await addAccount(b.id, 'Jane');
     const list = await h(request(app).get('/api/businesses'));
     expect(list.body.items[0].numbers).toEqual({ width: 3, capacity: 900, used: 1 });
-    const bare = await addBusiness('Nothing yet', '001');
+    const bare = await addBusiness('Nothing yet');
     const after = await h(request(app).get('/api/businesses'));
     const row = (after.body.items as { id: string; numbers: unknown }[]).find((x) => x.id === bare.id)!;
     expect(row.numbers).toEqual({ width: 3, capacity: 900, used: 0 });
@@ -376,7 +376,7 @@ describe('businesses and their account numbers', () => {
 
   it('two businesses: the code decides, and the account under a customer is reachable by its full number', async () => {
     const b0 = await addBusiness('First');
-    const b1 = await addBusiness('Second', '001');
+    const b1 = await addBusiness('Second');
     queue = [359, 123];
     const jane = await addAccount(b1.id, 'Jane');
     const room = await addChild(jane.id, 'Room 4');
@@ -390,7 +390,7 @@ describe('businesses and their account numbers', () => {
 
   it('names each reason a payment needs sorting, with the fix that labels it and nothing else', async () => {
     await addBusiness('First');
-    const b1 = await addBusiness('Second', '001');
+    const b1 = await addBusiness('Second');
     queue = [359, 123];
     const jane = await addAccount(b1.id, 'Jane');
     const room = await addChild(jane.id, 'Room 4');
@@ -443,7 +443,7 @@ describe('businesses and their account numbers', () => {
     expect(notC2b.body.error.code).toBe('not_c2b');
     const missing = await h(request(app).post('/api/businesses/assign/' + row.requestId)).send({ businessId: '00000000-0000-4000-8000-0000000000ff' });
     expect(missing.status).toBe(404);
-    const other = await addBusiness('Other', '001');
+    const other = await addBusiness('Other');
     const elsewhere = await addAccount(other.id, 'Not here');
     const wrong = await h(request(app).post('/api/businesses/assign/' + row.requestId)).send({ businessId: b.id, accountId: elsewhere.id });
     expect(wrong.status).toBe(400);
@@ -528,7 +528,7 @@ describe('businesses and their account numbers', () => {
 
   it('summarises in and out per business for the day asked about', async () => {
     const b0 = await addBusiness('First');
-    const b1 = await addBusiness('Second', '001');
+    const b1 = await addBusiness('Second');
     await addAccount(b0.id, 'Jane');
     await recordC2b(deps, payment({ billRefNumber: '000999', amount: 300 }), 'callback');
     await recordC2b(deps, payment({ billRefNumber: '001999', amount: 500 }), 'callback');
@@ -560,15 +560,20 @@ describe('businesses and their account numbers', () => {
     expect(byRoom.body.items.map((r: { id: string }) => r.id)).toEqual([atRoom.requestId]);
   });
 
-  it('lists businesses with the next free code, takes an explicit one, and refuses a used one', async () => {
+  it('hands out the next free code, lowest first, and refuses one from a client', async () => {
     expect((await addBusiness('First')).code).toBe('000');
     expect((await addBusiness('Second')).code).toBe('001');
-    expect((await addBusiness('Seventh', '007')).code).toBe('007');
-    const taken = await h(request(app).post('/api/businesses')).send({ name: 'Clash', code: '007' });
-    expect(taken.status).toBe(409);
-    expect(taken.body.error.code).toBe('code_taken');
+    // A code is Studio's to give, exactly like an account number: sending one is a 400, and the
+    // refusal writes nothing, so the code the client asked for is not even reserved.
+    for (const body of [{ name: 'Clash', code: '007' }, { name: 'Clash', code: 7 }]) {
+      const refused = await h(request(app).post('/api/businesses')).send(body);
+      expect(refused.status).toBe(400);
+      expect(refused.body.error.code).toBe('invalid');
+    }
+    expect((await deps.db.query(`SELECT 1 FROM businesses WHERE name = 'Clash'`)).length).toBe(0);
+    expect((await addBusiness('Third')).code).toBe('002');
     const list = await h(request(app).get('/api/businesses'));
-    expect(list.body.items.map((b: { code: string }) => b.code)).toEqual(['000', '001', '007']);
+    expect(list.body.items.map((b: { code: string }) => b.code)).toEqual(['000', '001', '002']);
     expect(list.body.lastUsedId).toBeNull();
   });
 

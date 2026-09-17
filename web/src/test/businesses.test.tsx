@@ -84,15 +84,17 @@ describe('Businesses and their accounts', () => {
     expect(screen.queryByText(copy.businesses.routingOff)).toBeNull();
   });
 
-  it('offers the next free code, takes a name, and posts both', async () => {
+  it('names Studio as the one who gives the code, and posts a name and nothing else', async () => {
     let posted: unknown = null;
     mountBusinesses({ 'POST /api/businesses': (init) => { posted = JSON.parse(String(init?.body)); return json({ ...rentals, id: 'b9', code: '002', name: 'Farm' }, 201); } });
     await screen.findByTestId('business-b1');
     fireEvent.click(screen.getByRole('button', { name: copy.businesses.add }));
     expect(screen.getByText(copy.businesses.codeNext('002'))).toBeInTheDocument();
+    // No code box anywhere: the code is Studio's to give, exactly like an account number.
+    expect(screen.queryByLabelText(copy.businesses.code)).toBeNull();
     fireEvent.change(screen.getByLabelText(copy.businesses.name), { target: { value: 'Farm' } });
     fireEvent.click(screen.getByRole('button', { name: copy.businesses.save }));
-    await waitFor(() => expect(posted).toEqual({ name: 'Farm', code: '002' }));
+    await waitFor(() => expect(posted).toEqual({ name: 'Farm' }));
   });
 
   it('switches a business off and on with the same route', async () => {

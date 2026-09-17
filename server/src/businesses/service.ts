@@ -57,7 +57,8 @@ const DRAWS_PER_WIDTH = 20;
 
 export interface BusinessesService {
   list(): Promise<{ items: BusinessView[]; lastUsedId: string | null }>;
-  create(name: string, code: string | undefined, actor: Actor): Promise<BusinessView>;
+  /** No code argument on purpose: the next free code, lowest first, is the only way one is chosen. */
+  create(name: string, actor: Actor): Promise<BusinessView>;
   update(id: string, name: string, active: boolean, actor: Actor): Promise<BusinessView>;
   /** The customer accounts of one business, each with its live accounts nested under it. */
   accounts(businessId: string, q?: string): Promise<AccountView[]>;
@@ -253,27 +254,26 @@ export function createBusinessesService(deps: { db: Db; settings: Settings; even
       return { items, lastUsedId: last && items.some((b) => b.id === last) ? last : null };
     },
 
-    async create(name, code, actor) {
-      let chosen = code;
-      if (!chosen) {
-        const [free] = await deps.db.query<{ code: string }>(
-          `SELECT to_char(g, 'FM000') AS code FROM generate_series(0, 999) g
-            WHERE NOT EXISTS (SELECT 1 FROM businesses b WHERE b.code = to_char(g, 'FM000')) ORDER BY g LIMIT 1`);
-        if (!free) throw new HttpError(409, 'no_codes_left', 'All one thousand business codes are in use.');
-        chosen = free.code;
-      }
+    // The lock is what makes "next free, lowest first" true when two people press Add at once: the
+    // second waits, then sees the first row and takes the code after it.
+    async create(name, actor) {
       try {
-        const [row] = await deps.db.query<BusinessRow>(
-          `INSERT INTO businesses(code, name) VALUES ($1,$2) RETURNING *`, [chosen, name]);
-        await audit(deps.db, { personId: actor.personId, action: 'business.added', target: row.id, after: { code: chosen.trim(), name }, ip: actor.ip });
+        const row = await deps.db.tx(async (c) => {
+          await c.query(`SELECT pg_advisory_xact_lock(hashtext('businesses'))`);
+          const [free] = (await c.query<{ code: string }>(
+            `SELECT to_char(g, 'FM000') AS code FROM generate_series(0, 999) g
+              WHERE NOT EXISTS (SELECT 1 FROM businesses b WHERE b.code = to_char(g, 'FM000')) ORDER BY g LIMIT 1`)).rows;
+          if (!free) throw new HttpError(409, 'no_codes_left', 'All one thousand business codes are in use.');
+          const { rows } = await c.query<BusinessRow>(
+            `INSERT INTO businesses(code, name) VALUES ($1,$2) RETURNING *`, [free.code, name]);
+          return rows[0];
+        });
+        await audit(deps.db, { personId: actor.personId, action: 'business.added', target: row.id, after: { code: row.code.trim(), name }, ip: actor.ip });
         return toBusinessView({ ...row, account_count: 0 }, { width: FIRST_WIDTH, capacity: WIDTH_CAPACITY, used: 0 });
       } catch (e) {
-        if (isUnique(e)) {
-          // The two unique indexes are the code and the name; the constraint name says which.
-          const constraint = String((e as { constraint?: string }).constraint ?? '');
-          if (constraint.includes('name')) throw new HttpError(409, 'name_taken', 'You already have a business with that name.');
-          throw new HttpError(409, 'code_taken', 'That business code is already in use. Pick another.');
-        }
+        // The advisory lock rules out a code clash, so the only unique index a client can trip here
+        // is the name — the one thing a person does choose on this form.
+        if (isUnique(e)) throw new HttpError(409, 'name_taken', 'You already have a business with that name.');
         throw e;
       }
     },
