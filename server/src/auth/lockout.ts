@@ -47,6 +47,11 @@ export async function recordAttempt(db: Db, keys: string[]): Promise<AttemptStat
   return worst;
 }
 
+/** Seconds left on a lock, so the client can say "Try again in N min." rather than guess. */
+export function retryAfterSeconds(lockedUntil: Date): number {
+  return Math.max(1, Math.ceil((lockedUntil.getTime() - Date.now()) / 1000));
+}
+
 export async function clearFailures(db: Db, keys: string[]): Promise<void> {
   await db.query('DELETE FROM login_attempts WHERE key = ANY($1)', [keys]);
 }

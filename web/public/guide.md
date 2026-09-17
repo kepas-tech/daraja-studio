@@ -233,16 +233,23 @@ Where: Organisation · Who: Owner · Route: /account
 
 1. On Organisation, under PIN lock, type a 6-digit PIN twice and press Set the PIN. Studio asks for your password to confirm it, then scrambles the PIN and keeps only that.
 2. From then on Studio asks for the PIN when the page comes back and after 30 minutes without a touch, and shows nothing else until it is typed.
-3. Five wrong PINs lock the PIN for 15 minutes. Your password always works instead: press "Use your password instead" on the lock screen, or on any confirmation Studio asks for.
-4. On a send, or anything else that moves money, the PIN replaces the password — the same six digits, instead of typing a long password on a phone.
-5. Change or remove the PIN on Organisation, next to where you set it. Both ask for your password (or the PIN) first.
+3. Type it on the keypad: six dots fill as you go, the sixth digit sends by itself, and the phone gives a small buzz. There is no button to press.
+4. Five wrong PINs lock the PIN for 15 minutes, and the line says how long is left. Your password always works instead: press "Use your password instead" on the lock screen, or on any confirmation Studio asks for.
+5. On a send, or anything else that moves money, the same keypad replaces the password box — six digits instead of a long password on a phone.
+6. Fingerprint: after a PIN opens Studio on a phone that has none set up, a card asks once whether to use the fingerprint this device already has. Say yes and the next time the fingerprint opens Studio by itself. The PIN keeps working, and money still asks for the PIN or the password, never the fingerprint alone.
+7. Organisation lists the devices with a fingerprint, each with Remove (your password or PIN is asked for first). Removing the PIN removes every fingerprint with it.
+8. Change or remove the PIN on Organisation, next to where you set it. Both ask for your password (or the PIN) first.
 
 | Method | Path | Who |
 |---|---|---|
 | PUT | `/api/auth/pin` | owner, password or PIN; body { newPin } |
-| DELETE | `/api/auth/pin` | owner, password or PIN |
+| DELETE | `/api/auth/pin` | owner, password or PIN; removes the fingerprints too |
 | POST | `/api/auth/open` | signed in; body { pin } or { password } |
 | POST | `/api/auth/lock` | signed in; locks this session now |
+| POST | `/api/auth/webauthn/open/options and /open/verify` | signed in; the fingerprint ceremony; opens exactly what the PIN opens |
+| POST | `/api/auth/webauthn/register/options and /register/verify` | open session; enrols this device |
+| GET | `/api/auth/webauthn/credentials` | open session; the devices enrolled, never a key or a counter |
+| POST | `/api/auth/webauthn/credentials/remove` | open session, password or PIN; body { id } |
 
 ### The menu
 

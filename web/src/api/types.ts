@@ -42,7 +42,7 @@ export interface Me {
    * it. Optional because a page rendered against an older server sends neither, and that absence
    * has to read as "no PIN" rather than as a lock nobody can open.
    */
-  pin?: { set: boolean; locked: boolean };
+  pin?: { set: boolean; locked: boolean; /** This person has a fingerprint enrolled (item 5b). */ bio?: boolean };
   /** The only host-admin signal the web reads. `person.is_host_admin` is never consulted. */
 }
 /**
@@ -50,6 +50,10 @@ export interface Me {
  * item 3). A step-up route reads exactly one of these, and neither is ever logged.
  */
 export type Confirm = { password: string } | { pin: string };
+/** `GET /api/auth/webauthn/credentials` (brief 2, item 5b): one enrolled device. The public key, the
+ *  counter and the raw credential id never come back — only what the owner needs to recognise and
+ *  remove the device. */
+export interface FingerprintDevice { id: string; label: string; createdAt: string; lastUsedAt: string | null }
 export interface SecretState { saved: boolean; last4: string | null }
 export type B2cApiSetting = 'auto' | 'v1' | 'v3';
 export type AssignableRole = 'operator' | 'viewer' | 'approver' | 'custom';

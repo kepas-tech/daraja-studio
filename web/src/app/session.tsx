@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { api, ApiError } from '../api/client';
 import type { Confirm, Me, OrgSummary, Person, SetupSaved, SetupStatus } from '../api/types';
+import { openWithFingerprint as openWebauthn, platformAvailable, registerFingerprint as registerWebauthn } from './webauthn';
 
 export type { Person };
 
@@ -20,8 +21,17 @@ interface Session {
   /** Brief 2, item 3: a PIN is set, and this session is waiting for it. */
   pinSet: boolean;
   pinLocked: boolean;
+  /** Brief 2, item 5b: this person has a fingerprint enrolled, so the lock screen offers it. */
+  pinBio: boolean;
   /** Opens the session with the PIN, or with the password when the PIN has been forgotten. */
   openSession: (confirm: Confirm) => Promise<void>;
+  /** Opens it with the fingerprint instead. False means the lock screen falls back to the PIN. */
+  openWithFingerprint: () => Promise<boolean>;
+  /** Enrols this device. Needs an open session; the server refuses the ceremony while locked. */
+  registerFingerprint: () => Promise<boolean>;
+  /** The one card that asks, once per device, after a PIN opens a device with no credential. */
+  bioPrompt: boolean;
+  dismissBioPrompt: () => void;
   /** Locks now: the page went to the background, or went quiet for 30 minutes. */
   lock: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -30,9 +40,21 @@ interface Session {
 const empty = () => ({
   person: null, org: null, permissions: [] as string[],
   setupStep: null as string | null, uses: null as { payOut: boolean; collect: boolean; stk: boolean } | null, passkeyProven: false, saved: null as SetupSaved | null,
-  pinSet: false, pinLocked: false,
+  pinSet: false, pinLocked: false, pinBio: false,
 });
-const Ctx = createContext<Session>({ status: 'loading', ...empty(), openSession: async () => {}, lock: async () => {}, refresh: async () => {} });
+const noop = async () => {};
+const noopFalse = async () => false;
+const Ctx = createContext<Session>({
+  status: 'loading', ...empty(),
+  openSession: noop, openWithFingerprint: noopFalse, registerFingerprint: noopFalse,
+  bioPrompt: false, dismissBioPrompt: () => {}, lock: noop, refresh: noop,
+});
+
+/** "Not now" on the fingerprint card is remembered per device, which for a browser is this storage. */
+const BIO_DISMISSED = 'studio.bio.dismissed';
+function bioDismissed(): boolean {
+  try { return localStorage.getItem(BIO_DISMISSED) === '1'; } catch { return false; }
+}
 
 /**
  * A login that just happened in this page: the password was typed seconds ago, so the PIN is not
@@ -43,7 +65,8 @@ let justLoggedIn = false;
 export function markJustLoggedIn() { justLoggedIn = true; }
 
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const [s, setS] = useState<Omit<Session, 'refresh' | 'openSession' | 'lock'>>({ status: 'loading', ...empty() });
+  const [s, setS] = useState<Omit<Session, 'refresh' | 'openSession' | 'openWithFingerprint' | 'registerFingerprint' | 'bioPrompt' | 'dismissBioPrompt' | 'lock'>>({ status: 'loading', ...empty() });
+  const [bioPrompt, setBioPrompt] = useState(false);
   /** Whether this page load has already applied the rule that a page load with a PIN starts locked. */
   const bootDone = useRef(false);
   const refresh = useCallback(async () => {
@@ -59,7 +82,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         // Later refreshes only report what the server decided, so a page that is open stays open
         // while it is being used, and the PIN is never asked for again by an ordinary reload of a
         // page's data.
-        const pin = me.pin ?? { set: false, locked: false };
+        const pin = me.pin ?? { set: false, locked: false, bio: false };
         const lockNow = pin.set && (pin.locked || (!bootDone.current && !justLoggedIn));
         if (pin.set && !pin.locked && lockNow) void api.post('/api/auth/lock').catch(() => {});
         justLoggedIn = false;
@@ -67,7 +90,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         setS({
           status, person: me.person, org: me.org ?? null, permissions: me.permissions,
           setupStep: st.step, uses: st.uses, passkeyProven: st.passkeyProven, saved: st.saved ?? null,
-          pinSet: pin.set, pinLocked: lockNow,
+          pinSet: pin.set, pinLocked: lockNow, pinBio: pin.bio === true,
         });
       } catch (e) {
         if (e instanceof ApiError && e.status === 401) setS({ status: 'anonymous', ...empty(), setupStep: st.step });
@@ -77,9 +100,30 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setS({ status: 'error', ...empty() });
     }
   }, []);
+  /** After a PIN opened the session: offer the fingerprint once, on a device that has none. */
+  const maybeAskForFingerprint = useCallback(async () => {
+    if (bioDismissed()) return;
+    if (!(await platformAvailable())) return;
+    setBioPrompt(true);
+  }, []);
   const openSession = useCallback(async (confirm: Confirm) => {
     await api.post('/api/auth/open', confirm);
     setS((v) => ({ ...v, pinLocked: false }));
+    if ('pin' in confirm) void maybeAskForFingerprint();
+  }, [maybeAskForFingerprint]);
+  const openWithFingerprint = useCallback(async () => {
+    const ok = await openWebauthn();
+    if (ok) setS((v) => ({ ...v, pinLocked: false }));
+    return ok;
+  }, []);
+  const registerFingerprint = useCallback(async () => {
+    const ok = await registerWebauthn();
+    if (ok) { setBioPrompt(false); setS((v) => ({ ...v, pinBio: true })); }
+    return ok;
+  }, []);
+  const dismissBioPrompt = useCallback(() => {
+    try { localStorage.setItem(BIO_DISMISSED, '1'); } catch { /* private mode: it will ask once more */ }
+    setBioPrompt(false);
   }, []);
   const lock = useCallback(async () => {
     // The screen goes up first and the server is told second: if that call fails, the session is
@@ -94,6 +138,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     return () => api.onLocked(null);
   }, []);
   useEffect(() => { void refresh(); }, [refresh]);
-  return <Ctx.Provider value={{ ...s, refresh, openSession, lock }}>{children}</Ctx.Provider>;
+  return (
+    <Ctx.Provider value={{ ...s, bioPrompt, refresh, openSession, openWithFingerprint, registerFingerprint, dismissBioPrompt, lock }}>
+      {children}
+    </Ctx.Provider>
+  );
 }
 export const useSession = () => useContext(Ctx);

@@ -19,6 +19,8 @@ import { errorMiddleware, notFound } from './util/errors.js';
 import { orgContext } from './http/orgContext.js';
 import { requireOrgActive } from './http/orgActive.js';
 import { authRoutes } from './auth/routes.js';
+import { webauthnRoutes } from './auth/webauthnRoutes.js';
+import type { WebauthnService } from './auth/webauthn.js';
 import { requirePasswordChanged } from './auth/middleware.js';
 import { callbackRoutes, callbackErrorHandler } from './callbacks/router.js';
 import { selftestHandler } from './callbacks/selftest.js';
@@ -85,6 +87,8 @@ export interface AppDeps {
   businesses: BusinessesService;
   /** Brief 2, item 2: the three states that mean something is wrong, for Home's banner. */
   problems: ProblemService;
+  /** Brief 2, item 5b: the fingerprint ceremonies. Absent in tests that build the app without one. */
+  webauthn?: WebauthnService;
   /** Feature 12: web push to the devices that subscribed. Absent in tests that build the app without it. */
   push?: PushService;
   /** Present at boot; absent in tests that build the app without a scheduler. */
@@ -134,6 +138,9 @@ export function buildApp(deps: AppDeps): express.Express {
   app.use('/api', requireOrgActive());
   app.use('/healthz', orgContext(deps));
   app.use('/healthz', healthRoutes(deps));
+  // Brief 2, item 5b. Mounted before the rest of /api/auth so a locked session's two open routes are
+  // reached without passing anything else.
+  if (deps.webauthn) app.use('/api/auth/webauthn', webauthnRoutes({ db: deps.db, webauthn: deps.webauthn }));
   app.use('/api/auth', authRoutes(deps.db, deps.config));
   app.use('/api/events', sseRoute(deps.events, deps.db));
   app.use('/api/settings', settingsRoutes(deps));

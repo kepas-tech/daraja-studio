@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet } from 'react-router';
 import { Nav } from './Nav';
 import { useSession } from './session';
+import { FingerprintCard } from './FingerprintCard';
 import { LockScreen } from './LockScreen';
 import { useLockWatchers } from './useLockWatchers';
 import { api } from '../api/client';
@@ -69,6 +70,8 @@ export function Layout() {
           <div className="mx-auto max-w-4xl p-4 md:p-6">
             {/* A suspended organisation keeps every read; only its writes are refused. */}
             {org?.status === 'suspended' && <Flash tone="danger" role="status" className="mb-6">{copy.org.suspended}</Flash>}
+            {/* Brief 2, item 5b: the one-time offer of a fingerprint, in the page and never a dialog. */}
+            <FingerprintCard />
             <Outlet />
           </div>
         </main>

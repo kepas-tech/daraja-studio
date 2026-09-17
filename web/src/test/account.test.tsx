@@ -59,6 +59,9 @@ function mount(handlers: (url: string, method: string, init?: RequestInit) => Re
       }), { status: 200 });
     }
     if (url === '/api/settings' && method === 'GET') { settingsGets += 1; const d = typeof data === 'function' ? (data as (n: number) => unknown)(settingsGets) : data; return new Response(JSON.stringify(d), { status: 200 }); }
+    // The fingerprint list (brief 2, item 5b): the page reads it on mount, so it answers empty
+    // unless a test says otherwise.
+    if (url === '/api/auth/webauthn/credentials' && method === 'GET') return new Response(JSON.stringify({ items: [] }), { status: 200 });
     return handlers(url, method, init);
   });
   vi.stubGlobal('fetch', fetchMock);

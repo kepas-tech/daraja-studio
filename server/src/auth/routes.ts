@@ -8,7 +8,7 @@ import { clientIp } from '../util/ip.js';
 import { audit } from '../audit/log.js';
 import { DUMMY_HASH, hashPassword, MIN_PASSWORD_LENGTH, verifyPassword } from './password.js';
 import { clearCookieHeader, cookieHeader, createSession, destroySession } from './sessions.js';
-import { clearFailures, recordAttempt } from './lockout.js';
+import { clearFailures, recordAttempt, retryAfterSeconds } from './lockout.js';
 import { checkPin, hashPin, PIN_LENGTH, PIN_PATTERN, pinKey } from './pin.js';
 import { requireAuth, requireCsrf, requireOwner, requireStepUp } from './middleware.js';
 
@@ -90,13 +90,16 @@ export function authRoutes(db: Db, config: Config): Router {
       );
       const slotOf = (k: string) => slot.find((r) => r.key === `env.${environment}.${k}`)?.value ?? null;
       const [operator] = await db.query<{ name: string }>(`SELECT name FROM operators WHERE org_id=$1 AND environment=$2 AND status='verified' ORDER BY priority ASC, created_at ASC LIMIT 1`, [org.id, environment]);
+      // Brief 2, item 5b: whether this person has a fingerprint enrolled, and whether this install
+      // can offer one at all. Two booleans, never an identifier.
+      const [bio] = await db.query<{ one: number }>('SELECT 1 AS one FROM webauthn_credentials WHERE person_id=$1 LIMIT 1', [req.person!.id]);
       res.json({
         person: maskHostAdmin(req.person!),
         csrf: req.csrf,
         permissions: perms.map((p) => p.permission),
         // Brief 2, item 3. Only these two facts about the PIN ever leave the server: whether one is
         // set, and whether this session is waiting for it. Never the hash, never the PIN.
-        pin: { set: req.personPinHash != null, locked: req.pinLocked === true },
+        pin: { set: req.personPinHash != null, locked: req.pinLocked === true, bio: config.publicUrl != null && !!bio },
         // Spec 5.1. `slug` is deliberately absent: it is a host-admin handle, not a tenant's.
         org: {
           id: org.id, name: org.name, status: org.status, environment,
@@ -157,6 +160,9 @@ export function authRoutes(db: Db, config: Config): Router {
   r.delete('/pin', requireAuth(db), requireCsrf, requireOwner, requireStepUp(db), async (req, res, next) => {
     try {
       await db.query('UPDATE people SET pin_hash=NULL, pin_set_at=NULL WHERE id=$1', [req.person!.id]);
+      // The fingerprints exist to open a PIN lock, so they go with it: no credential outlives the
+      // thing it opens (brief 2, item 5b).
+      await db.query('DELETE FROM webauthn_credentials WHERE person_id=$1', [req.person!.id]);
       await clearFailures(db, [pinKey(req.person!.id)]);
       await audit(db, { personId: req.person!.id, action: 'auth.pin_removed', ip: clientIp(req) });
       res.status(204).end();
@@ -176,7 +182,7 @@ export function authRoutes(db: Db, config: Config): Router {
         const key = `stepup:${req.person!.id}`;
         const attempt = await recordAttempt(db, [key]);
         if (attempt.lockedUntil && attempt.lockedUntil > new Date()) {
-          throw new HttpError(423, 'locked', 'Too many wrong tries. Wait 15 minutes and try again.');
+          throw new HttpError(423, 'locked', 'Too many wrong tries. Wait 15 minutes and try again.', { retryAfterSec: retryAfterSeconds(attempt.lockedUntil) });
         }
         if (!req.personHash || !(await verifyPassword(req.personHash, pw))) throw new HttpError(403, 'step_up_required', 'Your password is wrong.');
         await clearFailures(db, [key]);

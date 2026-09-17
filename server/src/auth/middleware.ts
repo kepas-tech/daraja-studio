@@ -5,7 +5,7 @@ import type { Config } from '../config.js';
 import type { OrgView } from '../orgs/service.js';
 import { HttpError } from '../util/errors.js';
 import { verifyPassword } from './password.js';
-import { clearFailures, recordAttempt } from './lockout.js';
+import { clearFailures, recordAttempt, retryAfterSeconds } from './lockout.js';
 import { checkPin } from './pin.js';
 
 export type PersonRole = 'owner' | 'operator' | 'viewer' | 'approver' | 'custom';
@@ -111,7 +111,7 @@ export function requireStepUp(db: Db): RequestHandler {
       const key = `stepup:${req.person!.id}`;
       const attempt = await recordAttempt(db, [key]);
       if (attempt.lockedUntil && attempt.lockedUntil > new Date()) {
-        throw new HttpError(423, 'locked', 'Too many wrong tries. Wait 15 minutes and try again.');
+        throw new HttpError(423, 'locked', 'Too many wrong tries. Wait 15 minutes and try again.', { retryAfterSec: retryAfterSeconds(attempt.lockedUntil) });
       }
       const pw = typeof req.body?.password === 'string' ? req.body.password : '';
       if (!req.personHash || !pw || !(await verifyPassword(req.personHash, pw))) {

@@ -20,6 +20,7 @@ import { createInvoicesService } from '../src/invoices/service.js';
 import { createBusinessesService, type Rng } from '../src/businesses/service.js';
 import { createPushService } from '../src/push/service.js';
 import { createProblemService } from '../src/health/problems.js';
+import { createWebauthnService, type WebauthnVerifier } from '../src/auth/webauthn.js';
 import type { PushSender } from '../src/push/sender.js';
 import { hashPassword } from '../src/auth/password.js';
 import type { DarajaFactory } from '../src/sdk/client.js';
@@ -127,16 +128,19 @@ export function testDeps(env: Record<string, string> = {}): { config: Config; db
 export async function resetTables(db?: Db) {
   void db; // resets are privileged; the caller's pool is studio_app and cannot TRUNCATE.
   await admin().query(
-    `TRUNCATE org_environment_verifications, contacts, accounts, number_widths, businesses, people, permissions, sessions, login_attempts, rate_limits, operators, requests, bulk_plans, customer_invoices, notifications, push_subscriptions, balances, callbacks_raw, jobs, cache, settings RESTART IDENTITY CASCADE`,
+    `TRUNCATE org_environment_verifications, contacts, accounts, number_widths, businesses, webauthn_credentials, people, permissions, sessions, login_attempts, rate_limits, operators, requests, bulk_plans, customer_invoices, notifications, push_subscriptions, balances, callbacks_raw, jobs, cache, settings RESTART IDENTITY CASCADE`,
   );
   await ensureTestOrg();
 }
 
-export function makeApp(extra: { fetchImpl?: typeof fetch; daraja?: DarajaFactory; env?: Record<string, string>; pushSender?: PushSender; rng?: Rng } = {}) {
+export function makeApp(extra: { fetchImpl?: typeof fetch; daraja?: DarajaFactory; env?: Record<string, string>; pushSender?: PushSender; rng?: Rng; webauthn?: WebauthnVerifier } = {}) {
   // testDeps() already builds `orgs` (operators.test.ts/money-out.test.ts/sweep.test.ts call
   // createOperatorService/createMoneyOutService directly off it, without going through makeApp),
   // so it is reused here rather than built a second time.
-  const base = testDeps(extra.env);
+  // Every test app has a public address: it is what the fingerprint ceremonies are a relying party
+  // for, and /api/auth/me reports whether this install can offer one at all. A test that needs a
+  // different one passes STUDIO_PUBLIC_URL in extra.env.
+  const base = testDeps({ STUDIO_PUBLIC_URL: 'https://studio.test', ...extra.env });
   const events = createEventHub(base.config.databaseUrl, base.db);
   const daraja = extra.daraja ?? createDarajaFactory({ ...base, fetchImpl: extra.fetchImpl });
   const operators = createOperatorService({ ...base, daraja, events });
@@ -151,9 +155,12 @@ export function makeApp(extra: { fetchImpl?: typeof fetch; daraja?: DarajaFactor
   // A real key pair would reach a real push service, so tests always hand in a fake sender.
   const push = createPushService({ db: base.db, vapid: base.config.vapid, sender: extra.pushSender });
   const problems = createProblemService({ db: base.db });
+  // Brief 2, item 5b: the fingerprint ceremonies. Tests hand in a fake verifier, so no real
+  // authenticator is ever needed; the default relying party is a made-up https host.
+  const webauthn = createWebauthnService({ db: base.db, cache: base.cache, publicUrl: base.config.publicUrl, verifier: extra.webauthn });
   const deps: AppDeps = {
     ...base,
-    events, daraja, operators, settingsService, moneyOut, collect, moneyIn, bulk, invoices, businesses, push, problems, fetchImpl: extra.fetchImpl,
+    events, daraja, operators, settingsService, moneyOut, collect, moneyIn, bulk, invoices, businesses, push, problems, webauthn, fetchImpl: extra.fetchImpl,
   };
   const app = buildApp(deps);
   return { app, deps, close: async () => { await base.db.end(); } };

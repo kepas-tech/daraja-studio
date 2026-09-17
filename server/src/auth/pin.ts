@@ -1,6 +1,6 @@
 import type { Db } from '../db/pool.js';
 import { HttpError } from '../util/errors.js';
-import { clearFailures, recordAttempt } from './lockout.js';
+import { clearFailures, recordAttempt, retryAfterSeconds } from './lockout.js';
 import { hashPassword, verifyPassword } from './password.js';
 
 /** A PIN is exactly six digits: the shape a phone keypad makes quick, and nothing else. */
@@ -39,7 +39,7 @@ export async function checkPin(db: Db, personId: string, pinHash: string, pin: s
   const key = pinKey(personId);
   const attempt = await recordAttempt(db, [key]);
   if (attempt.lockedUntil && attempt.lockedUntil > new Date()) {
-    throw new HttpError(423, 'pin_locked', 'Too many wrong tries. Wait 15 minutes, or use your password.');
+    throw new HttpError(423, 'pin_locked', 'Too many wrong tries. Wait 15 minutes, or use your password.', { retryAfterSec: retryAfterSeconds(attempt.lockedUntil) });
   }
   if (!(await verifyPin(pinHash, pin))) throw new HttpError(403, 'pin_wrong', 'That PIN is wrong.');
   await clearFailures(db, [key]);

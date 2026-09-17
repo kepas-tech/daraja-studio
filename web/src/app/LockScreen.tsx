@@ -1,45 +1,114 @@
-import { useState, type FormEvent } from 'react';
-import { ApiError } from '../api/client';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { api, ApiError } from '../api/client';
 import { useSession } from './session';
+import { PinEntry } from '../components/PinEntry';
 import { Button } from '../components/Button';
 import { ErrorCard, type Explained } from '../components/ErrorCard';
 import { TextField } from '../components/TextField';
+import { BUZZ, buzz } from './haptics';
+import { platformAvailable } from './webauthn';
 import { copy } from '../copy/en';
 
+/** How long the PIN is locked for when the server does not say: the same 15 minutes the lockout uses. */
+const LOCK_MINUTES = 15;
+
+/** "Locked. Try again in N min." for a locked PIN, or null when the refusal is something else. */
+function lockedFor(e: unknown): string | null {
+  if (!(e instanceof ApiError)) return null;
+  if (e.code !== 'pin_locked' && e.code !== 'locked' && e.status !== 429) return null;
+  const details = e.details as { retryAfterSec?: unknown } | undefined;
+  const seconds = typeof details?.retryAfterSec === 'number' ? details.retryAfterSec : LOCK_MINUTES * 60;
+  return copy.lock.lockedFor(Math.max(1, Math.ceil(seconds / 60)));
+}
+
 /**
- * Brief 2, item 3. Covers the whole window while the PIN is owed: the app behind it is not drawn, so
- * nothing on screen can be tapped, read or half-filled. The PIN is the quick way in and the password
- * the way back for a forgotten one — the same two the server accepts from the lock screen.
+ * Brief 2, item 5: the lock screen as kepas-pay draws it. A brand block, six dots, one line that
+ * says what is happening, the keypad, and two ways out (the password that always works, and signing
+ * out). The fingerprint is the bottom-left key when this person has one enrolled; the prompt is
+ * tried once on load, because iOS usually needs the tap.
  */
 export function LockScreen() {
-  const { person, openSession } = useSession();
-  const [asPin, setAsPin] = useState(true);
-  const [secret, setSecret] = useState('');
+  const { person, pinBio, openSession, openWithFingerprint, refresh } = useSession();
+  const [mode, setMode] = useState<'pin' | 'password'>('pin');
+  const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
+  const [resetKey, setResetKey] = useState(0);
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<Error | Explained | null>(null);
-  const choose = (pin: boolean) => { setAsPin(pin); setSecret(''); setError(null); };
-  const submit = async (e: FormEvent) => {
+  /** The fingerprint key only exists when this device can actually offer one. */
+  const [bioReady, setBioReady] = useState(false);
+  const asked = useRef(false);
+
+  const tryFingerprint = useCallback(async () => {
+    setBusy(true); setMessage(copy.lock.waiting);
+    const ok = await openWithFingerprint();
+    // On success the session opens and this whole screen goes away; nothing to set.
+    if (!ok) { setBusy(false); setMessage(copy.lock.enterPin); setResetKey((k) => k + 1); }
+  }, [openWithFingerprint]);
+
+  // Once per page load: offer the fingerprint without being asked. A refusal is silent, and the
+  // keypad below is already there.
+  useEffect(() => {
+    if (!pinBio || asked.current) return;
+    asked.current = true;
+    void platformAvailable().then((ok) => {
+      setBioReady(ok);
+      if (ok) void tryFingerprint();
+    });
+  }, [pinBio, tryFingerprint]);
+
+  const submitPin = useCallback(async (pin: string) => {
+    setBusy(true); setMessage(copy.lock.checking);
+    try {
+      await openSession({ pin });
+      buzz([...BUZZ.ok]);
+    } catch (e) {
+      buzz(BUZZ.no);
+      setBusy(false);
+      setResetKey((k) => k + 1);
+      setMessage(lockedFor(e) ?? (e instanceof ApiError && e.code === 'pin_wrong' ? copy.lock.wrongPin : copy.lock.network));
+    }
+  }, [openSession]);
+
+  const submitPassword = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true); setError(null);
-    try { await openSession(asPin ? { pin: secret } : { password: secret }); }
-    catch (err) { setError(err instanceof ApiError ? err : new Error(copy.error.generic)); setSecret(''); }
+    try { await openSession({ password }); buzz([...BUZZ.ok]); }
+    catch (err) { buzz(BUZZ.no); setError(err instanceof ApiError ? err : new Error(copy.error.generic)); setPassword(''); }
     finally { setBusy(false); }
   };
+
+  const signOut = async () => { await api.post('/api/auth/logout'); await refresh(); };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-page p-4">
-      <form onSubmit={(e) => void submit(e)} className="w-full max-w-sm rounded-md border border-line bg-surface p-6 shadow-lg" aria-label={copy.lock.title}>
-        <h1 className="text-xl font-semibold">{copy.lock.title}</h1>
-        <p className="mt-2 text-sm text-muted">{asPin ? copy.lock.pinBody : copy.lock.passwordBody}</p>
-        {person && <p className="mt-1 text-sm text-muted">{copy.lock.signedInAs(person.display_name)}</p>}
-        <TextField className="mt-4" label={asPin ? copy.confirm.yourPin : copy.confirm.yourPassword} type="password" value={secret}
-          onChange={(e) => setSecret(e.target.value)} autoFocus autoComplete="off"
-          inputMode={asPin ? 'numeric' : undefined} maxLength={asPin ? 6 : undefined} />
-        <div className="mt-2"><ErrorCard error={error} /></div>
-        <div className="mt-4 flex flex-col items-stretch gap-2">
-          <Button type="submit" disabled={busy || secret.length === 0 || (asPin && secret.length !== 6)}>{copy.lock.continueLabel}</Button>
-          <Button type="button" variant="ghost" onClick={() => choose(!asPin)}>{asPin ? copy.confirm.usePassword : copy.confirm.usePin}</Button>
+    <div className="flex min-h-screen items-center justify-center bg-page px-5 py-6 select-none [-webkit-tap-highlight-color:transparent]">
+      <div className="w-full max-w-[320px] text-center" data-testid="lock-screen">
+        <div className="mb-[22px]">
+          <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-[14px] bg-brand text-[26px] font-bold text-surface">D</div>
+          <h1 className="text-xl font-bold">{copy.appName}</h1>
+          <p className="mt-0.5 text-[13px] text-muted">{mode === 'pin' ? copy.lock.sub : copy.lock.subPassword}</p>
         </div>
-      </form>
+
+        {mode === 'pin' ? (
+          <PinEntry onComplete={(pin) => void submitPin(pin)} message={message} busy={busy} resetKey={resetKey}
+            alt={bioReady ? { kind: 'bio', label: copy.lock.fingerprint, onClick: () => void tryFingerprint() } : null} />
+        ) : (
+          <form onSubmit={(e) => void submitPassword(e)} className="space-y-3 text-left">
+            <TextField label={copy.confirm.yourPassword} type="password" value={password}
+              onChange={(e) => setPassword(e.target.value)} autoFocus autoComplete="current-password" />
+            <ErrorCard error={error} />
+            <Button type="submit" className="w-full" disabled={busy || password.length === 0}>{copy.lock.continueLabel}</Button>
+          </form>
+        )}
+
+        <button type="button" className="mt-4 cursor-pointer text-sm text-brand-dark underline" onClick={() => { setMode(mode === 'pin' ? 'password' : 'pin'); setError(null); setMessage(''); setResetKey((k) => k + 1); }}>
+          {mode === 'pin' ? copy.confirm.usePassword : copy.confirm.usePin}
+        </button>
+        <div className="mt-[22px]">
+          <Button type="button" variant="ghost" onClick={() => void signOut()}>{copy.lock.signOut}</Button>
+        </div>
+        {person && <p className="mt-2 text-[13px] text-muted">{copy.lock.signedInAs(person.display_name)}</p>}
+      </div>
     </div>
   );
 }

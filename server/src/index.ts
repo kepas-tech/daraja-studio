@@ -10,6 +10,7 @@ import { createOrgService } from './orgs/service.js';
 import { createSettings } from './settings/store.js';
 import { createInstanceSettings } from './settings/instance.js';
 import { createCache } from './db/cache.js';
+import { createWebauthnService } from './auth/webauthn.js';
 import { createEventHub } from './events/hub.js';
 import { createDarajaFactory } from './sdk/client.js';
 import { createOperatorService } from './operators/service.js';
@@ -109,6 +110,9 @@ async function main() {
   const notificationWriter = createNotificationWriter({ db, events, notifications, push, egressIps: config.egressIps });
   // Brief 2, item 2: the three states Home's banner reports, read from what is already stored.
   const problems = createProblemService({ db });
+  // Brief 2, item 5b: the fingerprint. Its relying party is the public address, so without one the
+  // routes answer 503 and the lock screen simply keeps asking for the PIN.
+  const webauthn = createWebauthnService({ db, cache, publicUrl: config.publicUrl });
 
   await events.start();
   notificationWriter.start();
@@ -120,7 +124,7 @@ async function main() {
   const scheduler = createScheduler(db, buildHandlers({ db, events, settings, moneyOut, operators, moneyIn, bulk }));
   scheduler.start();
 
-  const app = buildApp({ config, db, keyring, orgs, settings, instance, cache, events, daraja, operators, settingsService, moneyOut, collect, moneyIn, bulk, invoices, businesses, push, problems, fetchImpl, scheduler });
+  const app = buildApp({ config, db, keyring, orgs, settings, instance, cache, events, daraja, operators, settingsService, moneyOut, collect, moneyIn, bulk, invoices, businesses, push, problems, webauthn, fetchImpl, scheduler });
   const listenFallback = db.getFallbackOrg();
   const envLabel = listenFallback
     ? await withOrg(listenFallback, async () => (await settings.get('daraja.environment')) ?? 'sandbox')

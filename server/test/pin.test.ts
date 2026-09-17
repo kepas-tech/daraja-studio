@@ -43,7 +43,7 @@ describe('PIN lock', () => {
     const s = await signIn();
     expect((await set(s)).status).toBe(204);
 
-    expect((await me(s)).body.pin).toEqual({ set: true, locked: false });
+    expect((await me(s)).body.pin).toEqual({ set: true, locked: false, bio: false });
     const [row] = await deps.db.query<{ pin_hash: string; pin_set_at: Date | null }>('SELECT pin_hash, pin_set_at FROM people');
     expect(row.pin_hash).toMatch(/^\$argon2id\$/);
     expect(row.pin_hash).not.toContain(PIN);
@@ -67,14 +67,14 @@ describe('PIN lock', () => {
     expect((await setPin(s, { newPin: PIN, pin: PIN })).status).toBe(403);
     const [row] = await deps.db.query<{ pin_hash: string | null }>('SELECT pin_hash FROM people');
     expect(row.pin_hash).toBeNull();
-    expect((await me(s)).body.pin).toEqual({ set: false, locked: false });
+    expect((await me(s)).body.pin).toEqual({ set: false, locked: false, bio: false });
   });
 
   it('locks the session and refuses a money action until the PIN is entered', async () => {
     const s = await signIn();
     await set(s);
     expect((await lock(s)).status).toBe(204);
-    expect((await me(s)).body.pin).toEqual({ set: true, locked: true });
+    expect((await me(s)).body.pin).toEqual({ set: true, locked: true, bio: false });
 
     // The password does not open a locked session through an ordinary action...
     const refused = await allowlist(s, { allowlist: ['1.2.3.4'], password: PASSWORD });
@@ -153,7 +153,7 @@ describe('PIN lock', () => {
 
   it('changes nothing when no PIN is set', async () => {
     const s = await signIn();
-    expect((await me(s)).body.pin).toEqual({ set: false, locked: false });
+    expect((await me(s)).body.pin).toEqual({ set: false, locked: false, bio: false });
     expect((await allowlist(s, { allowlist: ['1.2.3.4'], password: PASSWORD })).status).toBe(204);
     // A body carrying a PIN is not a password: it is refused like any other wrong confirmation.
     expect((await allowlist(s, { allowlist: ['1.2.3.4'], pin: PIN })).status).toBe(403);
@@ -167,7 +167,7 @@ describe('PIN lock', () => {
     expect((await removePin(s, { password: PASSWORD })).status).toBe(423);
     await openSession(s, { password: PASSWORD });
     expect((await removePin(s, { password: PASSWORD })).status).toBe(204);
-    expect((await me(s)).body.pin).toEqual({ set: false, locked: false });
+    expect((await me(s)).body.pin).toEqual({ set: false, locked: false, bio: false });
     const [row] = await deps.db.query<{ pin_hash: string | null; pin_set_at: Date | null }>('SELECT pin_hash, pin_set_at FROM people');
     expect(row.pin_hash).toBeNull();
     expect(row.pin_set_at).toBeNull();

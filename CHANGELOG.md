@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.33.0 — the lock screen, and a fingerprint
+
+- The lock screen is now the one the owner asked for: the studio's mark, six dots filling as you
+  type, and a round-keyed keypad. **The sixth digit sends by itself** — there is no button — with a
+  small buzz on every key, 25/40/90 on a successful open and 60 on a refusal. A wrong PIN, a locked
+  PIN ("Try again in N min.") and a slow network each say so on the line above the keypad.
+- **A fingerprint opens it too**, on a phone that has one. Studio asks once, in the page and never in
+  a browser dialog; "Not now" is remembered on that device. The answer is verified on the server
+  against the public key enrolled here, with the origin, the challenge and the signature counter
+  checked — a counter that goes backwards is refused and the credential is left alone. Any refusal
+  falls back to the PIN without a word.
+- Organisation lists the devices with a fingerprint and removes one behind the password; **removing
+  the PIN removes them all**. Money still asks for the PIN or the password, never a fingerprint on
+  its own, and nothing about a credential — no identifier, no key, no counter — is ever logged.
+
 ## 0.32.0 — a PIN lock for the phone
 
 - Studio can now be locked behind a **6-digit PIN**, set under Organisation with your password. It is
