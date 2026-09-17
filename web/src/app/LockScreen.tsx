@@ -8,6 +8,7 @@ import { TextField } from '../components/TextField';
 import { BUZZ, buzz } from './haptics';
 import { platformAvailable } from './webauthn';
 import { copy } from '../copy/en';
+import logo from '../assets/logo-long.png';
 
 /** How long the PIN is locked for when the server does not say: the same 15 minutes the lockout uses. */
 const LOCK_MINUTES = 15;
@@ -26,6 +27,9 @@ function lockedFor(e: unknown): string | null {
  * says what is happening, the keypad, and two ways out (the password that always works, and signing
  * out). The fingerprint is the bottom-left key when this person has one enrolled; the prompt is
  * tried once on load, because iOS usually needs the tap.
+ *
+ * Item 6: the brand block is the full long logo now — the logo itself carries the studio name, so
+ * the letter square and the separate name line are gone and the Locked line sits right under it.
  */
 export function LockScreen() {
   const { person, pinBio, openSession, openWithFingerprint, refresh } = useSession();
@@ -84,8 +88,7 @@ export function LockScreen() {
     <div className="flex min-h-screen items-center justify-center bg-page px-5 py-6 select-none [-webkit-tap-highlight-color:transparent]">
       <div className="w-full max-w-[320px] text-center" data-testid="lock-screen">
         <div className="mb-[22px]">
-          <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-[14px] bg-brand text-[26px] font-bold text-surface">D</div>
-          <h1 className="text-xl font-bold">{copy.appName}</h1>
+          <img src={logo} alt={copy.appName} className="mx-auto mb-3 h-14 w-auto" />
           <p className="mt-0.5 text-[13px] text-muted">{mode === 'pin' ? copy.lock.sub : copy.lock.subPassword}</p>
         </div>
 

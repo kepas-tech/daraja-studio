@@ -92,6 +92,8 @@ describe('the lock screen, as the owner asked for it', () => {
     const { posts } = boot({ pin: { set: true, locked: true } });
     app();
     await openTheLock();
+    // Item 6: the brand block is the full logo — no letter square, no separate name line.
+    expect(screen.getByAltText(copy.appName)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: copy.lock.continueLabel })).toBeNull();
     for (const d of '24681') fireEvent.click(screen.getByRole('button', { name: d }));
     expect(dots()).toBe(5);
@@ -280,6 +282,8 @@ describe('the money keypad', () => {
     await signedIn();
     fireEvent.click(screen.getByRole('button', { name: 'send' }));
     expect(screen.getByText(copy.confirm.pinSub)).toBeInTheDocument();
+    // The money sheet carries the same logo, small enough to keep the keys on a phone.
+    expect(screen.getByAltText(copy.appName)).toBeInTheDocument();
 
     // Cancel is the bottom-left key: the dialog closes and nothing was sent.
     fireEvent.click(screen.getByRole('button', { name: copy.confirm.cancel }));

@@ -5,6 +5,7 @@ import { PinEntry } from './PinEntry';
 import { TextField } from './TextField';
 import { ErrorCard, type Explained } from './ErrorCard';
 import { copy } from '../copy/en';
+import logo from '../assets/logo-long.png';
 
 /**
  * The confirmation in front of anything that moves money or changes who can. When a PIN is set
@@ -15,6 +16,10 @@ import { copy } from '../copy/en';
  *
  * What it hands back is the body the server expects: `{ pin }` or `{ password }`, never both and
  * never logged.
+ *
+ * Item 6: the keypad carries the same long logo as the lock screen, at 24 px so the dots and all
+ * twelve keys still fit a phone (measured at 375x667 and 360x640). The overlay scrolls if a shorter
+ * screen cannot show the whole sheet.
  */
 export function PasswordConfirmDialog({ open, title, onConfirm, onCancel, busy, error, challenge, danger, pin }: {
   open: boolean; title: string; onConfirm: (confirm: Confirm) => void; onCancel: () => void;
@@ -56,12 +61,13 @@ export function PasswordConfirmDialog({ open, title, onConfirm, onCancel, busy, 
   if (!open) return null;
   const keypad = asPin;
   return (
-    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={title} className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-4">
-      <form className="w-full max-w-md rounded-md border border-line bg-surface" onSubmit={(e) => { e.preventDefault(); onConfirm(asPin ? { pin: secret } : { password: secret }); }}>
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={title} className="fixed inset-0 z-50 flex overflow-y-auto bg-ink/50 p-4">
+      <form className="m-auto w-full max-w-md rounded-md border border-line bg-surface" onSubmit={(e) => { e.preventDefault(); onConfirm(asPin ? { pin: secret } : { password: secret }); }}>
         <h2 className="border-b border-line px-4 py-3 text-base font-semibold">{title}</h2>
-        <div className="space-y-4 p-4">
+        <div className={keypad ? 'space-y-3 p-3' : 'space-y-4 p-4'}>
           {keypad ? (
             <>
+              <img src={logo} alt={copy.appName} className="mx-auto h-6 w-auto" />
               <p className="text-center text-[13px] text-muted">{copy.confirm.pinSub}</p>
               <PinEntry onComplete={(value) => onConfirm({ pin: value })} message={busy ? copy.lock.checking : ''} busy={busy}
                 resetKey={resetKey} alt={{ kind: 'cancel', label: copy.confirm.cancel, onClick: onCancel }} />

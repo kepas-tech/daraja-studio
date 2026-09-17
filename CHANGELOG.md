@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.35.0 — the full logo on both PIN screens
+
+- The lock screen shows the **full Daraja Studio logo** where the letter square and the separate
+  name line used to be, with "Locked. Enter your PIN to continue." right under it.
+- The money sheet carries the same logo, **small at 24 px**, so the six dots and all twelve keys
+  still fit a small phone. If a screen is too short to show the whole sheet, it scrolls instead of
+  cutting off the heading.
+
 ## 0.34.0 — the SDK's own words for TP40153
 
 - `@kepas/daraja-js` **1.6.3 carries `TP40153`** in its own result-code catalog for b2c, b2b, balance
