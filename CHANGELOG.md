@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.31.0 — accounts, sub-accounts, and a delete that really deletes
+
+- The thing money comes in for is an **account**, and the thing under it a **sub-account**: a clinic,
+  a room, a tenant, a church, a class. The page, the buttons, the guide and the API all say so; the
+  digits are the account number at every level.
+- **Delete** now means delete. Deleting an account or a sub-account removes it and everything under
+  it, and its number goes back into the pool — the next account can be given the same digits. A
+  business can be deleted once it has no accounts left, and its code is free again.
+- Studio hands out the **shortest free number first**, so a number freed by a delete is used again
+  before any longer one is opened.
+- What is not lost is who held a number: a record keeps the digits, the name, the level and the
+  dates. Old History rows say **was <name>, deleted <date>**; a number handed out again explains
+  itself for a year ("This number belonged to <name> until <date>"); and every account can show
+  **Past holders of this number**.
+- Deleting asks for the same ceremony as deleting the studio: type the exact name, then your
+  password. A wrong name or a wrong password deletes nothing.
 ## 0.30.0 — Home says when something is wrong
 
 - Home now puts **Something is wrong** above everything else when it is: the operator Studio sends

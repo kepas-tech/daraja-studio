@@ -9,7 +9,7 @@ export const PERMISSIONS = [
   { key: 'tax.remit', label: 'Can pay KRA', role: 'Tax Remittance to KRA API' },
   { key: 'lookup.view', label: 'Can look up any payment', role: 'Transaction Status query ORG API' },
   { key: 'reverse.request', label: 'Can reverse payments', role: 'Org Reversals Initiator' },
-  { key: 'stk.request', label: 'Can ask customers to pay', role: 'STK passkey' },
+  { key: 'stk.request', label: 'Can ask for payment', role: 'STK passkey' },
   { key: 'qr.generate', label: 'Can make QR codes', role: null },
   { key: 'invoices.manage', label: 'Can send and cancel invoices', role: 'Bill Manager' },
   { key: 'standing_orders.manage', label: 'Can set up standing orders', role: 'M-Pesa Ratiba' },

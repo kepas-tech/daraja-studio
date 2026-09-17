@@ -90,6 +90,12 @@ export interface RequestView {
   businessName: string | null; accountName: string | null;
   /** The full account number the payer's digits add up to, when the row is labelled. */
   accountNumber?: string | null;
+  /** Brief 2, item 1b: the account these digits named has been deleted; who held them. */
+  deletedAccountName?: string | null;
+  deletedAccountAt?: string | null;
+  /** The live account's number was somebody else's until this date, within the last year. */
+  previousHolderName?: string | null;
+  previousHolderUntil?: string | null;
   /** The account's id, so Money in can offer History filtered to that account. Optional until the server sends it. */
   accountId?: string | null;
   createdAt: string; sentAt: string | null; resultAt: string | null; resultSource: 'callback' | 'poll' | 'ack' | null;
@@ -146,9 +152,14 @@ export interface BusinessView {
  */
 export interface AccountView {
   id: string; businessId: string; parentId: string | null; number: string; fullNumber: string;
-  name: string; phone: string | null; note: string | null; createdAt: string; retiredAt: string | null;
+  name: string; phone: string | null; note: string | null; createdAt: string;
+  /** Live sub-accounts under this account; always empty for a sub-account. */
   children: AccountView[];
+  /** The number belonged to somebody else until `until`, within the last twelve months. */
+  previousHolder: { name: string; until: string } | null;
 }
+/** One past holder of a number, for "Past holders of this number". */
+export interface HistoryEntry { name: string; phone: string | null; level: 'business' | 'account' | 'sub_account'; createdAt: string; deletedAt: string; deletedBy: string | null }
 /** `GET /api/businesses/summary`: one row per business for the day, in cents. History, never cash. */
 export interface BusinessSummaryRow { businessId: string; code: string; name: string; inCents: number; outCents: number }
 /** `GET /api/reports` (feature 6). One line per Nairobi day in the window, days with nothing included. */
@@ -183,8 +194,8 @@ export type UnmatchedView = RequestView & {
   businessId?: string | null;
   /** The business the first three digits name, when the server sends it as its own object. */
   business?: { id: string; code: string; name: string } | null;
-  /** For no_sub: the customer whose number was named. */
-  customerName?: string | null;
+  /** For no_sub: the account whose number was named. */
+  accountName?: string | null;
 };
 export type FeeKind = 'c2b' | 'b2c' | 'b2b';
 /** GET /api/fees (feature 11). One published Safaricom tariff band, in cents. */

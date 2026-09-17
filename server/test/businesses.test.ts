@@ -87,28 +87,28 @@ describe('parseAccount — the self-describing rule, with no database', () => {
     expect(parseAccount('000359123', two, books)).toEqual({ kind: 'matched', businessId: 'b0', accountId: 'c359123' });
     expect(parseAccount('0009359123', two, books)).toEqual({ kind: 'matched', businessId: 'b0', accountId: 'c9359123' });
     // 0003599123 is customer 359 with an account 9123 under it, which nobody holds.
-    expect(parseAccount('0003599123', two, books)).toEqual({ kind: 'unmatched', reason: 'no_sub', businessId: 'b0', customerName: 'c359' });
+    expect(parseAccount('0003599123', two, books)).toEqual({ kind: 'unmatched', reason: 'no_sub', businessId: 'b0', accountName: 'c359' });
   });
 
   it('no account: the business is known and the customer is not, which a human sorts', () => {
-    expect(parseAccount('000777', two, books)).toEqual({ kind: 'unmatched', reason: 'no_account', businessId: 'b0', customerName: null });
-    expect(parseAccount('0009999', two, books)).toEqual({ kind: 'unmatched', reason: 'no_account', businessId: 'b0', customerName: null });
+    expect(parseAccount('000777', two, books)).toEqual({ kind: 'unmatched', reason: 'no_account', businessId: 'b0', accountName: null });
+    expect(parseAccount('0009999', two, books)).toEqual({ kind: 'unmatched', reason: 'no_account', businessId: 'b0', accountName: null });
   });
 
   it('no sub-account: the customer is known and the account under it is not', () => {
-    expect(parseAccount('000359777', two, books)).toEqual({ kind: 'unmatched', reason: 'no_sub', businessId: 'b0', customerName: 'c359' });
+    expect(parseAccount('000359777', two, books)).toEqual({ kind: 'unmatched', reason: 'no_sub', businessId: 'b0', accountName: 'c359' });
   });
 
   it('too many digits: a third level, or digits that cannot be read at all', () => {
-    expect(parseAccount('000359123456', two, books)).toEqual({ kind: 'unmatched', reason: 'too_many', businessId: 'b0', customerName: null });
-    expect(parseAccount('00035999', two, books)).toEqual({ kind: 'unmatched', reason: 'too_many', businessId: 'b0', customerName: null });
+    expect(parseAccount('000359123456', two, books)).toEqual({ kind: 'unmatched', reason: 'too_many', businessId: 'b0', accountName: null });
+    expect(parseAccount('00035999', two, books)).toEqual({ kind: 'unmatched', reason: 'too_many', businessId: 'b0', accountName: null });
   });
 
   it('a code nobody owns, a short reference and letters are unmatched with two businesses', () => {
-    expect(parseAccount('999359', two, books)).toEqual({ kind: 'unmatched', reason: 'no_business', businessId: null, customerName: null });
-    expect(parseAccount('12', two, books)).toEqual({ kind: 'unmatched', reason: 'no_business', businessId: null, customerName: null });
-    expect(parseAccount('12x', two, books)).toEqual({ kind: 'unmatched', reason: 'no_business', businessId: null, customerName: null });
-    expect(parseAccount(null, two, books)).toEqual({ kind: 'unmatched', reason: 'no_business', businessId: null, customerName: null });
+    expect(parseAccount('999359', two, books)).toEqual({ kind: 'unmatched', reason: 'no_business', businessId: null, accountName: null });
+    expect(parseAccount('12', two, books)).toEqual({ kind: 'unmatched', reason: 'no_business', businessId: null, accountName: null });
+    expect(parseAccount('12x', two, books)).toEqual({ kind: 'unmatched', reason: 'no_business', businessId: null, accountName: null });
+    expect(parseAccount(null, two, books)).toEqual({ kind: 'unmatched', reason: 'no_business', businessId: null, accountName: null });
   });
 
   it('a known code with nothing after it is the business, not an unmatched row', () => {
@@ -117,7 +117,7 @@ describe('parseAccount — the self-describing rule, with no database', () => {
   });
 
   it('leading zeros are not tolerated: numbers are fixed width and system printed', () => {
-    expect(parseAccount('0000359', two, books)).toEqual({ kind: 'unmatched', reason: 'no_account', businessId: 'b0', customerName: null });
+    expect(parseAccount('0000359', two, books)).toEqual({ kind: 'unmatched', reason: 'no_account', businessId: 'b0', accountName: null });
   });
 
   it('one business: routing is off, so both the printed full number and the bare account part resolve', () => {
@@ -128,7 +128,7 @@ describe('parseAccount — the self-describing rule, with no database', () => {
   });
 
   it('one business: a number nobody holds is that business with nothing decided, and letters are not a reason to doubt it', () => {
-    expect(parseAccount('777', one, books)).toEqual({ kind: 'unmatched', reason: 'no_account', businessId: 'b0', customerName: null });
+    expect(parseAccount('777', one, books)).toEqual({ kind: 'unmatched', reason: 'no_account', businessId: 'b0', accountName: null });
     expect(parseAccount('12x', one, books)).toEqual({ kind: 'matched', businessId: 'b0', accountId: null });
   });
 });
@@ -155,13 +155,13 @@ describe('businesses and their account numbers', () => {
   const addAccount = async (businessId: string, name: string, extra: Record<string, unknown> = {}) =>
     (await h(request(app).post(`/api/businesses/` + businessId + `/accounts`)).send({ name, ...extra })).body;
   const addChild = async (parentId: string, name: string) =>
-    (await h(request(app).post(`/api/accounts/` + parentId + `/children`)).send({ name })).body;
+    (await h(request(app).post(`/api/accounts/` + parentId + `/sub-accounts`)).send({ name })).body;
   const rows = async (id: string) => (await deps.db.query<{ business_id: string | null; account_id: string | null }>(`SELECT business_id, account_id FROM requests WHERE id=$1`, [id]))[0];
   const seen = async (ref: string) => rows((await recordC2b(deps, payment({ billRefNumber: ref }), 'callback')).requestId);
   /** Open a width by hand: the tests about the number itself should not have to fill a real 900. */
   const openWidth = async (businessId: string, width: number) => {
-    await deps.db.query(`UPDATE number_widths SET closed_at=now() WHERE scope_kind='customers' AND scope_id=$1 AND closed_at IS NULL`, [businessId]);
-    await deps.db.query(`INSERT INTO number_widths(scope_kind, scope_id, width) VALUES ('customers',$1,$2)`, [businessId, width]);
+    await deps.db.query(`UPDATE number_widths SET closed_at=now() WHERE scope_kind='accounts' AND scope_id=$1 AND closed_at IS NULL`, [businessId]);
+    await deps.db.query(`INSERT INTO number_widths(scope_kind, scope_id, width) VALUES ('accounts',$1,$2)`, [businessId, width]);
   };
 
   it('the database refuses a bad code, a duplicate number, and a shape no reader could split', async () => {
@@ -212,24 +212,33 @@ describe('businesses and their account numbers', () => {
     expect(list.body.items[0].children.map((k: { fullNumber: string }) => k.fullNumber)).toEqual(['000359123']);
   });
 
-  it('every minted number reads back to itself, at every width from 3 to 6', async () => {
+  it('every number at every width from 3 to 6 reads back to itself', async () => {
     const b = await addBusiness('Shop');
-    const minted: { id: string; full: string }[] = [];
-    for (const width of [3, 4, 5, 6]) {
-      await openWidth(b.id, width);
-      const made = await addAccount(b.id, 'Width ' + width);
-      expect(made.number.length).toBe(width);
-      // The width is the leading 9s, and the digit after them is 0-8 — which is what makes the
-      // reader stop at the right place instead of swallowing the level below.
-      expect(made.number.startsWith('9'.repeat(width - 3))).toBe(true);
-      expect(made.number[width - 3]).not.toBe('9');
-      expect(String(made.number).replace(/[0-9]/g, '').length).toBe(0);
-      expect(readNumber(made.number)).toEqual({ number: made.number, rest: '' });
-      minted.push({ id: made.id, full: made.fullNumber });
+    // One account per width, written straight in: the parser is what is under test, and a mint can
+    // only reach a longer width after 900 shorter numbers are used.
+    const written = [
+      { width: 3, number: '359' },
+      { width: 4, number: '9359' },
+      { width: 5, number: '99359' },
+      { width: 6, number: '999359' },
+    ];
+    const made: { id: string; full: string }[] = [];
+    for (const w of written) {
+      const [row] = await deps.db.query<{ id: string; full_number: string }>(
+        `INSERT INTO accounts(business_id, number, name) VALUES ($1,$2,$3) RETURNING id, full_number`,
+        [b.id, w.number, 'Width ' + w.width]);
+      // The width is the leading 9s and the digit after them is 0-8, which is what makes the reader
+      // stop at the right place instead of swallowing the level below.
+      expect(row.full_number.length).toBe(3 + w.width);
+      expect(readNumber(w.number)).toEqual({ number: w.number, rest: '' });
+      made.push({ id: row.id, full: row.full_number });
     }
-    expect(minted.map((m) => m.full.length)).toEqual([6, 7, 8, 9]);
-    // And each one still resolves to itself, through the same parser a callback uses.
-    for (const m of minted) expect(await seen(m.full)).toEqual({ business_id: b.id, account_id: m.id });
+    // A minted number reads back to itself too, through the same parser a callback uses.
+    queue = [777];
+    const minted = await addAccount(b.id, 'Minted');
+    expect(readNumber(minted.number)).toEqual({ number: minted.number, rest: '' });
+    made.push({ id: minted.id, full: minted.fullNumber });
+    for (const m of made) expect(await seen(m.full)).toEqual({ business_id: b.id, account_id: m.id });
   });
 
   it('grows the width only when all 900 numbers of the open one are used, and says so out loud', async () => {
@@ -248,15 +257,16 @@ describe('businesses and their account numbers', () => {
       // No three-digit number was reissued: every one is still held by its own row.
       const [held] = await deps.db.query<{ n: string }>(`SELECT count(*)::text AS n FROM accounts WHERE business_id=$1 AND char_length(number)=3`, [b.id]);
       expect(held.n).toBe('900');
-      // The tracker closed width 3 and opened width 4.
+      // The mint skipped width 3 (all 900 live) and opened width 4, which is the row the tracker has:
+      // a width written straight into the rows never needed a tracker row of its own.
       const widths = await deps.db.query<{ width: number; used: number; closed: boolean }>(
         `SELECT width, used, closed_at IS NOT NULL AS closed FROM number_widths WHERE scope_id=$1 ORDER BY width`, [b.id]);
-      expect(widths).toEqual([{ width: 3, used: 900, closed: true }, { width: 4, used: 1, closed: false }]);
+      expect(widths).toEqual([{ width: 4, used: 1, closed: false }]);
       // An audit row names the scope and the new width, and the owner gets a line in the inbox.
       const [entry] = await deps.db.query<{ action: string; after_json: Record<string, unknown> }>(
-        `SELECT action, after_json FROM audit_log WHERE action='accounts.width_grew'`);
+        `SELECT action, after_json FROM audit_log WHERE action='accounts.width_grew' ORDER BY id DESC LIMIT 1`);
       expect(entry.action).toBe('accounts.width_grew');
-      expect(entry.after_json).toMatchObject({ scope: 'customers', width: 4, previousWidth: 3 });
+      expect(entry.after_json).toMatchObject({ scope: 'accounts', width: 4, previousWidth: 3 });
       for (let i = 0; i < 100 && !events.some((e) => e.type === 'accounts.width_grew'); i++) await new Promise((r) => setTimeout(r, 20));
       const grew = events.filter((e) => e.type === 'accounts.width_grew');
       expect(grew.length).toBe(1);
@@ -264,7 +274,7 @@ describe('businesses and their account numbers', () => {
       await writer.handle(grew[0]!);
       const [line] = await deps.db.query<{ title: string; body: string; category: string }>(`SELECT title, body, category FROM notifications ORDER BY created_at DESC LIMIT 1`);
       expect(line.category).toBe('accounts');
-      expect(line.body).toBe('Customer numbers for Shop now have 4 digits. All 900 shorter numbers are used.');
+      expect(line.body).toBe('Account numbers for Shop now have 4 digits. All 900 shorter numbers are used.');
     } finally { off(); await deps.events.stop(); }
   });
 
@@ -288,74 +298,134 @@ describe('businesses and their account numbers', () => {
     expect(list.body.items[0].numbers).toEqual({ width: 3, capacity: 900, used: 2 });
   });
 
-  it('a retired number is never handed out again, and still counts against its width', async () => {
-    const b = await addBusiness('Shop');
-    // The second mint draws the retired 359 first and clashes, then takes 888: never the old number.
-    queue = [359, 359, 888];
-    const first = await addAccount(b.id, 'Jane');
-    expect(first.number).toBe('359');
-    const retired = await h(request(app).delete('/api/accounts/' + first.id));
-    expect(retired.status).toBe(204);
-    const list = await h(request(app).get(`/api/businesses/` + b.id + `/accounts`));
-    expect(list.body.items.length).toBe(0);
-    const second = await addAccount(b.id, 'John');
-    expect(second.number).toBe('888');
-    const [all] = await deps.db.query<{ n: string }>(`SELECT count(*)::text AS n FROM accounts WHERE business_id=$1`, [b.id]);
-    expect(all.n).toBe('2');
-    // Retired rows still hold their numbers, so the width's counter never goes back down.
-    const [width] = await deps.db.query<{ used: number }>(`SELECT used FROM number_widths WHERE scope_id=$1 AND closed_at IS NULL`, [b.id]);
-    expect(width.used).toBe(2);
-  });
-
-  it('refuses to mint past twelve digits and says so', async () => {
-    const b = await addBusiness('Shop');
-    // A nine-digit customer (six leading 9s, then 123) is legal on its own: 3 + 9 = 12 digits.
-    const [wide] = await deps.db.query<{ id: string; full_number: string }>(`INSERT INTO accounts(business_id, number, name) VALUES ($1,'999999123','Wide') RETURNING id, full_number`, [b.id]);
-    expect(wide.full_number.length).toBe(12);
-    const refused = await h(request(app).post('/api/accounts/' + wide.id + '/children')).send({ name: 'Too long' });
-    expect(refused.status).toBe(409);
-    expect(refused.body.error.code).toBe('no_numbers_left');
-    await expect(deps.db.query(`INSERT INTO accounts(business_id, number, name) VALUES ($1,'9999991234','Over')`, [b.id]))
-      .rejects.toMatchObject({ code: '23514' });
-  });
-
-  it('has no number box: a client-supplied number is refused with 400, and the old claim route is gone', async () => {
-    const b = await addBusiness('Shop');
-    queue = [359];
-    const made = await addAccount(b.id, 'Jane');
-    for (const body of [{ name: 'Typed', number: '123' }, { name: 'Typed', fullNumber: '000123' }, { name: 'Typed', number: 123 }]) {
-      const r = await h(request(app).post(`/api/businesses/` + b.id + `/accounts`)).send(body);
-      expect(r.status).toBe(400);
-      expect(r.body.error.code).toBe('invalid');
-    }
-    const put = await h(request(app).put('/api/accounts/' + made.id)).send({ name: 'Jane', number: '899' });
-    expect(put.status).toBe(400);
-    const claim = await h(request(app).post(`/api/businesses/` + b.id + `/customers/claim`)).send({ number: 123, name: 'Jane' });
-    expect(claim.status).toBe(404);
-    // And the number the row carries is still the one Studio drew.
-    const [row] = await deps.db.query<{ number: string; full_number: string }>(`SELECT number, full_number FROM accounts WHERE id=$1`, [made.id]);
-    expect(row).toMatchObject({ number: '359', full_number: '000359' });
-  });
-
-  it('edits the words around a number and retires a customer together with the accounts under it', async () => {
+  it('deletes an account and its sub-accounts, and a later mint hands the freed number out again', async () => {
     const b = await addBusiness('Shop');
     queue = [359, 123];
-    const jane = await addAccount(b.id, 'Jane', { phone: '0712 345 678' });
+    const jane = await addAccount(b.id, 'Jane');
     await addChild(jane.id, 'Room 4');
-    const edited = await h(request(app).put('/api/accounts/' + jane.id)).send({ name: 'Jane Wanjiru', phone: '0712 345 679', note: 'Landlord' });
-    expect(edited.status).toBe(200);
-    expect(edited.body).toMatchObject({ name: 'Jane Wanjiru', phone: '254712345679', fullNumber: '000359', note: 'Landlord' });
-    // The audit row holds the name and whether a phone was given — never the number itself.
-    const [auditRow] = await deps.db.query<{ after_json: Record<string, unknown> }>(`SELECT after_json FROM audit_log WHERE action='account.edited' ORDER BY id DESC LIMIT 1`);
-    expect(auditRow.after_json).toEqual({ name: 'Jane Wanjiru', note: 'Landlord', phone: true });
-    expect(JSON.stringify(auditRow)).not.toContain('254712345679');
-    const gone = await h(request(app).delete('/api/accounts/' + jane.id));
+    expect(jane.number).toBe('359');
+
+    const gone = await h(request(app).delete('/api/accounts/' + jane.id)).send({ name: 'Jane', password: 'correct horse' });
     expect(gone.status).toBe(204);
-    const [live] = await deps.db.query<{ n: string }>(`SELECT count(*)::text AS n FROM accounts WHERE business_id=$1 AND retired_at IS NULL`, [b.id]);
-    expect(live.n).toBe('0');
-    const again = await h(request(app).post('/api/accounts/' + jane.id + '/children')).send({ name: 'Another room' });
-    expect(again.status).toBe(409);
-    expect(again.body.error.code).toBe('retired');
+    const left = await deps.db.query(`SELECT id FROM accounts WHERE business_id=$1`, [b.id]);
+    expect(left.length).toBe(0);
+
+    // One history row per deleted row, with the digits, the level and who deleted it — and no phone.
+    const history = await deps.db.query<{ full_number: string; level: string; name: string; deleted_by: string | null }>(
+      `SELECT full_number, level, name, deleted_by FROM number_history ORDER BY level, full_number`);
+    expect(history.map((x) => [x.level, x.full_number, x.name])).toEqual([
+      ['account', '000359', 'Jane'],
+      ['sub_account', '000359123', 'Room 4'],
+    ]);
+    expect(history.every((x) => x.deleted_by !== null)).toBe(true);
+    const [auditRow] = await deps.db.query<{ after_json: Record<string, unknown>; before_json: Record<string, unknown> }>(
+      `SELECT after_json, before_json FROM audit_log WHERE action='account.deleted' ORDER BY id DESC LIMIT 1`);
+    expect(JSON.stringify(auditRow)).not.toContain('254712345678');
+
+    // The digits are free again: the same draw hands the same number to somebody else.
+    queue = [359];
+    const next = await addAccount(b.id, 'Peter');
+    expect(next.number).toBe('359');
+  });
+
+  it('mints from the lowest width with a free number, and reopens a width that was closed', async () => {
+    const b = await addBusiness('Shop');
+    // 899 rows, so the next mint fills width 3 and opens the tracker's row for it.
+    await deps.db.query(`INSERT INTO accounts(business_id, number, name) SELECT $1, lpad(g::text, 3, '0'), 'Holder ' || g FROM generate_series(0, 898) g`, [b.id]);
+    queue = [899];
+    const last = await addAccount(b.id, 'Nine hundredth');
+    expect(last.number.length).toBe(3);
+    const [full] = await deps.db.query<{ used: number; closed: boolean }>(
+      `SELECT used, closed_at IS NOT NULL AS closed FROM number_widths WHERE scope_kind='accounts' AND scope_id=$1 AND width=3`, [b.id]);
+    expect(full).toEqual({ used: 900, closed: false });
+
+    // Every shorter number is in use, so the next account gets a four-digit one and width 3 closes.
+    const grew = await addAccount(b.id, 'Nine hundred and first');
+    expect(grew.number.length).toBe(4);
+    const [closed] = await deps.db.query<{ used: number; closed: boolean }>(
+      `SELECT used, closed_at IS NOT NULL AS closed FROM number_widths WHERE scope_kind='accounts' AND scope_id=$1 AND width=3`, [b.id]);
+    expect(closed).toEqual({ used: 900, closed: true });
+
+    // Free one three-digit number: the next mint takes that one, not another four-digit number, and
+    // the width that was closed is open again with the live count.
+    const [victim] = await deps.db.query<{ id: string; number: string }>(`SELECT id, number FROM accounts WHERE business_id=$1 AND number='005'`, [b.id]);
+    const deleted = await h(request(app).delete('/api/accounts/' + victim.id)).send({ name: 'Holder 5', password: 'correct horse' });
+    expect(deleted.status).toBe(204);
+    queue = [5];
+    const reused = await addAccount(b.id, 'New holder of 005');
+    expect(reused.number).toBe('005');
+    expect(reused.number.length).toBe(3);
+    const [reopened] = await deps.db.query<{ used: number; closed: boolean }>(
+      `SELECT used, closed_at IS NOT NULL AS closed FROM number_widths WHERE scope_kind='accounts' AND scope_id=$1 AND width=3`, [b.id]);
+    expect(reopened).toEqual({ used: 900, closed: false });
+  });
+
+  it('will not delete without the exact name and the password, and deletes nothing when either is wrong', async () => {
+    const b = await addBusiness('Shop');
+    queue = [359];
+    const jane = await addAccount(b.id, 'Jane');
+    const wrongName = await h(request(app).delete('/api/accounts/' + jane.id)).send({ name: 'Janet', password: 'correct horse' });
+    expect(wrongName.status).toBe(400);
+    expect(wrongName.body.error.code).toBe('name_mismatch');
+    const wrongPassword = await h(request(app).delete('/api/accounts/' + jane.id)).send({ name: 'Jane', password: 'not the password' });
+    expect(wrongPassword.status).toBe(403);
+    expect((await deps.db.query(`SELECT id FROM accounts WHERE id=$1`, [jane.id])).length).toBe(1);
+    expect((await deps.db.query(`SELECT id FROM number_history`)).length).toBe(0);
+    // Both right, and it goes.
+    expect((await h(request(app).delete('/api/accounts/' + jane.id)).send({ name: 'Jane', password: 'correct horse' })).status).toBe(204);
+  });
+
+  it('refuses to delete a business while accounts remain, then frees its code', async () => {
+    const b = await addBusiness('Shop');
+    queue = [359];
+    const jane = await addAccount(b.id, 'Jane');
+    const refused = await h(request(app).delete('/api/businesses/' + b.id)).send({ name: 'Shop', password: 'correct horse' });
+    expect(refused.status).toBe(409);
+    expect(refused.body.error.code).toBe('accounts_remain');
+    await h(request(app).delete('/api/accounts/' + jane.id)).send({ name: 'Jane', password: 'correct horse' });
+    const gone = await h(request(app).delete('/api/businesses/' + b.id)).send({ name: 'Shop', password: 'correct horse' });
+    expect(gone.status).toBe(204);
+    const [row] = await deps.db.query<{ level: string; full_number: string; name: string }>(`SELECT level, full_number, name FROM number_history WHERE level='business'`);
+    expect(row).toEqual({ level: 'business', full_number: '000', name: 'Shop' });
+    // The code is free again: the next business gets 000.
+    expect((await addBusiness('Another shop')).code).toBe('000');
+  });
+
+  it('shows who held a number before, to the account page and to the money that arrived on it', async () => {
+    const b = await addBusiness('Shop');
+    queue = [359];
+    const jane = await addAccount(b.id, 'Jane');
+    await recordC2b(deps, payment({ billRefNumber: '000359' }), 'callback');
+    await h(request(app).delete('/api/accounts/' + jane.id)).send({ name: 'Jane', password: 'correct horse' });
+
+    // An old money row keeps the digits and says who held them.
+    const rows = await h(request(app).get('/api/requests?limit=5'));
+    const c2b = rows.body.items.find((x: { type: string }) => x.type === 'c2b');
+    expect(c2b).toMatchObject({ accountReference: '000359', deletedAccountName: 'Jane', accountId: null });
+    expect(typeof c2b.deletedAccountAt).toBe('string');
+
+    // Hand the same digits out again: the new account explains where they came from.
+    queue = [359];
+    const peter = await addAccount(b.id, 'Peter');
+    const accounts = await h(request(app).get(`/api/businesses/` + b.id + `/accounts`));
+    const view = accounts.body.items.find((x: { id: string }) => x.id === peter.id);
+    expect(view.previousHolder.name).toBe('Jane');
+    expect(typeof view.previousHolder.until).toBe('string');
+
+    // Past holders of this number: the account that went, and nothing invented.
+    const history = await h(request(app).get('/api/accounts/' + peter.id + '/history'));
+    expect(history.status).toBe(200);
+    expect(history.body.items.map((x: { name: string }) => x.name)).toEqual(['Jane']);
+  });
+
+  it('a deleted account does not stop the same number being paid again', async () => {
+    const b = await addBusiness('Shop');
+    queue = [359];
+    const jane = await addAccount(b.id, 'Jane');
+    await h(request(app).delete('/api/accounts/' + jane.id)).send({ name: 'Jane', password: 'correct horse' });
+    // Nobody holds 359 now, so the payment is unmatched and a human sorts it, exactly as before.
+    const row = await recordC2b(deps, payment({ billRefNumber: '000359' }), 'callback');
+    expect(await rows(row.requestId)).toEqual({ business_id: b.id, account_id: null });
   });
 
   it('one business: the printed reading wins when the digits could be read two ways', async () => {
@@ -403,9 +473,9 @@ describe('businesses and their account numbers', () => {
     const items = before.body.items as Record<string, unknown>[];
     expect(items.length).toBe(3);
     const byReason = (reason: string) => items.find((i) => i.reason === reason)!;
-    expect(byReason('no_account')).toMatchObject({ reason: 'no_account', businessId: b1.id, accountReference: '001999', businessName: 'Second', amountCents: 50000, customerName: null });
+    expect(byReason('no_account')).toMatchObject({ reason: 'no_account', businessId: b1.id, accountReference: '001999', businessName: 'Second', amountCents: 50000, accountName: null });
     expect(byReason('no_business')).toMatchObject({ reason: 'no_business', businessId: null, accountReference: '999359' });
-    expect(byReason('no_sub')).toMatchObject({ reason: 'no_sub', businessId: b1.id, customerName: 'Jane', accountReference: '001359777' });
+    expect(byReason('no_sub')).toMatchObject({ reason: 'no_sub', businessId: b1.id, accountName: 'Jane', accountReference: '001359777' });
     // The shape the web side reads: no candidates list any more, and the ordinary view fields are there.
     expect('candidates' in byReason('no_account')).toBe(false);
     expect(typeof byReason('no_account').id).toBe('string');

@@ -8,12 +8,12 @@
  */
 export const TYPE_LABELS: Record<string, string> = {
   b2c: 'Sent to a phone',
-  c2b: 'Paid by a customer',
+  c2b: 'Paid in',
   invoice_payment: 'Invoice paid',
   ratiba: 'Standing order',
   express: 'Asked a business to pay',
   bonga: 'Paid with Bonga points',
-  stk: 'Asked a customer to pay',
+  stk: 'Asked for payment',
   reversal: 'Reversal',
   balance: 'Balance check',
   status_query: 'Payment lookup',

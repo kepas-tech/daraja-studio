@@ -69,7 +69,7 @@ function UnmatchedRow({ row, businesses, onDone }: { row: UnmatchedView; busines
   const control = 'min-h-10 rounded-md border border-line bg-surface px-3 text-base text-ink focus:outline-2 focus:-outline-offset-1 focus:outline-brand';
   const line = row.reason === 'no_business' ? c.noBusiness(reference || '—')
     : row.reason === 'no_account' ? c.noAccount(reference || '—')
-    : row.reason === 'no_sub' ? c.noSub(reference || '—', row.customerName ?? null)
+    : row.reason === 'no_sub' ? c.noSub(reference || '—', row.accountName ?? null)
     : c.tooMany(reference || '—');
 
   return (

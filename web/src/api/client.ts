@@ -70,8 +70,11 @@ export const api = {
   get: <T>(p: string) => call<T>('GET', p),
   post: <T>(p: string, b?: unknown) => call<T>('POST', p, b ?? {}),
   put: <T>(p: string, b?: unknown) => call<T>('PUT', p, b ?? {}),
-  /** Answers 204 with no body, like every DELETE in this app (contacts, 2026-09-16). */
-  del: (p: string) => call<void>('DELETE', p),
+  /**
+   * Answers 204 with no body, like every DELETE in this app (contacts, 2026-09-16). A body rides
+   * along when the delete asks for the typed name of the thing (accounts and businesses, brief 2).
+   */
+  del: (p: string, b?: unknown) => call<void>('DELETE', p, b ?? {}),
   /** A CSV or other file behind the same session and permission gates as the pages. */
   download: (p: string) => download(p),
   setCsrf(t: string) { csrf = t; },

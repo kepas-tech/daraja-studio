@@ -27,8 +27,8 @@ export type AccountMatch =
   | { kind: 'matched'; businessId: string; accountId: string | null }
   | {
       kind: 'unmatched'; reason: UnmatchedReason; businessId: string | null;
-      /** For no_sub: the customer whose number was named, so the card can say which one. */
-      customerName: string | null;
+      /** For no_sub: the account whose number was named, so the card can say which one. */
+      accountName: string | null;
     };
 
 const DIGITS = /^[0-9]+$/;
@@ -52,32 +52,32 @@ export function readNumber(digits: string): Reading | null {
 type Resolution =
   | { kind: 'ok'; accountId: string }
   | { kind: 'no_account' }
-  | { kind: 'no_sub'; customerName: string }
+  | { kind: 'no_sub'; accountName: string }
   | { kind: 'too_many' };
 
 /**
- * One business's account part: the customer, then the account under it when digits remain. Every
+ * One business's account part: the account, then the sub-account under it when digits remain. Every
  * failure has its own name, because the card on Money in says which one happened.
  */
 export function resolveTail(digits: string, accounts: readonly KnownAccount[]): Resolution {
-  const customer = readNumber(digits);
-  if (!customer) return { kind: 'no_account' };
-  const parent = accounts.find((a) => a.parentId === null && a.number === customer.number);
+  const account = readNumber(digits);
+  if (!account) return { kind: 'no_account' };
+  const parent = accounts.find((a) => a.parentId === null && a.number === account.number);
   if (!parent) return { kind: 'no_account' };
-  if (customer.rest === '') return { kind: 'ok', accountId: parent.id };
-  const sub = readNumber(customer.rest);
+  if (account.rest === '') return { kind: 'ok', accountId: parent.id };
+  const sub = readNumber(account.rest);
   if (!sub) return { kind: 'too_many' };
   const under = accounts.find((a) => a.parentId === parent.id && a.number === sub.number);
-  if (!under) return { kind: 'no_sub', customerName: parent.name };
+  if (!under) return { kind: 'no_sub', accountName: parent.name };
   if (sub.rest !== '') return { kind: 'too_many' };
   return { kind: 'ok', accountId: under.id };
 }
 
 const matched = (businessId: string, accountId: string | null): AccountMatch => ({ kind: 'matched', businessId, accountId });
-const unmatched = (reason: UnmatchedReason, businessId: string | null, customerName: string | null): AccountMatch =>
-  ({ kind: 'unmatched', reason, businessId, customerName });
+const unmatched = (reason: UnmatchedReason, businessId: string | null, accountName: string | null): AccountMatch =>
+  ({ kind: 'unmatched', reason, businessId, accountName });
 const failure = (r: Resolution, businessId: string | null): AccountMatch =>
-  r.kind === 'no_sub' ? unmatched('no_sub', businessId, r.customerName) : unmatched(r.kind === 'ok' ? 'no_account' : r.kind, businessId, null);
+  r.kind === 'no_sub' ? unmatched('no_sub', businessId, r.accountName) : unmatched(r.kind === 'ok' ? 'no_account' : r.kind, businessId, null);
 
 /**
  * The rule, in one place.
@@ -149,7 +149,7 @@ export async function loadIndex(c: Queryable): Promise<AccountIndex> {
   const businesses = (await c.query('SELECT id, code FROM businesses ORDER BY code')) as KnownBusiness[];
   if (businesses.length === 0) return { businesses, accounts: [] };
   const rows = (await c.query(
-    'SELECT id, business_id, parent_id, number, full_number, name FROM accounts WHERE retired_at IS NULL ORDER BY number',
+    'SELECT id, business_id, parent_id, number, full_number, name FROM accounts ORDER BY number',
   )) as { id: string; business_id: string; parent_id: string | null; number: string; full_number: string; name: string }[];
   return {
     businesses,

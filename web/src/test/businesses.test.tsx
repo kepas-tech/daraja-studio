@@ -34,8 +34,8 @@ const at = '2026-09-17T08:00:00Z';
 const kepas: BusinessView = { id: 'b1', code: '000', name: 'Kepas Hardware', active: true, accountCount: 1, numbers: { width: 3, capacity: 900, used: 1 }, createdAt: at };
 const rentals: BusinessView = { id: 'b2', code: '001', name: 'Rentals', active: true, accountCount: 0, numbers: { width: 3, capacity: 900, used: 0 }, createdAt: at };
 /** Jane is a customer account at 000359 with one account under her, Room 4 at 000359123. */
-const room: AccountView = { id: 'k2', businessId: 'b1', parentId: 'k1', number: '123', fullNumber: '000359123', name: 'Room 4', phone: null, note: null, createdAt: at, retiredAt: null, children: [] };
-const jane: AccountView = { id: 'k1', businessId: 'b1', parentId: null, number: '359', fullNumber: '000359', name: 'Jane Doe', phone: '254712345678', note: null, createdAt: at, retiredAt: null, children: [room] };
+const room: AccountView = { id: 'k2', businessId: 'b1', parentId: 'k1', number: '123', fullNumber: '000359123', name: 'Room 4', phone: null, note: null, createdAt: at, previousHolder: null, children: [] };
+const jane: AccountView = { id: 'k1', businessId: 'b1', parentId: null, number: '359', fullNumber: '000359', name: 'Jane Doe', phone: '254712345678', note: null, createdAt: at, previousHolder: null, children: [room] };
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 type Handlers = Record<string, (init?: RequestInit) => Response>;
@@ -62,9 +62,9 @@ describe('Businesses and their accounts', () => {
     expect(within(row).getByText('000')).toBeInTheDocument();
     expect(within(row).getByText(copy.businesses.accountCount(1))).toBeInTheDocument();
     // The width in use, in the owner's words: 3 digits, 1 of 900 used.
-    expect(within(row).getByTestId('numbers-b1')).toHaveTextContent('Customer numbers: 3 digits, 1 of 900 used');
+    expect(within(row).getByTestId('numbers-b1')).toHaveTextContent(copy.businesses.numbersLine(3, 1, 900));
 
-    fireEvent.click(within(row).getByRole('button', { name: copy.businesses.customers }));
+    fireEvent.click(within(row).getByRole('button', { name: copy.businesses.accounts }));
     const customer = await screen.findByTestId('account-k1');
     expect(within(customer).getByText('Jane Doe')).toBeInTheDocument();
     expect(within(customer).getByTestId('full-k1')).toHaveTextContent('000359');
@@ -112,7 +112,7 @@ describe('Businesses and their accounts', () => {
       'GET /api/businesses/b1/accounts': () => json({ items: [jane, { ...jane, id: 'k9', number: '482', fullNumber: '000482', name: 'Peter', children: [] }] }),
     });
     const row = await screen.findByTestId('business-b1');
-    fireEvent.click(within(row).getByRole('button', { name: copy.businesses.customers }));
+    fireEvent.click(within(row).getByRole('button', { name: copy.businesses.accounts }));
     fireEvent.click(await screen.findByRole('button', { name: copy.businesses.addCustomer }));
     // No label anywhere on the form is a number box: Studio draws the number, not the owner.
     expect(screen.queryByLabelText(/account number/i)).toBeNull();
@@ -126,24 +126,30 @@ describe('Businesses and their accounts', () => {
   it('adds an account under a customer, which the server numbers too', async () => {
     let posted: unknown = null;
     mountBusinesses({
-      'POST /api/accounts/k1/children': (init) => { posted = JSON.parse(String(init?.body)); return json({ ...room, id: 'k7', number: '482', fullNumber: '000359482', name: 'Room 7' }, 201); },
+      'POST /api/accounts/k1/sub-accounts': (init) => { posted = JSON.parse(String(init?.body)); return json({ ...room, id: 'k7', number: '482', fullNumber: '000359482', name: 'Room 7' }, 201); },
     });
     const row = await screen.findByTestId('business-b1');
-    fireEvent.click(within(row).getByRole('button', { name: copy.businesses.customers }));
+    fireEvent.click(within(row).getByRole('button', { name: copy.businesses.accounts }));
     fireEvent.click(await screen.findByRole('button', { name: copy.businesses.addAccount }));
     fireEvent.change(screen.getByLabelText(copy.businesses.customerName), { target: { value: 'Room 7' } });
     fireEvent.click(screen.getByRole('button', { name: copy.businesses.save }));
     await waitFor(() => expect(posted).toEqual({ name: 'Room 7', phone: undefined, note: undefined }));
   });
 
-  it('retires a customer without touching anyone else', async () => {
-    let deleted = 0;
-    mountBusinesses({ 'DELETE /api/accounts/k1': () => { deleted += 1; return new Response(null, { status: 204 }); } });
+  it('deletes an account only after the exact name and the password, and sends both', async () => {
+    let sent: unknown = null;
+    mountBusinesses({ 'DELETE /api/accounts/k1': (init) => { sent = JSON.parse(String(init?.body)); return new Response(null, { status: 204 }); } });
     const row = await screen.findByTestId('business-b1');
-    fireEvent.click(within(row).getByRole('button', { name: copy.businesses.customers }));
+    fireEvent.click(within(row).getByRole('button', { name: copy.businesses.accounts }));
     const customer = await screen.findByTestId('account-k1');
     fireEvent.click(within(customer).getAllByRole('button', { name: copy.businesses.retire })[0]!);
-    await waitFor(() => expect(deleted).toBe(1));
+    // The dialog asks for the name and the password; nothing is sent until both are given.
+    fireEvent.change(await screen.findByLabelText(copy.businesses.typeName('Jane Doe')), { target: { value: 'Jane Do' } });
+    fireEvent.change(screen.getByLabelText(copy.confirm.yourPassword), { target: { value: 'studio-pw' } });
+    expect(screen.getByRole('button', { name: copy.confirm.confirm })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText(copy.businesses.typeName('Jane Doe')), { target: { value: 'Jane Doe' } });
+    fireEvent.click(screen.getByRole('button', { name: copy.confirm.confirm }));
+    await waitFor(() => expect(sent).toEqual({ name: 'Jane Doe', password: 'studio-pw' }));
   });
 
   it('keeps the list readable but hides every write without the permission', async () => {
@@ -316,7 +322,7 @@ describe('Money in, sorting what the account number did not', () => {
 
   it('says which customer has no such account, and labels the payment with one that exists', async () => {
     let posted: unknown = null;
-    mountMoneyIn([{ ...c2b, reason: 'no_sub', businessId: 'b1', businessName: 'Kepas Hardware', customerName: 'Jane Doe' }], {
+    mountMoneyIn([{ ...c2b, reason: 'no_sub', businessId: 'b1', businessName: 'Kepas Hardware', accountName: 'Jane Doe' }], {
       'POST /api/businesses/assign/r9': (init) => { posted = JSON.parse(String(init?.body)); return json(c2b); },
     });
     expect(await screen.findByText(copy.moneyIn.unmatched.noSub('999123', 'Jane Doe'))).toBeInTheDocument();

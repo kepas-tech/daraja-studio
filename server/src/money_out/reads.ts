@@ -31,6 +31,12 @@ export interface RequestView {
   businessName: string | null;
   accountName: string | null;
   accountNumber: string | null;
+  /** Brief 2, item 1b: the account is gone, and these are the holder the digits came from. */
+  deletedAccountName: string | null;
+  deletedAccountAt: string | null;
+  /** The live account's number was somebody else's until this date, within the last year. */
+  previousHolderName: string | null;
+  previousHolderUntil: string | null;
   /** Feature 11: what Safaricom's band said this row costs, in cents. Null on a row written
    * before the feature, and on an amount no band covers — never a zero standing in for unknown. */
   chargeCents: number | null;
@@ -39,6 +45,8 @@ export interface RequestView {
 export type ViewRow = RequestRow & {
   created_by_name?: string | null; checked_by_name?: string | null; approved_by_name?: string | null; approved_by?: string | null;
   contact_name?: string | null; business_name?: string | null; account_name?: string | null; account_number?: string | null; created_cursor?: string;
+  /** Brief 2, item 1b: the two history lines, from number_history. */
+  deleted_name?: string | null; deleted_at_text?: string | null; previous_name?: string | null; previous_until_text?: string | null;
   /** Brief 2, item 1: columns selected by r.* that the base RequestRow predates. */
   account_reference?: string | null; business_id?: string | null; account_id?: string | null;
   /** Feature 11: the same, for the charge stored on the row. */
@@ -50,10 +58,27 @@ export type ViewRow = RequestRow & {
  * cursor must be built from this text column, never from row.created_at. Append WHERE/ORDER/LIMIT. */
 export const VIEW_SELECT = `SELECT r.*, p.display_name AS created_by_name, c.display_name AS checked_by_name, a.display_name AS approved_by_name, ct.name AS contact_name,
   bz.name AS business_name, ac.name AS account_name, ac.full_number AS account_number,
+  dh.name AS deleted_name, dh.deleted_text AS deleted_at_text, ph.name AS previous_name, ph.until_text AS previous_until_text,
   to_char(r.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_cursor
   FROM requests r LEFT JOIN people p ON p.id = r.created_by LEFT JOIN people c ON c.id = r.checked_by LEFT JOIN people a ON a.id = r.approved_by
   LEFT JOIN contacts ct ON ct.id = r.contact_id
-  LEFT JOIN businesses bz ON bz.id = r.business_id LEFT JOIN accounts ac ON ac.id = r.account_id`;
+  LEFT JOIN businesses bz ON bz.id = r.business_id LEFT JOIN accounts ac ON ac.id = r.account_id
+  -- Brief 2, item 1b, the two places the record shows on a money row. The digits the payer typed are
+  -- on the row for ever; when the account they named has been deleted, the newest holder of those
+  -- digits explains who it was. When the account is live but its number was handed out again inside
+  -- the last year, the previous holder explains why the digits look familiar.
+  LEFT JOIN LATERAL (
+    SELECT h.name, to_char(h.deleted_at AT TIME ZONE 'Africa/Nairobi', 'YYYY-MM-DD') AS deleted_text
+      FROM number_history h WHERE r.account_id IS NULL AND h.full_number = r.account_reference
+      ORDER BY h.deleted_at DESC LIMIT 1
+  ) dh ON true
+  LEFT JOIN LATERAL (
+    SELECT h.name, to_char(h.deleted_at AT TIME ZONE 'Africa/Nairobi', 'YYYY-MM-DD') AS until_text
+      FROM number_history h
+     WHERE r.account_id IS NOT NULL AND h.full_number = ac.full_number
+       AND h.deleted_at <= ac.created_at AND h.deleted_at > now() - interval '12 months'
+     ORDER BY h.deleted_at DESC LIMIT 1
+  ) ph ON true`;
 
 export const UNKNOWN_WHAT_TO_DO = 'Do not send it again yet. Studio is checking with Safaricom; if it stays unknown, check the Safaricom portal, then Mark as checked.';
 export const POLL_FAILED_WHAT_TO_DO = "Safaricom's record is final. Send again if the money did not arrive; contact Safaricom API support if the portal statement disagrees.";
@@ -115,6 +140,10 @@ export function toView(row: ViewRow, egressIps: string[] = []): RequestView {
     businessName: row.business_name ?? null,
     accountName: row.account_name ?? null,
     accountNumber: row.account_number ?? null,
+    deletedAccountName: row.deleted_name ?? null,
+    deletedAccountAt: row.deleted_at_text ?? null,
+    previousHolderName: row.previous_name ?? null,
+    previousHolderUntil: row.previous_until_text ?? null,
     chargeCents: row.charge_cents === null || row.charge_cents === undefined ? null : Number(row.charge_cents),
   };
 }

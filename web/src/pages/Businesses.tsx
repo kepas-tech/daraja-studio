@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api/client';
-import type { AccountView, BusinessView } from '../api/types';
+import type { AccountView, BusinessView, HistoryEntry } from '../api/types';
 import { useSession } from '../app/session';
 import { Button } from '../components/Button';
 import { Card, cardRow } from '../components/Card';
 import { ErrorCard, explainApiError, toastText, type Explained } from '../components/ErrorCard';
+import { PasswordConfirmDialog } from '../components/PasswordConfirmDialog';
 import { Loading } from '../components/Loading';
 import { PageHeader } from '../components/PageHeader';
 import { PhoneInput } from '../components/PhoneInput';
@@ -90,6 +91,12 @@ export function Businesses() {
   // The business a new customer is being added to, or the customer a new account is being added to.
   const [addingTo, setAddingTo] = useState<string | null>(null);
   const [editingAccount, setEditingAccount] = useState<string | null>(null);
+  // Deleting is the studio's own ceremony: the exact name, then the password. One dialog serves a
+  // business, an account and a sub-account.
+  const [deleting, setDeleting] = useState<{ id: string; name: string; businessId: string; kind: 'business' | 'account' } | null>(null);
+  const [busy, setBusy] = useState(false);
+  // "Past holders of this number", fetched only when the owner asks for it.
+  const [holders, setHolders] = useState<Record<string, HistoryEntry[]>>({});
 
   const load = useCallback(async () => {
     try { setData(await api.get<{ items: BusinessView[]; lastUsedId: string | null }>('/api/businesses')); setErr(null); }
@@ -144,7 +151,7 @@ export function Businesses() {
   const saveUnder = async (business: BusinessView, parent: AccountView, draft: AccountDraft) => {
     setFormErr(null);
     try {
-      const made = await api.post<AccountView>('/api/accounts/' + parent.id + '/children', body(draft));
+      const made = await api.post<AccountView>('/api/accounts/' + parent.id + '/sub-accounts', body(draft));
       toast.success(c.accountAdded(made.name, made.fullNumber));
       setAddingTo(null);
       await Promise.all([load(), loadAccounts(business.id)]);
@@ -161,9 +168,26 @@ export function Businesses() {
     } catch (e) { setFormErr(explainApiError(e)); }
   };
 
-  const retire = async (business: BusinessView, x: AccountView) => {
-    try { await api.del('/api/accounts/' + x.id); toast.success(c.retired); await Promise.all([load(), loadAccounts(business.id)]); }
-    catch (e) { toast.error(toastText(e)); }
+  /** Delete, once the typed name and the password have both been given. */
+  const confirmDelete = async (password: string) => {
+    if (!deleting) return;
+    setBusy(true);
+    try {
+      if (deleting.kind === 'business') await api.del('/api/businesses/' + deleting.id, { name: deleting.name, password });
+      else await api.del('/api/accounts/' + deleting.id, { name: deleting.name, password });
+      toast.success(c.accountDeleted(deleting.name));
+      const businessId = deleting.businessId;
+      setDeleting(null);
+      await Promise.all([load(), loadAccounts(businessId)]);
+    } catch (e) { toast.error(toastText(e)); } finally { setBusy(false); }
+  };
+
+  const pastHolders = async (x: AccountView) => {
+    if (holders[x.id]) { setHolders((m) => { const n = { ...m }; delete n[x.id]; return n; }); return; }
+    try {
+      const r = await api.get<{ items: HistoryEntry[] }>('/api/accounts/' + x.id + '/history');
+      setHolders((m) => ({ ...m, [x.id]: r.items }));
+    } catch (e) { toast.error(toastText(e)); }
   };
 
   if (err && !data) return <><PageHeader title={c.title} /><ErrorCard error={err} /></>;
@@ -176,6 +200,7 @@ export function Businesses() {
         {mayManage && !adding && !editing && <Button onClick={() => { setFormErr(null); setEditing(null); setAdding(true); }}>{c.add}</Button>}
       </PageHeader>
       <p className="mb-4 text-base text-muted">{c.intro}</p>
+      {deleting?.kind === 'business' && <p className="mb-4 text-sm text-muted">{c.deleteBusinessBody}</p>}
       <ErrorCard error={err} />
       {data.items.length === 1 && <p className="mb-4 rounded-md border border-line bg-page p-3 text-base">{c.routingOff}</p>}
       {data.items.length > 1 && <p className="mb-4 text-sm text-muted">{c.routingOn}</p>}
@@ -202,11 +227,12 @@ export function Businesses() {
                       <span className="text-sm text-muted" data-testid={'numbers-' + b.id}>{c.numbersLine(b.numbers.width, b.numbers.used, b.numbers.capacity)}</span>
                     </span>
                     <span className="flex flex-wrap items-center gap-2">
-                      <Button type="button" variant="secondary" onClick={() => open(b.id)}>{c.customers}</Button>
+                      <Button type="button" variant="secondary" onClick={() => open(b.id)}>{c.accounts}</Button>
                       {mayManage && (
                         <>
                           <Button type="button" variant="secondary" onClick={() => { setAdding(false); setFormErr(null); setEditing(b.id); }}>{c.edit}</Button>
                           <Button type="button" variant={b.active ? 'danger' : 'secondary'} onClick={() => void flip(b)}>{b.active ? c.switchOff : c.switchOn}</Button>
+                          <Button type="button" variant="danger" onClick={() => setDeleting({ id: b.id, name: b.name, businessId: b.id, kind: 'business' })}>{c.retire}</Button>
                         </>
                       )}
                     </span>
@@ -230,16 +256,25 @@ export function Businesses() {
                                     <span className="text-base">{x.name}</span>
                                     <span className="text-lg" data-testid={'full-' + x.id}><code>{x.fullNumber}</code>{x.phone ? <span className="text-sm text-muted"> · {phone(x.phone)}</span> : null}</span>
                                     <span className="text-sm text-muted">{c.tellThem(org?.shortcode ?? null, x.fullNumber)}</span>
+                                    {x.previousHolder && <span className="text-sm text-muted">{c.heldBy(x.previousHolder.name, x.previousHolder.until)}</span>}
                                     {x.note && <span className="text-sm text-muted">{x.note}</span>}
                                   </span>
                                   {mayManage && (
                                     <span className="flex flex-wrap items-center gap-2">
-                                      <Button type="button" variant="secondary" onClick={() => { setFormErr(null); setAddingTo(null); setEditingAccount(x.id); }}>{c.editCustomer}</Button>
-                                      <Button type="button" variant="danger" onClick={() => void retire(b, x)}>{c.retire}</Button>
+                                      <Button type="button" variant="secondary" onClick={() => { setFormErr(null); setAddingTo(null); setEditingAccount(x.id); }}>{c.editAccount}</Button>
+                                      <Button type="button" variant="secondary" onClick={() => void pastHolders(x)}>{c.pastHolders}</Button>
+                                      <Button type="button" variant="danger" onClick={() => setDeleting({ id: x.id, name: x.name, businessId: b.id, kind: 'account' })}>{c.retire}</Button>
                                     </span>
                                   )}
                                 </div>
 
+                                {holders[x.id] && (
+                                  <div className="rounded-md border border-line p-2 text-sm">
+                                    <p className="font-medium">{c.pastHolders}</p>
+                                    {holders[x.id]!.length === 0 && <p className="text-muted">{c.pastHoldersNone}</p>}
+                                    <ul>{holders[x.id]!.map((h, i) => <li key={i} className="text-muted">{h.name} · {c.wasHeldBy(h.name, h.deletedAt.slice(0, 10))}</li>)}</ul>
+                                  </div>
+                                )}
                                 <div className="space-y-2 rounded-md border border-line p-2">
                                   <p className="text-sm font-medium">{c.accountsUnder(x.name)}</p>
                                   {x.children.length === 0 && addingTo !== x.id && <p className="text-sm text-muted">{c.noAccountsUnder}</p>}
@@ -253,8 +288,8 @@ export function Businesses() {
                                             <span className="text-base"><code>{k.fullNumber}</code> · {k.name}{k.note ? <span className="text-sm text-muted"> · {k.note}</span> : null}</span>
                                             {mayManage && (
                                               <span className="flex flex-wrap items-center gap-2">
-                                                <Button type="button" variant="secondary" onClick={() => { setFormErr(null); setEditingAccount(k.id); }}>{c.editCustomer}</Button>
-                                                <Button type="button" variant="danger" onClick={() => void retire(b, k)}>{c.retire}</Button>
+                                                <Button type="button" variant="secondary" onClick={() => { setFormErr(null); setEditingAccount(k.id); }}>{c.editAccount}</Button>
+                                                <Button type="button" variant="danger" onClick={() => setDeleting({ id: k.id, name: k.name, businessId: b.id, kind: 'account' })}>{c.retire}</Button>
                                               </span>
                                             )}
                                           </div>
@@ -280,6 +315,10 @@ export function Businesses() {
         </ul>
       </Card>
       {!mayManage && <p className="mt-4 text-sm text-muted">{c.noManage}</p>}
+      <PasswordConfirmDialog open={deleting !== null} danger busy={busy}
+        title={deleting ? c.deleteTitle(deleting.name) : ''}
+        challenge={deleting ? { label: c.typeName(deleting.name), expected: deleting.name } : undefined}
+        onConfirm={(pw) => void confirmDelete(pw)} onCancel={() => setDeleting(null)} />
     </>
   );
 }

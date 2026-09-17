@@ -165,3 +165,43 @@ three-level picker, and the unmatched card's reasons.
 - Re-pointing a payment from one account to another: an assign labels a row the payer's own number
   could not sort; it never moves money between accounts.
 - Reports grouped per sub-account: the report narrows to one account; its per-business table stays.
+## Item 1b — the words, and what "delete" means (2026-09-17, second change)
+
+**Words.** Level 2 is an account, not a customer: it can be a clinic, a church, a room, a tenant.
+Level 3 is a sub-account. The page title is Accounts, the buttons are Add an account and Add a
+sub-account, the name box asks "What is this account for?"; the API is `/api/accounts` and
+`/api/accounts/:id/sub-accounts`; the tracker's scope kind is `accounts`; the tracker line reads
+"Account numbers: 3 digits, 412 of 900 used"; and the notification says "Account numbers for Shop
+now have 4 digits." The prose that meant the person paying ("the customer scans this…") now says
+payer or they, so the word does not survive anywhere the owner's rule covers.
+
+**Delete means delete.** `accounts.retired_at` is gone: a delete removes the row and, with it, every
+sub-account under it. The numbers return to the free pool of their width, and the tracker row for a
+scope is dropped so the next mint opens the width it needs. `number_history` keeps one row per
+deleted thing — business code, full number, level, name, phone, created and deleted dates, who did
+it — and nothing else about it is kept.
+
+| Where the record shows | How |
+|---|---|
+| An old money row | The digits are on the row for ever; a lateral join on `number_history` by full number gives "was <name>, deleted <date>". |
+| A number handed out again | The account view (and the money row it labels) explains "This number belonged to <name> until <date>" for twelve months after the reissue. |
+| "Past holders of this number" | `GET /api/accounts/:id/history` lists every holder, newest first. |
+
+**Minting draws from the lowest width with a free number.** The live count decides, not a counter:
+a width is skipped while 900 rows hold it (and marked closed at that moment), and a width that has a
+free number again is reopened. Growth — the owner's notification and the audit row — is a width that
+never existed before and is longer than the base, so the first width and a reopened one are not
+"growth". The 12-digit cap and the advisory lock are unchanged.
+
+**Deleting asks twice.** The route requires the exact name in the body (`400 name_mismatch` when it
+does not match) behind `requireStepUp`, which wants the account password (or the PIN once item 3
+lands); the page asks for both in the dialog the studio's own delete already used. A wrong name or a
+wrong password writes nothing, proven by a test that counts the rows afterwards.
+
+**Tests** (`server/test/businesses.test.ts`, 37 tests): the words in the parser; the delete that frees
+a number and hands the same digits out again; the lowest free width first, with a real closed width
+reopening; the history row per deleted row with the level and the deleter and no phone; the business
+delete refused while accounts remain, and its code free after; the twelve-month "belonged to" line on
+the account and on an old money row; "Past holders"; and both refusals (name and password) leaving
+everything in place. Web: the page's Accounts/Sub-accounts wording, the delete dialog that sends the
+name and the password and refuses a partial name, and the unmatched card's renamed field.

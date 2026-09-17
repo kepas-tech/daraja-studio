@@ -13,7 +13,7 @@ export interface ResolvedAccount {
 export async function resolveAccount(db: Db, accountId: string, businessId?: string | null): Promise<ResolvedAccount> {
   const [row] = await db.query<{ id: string; business_id: string; parent_id: string | null; full_number: string; name: string; phone: string | null }>(
     `SELECT id, business_id, parent_id, full_number, name, phone FROM accounts
-      WHERE id=$1 AND retired_at IS NULL AND ($2::uuid IS NULL OR business_id = $2::uuid)`,
+      WHERE id=$1 AND ($2::uuid IS NULL OR business_id = $2::uuid)`,
     [accountId, businessId ?? null]);
   if (!row) {
     throw new HttpError(400, 'unknown_account', businessId

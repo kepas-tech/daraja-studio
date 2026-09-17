@@ -36,7 +36,7 @@ export function parseInvoices(text: string): { rows: InvoiceRow[]; errors: Invoi
     }
     if (rows.length + errors.length >= INVOICE_MAX_ROWS) { errors.push({ line, message: `More than ${INVOICE_MAX_ROWS} rows. Split the list.` }); return; }
     const [customerName, phoneText, invoiceName, accountReference, billedPeriod, dueDate, amountText] = [f[0] ?? '', f[1] ?? '', f[2] ?? '', f[3] ?? '', f[4] ?? '', f[5] ?? '', (f[6] ?? '').replace(/,/g, '')];
-    if (!customerName) { errors.push({ line, message: 'The customer name is missing.' }); return; }
+    if (!customerName) { errors.push({ line, message: 'The name is missing.' }); return; }
     let customerPhone: string;
     try { customerPhone = normalizePhone(phoneText); } catch { errors.push({ line, message: 'Not a Kenyan mobile number.' }); return; }
     if (!invoiceName) { errors.push({ line, message: 'The invoice name is missing.' }); return; }

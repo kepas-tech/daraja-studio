@@ -130,8 +130,8 @@ export function classify(e: ClassifyInput): Classified | null {
     const businessId = typeof payload.businessId === 'string' ? payload.businessId : null;
     const accountId = typeof payload.accountId === 'string' ? payload.accountId : null;
     const who = payload.scope === 'sub_accounts'
-      ? 'Accounts under ' + (typeof payload.accountName === 'string' ? payload.accountName : 'a customer')
-      : 'Customer numbers for ' + (typeof payload.businessName === 'string' ? payload.businessName : 'a business');
+      ? 'Sub-accounts under ' + (typeof payload.accountName === 'string' ? payload.accountName : 'an account')
+      : 'Account numbers for ' + (typeof payload.businessName === 'string' ? payload.businessName : 'a business');
     return {
       severity: 'info', category: 'accounts', type: 'accounts.width_grew', title: 'Longer account numbers',
       body: who + ' now have ' + width + ' digits. All 900 shorter numbers are used.',

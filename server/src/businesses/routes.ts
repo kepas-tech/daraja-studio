@@ -1,26 +1,31 @@
 import { Router, type Request } from 'express';
 import { z } from 'zod';
 import type { AppDeps } from '../app.js';
-import { requireAuth, requireCsrf } from '../auth/middleware.js';
+import { requireAuth, requireCsrf, requireStepUp } from '../auth/middleware.js';
 import { requirePermission } from '../permissions/middleware.js';
 import { clientIp } from '../util/ip.js';
 import { HttpError } from '../util/errors.js';
 
 /**
- * Brief 2, item 1. Reading is open to any signed-in person, because the Send, Bulk, Ask-to-pay, QR
- * and invoice screens all pick from this list; writing takes the new businesses.manage, which is in
- * no role preset — deciding whose money a payment is, and naming the account a payer will use, is
- * the owner's job. Every write lands in audit_log.
+ * Brief 2, items 1 and 1b. Reading is open to any signed-in person, because the Send, Ask-for-payment,
+ * QR and invoice screens all pick from this list; writing takes businesses.manage, which is in no role
+ * preset — deciding whose money a payment is, and naming the account a payer will use, is the owner's
+ * job. Every write lands in audit_log.
  *
- * No account body has a number field, and every one of them is strict: a client that sends a number
- * for Studio to use gets a 400 rather than a row. The number is always minted here.
+ * No account body has a number field, and every one of them is strict: a client that sends a number —
+ * or a business code — for Studio to use gets a 400 rather than a row.
+ *
+ * Deleting works like deleting the studio: the person types the exact name of the thing, then their
+ * password (or their PIN). A wrong name and a wrong password both delete nothing, and the server
+ * checks the name itself rather than trusting the dialog.
  */
 
 const name = z.string().trim().min(1).max(80);
 const phone = z.string().trim().min(1).max(20).optional();
 const note = z.string().trim().max(200).optional();
 const uuid = z.string().uuid();
-
+/** The typed name is the confirmation; the password is taken out of the body by requireStepUp. */
+const deleteSchema = z.object({ name: z.string().max(80) }).strict();
 const updateSchema = z.object({ name, active: z.boolean() });
 /**
  * Strict on purpose, both of them: a business code and an account number are Studio's to give, so
@@ -86,6 +91,18 @@ export function businessesRoutes(deps: AppDeps): Router {
     } catch (e) { next(e); }
   });
 
+  // Deleting a business is the studio's own ceremony: exact name, then password or PIN. Refused
+  // while it still has accounts, whose numbers are somebody's.
+  r.delete('/:id', requirePermission(deps.db, 'businesses.manage'), requireStepUp(deps.db), async (req, res, next) => {
+    try {
+      const id = String(req.params.id);
+      if (!isUuid(id)) throw new HttpError(404, 'not_found', NOT_FOUND);
+      const b = parse(deleteSchema, req.body);
+      await deps.businesses.deleteBusiness(id, b.name, actor(req));
+      res.status(204).end();
+    } catch (e) { next(e); }
+  });
+
   r.get('/:id/accounts', async (req, res, next) => {
     try {
       const id = String(req.params.id);
@@ -112,13 +129,24 @@ export function accountsRoutes(deps: AppDeps): Router {
   const r = Router();
   r.use(requireAuth(deps.db), requireCsrf);
 
-  // An account under a customer. Refused a level deeper: an account under an account is not allowed.
-  r.post('/:id/children', requirePermission(deps.db, 'businesses.manage'), async (req, res, next) => {
+  // A sub-account under an account. Refused a level deeper.
+  r.post('/:id/sub-accounts', requirePermission(deps.db, 'businesses.manage'), async (req, res, next) => {
     try {
       const id = String(req.params.id);
       if (!isUuid(id)) throw new HttpError(404, 'not_found', ACCOUNT_NOT_FOUND);
       const b = parse(accountSchema, req.body);
-      res.status(201).json(await deps.businesses.addChild(id, b, actor(req)));
+      res.status(201).json(await deps.businesses.addSubAccount(id, b, actor(req)));
+    } catch (e) { next(e); }
+  });
+
+  // Every past holder of this number. Reading is open to whoever may look at the account.
+  r.get('/:id/history', async (req, res, next) => {
+    try {
+      const id = String(req.params.id);
+      if (!isUuid(id)) throw new HttpError(404, 'not_found', ACCOUNT_NOT_FOUND);
+      const [account] = await deps.db.query<{ full_number: string }>(`SELECT full_number FROM accounts WHERE id=$1`, [id]);
+      if (!account) throw new HttpError(404, 'not_found', ACCOUNT_NOT_FOUND);
+      res.json({ items: await deps.businesses.history(account.full_number) });
     } catch (e) { next(e); }
   });
 
@@ -131,11 +159,14 @@ export function accountsRoutes(deps: AppDeps): Router {
     } catch (e) { next(e); }
   });
 
-  r.delete('/:id', requirePermission(deps.db, 'businesses.manage'), async (req, res, next) => {
+  // Delete means delete: the row and its sub-accounts go, the numbers return to the free pool, and
+  // number_history keeps who held them. Exact name, then password or PIN.
+  r.delete('/:id', requirePermission(deps.db, 'businesses.manage'), requireStepUp(deps.db), async (req, res, next) => {
     try {
       const id = String(req.params.id);
       if (!isUuid(id)) throw new HttpError(404, 'not_found', ACCOUNT_NOT_FOUND);
-      await deps.businesses.retireAccount(id, actor(req));
+      const b = parse(deleteSchema, req.body);
+      await deps.businesses.deleteAccount(id, b.name, actor(req));
       res.status(204).end();
     } catch (e) { next(e); }
   });
