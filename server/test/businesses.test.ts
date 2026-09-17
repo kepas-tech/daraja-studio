@@ -280,6 +280,14 @@ describe('businesses and their account numbers', () => {
     expect(row.numbers).toEqual({ width: 3, capacity: 900, used: 0 });
   });
 
+  it('counts accounts that were written before the tracker existed', async () => {
+    const b = await addBusiness('Shop');
+    // No number_widths row at all: two accounts of the shortest width, as a carried-over business has.
+    await deps.db.query(`INSERT INTO accounts(business_id, number, name) VALUES ($1,'000','Jane'), ($1,'359','John')`, [b.id]);
+    const list = await h(request(app).get('/api/businesses'));
+    expect(list.body.items[0].numbers).toEqual({ width: 3, capacity: 900, used: 2 });
+  });
+
   it('a retired number is never handed out again, and still counts against its width', async () => {
     const b = await addBusiness('Shop');
     // The second mint draws the retired 359 first and clashes, then takes 888: never the old number.

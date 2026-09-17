@@ -119,6 +119,16 @@ async function widthReport(db: Db): Promise<Map<string, NumberWidth>> {
       .reduce((sum, c) => sum + Number(c.n), 0);
     out.set(row.scope_id, { width: row.width, capacity: row.capacity, used });
   }
+  // A business whose accounts were written before this feature has no width row yet. It is on its
+  // shortest width, and those rows are what is already used; the next mint opens the same row and
+  // counts them the same way, so the line never says 0 while accounts exist.
+  for (const businessId of new Set(counts.map((c) => c.business_id))) {
+    if (out.has(businessId)) continue;
+    const mine = counts.filter((c) => c.business_id === businessId);
+    const width = Math.min(...mine.map((c) => Number(c.w)));
+    const used = mine.filter((c) => Number(c.w) === width).reduce((sum, c) => sum + Number(c.n), 0);
+    out.set(businessId, { width, capacity: WIDTH_CAPACITY, used });
+  }
   return out;
 }
 
