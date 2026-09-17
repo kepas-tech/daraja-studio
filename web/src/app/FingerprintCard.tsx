@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useSession } from './session';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
+import { FingerprintIcon } from '../components/LockIcons';
 import { useToast } from '../components/Toast';
 import { copy } from '../copy/en';
 
@@ -23,7 +24,7 @@ export function FingerprintCard() {
     if (ok) toast.success(copy.bio.on); else toast.error(copy.bio.failed);
   };
   return (
-    <Card title={copy.bio.ask} className="mb-6" bodyClassName="space-y-3 p-4" data-testid="bio-card">
+    <Card title={<span className="flex items-center gap-2"><FingerprintIcon />{copy.bio.ask}</span>} className="mb-6" bodyClassName="space-y-3 p-4" data-testid="bio-card">
       <p className="text-sm text-muted">{copy.bio.askBody}</p>
       <div className="flex flex-wrap gap-2">
         <Button type="button" disabled={busy} onClick={() => void turnOn()}>{copy.bio.turnOn}</Button>

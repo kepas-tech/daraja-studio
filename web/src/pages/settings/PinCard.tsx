@@ -5,6 +5,7 @@ import { useSession } from '../../app/session';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { ErrorCard, explainApiError, type Explained } from '../../components/ErrorCard';
+import { FingerprintIcon } from '../../components/LockIcons';
 import { TextField } from '../../components/TextField';
 import { useToast } from '../../components/Toast';
 import { copy } from '../../copy/en';
@@ -83,10 +84,13 @@ export function PinCard({ stepUp }: { stepUp: StepUp }) {
         <ul className="space-y-2">
           {devices.map((d) => (
             <li key={d.id} data-testid="bio-device" className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line p-3">
-              <span>
-                <strong>{d.label}</strong>
-                <span className="block text-xs text-muted">
-                  {copy.bio.added} {when(d.createdAt)} · {copy.bio.lastUsed} {d.lastUsedAt ? when(d.lastUsedAt) : copy.bio.never}
+              <span className="flex items-center gap-3">
+                <FingerprintIcon />
+                <span>
+                  <strong>{d.label}</strong>
+                  <span className="block text-xs text-muted">
+                    {copy.bio.added} {when(d.createdAt)} · {copy.bio.lastUsed} {d.lastUsedAt ? when(d.lastUsedAt) : copy.bio.never}
+                  </span>
                 </span>
               </span>
               <Button type="button" variant="danger" onClick={() => void removeDevice(d)}>{copy.bio.remove}</Button>

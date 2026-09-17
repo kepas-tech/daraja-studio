@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.36.0 — a fingerprint that looks like one
+
+- The fingerprint icon is Studio's own drawing now: three concentric ridges around a core loop, on
+  the same 24 px box and 1.6 round stroke as the other two keypad icons.
+- It is drawn in the brand's own pair — the green token carries the ridges and the red one marks the
+  core, the same two colours as the logo — so it reads as branded, never as a warning.
+- The same component shows wherever the fingerprint is offered: the lock screen's key, the card that
+  offers it, and every device listed under Organisation.
+
 ## 0.35.0 — the full logo on both PIN screens
 
 - The lock screen shows the **full Daraja Studio logo** where the letter square and the separate

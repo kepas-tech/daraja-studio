@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor, cleanup, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, cleanup, act, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { api } from '../api/client';
@@ -205,6 +205,8 @@ describe('the fingerprint card and the Organisation list', () => {
     await signedIn();
     const card = await screen.findByTestId('bio-card', {}, SLOW);
     expect(card).toHaveTextContent(copy.bio.ask);
+    // The one fingerprint icon, item 6: the card that offers it carries it too.
+    expect(within(card).getByTestId('fingerprint-icon')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: copy.bio.notNow }));
     expect(screen.queryByTestId('bio-card')).toBeNull();
     expect(localStorage.getItem('studio.bio.dismissed')).toBe('1');
@@ -249,6 +251,7 @@ describe('the fingerprint card and the Organisation list', () => {
     };
     render(<SessionProvider><PinCard stepUp={stepUp} /></SessionProvider>);
     const row = await screen.findByTestId('bio-device', {}, SLOW);
+    expect(within(row).getByTestId('fingerprint-icon')).toBeInTheDocument();
     expect(row).toHaveTextContent('iPhone');
     expect(row).toHaveTextContent(copy.bio.never);
     fireEvent.click(screen.getByRole('button', { name: copy.bio.remove }));

@@ -1,7 +1,7 @@
 /**
- * The three keypad icons kepas-pay draws inline on its lock screen, ported path for path: the
- * fingerprint arc set, the X on the Cancel key, and the backspace arrow. 24 px, stroke-width 1.6,
- * currentColor, so they take the colour of the key they sit on.
+ * The keypad icons. The X on the Cancel key and the backspace arrow are kepas-pay's own paths; the
+ * fingerprint is Studio's (item 6), drawn on the same 24 px box with the same 1.6 round stroke so it
+ * sits with them.
  */
 const base = {
   viewBox: '0 0 24 24',
@@ -15,10 +15,21 @@ const base = {
   'aria-hidden': true,
 } as const;
 
+/**
+ * The fingerprint, on the same 24 px box and 1.6 round stroke as the two kepas-pay icons above.
+ * Three concentric ridges wrap a core loop, the shape a fingerprint actually reads as. The colour is
+ * the brand's own pair: the green token carries every ridge and the red one marks the core, the same
+ * green-and-red the logo uses — so it reads as branded, never as a warning. It is decorative: the
+ * control that shows it carries the label.
+ */
 export function FingerprintIcon() {
   return (
-    <svg {...base}>
-      <path d="M12 11a3 3 0 0 0-3 3v2M12 11a3 3 0 0 1 3 3v1M7 8a7 7 0 0 1 10 0M5 12a9 9 0 0 1 1.6-5M19 12a9 9 0 0 0-1.6-5M9 20a12 12 0 0 1-1-8M15 20a12 12 0 0 0 1-6" />
+    <svg {...base} data-testid="fingerprint-icon">
+      {/* The core loop, open at the bottom like the ridges around it. */}
+      <path className="stroke-danger" d="M 10.27 13.05 A 2 2.3 0 1 1 13.73 13.05" />
+      <path className="stroke-brand" d="M 8.91 15.29 A 4.8 4.3 0 1 1 15.09 15.29" />
+      <path className="stroke-brand" d="M 8.53 17.92 A 7.4 6.7 0 1 1 15.47 17.92" />
+      <path className="stroke-brand" d="M 8.97 20.46 A 9.8 8.9 0 1 1 15.03 20.46" />
     </svg>
   );
 }
