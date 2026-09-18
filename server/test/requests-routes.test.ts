@@ -271,6 +271,18 @@ describe('GET /api/requests', () => {
     expect(row.party).toEqual({ name: 'Jane Doe', number: '254700123457', savedName: 'Mum' });
   });
 
+  // Phase A: a payment from a number in the owner's own address book is named by that contact, even
+  // when Safaricom sent no name at all — the live paybill payments arrive this way.
+  it('names a payer from the saved contact that holds their number', async () => {
+    await deps.db.query(`INSERT INTO contacts(kind, name, phone) VALUES ('phone','Mum','254712345678')`);
+    const [row] = await deps.db.query<{ id: string }>(
+      `INSERT INTO requests(type, subtype, originator_conversation_id, status, amount_cents, currency, recipient_kind, recipient_value, recipient_name, sent_at, result_at)
+       VALUES ('c2b','Pay Bill','oc-contact','completed',25000,'KES','phone','254712345678','MPESA',now(),now()) RETURNING id`);
+    const g = await request(app).get(`/api/requests/${row.id}`).set('Cookie', cookie);
+    expect(g.body.direction).toBe('in');
+    expect(g.body.party).toEqual({ name: 'Mum', number: '254712345678', savedName: 'Mum' });
+  });
+
   it('never shows a name Safaricom only sent as a token', async () => {
     const [row] = await deps.db.query<{ id: string }>(
       `INSERT INTO requests(type, subtype, originator_conversation_id, status, amount_cents, currency, recipient_kind, recipient_value, sent_at)

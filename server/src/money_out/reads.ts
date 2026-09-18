@@ -81,12 +81,22 @@ export type ViewRow = RequestRow & {
 /** Every column the view needs, with the two display-name joins, plus a microsecond-exact text
  * rendering of created_at for cursor paging — a JS Date only holds milliseconds, so the
  * cursor must be built from this text column, never from row.created_at. Append WHERE/ORDER/LIMIT. */
-export const VIEW_SELECT = `SELECT r.*, p.display_name AS created_by_name, c.display_name AS checked_by_name, a.display_name AS approved_by_name, ct.name AS contact_name,
+export const VIEW_SELECT = `SELECT r.*, p.display_name AS created_by_name, c.display_name AS checked_by_name, a.display_name AS approved_by_name, COALESCE(ct.name, pc.name) AS contact_name,
   bz.name AS business_name, ac.name AS account_name, ac.full_number AS account_number,
   dh.name AS deleted_name, dh.deleted_text AS deleted_at_text, ph.name AS previous_name, ph.until_text AS previous_until_text,
   to_char(r.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_cursor
   FROM requests r LEFT JOIN people p ON p.id = r.created_by LEFT JOIN people c ON c.id = r.checked_by LEFT JOIN people a ON a.id = r.approved_by
   LEFT JOIN contacts ct ON ct.id = r.contact_id
+  -- Round 3, phase A: a row written before the contact link existed, or one that arrived without a
+  -- request of ours at all (money in never names a contact), still belongs to a number the owner has
+  -- saved. The name the owner gave that number is its saved name there too, so a payment from a known
+  -- phone shows the person rather than a number alone. A deliberately retired contact is not matched:
+  -- the row keeps whatever its own link already holds.
+  LEFT JOIN LATERAL (
+    SELECT c2.name FROM contacts c2
+     WHERE c2.kind = 'phone' AND c2.phone = r.recipient_value AND c2.deleted_at IS NULL
+     ORDER BY c2.created_at ASC LIMIT 1
+  ) pc ON true
   LEFT JOIN businesses bz ON bz.id = r.business_id LEFT JOIN accounts ac ON ac.id = r.account_id
   -- Brief 2, item 1b, the two places the record shows on a money row. The digits the payer typed are
   -- on the row for ever; when the account they named has been deleted, the newest holder of those

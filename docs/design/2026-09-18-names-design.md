@@ -78,6 +78,16 @@ Ratiba and invoice payments were missing from "money in".
 | 10 | `DebitPartyName` is never read | read, and chosen by the row's direction: money in takes the payer, money out the payee |
 | 11 | The validation callback drops the name | kept in the cache for half an hour, keyed by the receipt, and used when the confirmation arrives without one |
 
+## The saved name that belongs to a number, not to a row
+
+A payment that arrives without a request of ours never named a contact, so a paybill payment had no
+saved name even when the payer's number was already in the address book — and the Pull API's `MPESA`
+placeholder is not a name either. The read layer therefore matches a row to the phone contact that
+holds its number (a lateral join in `VIEW_SELECT`), the same way a send links the contact it was made
+with. The owner's own label for that number becomes the row's saved name, and a contact retired on
+purpose is not matched: the row keeps whatever its own link already holds. This works on the rows
+already written, so no database row is rewritten.
+
 ## What this phase does not change
 
 - No migration: the column stays, and `recipient_name` is not in migration 004's final-row guard, so
