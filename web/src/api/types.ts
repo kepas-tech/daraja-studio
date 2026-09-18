@@ -133,6 +133,14 @@ export interface RequestView {
    * written before the feature, and on an amount no band covers — never a zero standing for unknown. */
   chargeCents?: number | null;
 }
+/** Round 3, phase D-5: the case file on a payment, as `/api/requests/:id/case` reads it. */
+export interface CaseNoteView { id: string; note: string; at: string; by: { id: string; displayName: string } | null }
+export interface CaseView {
+  id: string; requestId: string; title: string; status: 'open' | 'closed';
+  openedAt: string; openedBy: { id: string; displayName: string } | null;
+  closedAt: string | null; closedBy: { id: string; displayName: string } | null;
+  outcome: string | null; notes: CaseNoteView[];
+}
 export interface BulkRow { line: number; phone: string; amountCents: number; name: string | null; note: string | null }
 export interface BulkCheck { rows: BulkRow[]; errors: { line: number; message: string }[]; count: number; totalCents: number }
 export interface BulkResult { requestId?: string; status: string; error?: string; retriable?: boolean }

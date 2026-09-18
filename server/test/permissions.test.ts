@@ -10,9 +10,11 @@ const deps = testDeps();
 afterAll(() => deps.db.end());
 
 describe('permissions', () => {
-  it('catalog has the 22 keys with labels and roles', () => {
-    expect(PERMISSIONS.length).toBe(22);
+  it('catalog has the 23 keys with labels and roles', () => {
+    expect(PERMISSIONS.length).toBe(23);
     expect(PERMISSIONS.find((p) => p.key === 'send.phone')?.role).toBe('ORG B2C API Initiator');
+    // Round 3, phase D-5: the case file's own key, and the only one added since this list.
+    expect(PERMISSIONS.find((p) => p.key === 'cases.manage')?.label).toBe('Can open, record and close a case on a payment');
     expect(isPermissionKey('send.phone')).toBe(true);
     expect(isPermissionKey('nope')).toBe(false);
   });

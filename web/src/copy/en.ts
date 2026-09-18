@@ -547,6 +547,28 @@ export const copy = {
     notHere: 'This receipt was not sent from here.', ask: 'Ask Safaricom about this receipt',
     inFlight: 'Studio already asked Safaricom about this receipt. Wait for that answer.',
   },
+  /**
+   * Round 3, phase D-5: the case file on a payment that went wrong. Paper only: opening, recording
+   * and closing change nothing about the money.
+   */
+  caseFile: {
+    title: 'Case file',
+    intro: 'A payment that went wrong: open a case, write down what was done, and close it with how it ended. A case is paper — it moves no money.',
+    what: 'What went wrong?',
+    open: 'Open a case',
+    opening: 'Opening…',
+    openStatus: 'Open',
+    closedStatus: 'Closed',
+    opened: (w: string, who: string | null) => (who ? `Opened by ${who} on ${w}` : `Opened on ${w}`),
+    closed: (w: string, who: string | null) => (who ? `Closed by ${who} on ${w}` : `Closed on ${w}`),
+    whatWasDone: 'What was done',
+    noNotes: 'Nothing recorded yet.',
+    note: 'Record what was done',
+    addNote: 'Add to the case',
+    outcome: 'How it ended',
+    close: 'Close the case',
+    closedNote: 'A closed case takes nothing more. Open a new one if there is more to do.',
+  },
   reverse: {
     title: 'Reverse a payment', safaricom: 'Reversal',
     receipt: 'M-Pesa receipt', hint: '10 letters and numbers, like RI6BZTPXNM',

@@ -61,6 +61,8 @@ import type { BusinessTypesService } from './businesses/types.js';
 import type { StatementService } from './businesses/statement.js';
 import type { ReconcileService } from './reconcile/service.js';
 import { reconcileRoutes } from './reconcile/routes.js';
+import type { CasesService } from './cases/service.js';
+import { caseRoutes, requestCaseRoutes } from './cases/routes.js';
 import type { InvoicesService } from './invoices/service.js';
 import type { Scheduler } from './scheduler/loop.js';
 import type { PushService } from './push/service.js';
@@ -95,6 +97,8 @@ export interface AppDeps {
   statements: StatementService;
   /** Round 3, phase D-1: Safaricom's record against Studio's, read only. */
   reconcile: ReconcileService;
+  /** Round 3, phase D-5: the case file on a payment. */
+  cases: CasesService;
   /** Brief 2, item 2: the three states that mean something is wrong, for Home's banner. */
   problems: ProblemService;
   /** Brief 2, item 5b: the fingerprint ceremonies. Absent in tests that build the app without one. */
@@ -177,6 +181,10 @@ export function buildApp(deps: AppDeps): express.Express {
   app.use('/api/business-types', businessTypesRoutes(deps));
   // Round 3, phase D-1: check nothing is missing. A read that reaches Safaricom for its record.
   app.use('/api/reconcile', reconcileRoutes(deps));
+  // Round 3, phase D-5: the payment's own case file, then what is done to a case. The first is
+  // mounted with the payment's id in the path, so it sits above the requests router.
+  app.use('/api/requests/:id/case', requestCaseRoutes(deps));
+  app.use('/api/cases', caseRoutes(deps));
   app.use('/api/accounts', accountsRoutes(deps));
   // Feature 4: the inbox the writer fills and the bell reads.
   app.use('/api/notifications', notificationRoutes(deps));

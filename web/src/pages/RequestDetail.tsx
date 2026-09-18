@@ -2,9 +2,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { api } from '../api/client';
 import { useEvents } from '../api/events';
-import type { Confirm, RequestView } from '../api/types';
+import { useSession } from '../app/session';
+import type { CaseView, Confirm, RequestView } from '../api/types';
 import { Button } from '../components/Button';
 import { TextField } from '../components/TextField';
+import { StatusPill } from '../components/StatusPill';
 import { ErrorCard, explainApiError, type Explained } from '../components/ErrorCard';
 import { PageHeader } from '../components/PageHeader';
 import { RequestCard } from '../components/RequestCard';
@@ -31,6 +33,26 @@ export function RequestDetail() {
     const t = setInterval(() => void load(), 15_000);
     return () => clearInterval(t);
   }, [r, load]);
+  // Round 3, phase D-5: the case file on this payment. `undefined` until the read lands, `null`
+  // when this payment has none; the box is drawn either way, so the empty state is where a case
+  // is opened from.
+  const { person, permissions } = useSession();
+  const mayManageCase = !!person?.is_owner || permissions.includes('cases.manage');
+  const [cs, setCs] = useState<CaseView | null | undefined>(undefined);
+  const [caseTitle, setCaseTitle] = useState(''); const [caseNote, setCaseNote] = useState(''); const [caseOutcome, setCaseOutcome] = useState('');
+  const [caseBusy, setCaseBusy] = useState(false); const [caseErr, setCaseErr] = useState<Error | Explained | null>(null);
+  // Only a real case is drawn: a shape this page has not seen leaves the box empty rather than
+  // taking the payment's own page down with it.
+  const loadCase = useCallback(() => api.get<CaseView | null>(`/api/requests/${id}/case`)
+    .then((r) => setCs(r && typeof r.status === 'string' && Array.isArray(r.notes) ? r : null))
+    .catch(() => setCs(null)), [id]);
+  useEffect(() => { void loadCase(); }, [loadCase]);
+  const caseAct = async (send: () => Promise<CaseView>, after?: () => void) => {
+    setCaseBusy(true); setCaseErr(null);
+    try { setCs(await send()); after?.(); }
+    catch (e) { setCaseErr(explainApiError(e)); }
+    finally { setCaseBusy(false); }
+  };
   const check = async () => { setErr(null); try { await api.post(`/api/requests/${id}/check`); setMsg(copy.request.checkSent); toast.info(copy.request.checkSent); } catch (e) { setErr(explainApiError(e)); } };
   const markChecked = async (confirm: Confirm) => {
     setBusy(true); setDialogError(null);
@@ -64,6 +86,58 @@ export function RequestDetail() {
           {r.resultAt && <><dt className="text-muted">{copy.request.timeline.result}</dt><dd>{when(r.resultAt)}{r.resultSource && <span className="text-sm text-muted"> · {copy.request.source[r.resultSource] ?? r.resultSource}</span>}</dd></>}
           {r.checked && <><dt className="text-muted">{copy.request.timeline.checked}</dt><dd>{when(r.checked.at)}</dd></>}
         </dl>
+        {/* Round 3, phase D-5: the case file. Paper, not money: it records what happened and it
+            never changes the payment it is about. */}
+        {cs !== undefined && (
+          <div data-testid="case-file" className="rounded-md border border-line bg-surface p-5">
+            <h2 className="text-base font-semibold">{copy.caseFile.title}</h2>
+            {cs === null ? (
+              <>
+                <p className="mt-1 text-sm text-muted">{copy.caseFile.intro}</p>
+                {mayManageCase && (
+                  <div className="mt-3 space-y-3">
+                    <TextField label={copy.caseFile.what} value={caseTitle} onChange={(e) => setCaseTitle(e.target.value)} maxLength={120} />
+                    <Button type="button" disabled={!caseTitle.trim() || caseBusy} onClick={() => void caseAct(() => api.post<CaseView>(`/api/requests/${id}/case`, { title: caseTitle.trim() }), () => setCaseTitle(''))}>{caseBusy ? copy.caseFile.opening : copy.caseFile.open}</Button>
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <p className="mt-1 flex flex-wrap items-center gap-2 text-base font-semibold">
+                  {cs.title}
+                  <StatusPill kind={cs.status === 'open' ? 'warn' : 'muted'}>{cs.status === 'open' ? copy.caseFile.openStatus : copy.caseFile.closedStatus}</StatusPill>
+                </p>
+                <p className="text-sm text-muted">{copy.caseFile.opened(when(cs.openedAt), cs.openedBy?.displayName ?? null)}</p>
+                <p className="mt-3 text-sm font-semibold">{copy.caseFile.whatWasDone}</p>
+                {cs.notes.length === 0 ? <p className="text-sm text-muted">{copy.caseFile.noNotes}</p> : (
+                  <ul className="mt-1 space-y-2">
+                    {cs.notes.map((n) => (
+                      <li key={n.id} className="text-base">
+                        {n.note}
+                        <span className="block text-sm text-muted">{when(n.at)}{n.by ? ' · ' + n.by.displayName : ''}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {cs.status === 'open' && mayManageCase && (
+                  <div className="mt-4 space-y-3">
+                    <TextField label={copy.caseFile.note} value={caseNote} onChange={(e) => setCaseNote(e.target.value)} maxLength={1000} />
+                    <Button type="button" variant="secondary" disabled={!caseNote.trim() || caseBusy} onClick={() => void caseAct(() => api.post<CaseView>(`/api/cases/${cs.id}/notes`, { note: caseNote.trim() }), () => setCaseNote(''))}>{copy.caseFile.addNote}</Button>
+                    <TextField label={copy.caseFile.outcome} value={caseOutcome} onChange={(e) => setCaseOutcome(e.target.value)} maxLength={500} />
+                    <Button type="button" disabled={!caseOutcome.trim() || caseBusy} onClick={() => void caseAct(() => api.post<CaseView>(`/api/cases/${cs.id}/close`, { outcome: caseOutcome.trim() }), () => setCaseOutcome(''))}>{copy.caseFile.close}</Button>
+                  </div>
+                )}
+                {cs.status === 'closed' && (
+                  <p className="mt-3 text-base">
+                    <span className="font-semibold">{copy.caseFile.outcome}: </span>{cs.outcome}
+                    <span className="block text-sm text-muted">{copy.caseFile.closed(when(cs.closedAt), cs.closedBy?.displayName ?? null)} · {copy.caseFile.closedNote}</span>
+                  </p>
+                )}
+              </>
+            )}
+            {caseErr && <div className="mt-3"><ErrorCard error={caseErr} /></div>}
+          </div>
+        )}
       </div>
       <PasswordConfirmDialog open={confirm} title={copy.request.markCheckedConfirm} busy={busy} error={dialogError} onConfirm={(confirm) => void markChecked(confirm)} onCancel={() => setConfirm(false)} />
     </>

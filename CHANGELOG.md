@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.45.0 — a case file on a payment that went wrong
+
+- **Every payment has a case file under its timeline.** Open a case with one line about what went
+  wrong, record what was done as it happens — each entry keeps who wrote it and when — and close it
+  with how it ended. The closed case keeps every note and stays on the payment.
+- **A case is paper.** Nothing on it moves money, changes the payment or sends anything: a reversal,
+  a refund or a resend stays on the screen it always had. One open case per payment; a case already
+  closed takes nothing more, and a new one can follow it if the payment goes wrong twice.
+- **A new permission, `cases.manage`**, is what opening, recording and closing need; reading the case
+  needs only the permission the payment's own page needs. The operator preset carries it.
 ## 0.44.0 — the first time you pay a number
 
 - **The review screen says when this studio has never paid the number before**, beside the name

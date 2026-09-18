@@ -9,7 +9,7 @@ import type { PermissionKey } from './catalog.js';
  */
 export const ROLE_PRESETS: Record<'operator' | 'viewer' | 'approver', PermissionKey[]> = {
   /** Staff who send. */
-  operator: ['balances.view', 'send.phone', 'send.pochi', 'pay.paybill', 'pay.till', 'lookup.view', 'money_in.view', 'history.export'],
+  operator: ['balances.view', 'send.phone', 'send.pochi', 'pay.paybill', 'pay.till', 'lookup.view', 'money_in.view', 'history.export', 'cases.manage'],
   /** An accountant or an auditor. */
   viewer: ['balances.view', 'lookup.view', 'money_in.view', 'history.export'],
   /** A second pair of eyes (M4): looks, and releases or refuses held sends; never sends. */

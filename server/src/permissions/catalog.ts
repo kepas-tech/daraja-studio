@@ -21,6 +21,7 @@ export const PERMISSIONS = [
   { key: 'history.export', label: 'Can export history', role: null },
   { key: 'contacts.manage', label: 'Can keep the contact list', role: null },
   { key: 'businesses.manage', label: 'Can set up businesses and their accounts', role: null },
+  { key: 'cases.manage', label: 'Can open, record and close a case on a payment', role: null },
 ] as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[number]['key'];

@@ -529,10 +529,15 @@ export const guide: GuideSection[] = [
           'Needs a check means Safaricom never answered. Press Check with Safaricom now; Studio also checks on its own five times.',
           'Mark as checked records what you found out another way (for example, "Paid, seen on Safaricom’s site").',
           'Send again reopens Send money with the same details; nothing goes out until you go through Review again. Reverse this payment opens Reverse with the receipt filled in, for a payment that was paid.',
+          'A payment that went wrong has a case file under the timeline: open a case, record what was done as you go, and close it with how it ended. A case is paper — it moves no money, and a closed one keeps every note.',
         ],
         api: [
           { method: 'POST', path: '/api/requests/:id/check', who: 'signed in' },
           { method: 'POST', path: '/api/requests/:id/checked', who: 'lookup.view, password; body { note }' },
+          { method: 'GET', path: '/api/requests/:id/case', who: 'lookup.view; the case on this payment, open or closed' },
+          { method: 'POST', path: '/api/requests/:id/case', who: 'cases.manage; body { title }' },
+          { method: 'POST', path: '/api/cases/:id/notes', who: 'cases.manage; body { note }' },
+          { method: 'POST', path: '/api/cases/:id/close', who: 'cases.manage; body { outcome }' },
         ],
       },
       {
