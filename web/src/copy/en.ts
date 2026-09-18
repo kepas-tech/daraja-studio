@@ -567,6 +567,19 @@ export const copy = {
     clearAccount: 'Show every account',
     /** Feature 3: every row the filters select, in a file for a spreadsheet. */
     export: 'Export as a spreadsheet', exporting: 'Making the file…', exported: 'Saved to your downloads.',
+    /**
+     * Round 3, phase D-3: the checks Studio has made with Safaricom. A check moves no money; it
+     * asks what happened to a payment, and its own answer is kept and listed here.
+     */
+    checks: {
+      title: 'Recent checks',
+      intro: 'Every time Studio asks Safaricom about a payment it is listed here with the answer. A check moves no money.',
+      onPayment: (who: string) => `Check on ${who}`,
+      onReceipt: (receipt: string) => `Look up ${receipt}`,
+      askedBy: (who: string) => `asked by ${who}`,
+      byItself: 'Studio on its own',
+      waiting: 'No answer yet.',
+    },
   },
   reports: {
     title: 'Reports',

@@ -510,9 +510,11 @@ export const guide: GuideSection[] = [
           'Press Export as a spreadsheet to save every row your filters select, not only the seven on screen, as a file you can open in Excel. The button shows for the owner and for anybody given permission to export.',
           'Press a row to open the payment’s own page: amount, who, receipt, when, and the timeline (Created, Sent, Result) with where the result came from.',
           'A receipt that was not sent from here shows "This receipt was not sent from here" and a button, Ask Safaricom about this receipt. The answer lands on the same page within a few minutes.',
+          'Under the list, Recent checks: every time Studio has asked Safaricom about a payment — your own presses of Check, a receipt you looked up, and the checks Studio makes by itself — with the answer it got, newest first. A check moves no money, so it is listed apart from the payments.',
         ],
         api: [
           { method: 'GET', path: '/api/requests', who: 'lookup.view; filters as query strings' },
+          { method: 'GET', path: '/api/requests/checks', who: 'lookup.view; the newest checks, up to 20' },
           { method: 'GET', path: '/api/requests/:id', who: 'lookup.view' },
           { method: 'GET', path: '/api/requests/export.csv', who: 'history.export; the same filters as the list, every matching row' },
           { method: 'POST', path: '/api/lookup', who: 'lookup.view; body { receipt }' },
@@ -544,7 +546,7 @@ export const guide: GuideSection[] = [
           'Pick how far back — seven, thirty or ninety days — and press Check now. Studio asks Safaricom for its own record of that window.',
           'The first list is what Safaricom shows and Studio has no record of, with the receipt, the amount, the payer and the account they typed. Nothing is written by this page: Check for missed payments, on Money in, is the press that records one.',
           'The second list is the other way round: a payment Studio recorded that Safaricom’s pull did not return. Open it in History to see what happened to it.',
-          'Below them, the two balances Safaricom last reported are compared with the money that moved between them — money in to Working, payouts and their charges from Utility — so you can see whether the books are complete. A difference is stated, never hidden.',
+          'Below them, the two balances Safaricom last reported are added together and compared with the money that moved between them, so you can see whether the books are complete. Which float account Safaricom credits is left to Safaricom, and each account’s own change is shown beside the total. A difference is stated, never hidden.',
         ],
         api: [
           { method: 'POST', path: '/api/reconcile', who: 'money_in.view; body { days } — reads only' },

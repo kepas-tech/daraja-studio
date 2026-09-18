@@ -4,7 +4,7 @@ import type { AppDeps } from '../app.js';
 import { requireAuth, requireCsrf, requireStepUp } from '../auth/middleware.js';
 import { requirePermission, assertPermission, personPermissions } from '../permissions/middleware.js';
 import { requireMoneyReady } from './ready.js';
-import { getRequest, listRequests, type RequestView } from './reads.js';
+import { getRequest, listChecks, listRequests, type RequestView } from './reads.js';
 import { audit } from '../audit/log.js';
 import { EXPORT_MAX, nairobiStamp, sendCsv, shillings, toCsv, todayNairobi } from '../export/csv.js';
 import { statusLabel, whatLabel } from '../export/labels.js';
@@ -56,6 +56,8 @@ const listSchema = z.object({
   businessId: z.string().uuid().optional(), accountId: z.string().uuid().optional(),
 }).refine((v) => !v.from || !v.to || v.from <= v.to, { message: 'The end date must be on or after the start date.', path: ['to'] });
 const checkedSchema = z.object({ note: z.string().trim().min(1).max(500) });
+// Round 3, phase D-3: the History panel shows the newest few checks; the read owns the ceiling.
+const checksSchema = z.object({ limit: z.coerce.number().int().min(1).max(20).default(5) });
 
 /** Feature 3: the columns an exported History carries, in the order the page reads. The number
  * column is the phone the payer paid from or the person was paid on, whichever way the row went. */
@@ -147,6 +149,14 @@ export function requestRoutes(deps: AppDeps): Router {
       sendCsv(res, `history-${todayNairobi()}.csv`, toCsv(HISTORY_COLUMNS, items.map(historyRow)));
     } catch (e) { next(e); }
   });
+  // Round 3, phase D-3: the checks Studio has made with Safaricom, newest first. Read-only, the
+  // same permission the list uses. Registered before /:id so "checks" is never read as an id.
+  r.get('/checks', requirePermission(deps.db, 'lookup.view'), async (req, res, next) => {
+    try {
+      const qy = parse(checksSchema, req.query);
+      res.json({ items: await listChecks(deps.db, { limit: qy.limit }) });
+    } catch (e) { next(e); }
+  });
   r.get('/:id', requirePermission(deps.db, 'lookup.view'), async (req, res, next) => {
     try {
       const id = String(req.params.id);
@@ -178,7 +188,7 @@ export function requestRoutes(deps: AppDeps): Router {
       const kind = KINDS[row.type];
       if (!kind) throw new HttpError(404, 'not_found', 'That request does not exist.');
       await assertPermission(deps.db, req.person!, kind.permission);
-      const { queryId } = await deps.moneyOut.pollOne(id);
+      const { queryId } = await deps.moneyOut.pollOne(id, { personId: req.person!.id });
       res.status(202).json({ requestId: queryId });
     } catch (e) { next(e); }
   });

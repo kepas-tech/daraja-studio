@@ -275,6 +275,76 @@ export async function listRequests(db: Db, query: ListQuery, egressIps: string[]
   return { items: page.map((row) => toView(row, egressIps)), nextCursor: more && last && last.created_cursor ? encodeCursor(last.created_cursor, last.id) : null };
 }
 
+/** How many checks the History list shows. */
+export const CHECKS_LIMIT = 20;
+
+/**
+ * Round 3, phase D-3: a check Studio made with Safaricom. Every one of these is already a
+ * `requests` row of type `status_query` — the sweep's own polls, a person pressing Check on a
+ * payment, and a receipt typed into History — written so the answer can be matched when it comes
+ * back. Nothing listed them; this is that read. A health probe is not a check a person made, so it
+ * is left out.
+ */
+export interface CheckView {
+  id: string;
+  /** How it was made: the sweep, a person pressing Check, or a receipt looked up. */
+  kind: 'sweep' | 'manual' | 'lookup';
+  /** What it was about. A lookup names only the receipt that was typed. */
+  target: { requestId: string | null; receipt: string | null; name: string | null; number: string | null };
+  status: string;
+  /** Safaricom's own words, then Studio's reading of its code. */
+  said: string | null;
+  meaning: string | null;
+  askedAt: string;
+  resultAt: string | null;
+  askedBy: { id: string; displayName: string } | null;
+}
+
+interface CheckRow {
+  id: string; subtype: string | null; status: string; result_code: string | null; result_desc: string | null;
+  created_at: Date; result_at: Date | null; recipient_value: string | null; created_by: string | null; asked_by_name: string | null;
+  target_id: string | null; target_receipt: string | null; target_name: string | null; target_value: string | null;
+}
+
+export async function listChecks(db: Db, opts: { limit?: number } = {}): Promise<CheckView[]> {
+  const limit = Math.min(Math.max(opts.limit ?? 5, 1), CHECKS_LIMIT);
+  const rows = await db.query<CheckRow>(`
+    SELECT q.id, q.subtype, q.status, q.result_code, q.result_desc, q.created_at, q.result_at, q.recipient_value,
+           q.created_by, p.display_name AS asked_by_name,
+           t.id AS target_id, t.receipt AS target_receipt, t.recipient_name AS target_name, t.recipient_value AS target_value
+      FROM requests q
+      LEFT JOIN people p ON p.id = q.created_by
+      -- The payment a check was about is named in the check's own payload. Matching it as text
+      -- never casts a value that an older or hand-written payload could break, and the list is
+      -- only ever the newest few rows.
+      LEFT JOIN requests t ON t.id::text = q.payload_json->>'targetRequestId'
+     WHERE q.type = 'status_query' AND q.subtype IN ('sweep','manual','lookup')
+     ORDER BY q.created_at DESC, q.id DESC
+     LIMIT $1`,
+    [limit],
+  );
+  return rows.map((r) => {
+    const ex = r.result_code !== null ? explain('status', r.result_code, r.result_desc ?? '') : null;
+    const targetNumber = isPhoneToken(r.target_value) ? null : r.target_value;
+    return {
+      id: r.id,
+      kind: (r.subtype ?? 'sweep') as CheckView['kind'],
+      target: {
+        requestId: r.target_id,
+        receipt: r.target_id ? r.target_receipt : r.recipient_value,
+        name: r.target_id ? personName(r.target_name) : null,
+        number: r.target_id ? targetNumber : null,
+      },
+      status: r.status,
+      said: r.result_desc,
+      meaning: ex?.meaning ?? null,
+      askedAt: r.created_at.toISOString(),
+      resultAt: r.result_at?.toISOString() ?? null,
+      askedBy: r.created_by ? { id: r.created_by, displayName: r.asked_by_name ?? '' } : null,
+    };
+  });
+}
+
 /** Feature 5: how many rows a Waiting section shows before it says it is cut off. */
 export const WAITING_LIMIT = 100;
 

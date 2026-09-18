@@ -4,11 +4,11 @@ import { useSession } from '../app/session';
 import { ErrorCard, explainApiError, type Explained } from '../components/ErrorCard';
 import { Flash } from '../components/Flash';
 import { useToast } from '../components/Toast';
-import { useSearchParams } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { api, saveDownload } from '../api/client';
-import type { BusinessView, Page, RequestView } from '../api/types';
+import type { BusinessView, CheckView, Page, RequestView } from '../api/types';
 import { Button } from '../components/Button';
-import { Card } from '../components/Card';
+import { Card, cardRow } from '../components/Card';
 import { StatusPill } from '../components/StatusPill';
 import { STATUS_TONE } from '../components/RequestCard';
 import { PageHeader } from '../components/PageHeader';
@@ -47,15 +47,28 @@ export function History() {
   const [lookup, setLookup] = useState<RequestView | null>(null);
   const [lookupErr, setLookupErr] = useState<Error | Explained | null>(null);
   const [askedFor, setAskedFor] = useState('');
+  // Round 3, phase D-3: the checks Studio has made with Safaricom — the sweep's own polls, a
+  // person pressing Check, and a receipt looked up here. Read beside the list, and re-read when a
+  // lookup is answered, so the panel and the payment never disagree.
+  const [checks, setChecks] = useState<CheckView[]>([]);
+  const loadChecks = useCallback(() => {
+    // Only what this panel understands is drawn: a list that does not look like checks leaves the
+    // panel out rather than drawing a row of blanks.
+    api.get<{ items: CheckView[] }>('/api/requests/checks?limit=5')
+      .then((r) => setChecks((r.items ?? []).filter((c) => c && typeof c.kind === 'string' && c.target != null)))
+      .catch(() => setChecks([]));
+  }, []);
+  useEffect(loadChecks, [loadChecks]);
   const reload = useCallback((id: string) => api.get<RequestView>(`/api/requests/${id}`).then((r) => {
     setLookup(r);
     if (r.status !== 'sent') {
       setPending(null);
+      loadChecks();
       if (r.status === 'completed') toast.success(r.meaning ?? copy.lookup.says);
       else if (r.status === 'unknown') toast.error(copy.lookup.noAnswer);
       else if (r.status === 'failed') toast.error(r.meaning ?? r.safaricomSaid ?? copy.error.generic);
     }
-  }).catch(() => {}), [toast]);
+  }).catch(() => {}), [toast, loadChecks]);
   useEvents(useCallback((e) => { const p = e.payload as { id?: string }; if (e.type === 'request.updated' && pending && p.id === pending) void reload(pending); }, [pending, reload]), pending !== null, useCallback(() => { if (pending) void reload(pending); }, [pending, reload]));
   useEffect(() => {
     if (!pending) return;
@@ -94,9 +107,10 @@ export function History() {
   // A filter change starts again from the first page.
   useEffect(() => { setStack([]); }, [q, from, to, status, direction, business, accountId]);
   useEffect(() => {
+    loadChecks();
     const t = setTimeout(() => { api.get<Page<RequestView>>(`/api/requests?${params(cursor)}`).then((r) => { setItems(r.items); setNext(r.nextCursor); setLoaded(true); }).catch(() => setLoaded(true)); }, 200);
     return () => clearTimeout(t);
-  }, [params, cursor]);
+  }, [params, cursor, loadChecks]);
   const control = 'min-h-10 rounded-md border border-line bg-surface px-3 text-base text-ink focus:outline-2 focus:-outline-offset-1 focus:outline-brand';
   return (
     <>
@@ -179,6 +193,32 @@ export function History() {
           <span className="text-sm text-muted">{copy.history.page(stack.length + 1)}</span>
           <Button type="button" variant="secondary" disabled={!next} onClick={() => { if (next) setStack((s) => [...s, next]); }}>{copy.history.next}</Button>
         </div>
+      )}
+      {/* Round 3, phase D-3: what Studio has asked Safaricom, and what came back. A check moves no
+          money, so it sits in its own box under the payments rather than among them. */}
+      {checks.length > 0 && (
+        <Card className="mt-6" title={copy.history.checks.title} bodyClassName="p-0">
+          <p className="border-b border-line bg-page px-4 py-2 text-sm text-muted">{copy.history.checks.intro}</p>
+          <ul>
+            {checks.map((c) => {
+              const who = c.target.name ?? c.target.number ?? c.target.receipt ?? '—';
+              return (
+                <li key={c.id} data-testid={'check-' + c.id} className={cardRow + ' flex flex-wrap items-center justify-between gap-3 text-base'}>
+                  <span className="min-w-0">
+                    {c.target.requestId
+                      ? <Link to={'/requests/' + c.target.requestId}>{copy.history.checks.onPayment(who)}</Link>
+                      : <span>{copy.history.checks.onReceipt(who)}</span>}
+                    <span className="block text-sm text-muted">
+                      {when(c.askedAt)}{' · '}{c.kind === 'sweep' || !c.askedBy ? copy.history.checks.byItself : copy.history.checks.askedBy(c.askedBy.displayName)}
+                    </span>
+                  </span>
+                  <span className="text-sm text-muted">{c.meaning ?? c.said ?? copy.history.checks.waiting}</span>
+                  <StatusPill kind={STATUS_TONE[c.status] ?? 'muted'}>{copy.request.status[c.status] ?? c.status}</StatusPill>
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
       )}
     </>
   );

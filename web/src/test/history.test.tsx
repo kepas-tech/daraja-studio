@@ -22,7 +22,8 @@ describe('History', () => {
     render(<MemoryRouter><History /></MemoryRouter>);
     await screen.findByText('RI1');
     expect(screen.getAllByRole('row')).toHaveLength(3);
-    expect(urls.find((u) => u.includes('/api/requests'))).toContain('limit=7');
+    // `/api/requests/checks` is its own read (phase D-3), so the list's own URL is the one asked for.
+    expect(urls.find((u) => u.includes('/api/requests?'))).toContain('limit=7');
     expect(screen.getByText(copy.history.page(1))).toBeInTheDocument();
     expect(screen.getByRole('button', { name: copy.history.previous })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: copy.history.next }));

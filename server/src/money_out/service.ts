@@ -40,7 +40,8 @@ export interface MoneyOutService {
   /** The registered name behind a phone number, when Safaricom lets this shortcode ask. */
   nameCheck(phone: string): Promise<NameCheck>;
   sweep(): Promise<{ polled: number; expired: number }>;
-  pollOne(requestId: string): Promise<{ queryId: string }>;
+  /** Round 3, phase D-3: `actor` is who pressed Check, recorded on the check's own row. */
+  pollOne(requestId: string, actor?: { personId: string }): Promise<{ queryId: string }>;
   markChecked(requestId: string, note: string, actor: Actor): Promise<RequestView>;
   refreshBalance(actor: Actor | null): Promise<{ requestId: string }>;
   lookup(receipt: string, actor: Actor): Promise<{ requestId: string }>;
@@ -178,7 +179,7 @@ export function createMoneyOutService(deps: { db: Db; settings: Settings; cache:
 
   /** One status query for a target. Counts the attempt before the call so a crash mid-call still
    * counts. */
-  async function pollTarget(client: Daraja, cb: CallbackUrls, target: { id: string; originator_conversation_id: string }, subtype: 'sweep' | 'manual'): Promise<{ ok: true; queryId: string } | { ok: false; reason: 'sdk_rejected' | 'not_recorded' }> {
+  async function pollTarget(client: Daraja, cb: CallbackUrls, target: { id: string; originator_conversation_id: string }, subtype: 'sweep' | 'manual', createdBy: string | null = null): Promise<{ ok: true; queryId: string } | { ok: false; reason: 'sdk_rejected' | 'not_recorded' }> {
     await deps.db.query(`UPDATE requests SET poll_attempts = poll_attempts + 1, last_poll_at = now() WHERE id=$1`, [target.id]);
     let ack: { conversationId: string; originatorConversationId: string };
     try {
@@ -188,7 +189,7 @@ export function createMoneyOutService(deps: { db: Db; settings: Settings; cache:
       return { ok: false, reason: 'sdk_rejected' };
     }
     try {
-      const q = await recordStatusQuery(ack, { subtype, payload: { targetRequestId: target.id, ackOriginatorConversationId: ack.originatorConversationId } });
+      const q = await recordStatusQuery(ack, { subtype, payload: { targetRequestId: target.id, ackOriginatorConversationId: ack.originatorConversationId }, createdBy });
       return { ok: true, queryId: q.id };
     } catch (e) {
       // Safaricom accepted the query (the ack above succeeded) but our own bookkeeping failed to
@@ -653,7 +654,7 @@ export function createMoneyOutService(deps: { db: Db; settings: Settings; cache:
       return { polled, expired: expired.length };
     },
 
-    async pollOne(requestId) {
+    async pollOne(requestId, actor) {
       const orgId = requireOrg();
       const [t] = await deps.db.query<{ id: string; originator_conversation_id: string; status: string; poll_attempts: number; type: string; last_poll_at: Date | null }>(
         `SELECT id, ${SAFARICOM_OCID} AS originator_conversation_id, status, poll_attempts, type, last_poll_at FROM requests WHERE id=$1 AND org_id=$2`, [requestId, orgId]);
@@ -667,7 +668,7 @@ export function createMoneyOutService(deps: { db: Db; settings: Settings; cache:
       }
       if (t.poll_attempts >= MAX_POLLS) throw new HttpError(409, 'poll_cap', 'Studio has already asked Safaricom 5 times. Check the Safaricom portal, then Mark as checked.');
       const client = await deps.daraja.getForOperator();
-      const outcome = await pollTarget(client, await urls(), t, 'manual');
+      const outcome = await pollTarget(client, await urls(), t, 'manual', actor?.personId ?? null);
       if (!outcome.ok) {
         if (outcome.reason === 'sdk_rejected') throw new HttpError(502, 'status_query_rejected', 'Safaricom did not accept the check. Try again in a moment.');
         throw new HttpError(500, 'status_query_not_recorded', 'Studio could not record the check. Try again.');

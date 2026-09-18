@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.43.0 — recent checks on History
+
+- **History lists the checks Studio has made with Safaricom**, under the payments: a person pressing
+  Check on a payment, a receipt looked up, and the checks Studio makes by itself — newest first, each
+  with what Safaricom answered and a link to the payment it was about. A check moves no money, so it
+  is listed apart from the payments rather than among them.
+- **A check made by hand now records who asked**, and the list shows it.
+- **The manual's reconciliation step is corrected with it**: the last two balances are added together
+  and compared with the money that moved between them, because which float account Safaricom credits
+  is Safaricom's to decide.
 ## 0.42.0 — both float balances, named
 
 - **Home names both accounts**: Working, Utility, and what is still waiting to go out, on one line

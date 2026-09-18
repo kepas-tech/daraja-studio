@@ -397,10 +397,12 @@ Safaricom calls this: Account Statement · Where: History · Who: Anyone logged 
 4. Press Export as a spreadsheet to save every row your filters select, not only the seven on screen, as a file you can open in Excel. The button shows for the owner and for anybody given permission to export.
 5. Press a row to open the payment’s own page: amount, who, receipt, when, and the timeline (Created, Sent, Result) with where the result came from.
 6. A receipt that was not sent from here shows "This receipt was not sent from here" and a button, Ask Safaricom about this receipt. The answer lands on the same page within a few minutes.
+7. Under the list, Recent checks: every time Studio has asked Safaricom about a payment — your own presses of Check, a receipt you looked up, and the checks Studio makes by itself — with the answer it got, newest first. A check moves no money, so it is listed apart from the payments.
 
 | Method | Path | Who |
 |---|---|---|
 | GET | `/api/requests` | lookup.view; filters as query strings |
+| GET | `/api/requests/checks` | lookup.view; the newest checks, up to 20 |
 | GET | `/api/requests/:id` | lookup.view |
 | GET | `/api/requests/export.csv` | history.export; the same filters as the list, every matching row |
 | POST | `/api/lookup` | lookup.view; body { receipt } |
@@ -425,7 +427,7 @@ Where: Check nothing is missing · Who: Anybody who may see money in · Route: /
 1. Pick how far back — seven, thirty or ninety days — and press Check now. Studio asks Safaricom for its own record of that window.
 2. The first list is what Safaricom shows and Studio has no record of, with the receipt, the amount, the payer and the account they typed. Nothing is written by this page: Check for missed payments, on Money in, is the press that records one.
 3. The second list is the other way round: a payment Studio recorded that Safaricom’s pull did not return. Open it in History to see what happened to it.
-4. Below them, the two balances Safaricom last reported are compared with the money that moved between them — money in to Working, payouts and their charges from Utility — so you can see whether the books are complete. A difference is stated, never hidden.
+4. Below them, the two balances Safaricom last reported are added together and compared with the money that moved between them, so you can see whether the books are complete. Which float account Safaricom credits is left to Safaricom, and each account’s own change is shown beside the total. A difference is stated, never hidden.
 
 | Method | Path | Who |
 |---|---|---|

@@ -158,6 +158,14 @@ export type NameCheck =
   | { available: true; name: string }
   | { available: false; reason: 'not_found' | 'not_enabled' | 'unavailable'; said: string | null };
 export interface BalanceView { workingCents: number | null; utilityCents: number | null; chargesPaidCents: number | null; queriedAt: string; /** Feature 9: money-out that has not finished, in cents. */ waitingCents: number }
+/** Round 3, phase D-3: one check Studio made with Safaricom, as `GET /api/requests/checks` reads it. */
+export interface CheckView {
+  id: string; kind: 'sweep' | 'manual' | 'lookup';
+  target: { requestId: string | null; receipt: string | null; name: string | null; number: string | null };
+  status: string; said: string | null; meaning: string | null;
+  askedAt: string; resultAt: string | null;
+  askedBy: { id: string; displayName: string } | null;
+}
 /** `GET /api/contacts` (design 2026-09-16). Only what the page shows; the row's own id is the handle. */
 export interface ContactView {
   id: string; kind: 'phone' | 'till' | 'paybill';
