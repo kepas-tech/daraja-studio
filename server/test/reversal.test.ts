@@ -1,7 +1,7 @@
 import { describe, it, expect, afterAll, beforeEach } from 'vitest';
 import request from 'supertest';
 import type express from 'express';
-import { makeApp, loginAsOwner } from './helpers.js';
+import { makeApp, loginAsOwner, loginAs, makePerson, TEST_ORG_ID } from './helpers.js';
 import { createFakeSafaricom } from '../src/dev/fakeSafaricom.js';
 import { encrypt } from '../src/crypto/secrets.js';
 import { ALREADY_REVERSED, NOT_SETTLED, REVERSAL_QUEUE_TIMEOUT, SPENT_MEANING, createReversalService } from '../src/money_out/reversal.js';
@@ -47,6 +47,7 @@ interface ReversalRow {
  *   5  a queue timeout lands unknown and the sweep resolves it
  *   6  the kind is registered where money out is counted
  *   7  a failed attempt does not burn the receipt, because nothing was reversed
+ *   8  staff ask, the owner approves (phase D-6): nothing reaches Safaricom until the release
  */
 describe('M3: reverse a payment', () => {
   let cookie: string; let csrf: string;
@@ -277,5 +278,48 @@ describe('M3: reverse a payment', () => {
     expect(second.status).toBe(201);
     expect(second.body.status).toBe('sent');
     expect(await reversalRows()).toHaveLength(2);
+  });
+
+  // Round 3, phase D-6: a reversal is irreversible, so somebody who may ask but not approve only
+  // asks. The request waits exactly as a held send does, and nothing reaches Safaricom until the
+  // owner releases it.
+  it('rule 8: staff ask, the owner approves, and nothing moves until then', async () => {
+    const settled = await settledSend(100);
+    await makePerson(deps.db, TEST_ORG_ID, { username: 'staff', password: PASSWORD, role: 'custom' });
+    await deps.db.query(`INSERT INTO permissions(person_id, permission) SELECT id, 'reverse.request' FROM people WHERE username='staff'`);
+    const s = await loginAs(app, 'staff', PASSWORD);
+
+    const asked = await request(app).post('/api/send/reversal').set('Cookie', s.cookie).set('x-csrf-token', s.csrf).send({ receipt: settled.receipt, password: PASSWORD });
+    expect(asked.status).toBe(201);
+    expect(asked.body.status).toBe('awaiting_approval');
+    expect(asked.body.createdBy.displayName).toBe('staff');
+    // The request exists; Safaricom has not been asked.
+    expect(reversalCalls()).toHaveLength(0);
+    expect((await rowOf(asked.body.id)).status).toBe('awaiting_approval');
+
+    // Nobody releases their own request, however senior.
+    const own = await request(app).post(`/api/approvals/${asked.body.id}/release`).set('Cookie', s.cookie).set('x-csrf-token', s.csrf).send({ password: PASSWORD });
+    expect(own.status).toBe(403);
+
+    // It is in the owner's Waiting list, and the owner's release sends it down the ordinary path.
+    const waiting = await request(app).get('/api/approvals').set('Cookie', cookie).set('x-csrf-token', csrf);
+    expect(waiting.body.items.map((x: { id: string }) => x.id)).toContain(asked.body.id);
+    const released = await request(app).post(`/api/approvals/${asked.body.id}/release`).set('Cookie', cookie).set('x-csrf-token', csrf).send({ password: PASSWORD });
+    expect(released.status).toBe(201);
+    expect(released.body.status).toBe('sent');
+    expect(released.body.approvedBy.displayName).toBe('Owner');
+    expect(reversalCalls()).toHaveLength(1);
+    expect((await deps.db.query<{ action: string }>(`SELECT action FROM audit_log WHERE target=$1 ORDER BY action`, [asked.body.id])).map((a) => a.action))
+      .toEqual(['request.held', 'request.released', 'reversal.requested']);
+    await fake.settle();
+  });
+
+  it('rule 8b: somebody who may approve reverses in one press, as before', async () => {
+    const settled = await settledSend(100);
+    const r = await reverse(settled.receipt);
+    expect(r.status).toBe(201);
+    expect(r.body.status).toBe('sent');
+    expect(reversalCalls()).toHaveLength(1);
+    await fake.settle();
   });
 });

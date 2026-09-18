@@ -15,7 +15,7 @@ import { explain } from '../sdk/meaning.js';
 import { HttpError } from '../util/errors.js';
 import { clientIp } from '../util/ip.js';
 import { requireAuth, requireCsrf, requireStepUp } from '../auth/middleware.js';
-import { requirePermission } from '../permissions/middleware.js';
+import { personPermissions, requirePermission } from '../permissions/middleware.js';
 import { requireMoneyReady } from './ready.js';
 import { getRequest, type RequestView } from './reads.js';
 import { KINDS, LEDGER_TYPES, type RequestRow } from './registry.js';
@@ -78,7 +78,12 @@ export async function findSettledPayment(db: Db, receipt: string): Promise<Settl
 
 export interface ReversalService {
   find(receipt: string): Promise<SettledPayment | null>;
-  request(input: { receipt: string; remarks?: string }, actor: { personId: string; ip: string }): Promise<RequestView>;
+  /**
+   * Round 3, phase D-6: `hold` writes the request and stops — it waits for somebody else to
+   * approve it, exactly as a send above the approval threshold does. A person who may approve
+   * their own request gets the reversal sent straight away.
+   */
+  request(input: { receipt: string; remarks?: string }, actor: { personId: string; ip: string }, opts?: { hold?: boolean }): Promise<RequestView>;
 }
 
 export function createReversalService(deps: { db: Db; settings: Settings; daraja: DarajaFactory; events: EventHub; config: Config; orgs: OrgService; /** Brief 2, item 7. */ failover?: Failover }): ReversalService {
@@ -91,7 +96,7 @@ export function createReversalService(deps: { db: Db; settings: Settings; daraja
   return {
     find: (receipt) => findSettledPayment(deps.db, receipt),
 
-    async request(input, actor) {
+    async request(input, actor, opts) {
       const receipt = input.receipt.trim().toUpperCase();
       if (!RECEIPT_RE.test(receipt)) throw new HttpError(400, 'bad_receipt', 'An M-Pesa receipt is 10 letters and numbers, like RI6BZTPXNM.');
 
@@ -129,6 +134,20 @@ export function createReversalService(deps: { db: Db; settings: Settings; daraja
           [actor.personId, r.id, null, JSON.stringify({ amountCents: settled.amountCents, reversalOfRequestId: settled.requestId }), actor.ip]);
         return r;
       });
+
+      // M4, for reversals (phase D-6): somebody who may ask but not approve only asks. The row
+      // drops its operator and waits, and the Waiting page's Release sends it down exactly the
+      // path a direct reversal takes, so there is one way to Safaricom, not two.
+      if (opts?.hold) {
+        await deps.db.query(`UPDATE requests SET status='awaiting_approval', operator_id=NULL WHERE id=$1 AND status='pending'`, [row.id]);
+        await deps.db.query(
+          `INSERT INTO audit_log(person_id, action, target, before_json, after_json, ip) VALUES ($1,'request.held',$2,$3::jsonb,$4::jsonb,$5)`,
+          [actor.personId, row.id, null, JSON.stringify({ type: kind.type, amountCents: settled.amountCents, reversalOfRequestId: settled.requestId, reason: 'reversal_request' }), actor.ip]);
+        await deps.events.publish('request.updated', { id: row.id, status: 'awaiting_approval' });
+        const held = await getRequest(deps.db, row.id, deps.config.egressIps);
+        if (!held) throw new HttpError(500, 'not_recorded', 'Studio could not read back the reversal it recorded.');
+        return held;
+      }
 
       let status: string;
       try {
@@ -220,7 +239,11 @@ export function reversalRoutes(deps: AppDeps): Router {
   r.post('/reversal', requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'reverse.request'), requireMoneyReady(deps), requireStepUp(deps.db), async (req, res, next) => {
     try {
       const b = parse(reversalSchema, req.body);
-      res.status(201).json(await service.request(b, { personId: req.person!.id, ip: clientIp(req) }));
+      // Phase D-6: a reversal is irreversible, so somebody who may ask but not approve only asks.
+      // The owner, or anybody given send.approve, still reverses in one press.
+      const person = req.person!;
+      const mayApprove = person.is_owner || (await personPermissions(deps.db, person.id)).includes('send.approve');
+      res.status(201).json(await service.request(b, { personId: person.id, ip: clientIp(req) }, { hold: !mayApprove }));
     } catch (e) { next(e); }
   });
   return r;

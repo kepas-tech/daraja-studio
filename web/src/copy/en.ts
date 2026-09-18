@@ -575,10 +575,16 @@ export const copy = {
     find: 'Find that payment', finding: 'Looking for that payment…',
     found: 'That payment settled here', settledOn: 'Settled', willTakeBack: 'Studio will ask Safaricom to take this back from the payer.',
     irreversible: 'A reversal cannot be undone. Check the receipt and the amount before you confirm.',
+    /**
+     * Round 3, phase D-6: a reversal asked for by somebody who may not approve it. The password
+     * records the request; nothing reaches Safaricom until the owner releases it.
+     */
+    askApproval: 'Somebody else approves this one. Your password records the request, and the owner — or anyone with the approval right — releases it from Waiting. Safaricom is not asked until then.',
+    waitingLink: 'See it in Waiting',
     spent: 'Safaricom can only take back money the payer still has. If it is spent, the reversal is refused.',
     confirmTitle: (amount: string, receipt: string) => 'Reverse ' + amount + ' from ' + receipt + '?',
     button: 'Reverse', back: 'Back',
-    result: { sent: 'Reversal sent. Waiting for Safaricom…', completed: 'Reversed.', failed: 'Not reversed.', unknown: 'We do not know yet. Studio will check.', another: 'Reverse another' },
+    result: { sent: 'Reversal sent. Waiting for Safaricom…', completed: 'Reversed.', failed: 'Not reversed.', unknown: 'We do not know yet. Studio will check.', awaiting_approval: 'Asked. Waiting for approval.', another: 'Reverse another' },
     history: 'The reversal shows in History.',
   },
   history: {

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.46.0 — a staff member asks for a reversal, the owner approves
+
+- **A reversal asked for by somebody who may not approve it now waits.** The password records the
+  request; it appears on Waiting with the held payments, and Safaricom is not asked until the owner
+  — or anybody with the approval right — releases it. The owner, and anybody with `send.approve`,
+  still reverse in one press, exactly as before.
+- **Nobody releases their own request**, the same rule held sends already follow.
+- **The reverse page says which of the two it is** before the password is typed, and the result
+  names the wait with a link to Waiting. The release sends the reversal down the ordinary reversal
+  path, so there is one way to Safaricom, not two.
 ## 0.45.0 — a case file on a payment that went wrong
 
 - **Every payment has a case file under its timeline.** Open a case with one line about what went

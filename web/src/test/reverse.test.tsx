@@ -125,4 +125,26 @@ describe('Reverse', () => {
     expect(within(link).queryByText('Coming soon')).not.toBeInTheDocument();
     expect(copy.nav.find((e) => e.key === 'reverse')!.available).toBe(true);
   });
+
+  // Round 3, phase D-6: a reversal asked for by somebody who may not approve it waits for the
+  // owner. The page says so before the password, and the result names the wait.
+  it('says a reversal by somebody without approval waits for the owner', async () => {
+    const held = { ...sent, status: 'awaiting_approval' };
+    const fetchMock = fetchFor({
+      [`GET /api/send/reversal/${RECEIPT}`]: () => new Response(JSON.stringify(settled), { status: 200 }),
+      'POST /api/send/reversal': () => new Response(JSON.stringify(held), { status: 201 }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(<MemoryRouter><Reverse /></MemoryRouter>);
+    fireEvent.change(screen.getByLabelText(copy.reverse.receipt), { target: { value: RECEIPT } });
+    fireEvent.click(screen.getByRole('button', { name: copy.reverse.find }));
+    await screen.findByText(copy.reverse.found);
+    expect(screen.getByTestId('ask-approval')).toHaveTextContent(copy.reverse.askApproval);
+
+    fireEvent.click(screen.getByRole('button', { name: copy.reverse.button }));
+    fireEvent.change(screen.getByLabelText(copy.confirm.yourPassword), { target: { value: 'studio-pw' } });
+    fireEvent.click(screen.getByRole('button', { name: copy.confirm.confirm }));
+    expect(await screen.findByText(copy.reverse.result.awaiting_approval)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: copy.reverse.waitingLink })).toHaveAttribute('href', '/approvals');
+  });
 });

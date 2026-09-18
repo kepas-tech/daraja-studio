@@ -874,11 +874,12 @@ export const guide: GuideSection[] = [
           'Type the M-Pesa receipt (10 letters and numbers) and press Find that payment. Only a payment that landed here can be reversed.',
           'Check the amount and the receipt: a reversal cannot be undone.',
           'Reverse, then your password. Safaricom takes the money back from the payer; the page says Reversed or Not reversed, and the reversal shows in History.',
+          'When the person asking may not approve it — a staff member without the approval right — the password only records the request. It waits on the Waiting page with the other held payments, and Safaricom is not asked until the owner, or anybody with the approval right, releases it. Nobody releases their own request.',
         ],
         notes: ['Safaricom can only take back money the payer still has. If it is spent, the reversal is refused.'],
         api: [
           { method: 'GET', path: '/api/send/reversal/:receipt', who: 'reverse.request' },
-          { method: 'POST', path: '/api/send/reversal', who: 'reverse.request, password' },
+          { method: 'POST', path: '/api/send/reversal', who: 'reverse.request, password; without send.approve the request waits (awaiting_approval), and is released from Waiting' },
         ],
       },
     ],

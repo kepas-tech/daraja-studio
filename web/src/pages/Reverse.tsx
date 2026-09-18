@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { api } from '../api/client';
 import { useEvents } from '../api/events';
+import { useSession } from '../app/session';
 import type { Confirm, RequestView } from '../api/types';
 import { Button } from '../components/Button';
 import { TextField } from '../components/TextField';
@@ -41,6 +42,10 @@ export function Reverse() {
   const [request, setRequest] = useState<RequestView | null>(null);
   const [err, setErr] = useState<Error | Explained | null>(null);
   const resultCopy = copy.reverse.result as Record<string, string>;
+  // Round 3, phase D-6: a reversal is irreversible, so somebody who may ask but not approve is
+  // told before they type a password that their request waits for the owner.
+  const { person, permissions } = useSession();
+  const mayApprove = !!person?.is_owner || permissions.includes('send.approve');
 
   const clean = receipt.trim().toUpperCase();
   const valid = /^[A-Z0-9]{10}$/.test(clean);
@@ -130,6 +135,7 @@ export function Reverse() {
               <dt className="text-muted">{copy.reverse.settledOn}</dt><dd>{when(found.at)}</dd>
             </dl>
             <p className="text-base">{copy.reverse.willTakeBack}</p>
+            {!mayApprove && <Flash tone="neutral" data-testid="ask-approval">{copy.reverse.askApproval}</Flash>}
             <Flash tone="danger" role="alert">{copy.reverse.irreversible}</Flash>
             <ErrorCard error={err} />
           </TaskCard>
@@ -142,6 +148,7 @@ export function Reverse() {
           <p role="status" className="text-lg font-semibold">{resultCopy[request.status] ?? request.status}</p>
           <RequestCard request={request}>
             {request.status === 'sent' && <Link className="text-base" to={'/requests/' + request.id}>{copy.request.checkNow}</Link>}
+            {request.status === 'awaiting_approval' && <Link className="text-base" to="/approvals">{copy.reverse.waitingLink}</Link>}
             <Button type="button" onClick={reset}>{copy.reverse.result.another}</Button>
           </RequestCard>
           <p className="text-sm text-muted"><Link to="/history">{copy.reverse.history}</Link></p>
