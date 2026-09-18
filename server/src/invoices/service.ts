@@ -14,6 +14,7 @@ import { syncRejection } from '../money_out/service.js';
 import { parseInvoices, type InvoiceRow, type InvoiceRowError } from './parse.js';
 import { EXPORT_MAX } from '../export/csv.js';
 import { resolveAccount } from '../businesses/lookup.js';
+import { personName } from '../util/names.js';
 
 export interface Actor { personId: string; ip: string }
 export interface OptInInput { email: string; officialContact: string; sendReminders: boolean; logo?: string }
@@ -66,6 +67,19 @@ interface Row {
   created_by: string | null; created_by_name?: string | null; sent_at: Date; paid_at: Date | null; cancelled_at: Date | null;
 }
 const SELECT = `SELECT i.*, to_char(i.due_date, 'YYYY-MM-DD') AS due_date, p.display_name AS created_by_name FROM customer_invoices i LEFT JOIN people p ON p.id = i.created_by`;
+
+/**
+ * Bill Manager's documented payment push carries no payer name, but the field has appeared in some
+ * callbacks. These are the spellings that mean the same person; anything else is left to the account.
+ */
+function pushPayerName(raw: unknown): string | null {
+  const o = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+  for (const key of ['fullName', 'billedFullName', 'payerName', 'customerName']) {
+    const v = o[key];
+    if (typeof v === 'string' && v.trim()) return v;
+  }
+  return null;
+}
 const todayNairobi = () => new Date(Date.now() + 3 * 3_600_000).toISOString().slice(0, 10);
 
 /** How many invoices the page itself shows. The CSV export has its own, larger bound. */
@@ -332,7 +346,14 @@ export function createInvoicesService(deps: { db: Db; settings: Settings; daraja
     async applyPush(p) {
       const receipt = String(p.transactionId).trim();
       const amountCents = Math.round(Number(p.paidAmount) * 100);
-      const [inv] = await deps.db.query<{ id: string }>(`SELECT id FROM customer_invoices WHERE account_reference=$1 AND status IN ('sent','partly_paid') ORDER BY created_at ASC LIMIT 1`, [String(p.accountReference ?? '')]);
+      const [inv] = await deps.db.query<{ id: string; customer_name: string }>(`SELECT id, customer_name FROM customer_invoices WHERE account_reference=$1 AND status IN ('sent','partly_paid') ORDER BY created_at ASC LIMIT 1`, [String(p.accountReference ?? '')]);
+      // Phase A: Bill Manager's push carries no payer name, so the payer is named from the account
+      // the reference belongs to — the customer above a sub-account, never the room's own label —
+      // and from the invoice's own customer as a last resort. A name Safaricom does send wins.
+      const [account] = await deps.db.query<{ holder_name: string }>(
+        `SELECT COALESCE(parent.name, a.name) AS holder_name FROM accounts a LEFT JOIN accounts parent ON parent.id = a.parent_id WHERE a.full_number=$1`,
+        [String(p.accountReference ?? '')]);
+      const payer = personName(pushPayerName(p.raw)) ?? account?.holder_name ?? inv?.customer_name ?? null;
       if (!inv) {
         // Kept, and listed under "Payments we could not match": money that arrived for no open invoice.
         const out = await deps.db.tx(async (c) => {
@@ -340,15 +361,15 @@ export function createInvoicesService(deps: { db: Db; settings: Settings; daraja
           const dup = await c.query<{ id: string }>(`SELECT id FROM requests WHERE type='invoice_payment' AND receipt=$1 LIMIT 1`, [receipt]);
           if (dup.rows[0]) return { verdict: 'duplicate' as const, requestId: dup.rows[0].id };
           const ins = await c.query<{ id: string }>(
-            `INSERT INTO requests(type, originator_conversation_id, status, amount_cents, currency, recipient_kind, recipient_value, account_reference, payload_json, sent_at, result_at, result_source, result_code, result_desc, receipt)
-             VALUES ('invoice_payment', $1, 'completed', $2, 'KES', 'phone', $3, $4, $5::jsonb, now(), now(), 'callback', '0', 'Completed', $6) RETURNING id`,
-            [`invpay:${receipt}`, amountCents, String(p.msisdn ?? '') || null, String(p.accountReference ?? '') || null, JSON.stringify({ invoiceId: null, unmatched: true, dateCreated: p.dateCreated }), receipt]);
+            `INSERT INTO requests(type, originator_conversation_id, status, amount_cents, currency, recipient_kind, recipient_value, recipient_name, account_reference, payload_json, sent_at, result_at, result_source, result_code, result_desc, receipt)
+             VALUES ('invoice_payment', $1, 'completed', $2, 'KES', 'phone', $3, $4, $5, $6::jsonb, now(), now(), 'callback', '0', 'Completed', $7) RETURNING id`,
+            [`invpay:${receipt}`, amountCents, String(p.msisdn ?? '') || null, payer, String(p.accountReference ?? '') || null, JSON.stringify({ invoiceId: null, unmatched: true, dateCreated: p.dateCreated }), receipt]);
           return { verdict: 'unmatched' as const, requestId: ins.rows[0].id };
         });
         if (out.verdict === 'unmatched') await deps.events.publish('request.updated', { id: out.requestId, status: 'completed' });
         return out;
       }
-      const reqId = await applyPayment(inv.id, amountCents, receipt, 'callback', { phone: String(p.msisdn ?? ''), accountReference: p.accountReference, dateCreated: p.dateCreated });
+      const reqId = await applyPayment(inv.id, amountCents, receipt, 'callback', { phone: String(p.msisdn ?? ''), payer, accountReference: p.accountReference, dateCreated: p.dateCreated });
       if (!reqId) {
         const [dup] = await deps.db.query<{ id: string }>(`SELECT id FROM requests WHERE type='invoice_payment' AND receipt=$1 LIMIT 1`, [receipt]);
         return { verdict: 'duplicate', requestId: dup?.id };

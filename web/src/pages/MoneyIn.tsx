@@ -16,6 +16,7 @@ import { StatusPill } from '../components/StatusPill';
 import { useToast } from '../components/Toast';
 import { copy } from '../copy/en';
 import { money, phone, when } from '../format';
+import { PartyLine, partyOf } from '../components/PartyLine';
 import { useStepUp } from './settings/useStepUp';
 
 
@@ -76,7 +77,7 @@ function UnmatchedRow({ row, businesses, onDone }: { row: UnmatchedView; busines
     <li data-testid={'unmatched-' + row.id} className={cardRow + ' space-y-3'}>
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <span className="min-w-0">
-          <span className="text-base font-medium">{row.recipient.name ?? phone(row.recipient.value)}</span>
+          <span className="text-base font-medium">{partyOf(row).name ?? phone(row.recipient.value)}</span>
           <span className="block text-sm text-muted">{when(row.sentAt ?? row.createdAt)} · {c.from}: {phone(row.recipient.value)}</span>
         </span>
         <span className="text-base font-semibold">{money(row.amountCents)}</span>
@@ -224,7 +225,7 @@ export function MoneyIn() {
                 <tbody>{recent.map((r) => (
                   <tr key={r.id} className="border-t border-line">
                     <td className="px-4 py-3 whitespace-nowrap">{when(r.sentAt ?? r.createdAt)}</td>
-                    <td className="px-4 py-3"><Link to={`/requests/${r.id}`}>{r.recipient.name ?? phone(r.recipient.value)}</Link>{r.recipient.name && <span className="block text-sm text-muted">{phone(r.recipient.value)}</span>}</td>
+                    <td className="px-4 py-3"><PartyLine r={r} to={`/requests/${r.id}`} /></td>
                     <td className="px-4 py-3">{r.accountReference ?? ''}{r.accountName && (r.accountId ? <Link className="block text-sm" to={'/history?account=' + r.accountId + '&accountName=' + encodeURIComponent(r.accountName)}>{r.accountName}</Link> : <span className="block text-sm text-muted">{r.accountName}</span>)}</td>
                     <td className="px-4 py-3 whitespace-nowrap">{money(r.amountCents)}</td>
                     <td className="px-4 py-3"><code className="text-sm">{r.receipt ?? '—'}</code></td>

@@ -5,6 +5,7 @@ import { CREDENTIAL_CODES, kindsForPath, type RequestKind } from '../money_out/r
 import { explain } from '../sdk/meaning.js';
 import { clearOperatorFailures, recordOperatorRefusal } from '../money_out/operatorHealth.js';
 import { scheduleBalanceRefresh } from '../money_out/balanceRefresh.js';
+import { personName } from '../util/names.js';
 
 /**
  * B0: one result application for every money-out kind.
@@ -70,6 +71,10 @@ export async function applyResult(
     const r = kind.parseResult(body);
     const ex = explain(kind.scope, r.resultCode, r.resultDesc);
     const hasFunds = r.success && (r.utilityCents != null || r.workingCents != null);
+    // Phase A: Safaricom's own name for the person paid is `"254700123456 - Jane Doe"`. The row's
+    // number is already in recipient_value, so only the name is stored; the raw body, prefix and
+    // all, is kept in raw_result_json below.
+    const recipientName = personName(r.recipientName);
 
     // Brief 2, item 7: a credential-class refusal means Safaricom turned the request down outright,
     // so when another verified operator is attached this result does not end the row — it goes back
@@ -90,14 +95,14 @@ export async function applyResult(
              poll_attempts=0, last_poll_at=now(), payload_json = payload_json - 'ackOriginatorConversationId'
            WHERE id=$1 AND status IN ('pending','sent','unknown')
            RETURNING id`,
-        [row.id, r.conversationId || null, r.receipt ?? null, r.recipientName ?? null, JSON.stringify(body)])
+        [row.id, r.conversationId || null, r.receipt ?? null, recipientName, JSON.stringify(body)])
       : await c.query<{ id: string }>(
         `UPDATE requests SET status=$2, conversation_id=COALESCE(conversation_id,$3), result_at=now(), result_source='callback',
              result_code=$4, result_desc=$5, meaning=$6, retriable=$7, receipt=COALESCE($8, receipt), recipient_name=COALESCE($9, recipient_name), raw_result_json=$10::jsonb
            WHERE id=$1 AND status IN ('pending','sent','unknown')
            RETURNING id`,
         [row.id, r.success ? 'completed' : 'failed', r.conversationId || null, String(r.resultCode), r.resultDesc, ex.meaning, ex.retriable,
-          r.receipt ?? null, r.recipientName ?? null, JSON.stringify(body)]);
+          r.receipt ?? null, recipientName, JSON.stringify(body)]);
     if (!upd.rows[0]) return { verdict: 'duplicate' as const, requestId: row.id };
 
     if (hasFunds) {

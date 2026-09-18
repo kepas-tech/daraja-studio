@@ -46,8 +46,8 @@ function fetchFor(v: WaitingView) {
 describe('the Waiting page', () => {
   it('shows the three groups with their counts, and how long each row has waited', async () => {
     vi.stubGlobal('fetch', fetchFor(view({
-      approvals: { items: [row({ id: 'held1', status: 'awaiting_approval', sentAt: null, createdAt: ago(120) })], canDecide: true },
-      sent: { items: [row({ id: 'sent1' })], count: 1 },
+      approvals: { items: [row({ id: 'held1', status: 'awaiting_approval', sentAt: null, createdAt: ago(120), direction: 'out', recipient: { kind: 'phone', value: '254700123456', name: 'Jane Doe' }, party: { name: 'Jane Doe', number: '254700123456', savedName: 'Mum' } })], canDecide: true },
+      sent: { items: [row({ id: 'sent1', direction: 'out', party: { name: 'Peter Mwangi', number: '254700123456', savedName: null } })], count: 1 },
       noAnswer: { items: [row({ id: 'unknown1', status: 'unknown' })], count: 1 },
       badge: 2,
     })));
@@ -57,6 +57,12 @@ describe('the Waiting page', () => {
     expect(screen.getByRole('heading', { level: 2, name: `${copy.waiting.noAnswer} (1)` })).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: copy.waiting.check })).toHaveLength(2);
     expect(screen.getByRole('button', { name: copy.approvals.release })).toBeInTheDocument();
+    // Round 3, phase A: a person leads every row, here and on the held card, with the number under.
+    const held = screen.getByRole('link', { name: /Jane Doe/ });
+    expect(held).toHaveTextContent('0700 123 456');
+    expect(screen.getByRole('link', { name: /Peter Mwangi/ })).toHaveTextContent('0700 123 456');
+    expect(screen.getByText(copy.request.savedAs('Mum'))).toBeInTheDocument();
+    expect(screen.getAllByText(copy.request.to).length).toBeGreaterThan(0);
     expect(screen.getAllByText(copy.waiting.minutes(3)).length).toBeGreaterThan(0);
     expect(screen.getAllByText(copy.waiting.hours(2)).length).toBeGreaterThan(0);
   });

@@ -91,6 +91,7 @@ describe('History › direction', () => {
     render(<MemoryRouter><History /></MemoryRouter>);
     await screen.findByText(copy.request.type.c2b);
     fireEvent.change(screen.getByLabelText(copy.history.direction), { target: { value: 'in' } });
-    await waitFor(() => expect(urls.some((u) => u.includes('type=c2b%2Cstk'))).toBe(true));
+    // Round 3, phase A: the page sends the word; the server owns which types "money in" means.
+    await waitFor(() => expect(urls.some((u) => u.includes('direction=in'))).toBe(true));
   });
 });

@@ -524,6 +524,9 @@ describe('businesses and their account numbers', () => {
     const sent = await h(request(app).post('/api/send/phone')).send({ phone: '0700123456', amountCents: 10000, accountId: room.id, password: 'correct horse' });
     expect(sent.status).toBe(201);
     expect(await rows(sent.body.id)).toEqual({ business_id: b.id, account_id: room.id });
+    // Phase A: the payout carries the name of the person behind the account — the customer above a
+    // sub-account, not the room's own label — so the Waiting page is never blank.
+    expect((await deps.db.query<{ recipient_name: string }>('SELECT recipient_name FROM requests WHERE id=$1', [sent.body.id]))[0].recipient_name).toBe('Jane');
     expect((await h(request(app).get('/api/businesses'))).body.lastUsedId).toBe(b.id);
 
     // Ask a customer to pay: the prompt carries the full number, not what the form held.

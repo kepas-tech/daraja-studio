@@ -21,9 +21,10 @@ import { recordOperatorRefusal } from './operatorHealth.js';
 import { createOperatorLock } from './operatorLock.js';
 import { createFeesService } from '../fees/service.js';
 import { resolveAccount } from '../businesses/lookup.js';
+import { personName } from '../util/names.js';
 import { getRequest, listRequests, listWaiting, waitingBadge, type Page, type RequestView, type WaitingView } from './reads.js';
 
-export interface SendInput { phone: string; amountCents: number; commandId: 'BusinessPayment' | 'SalaryPayment' | 'PromotionPayment'; category?: string; remarks?: string; occasion?: string; confirmDuplicate?: boolean; /** Feature 1: the saved phone contact this send is labelled with; checked below. */ contactId?: string; /** Feature 2: the business this send belongs to. Checked below; the last one used becomes the pickers' default. */ businessId?: string; /** Brief 2, item 1: the account this money is for. Checked below, and it carries its own business. */ accountId?: string; /** M5: the batch this row belongs to; never accepted from a client. */ bulk?: { planId: string; index: number } }
+export interface SendInput { phone: string; amountCents: number; commandId: 'BusinessPayment' | 'SalaryPayment' | 'PromotionPayment'; category?: string; remarks?: string; occasion?: string; confirmDuplicate?: boolean; /** Feature 1: the saved phone contact this send is labelled with; checked below. */ contactId?: string; /** Feature 2: the business this send belongs to. Checked below; the last one used becomes the pickers' default. */ businessId?: string; /** Brief 2, item 1: the account this money is for. Checked below, and it carries its own business. */ accountId?: string; /** Round 3, phase A: the name the review screen confirmed with Safaricom, so the row is named while it waits rather than only once the result arrives. */ recipientName?: string; /** M5: the batch this row belongs to; never accepted from a client. */ bulk?: { planId: string; index: number } }
 export interface Actor { personId: string; ip: string }
 /**
  * What Safaricom says about the person behind a phone number, asked before a send (B2C
@@ -447,15 +448,17 @@ export function createMoneyOutService(deps: { db: Db; settings: Settings; cache:
       // saved number no longer matches the number being dialled is refused rather than guessed at.
       // Both checks run before anything is written, so a refusal leaves no request row behind.
       let savedContactId: string | null = null;
+      let savedContactName: string | null = null;
       if (input.contactId) {
-        const [contact] = await deps.db.query<{ id: string; phone: string | null }>(
-          `SELECT id, phone FROM contacts WHERE id=$1 AND org_id=$2 AND kind='phone' AND deleted_at IS NULL`,
+        const [contact] = await deps.db.query<{ id: string; phone: string | null; name: string }>(
+          `SELECT id, phone, name FROM contacts WHERE id=$1 AND org_id=$2 AND kind='phone' AND deleted_at IS NULL`,
           [input.contactId, requireOrg()]);
         if (!contact || !contact.phone) throw new HttpError(400, 'unknown_contact', 'That saved contact is gone. Pick them again.');
         let savedPhone: string | null;
         try { savedPhone = normalizePhone(contact.phone); } catch { savedPhone = null; }
         if (savedPhone !== phone) throw new HttpError(400, 'contact_mismatch', 'That number is not the one saved for this contact. Pick the contact again, or send without it.');
         savedContactId = contact.id;
+        savedContactName = contact.name;
       }
       // Feature 2: the business this send belongs to is the operator's own choice (B2C has no
       // account number to read it from). A business that is gone, another organisation's, or
@@ -472,6 +475,7 @@ export function createMoneyOutService(deps: { db: Db; settings: Settings; cache:
       // business, so naming one sets both, and a retired account or one in another organisation is
       // refused here, before anything is written.
       let savedAccountId: string | null = null;
+      let savedAccountName: string | null = null;
       if (input.accountId) {
         const account = await resolveAccount(deps.db, input.accountId, savedBusinessId);
         if (!savedBusinessId) {
@@ -480,6 +484,7 @@ export function createMoneyOutService(deps: { db: Db; settings: Settings; cache:
         }
         savedAccountId = account.id;
         savedBusinessId = account.businessId;
+        savedAccountName = account.holderName;
       }
       // Feature 11: what Safaricom will charge for this send, from the organisation's own bands.
       // Read before anything is written, and stored on the row: a later tariff change never
@@ -517,10 +522,16 @@ export function createMoneyOutService(deps: { db: Db; settings: Settings; cache:
             [kind.type, phone, input.amountCents]);
           if (dup.rows[0]) throw new HttpError(409, 'duplicate_recent', 'You sent this already. Send it again?', { requestId: dup.rows[0].id, at: dup.rows[0].created_at.toISOString() });
         }
+        // Phase A: the best name Studio knows at this moment goes on the row, so Waiting and History
+        // show a person while Safaricom is still thinking. The owner's own label for the number comes
+        // first (it is the one checked against the number above), then the person behind the account
+        // the money is for, then the name the review screen confirmed with Safaricom. Safaricom's own
+        // result name replaces it when the callback arrives, and the contact's label stays beside it.
+        const recipientName = savedContactName ?? savedAccountName ?? personName(input.recipientName);
         const { rows } = await c.query<RequestRow>(
-          `INSERT INTO requests(type, subtype, originator_conversation_id, status, amount_cents, currency, recipient_kind, recipient_value, remarks, payload_json, created_by, operator_id, bulk_plan_id, contact_id, business_id, account_id, charge_cents)
-           VALUES ($1,$2,$3,'pending',$4,'KES','phone',$5,$6,$7::jsonb,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
-          [kind.type, commandId, randomUUID(), input.amountCents, phone, input.remarks ?? null, JSON.stringify({ occasion: input.occasion ?? null, category, ...(input.bulk ? { bulkIndex: input.bulk.index } : {}) }), actor.personId, operatorId, input.bulk?.planId ?? null, savedContactId, savedBusinessId, savedAccountId, chargeCents]);
+          `INSERT INTO requests(type, subtype, originator_conversation_id, status, amount_cents, currency, recipient_kind, recipient_value, recipient_name, remarks, payload_json, created_by, operator_id, bulk_plan_id, contact_id, business_id, account_id, charge_cents)
+           VALUES ($1,$2,$3,'pending',$4,'KES','phone',$5,$6,$7,$8::jsonb,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
+          [kind.type, commandId, randomUUID(), input.amountCents, phone, recipientName, input.remarks ?? null, JSON.stringify({ occasion: input.occasion ?? null, category, ...(input.bulk ? { bulkIndex: input.bulk.index } : {}) }), actor.personId, operatorId, input.bulk?.planId ?? null, savedContactId, savedBusinessId, savedAccountId, chargeCents]);
         const r = rows[0];
         await c.query(
           `INSERT INTO audit_log(person_id, action, target, before_json, after_json, ip) VALUES ($1,$2,$3,$4::jsonb,$5::jsonb,$6)`,

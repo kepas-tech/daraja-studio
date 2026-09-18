@@ -1,8 +1,9 @@
 import type { Db } from '../db/pool.js';
 import { explain, type DarajaScope } from '../sdk/meaning.js';
 import { HttpError } from '../util/errors.js';
-import { COLLECT_KINDS, KINDS, LEDGER_TYPES, MONEY_TYPES, type RequestRow } from './registry.js';
+import { COLLECT_KINDS, directionOf, KINDS, LEDGER_TYPES, MONEY_TYPES, type RequestRow } from './registry.js';
 import { AUTH_FAILED_MEANING } from './service.js';
+import { isPhoneToken, personName } from '../util/names.js';
 
 export interface RequestView {
   id: string; type: string; subtype: string | null; status: string; amountCents: number | null; currency: 'KES';
@@ -21,8 +22,32 @@ export interface RequestView {
   /** M5: the batch this send was part of. */
   bulkPlanId: string | null;
   /** Feature 1: the name the owner saved for this recipient, when the send named a contact. Shown
-   * beside Safaricom's own `recipient.name`, which is left exactly as Safaricom returned it. */
+   * beside the name on the row; see `party.savedName`. */
   contactName: string | null;
+  /**
+   * Round 3, phase A: which way this row's money moved — `in`, `out`, or null for a row that moves
+   * none at all (a status query, a balance check).
+   */
+  direction: 'in' | 'out' | null;
+  /**
+   * Round 3, phase A: the person on the other side of this row, named by the direction.
+   * `requests.recipient_name` is one column holding two different people — the payer when money
+   * came in, the person paid when it went out — so the read layer names it here, once, and no screen
+   * has to ask what type it is reading. The stored value is read through the same helper that wrote
+   * it, so a row recorded before phase A (Safaricom's `"254700123456 - Jane Doe"`, the Pull API's
+   * `MPESA`) reads exactly like a new one.
+   */
+  party: {
+    /** The best name Studio holds: Safaricom's own, else the customer account this row names, else
+     * the owner's saved contact for that number. */
+    name: string | null;
+    /** What to show under the name. Null when Safaricom sent only its hashed stand-in for a
+     * number, never a number to print. */
+    number: string | null;
+    /** The owner's own label for that number. The screens show it beside the name when the two
+     * differ, because that mismatch is what a person needs to see. */
+    savedName: string | null;
+  };
   /** Brief 2, item 1: the business this row belongs to, and the account whose number it named —
    * either level. The ids are the raw columns, so Money in can link to History filtered by either
    * one, and the full number is what the payer typed. */
@@ -112,10 +137,17 @@ export function toView(row: ViewRow, egressIps: string[] = []): RequestView {
   // rows.
   const b2cApiUsed = scope === 'b2c' ? (row.payload_json as { b2cApiUsed?: 'v1' | 'v3' }).b2cApiUsed : undefined;
   const ex = row.result_code !== null && scope !== null ? explain(scope, row.result_code, row.result_desc ?? '', { b2cApiUsed, egressIps }) : null;
+  // Phase A: the readable person and number for this row, decided once. A value Safaricom sent as
+  // its hashed stand-in for a phone number is no number at all, so it is left out rather than
+  // printed where a person expects to read a phone.
+  const number = isPhoneToken(row.recipient_value) ? null : row.recipient_value;
+  const storedName = personName(row.recipient_name);
   return {
     id: row.id, type: row.type, subtype: row.subtype, status: row.status,
     amountCents: row.amount_cents === null ? null : Number(row.amount_cents), currency: 'KES',
-    recipient: { kind: row.recipient_kind, value: row.recipient_value, name: row.recipient_name },
+    recipient: { kind: row.recipient_kind, value: number, name: storedName },
+    direction: directionOf(row.type),
+    party: { name: storedName ?? row.account_name ?? row.contact_name ?? null, number, savedName: row.contact_name ?? null },
     remarks: row.remarks, receipt: row.receipt,
     category: typeof (row.payload_json as { category?: unknown }).category === 'string' ? (row.payload_json as { category: string }).category : null,
     accountReference: row.account_reference ?? null,
@@ -212,7 +244,7 @@ export async function listRequests(db: Db, query: ListQuery, egressIps: string[]
     // W1: recipient_value stores the e.164 form (254…); the search box says "phone" and studio
     // itself displays "0700 123 456", so a query that is a Kenyan mobile number in any common
     // written form (0700123456, 0700 123 456, +254700123456, 700123456) must also match by its
-    // normalised e.164 value, not just as a raw ILIKE substring of the stored digits.
+    // normalised e.164 value, not only as a raw ILIKE substring of the stored digits.
     const digits = query.q.replace(/[\s()-]/g, '');
     const phoneMatch = /^\+?(?:254|0)?([17]\d{8})$/.exec(digits);
     if (phoneMatch) { params.push(`254${phoneMatch[1]}`); parts.push(`r.recipient_value = $${params.length}`); }

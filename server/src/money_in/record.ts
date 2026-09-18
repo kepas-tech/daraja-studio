@@ -1,8 +1,10 @@
 import type { C2bPayment } from '@kepas/daraja-js';
 import type { Db } from '../db/pool.js';
+import type { Cache } from '../db/cache.js';
 import type { EventHub } from '../events/hub.js';
 import { fromClient, matchAccount } from '../businesses/match.js';
 import { createFeesService } from '../fees/service.js';
+import { joinPersonName, personName } from '../util/names.js';
 
 /** Daraja's `TransTime` is `YYYYMMDDHHmmss` in East Africa Time. */
 export function transTimeToDate(t: string): Date | null {
@@ -12,14 +14,21 @@ export function transTimeToDate(t: string): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+/** Where the validation callback leaves the name it saw, for the confirmation that follows it. */
+export const validationNameKey = (receipt: string): string => `c2b:name:${receipt}`;
+
 /**
  * One row per receipt, whichever way it arrived. Safaricom never retries a confirmation and the
  * pull check may find the same payment later, so the receipt is the identity: an advisory lock
  * keyed on it serialises a callback racing the check, and the second writer sees the first row.
  */
-export async function recordC2b(deps: { db: Db; events: EventHub }, p: C2bPayment, source: 'callback' | 'poll'): Promise<{ verdict: 'applied' | 'duplicate'; requestId: string }> {
+export async function recordC2b(deps: { db: Db; events: EventHub; cache?: Cache }, p: C2bPayment, source: 'callback' | 'poll'): Promise<{ verdict: 'applied' | 'duplicate'; requestId: string }> {
   const receipt = String(p.transId).trim();
-  const name = [p.firstName, p.middleName, p.lastName].map((s) => String(s ?? '').trim()).filter(Boolean).join(' ') || null;
+  // Phase A: every part Safaricom sent becomes the name, cleaned once by the helper. Only when the
+  // confirmation itself carries no name does the one the validation callback saw for this same
+  // receipt stand in — that callback arrives first, and Safaricom does not always repeat the name.
+  const name = joinPersonName(p.firstName, p.middleName, p.lastName)
+    ?? personName((await deps.cache?.take<{ name?: string }>(validationNameKey(receipt)))?.name);
   const amountCents = Math.round(Number(p.amount) * 100);
   // Feature 11: Safaricom's own charge for taking this payment, from the organisation's bands. Read
   // before the row is written and stored on it, so a later tariff change never rewrites history. An
@@ -53,7 +62,10 @@ export async function recordC2b(deps: { db: Db; events: EventHub }, p: C2bPaymen
        VALUES ('c2b', $1, $2, 'completed', $3, 'KES', 'phone', $4, $5, $6, $7::jsonb, COALESCE($8::timestamptz, now()), now(), $9, '0', 'Completed', $10, $11, $12, $13) RETURNING id`,
       [String(p.transactionType ?? '') || null, `c2b:${receipt}`, amountCents, String(p.msisdn ?? '') || null, name,
         String(p.billRefNumber ?? '') || null,
-        JSON.stringify({ shortCode: p.shortCode, transTime: p.transTime, invoiceNumber: p.invoiceNumber, thirdPartyTransId: p.thirdPartyTransId, orgAccountBalance: p.orgAccountBalance ?? null, foundByCheck: source === 'poll' }),
+        // Phase A: the name fields are kept exactly as Safaricom sent them. The row's own
+        // recipient_name is the cleaned reading; this is the raw one, so a name missed here (a
+        // placeholder, a value this build did not understand) can still be read back later.
+        JSON.stringify({ shortCode: p.shortCode, transTime: p.transTime, invoiceNumber: p.invoiceNumber, thirdPartyTransId: p.thirdPartyTransId, orgAccountBalance: p.orgAccountBalance ?? null, foundByCheck: source === 'poll', firstName: p.firstName, middleName: p.middleName, lastName: p.lastName }),
         transTimeToDate(p.transTime), source, receipt, businessId, accountId, chargeCents],
     );
     return { verdict: 'applied' as const, requestId: ins.rows[0].id };

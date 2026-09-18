@@ -1,5 +1,6 @@
 import { DarajaAPIError, DarajaAuthError, DarajaConnectionError, type C2bPayment } from '@kepas/daraja-js';
 import { currentOrgId, withOrg, type Db } from '../db/pool.js';
+import type { Cache } from '../db/cache.js';
 import type { Settings, Env } from '../settings/store.js';
 import type { DarajaFactory } from '../sdk/client.js';
 import type { EventHub } from '../events/hub.js';
@@ -53,10 +54,16 @@ export function pulledToPayment(t: Record<string, unknown>): C2bPayment | null {
   const amount = Number(s('amount') || s('TransAmount'));
   if (!Number.isFinite(amount)) return null;
   const date = s('trxDate') || s('TransTime');
+  // Phase A: the portal's `sender` column and the three callback-shaped name fields are two
+  // spellings of the same thing, and all three parts are read. The named parts win when Safaricom
+  // sent them; `sender` stands in when it did not, and then it is the whole name (it carries the
+  // phone in front of it, which the cleaning helper drops at storage).
+  const sender = s('sender');
+  const first = s('FirstName');
   return {
     transactionType: s('transactiontype') || s('TransactionType') || 'Pay Bill', transId, transTime: date.replace(/[^0-9]/g, '').slice(0, 14), amount,
     shortCode: s('shortcode') || s('BusinessShortCode'), billRefNumber: s('billreference') || s('BillRefNumber'), invoiceNumber: '', thirdPartyTransId: '',
-    msisdn: s('msisdn') || s('MSISDN'), firstName: s('sender') || s('FirstName'), middleName: '', lastName: '',
+    msisdn: s('msisdn') || s('MSISDN'), firstName: first || sender, middleName: first ? s('MiddleName') : '', lastName: first ? s('LastName') : '',
   };
 }
 
@@ -65,7 +72,7 @@ export function pulledToPayment(t: Record<string, unknown>): C2bPayment | null {
  * operator or is polled by the sweep: the only calls are the one-time registrations and the
  * read-only pull that backfills a confirmation Safaricom never delivered.
  */
-export function createMoneyInService(deps: { db: Db; settings: Settings; daraja: DarajaFactory; events: EventHub; orgs: OrgService }): MoneyInService {
+export function createMoneyInService(deps: { db: Db; settings: Settings; daraja: DarajaFactory; events: EventHub; orgs: OrgService; cache: Cache }): MoneyInService {
   const mode = async (): Promise<Env> => ((await deps.settings.get('daraja.environment')) as Env) ?? 'sandbox';
   const threeLines = (e: unknown): never => {
     if (e instanceof HttpError) throw e;
@@ -161,7 +168,7 @@ export function createMoneyInService(deps: { db: Db; settings: Settings; daraja:
           for (const t of page.transactions) {
             const p = pulledToPayment(t);
             if (!p) continue;
-            if ((await recordC2b(deps, p, 'poll')).verdict === 'applied') found += 1;
+            if ((await recordC2b({ db: deps.db, events: deps.events, cache: deps.cache }, p, 'poll')).verdict === 'applied') found += 1;
           }
           if (page.transactions.length < PULL_PAGE) break;
         }

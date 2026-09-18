@@ -30,6 +30,27 @@ describe('recordC2b', () => {
     expect(row.payload_json.foundByCheck).toBe(true);
   });
 
+  it('joins every name Safaricom sends, not only the first and the last', async () => {
+    const r = await recordC2b(deps, pay({ transId: 'RKT2222222', firstName: 'Jane', middleName: 'Wanjiru', lastName: 'Doe' }), 'callback');
+    const [row] = await deps.db.query<{ recipient_name: string }>('SELECT recipient_name FROM requests WHERE id=$1', [r.requestId]);
+    expect(row.recipient_name).toBe('Jane Wanjiru Doe');
+  });
+
+  it('drops the phone a pulled name repeats, and reads the Pull API placeholder as no name', async () => {
+    const a = await recordC2b(deps, pay({ transId: 'RKT3333333', firstName: '254712345678 - JANE DOE', middleName: '', lastName: '' }), 'poll');
+    const [dashed] = await deps.db.query<{ recipient_name: string | null }>('SELECT recipient_name FROM requests WHERE id=$1', [a.requestId]);
+    expect(dashed.recipient_name).toBe('JANE DOE');
+    const b = await recordC2b(deps, pay({ transId: 'RKT4444444', firstName: 'MPESA', middleName: '', lastName: '' }), 'poll');
+    const [placeholder] = await deps.db.query<{ recipient_name: string | null }>('SELECT recipient_name FROM requests WHERE id=$1', [b.requestId]);
+    expect(placeholder.recipient_name).toBeNull();
+  });
+
+  it('keeps the name fields Safaricom sent in the payload, so a missed name can be found again', async () => {
+    const r = await recordC2b(deps, pay({ transId: 'RKT5555555', firstName: 'Jane', middleName: 'Wanjiru', lastName: 'Doe' }), 'callback');
+    const [row] = await deps.db.query<{ payload_json: Record<string, string> }>('SELECT payload_json FROM requests WHERE id=$1', [r.requestId]);
+    expect(row.payload_json).toMatchObject({ firstName: 'Jane', middleName: 'Wanjiru', lastName: 'Doe' });
+  });
+
   it('reads TransTime as East Africa Time', () => {
     expect(transTimeToDate('20260916101530')?.toISOString()).toBe('2026-09-16T07:15:30.000Z');
     expect(transTimeToDate('nonsense')).toBeNull();

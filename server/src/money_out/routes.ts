@@ -10,7 +10,7 @@ import { EXPORT_MAX, nairobiStamp, sendCsv, shillings, toCsv, todayNairobi } fro
 import { statusLabel, whatLabel } from '../export/labels.js';
 import { clientIp } from '../util/ip.js';
 import { HttpError } from '../util/errors.js';
-import { KINDS, MONEY_TYPES } from './registry.js';
+import { INCOMING_TYPES, KINDS, MONEY_TYPES } from './registry.js';
 
 const sendPhone = z.object({
   phone: z.string().trim().min(1).max(20),
@@ -29,10 +29,13 @@ const sendPhone = z.object({
   // Optional, both, so nothing that worked before changes.
   businessId: z.string().uuid().optional(),
   accountId: z.string().uuid().optional(),
+  // Round 3, phase A: the name the review screen confirmed with Safaricom. Stored on the row, so
+  // Waiting and History show a person from the moment the send exists.
+  recipientName: z.string().trim().min(1).max(100).optional(),
 });
 
 // A YYYY-MM-DD that fails to round-trip through Date (2026-02-30, 2026-13-45, ...) is calendar-
-// invalid, not just malformed — the regex alone lets it through to a Postgres ::date cast, which
+// invalid, not only malformed — the regex alone lets it through to a Postgres ::date cast, which
 // 500s instead of the plain-English 400. An out-of-range month/day/year
 // makes `new Date(...)` an Invalid Date, and `.toISOString()` on that throws — the predicate must
 // check `getTime()` first so a throw never escapes zod's `.refine`.
@@ -42,7 +45,10 @@ const isRealDay = (s: string) => {
 };
 const dayString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(isRealDay, { message: 'Enter a real date.' });
 const listSchema = z.object({
-  type: z.string().optional(), status: z.enum(['pending', 'sent', 'completed', 'failed', 'unknown', 'cancelled', 'rejected', 'awaiting_approval']).optional(),
+  type: z.string().optional(),
+  // Round 3, phase A: the words a person chooses — money in, money out — with the read layer's own
+  // list deciding which types those are, so the page never keeps a copy that can drift.
+  direction: z.enum(['in', 'out']).optional(), status: z.enum(['pending', 'sent', 'completed', 'failed', 'unknown', 'cancelled', 'rejected', 'awaiting_approval']).optional(),
   from: dayString.optional(), to: dayString.optional(),
   q: z.string().trim().max(60).optional(), limit: z.coerce.number().int().min(1).max(100).default(25), cursor: z.string().max(200).optional(),
   // Brief 2, item 1: History and Money in narrow by business, and an account link narrows to one
@@ -51,8 +57,9 @@ const listSchema = z.object({
 }).refine((v) => !v.from || !v.to || v.from <= v.to, { message: 'The end date must be on or after the start date.', path: ['to'] });
 const checkedSchema = z.object({ note: z.string().trim().min(1).max(500) });
 
-/** Feature 3: the columns an exported History carries, in the order the page reads. */
-const HISTORY_COLUMNS = ['When', 'What', 'To', 'Name', 'Business', 'Amount', 'Status', 'Receipt', 'Note', 'Who made it'];
+/** Feature 3: the columns an exported History carries, in the order the page reads. The number
+ * column is the phone the payer paid from or the person was paid on, whichever way the row went. */
+const HISTORY_COLUMNS = ['When', 'What', 'Number', 'Name', 'Business', 'Amount', 'Status', 'Receipt', 'Note', 'Who made it'];
 
 /**
  * One History row as file cells. The name is the owner's own label first (the saved contact, then
@@ -62,8 +69,8 @@ function historyRow(r: RequestView): unknown[] {
   return [
     nairobiStamp(r.createdAt),
     whatLabel(r),
-    r.recipient.value ?? '',
-    r.contactName ?? r.accountName ?? r.recipient.name ?? '',
+    r.party.number ?? '',
+    r.party.name ?? '',
     r.businessName ?? '',
     shillings(r.amountCents),
     statusLabel(r.status),
@@ -75,6 +82,14 @@ function historyRow(r: RequestView): unknown[] {
 const isUuid = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 const nameCheckSchema = z.object({ phone: z.string().trim().min(1).max(20) });
 const lookupSchema = z.object({ receipt: z.string().trim().toUpperCase().regex(/^[A-Z0-9]{10}$/, 'An M-Pesa receipt is 10 letters and numbers, like RI6BZTPXNM.') });
+
+/** What the type filter means: an explicit list when one was given, else the direction's own list. */
+function typeFilter(qy: { type?: string; direction?: 'in' | 'out' }): string[] | undefined {
+  if (qy.type) return qy.type.split(',').map((s) => s.trim()).filter(Boolean);
+  if (qy.direction === 'in') return INCOMING_TYPES;
+  if (qy.direction === 'out') return MONEY_TYPES;
+  return undefined;
+}
 
 function parse<T>(schema: z.ZodType<T>, body: unknown): T {
   const r = schema.safeParse(body);
@@ -109,7 +124,7 @@ export function requestRoutes(deps: AppDeps): Router {
   r.get('/', requirePermission(deps.db, 'lookup.view'), async (req, res, next) => {
     try {
       const qy = parse(listSchema, req.query);
-      res.json(await listRequests(deps.db, { ...qy, type: qy.type ? qy.type.split(',').map((s) => s.trim()).filter(Boolean) : undefined }, deps.config.egressIps));
+      res.json(await listRequests(deps.db, { ...qy, type: typeFilter(qy) }, deps.config.egressIps));
     } catch (e) { next(e); }
   });
   // Feature 3: the rows the page has, as a file. `listRequests` owns what a filter means, so the
@@ -118,7 +133,7 @@ export function requestRoutes(deps: AppDeps): Router {
   r.get('/export.csv', requirePermission(deps.db, 'history.export'), async (req, res, next) => {
     try {
       const qy = parse(listSchema, req.query);
-      const filter = { ...qy, type: qy.type ? qy.type.split(',').map((s) => s.trim()).filter(Boolean) : undefined };
+      const filter = { ...qy, type: typeFilter(qy) };
       const { items } = await listRequests(deps.db, { ...filter, limit: EXPORT_MAX }, deps.config.egressIps);
       // What the person asked for, never what came back — and never the search text itself, which
       // is often a phone number.

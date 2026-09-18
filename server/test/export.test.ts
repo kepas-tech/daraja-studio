@@ -86,7 +86,7 @@ describe('CSV export', () => {
     await deps.db.query(`INSERT INTO permissions(person_id, permission) VALUES ($1,'history.export')`, [staff]);
     const allowed = await request(app).get('/api/requests/export.csv').set('Cookie', s2.cookie).set('x-csrf-token', s2.csrf);
     expect(allowed.status).toBe(200);
-    expect(allowed.text.split('\r\n')[0]).toBe('"When","What","To","Name","Business","Amount","Status","Receipt","Note","Who made it"');
+    expect(allowed.text.split('\r\n')[0]).toBe('"When","What","Number","Name","Business","Amount","Status","Receipt","Note","Who made it"');
   });
 
   it('carries one line per row, with the owner own names first', async () => {
@@ -94,7 +94,7 @@ describe('CSV export', () => {
     const r = await h(request(app).get('/api/requests/export.csv'));
     const lines = r.text.split('\r\n').filter(Boolean);
     expect(lines).toHaveLength(2); // header + the one row
-    expect(lines[0]).toBe('"When","What","To","Name","Business","Amount","Status","Receipt","Note","Who made it"');
+    expect(lines[0]).toBe('"When","What","Number","Name","Business","Amount","Status","Receipt","Note","Who made it"');
     expect(lines[1]).toContain('"UIG517BUAZ"');
     expect(lines[1]).toContain('"300.00"');
     expect(lines[1]).toContain('"Joseph Ngumbao John"');

@@ -96,8 +96,18 @@ export type RequestStatus = 'pending' | 'sent' | 'completed' | 'failed' | 'unkno
 export interface RequestView {
   id: string; type: string; subtype: string | null; status: RequestStatus | string; amountCents: number | null; currency: 'KES';
   recipient: { kind: string | null; value: string | null; name: string | null }; remarks: string | null; receipt: string | null;
+  /**
+   * Round 3, phase A: which way this row's money moved — null on a row that moves none, like a
+   * lookup — and the person on the other side of it. `requests.recipient_name` is one column
+   * holding two different people, so the read layer names the person here, by direction, and no page
+   * has to ask what type it is reading. Both are optional because a page rendered against an older
+   * server sends neither, and that absence has to read as "work it out from the row's type".
+   */
+  direction?: 'in' | 'out' | null;
+  party?: { name: string | null; number: string | null; savedName: string | null };
   category: string | null;
-  /** The saved contact's own name, when this payment came from one. Safaricom's `recipient.name` is untouched beside it. */
+  /** The saved contact's own name, when this payment came from one. Shown as `party.savedName`,
+   * beside the name on the row rather than instead of it. */
   contactName: string | null;
   /** What the payer typed on their phone (c2b) or the reference the request carried. */
   accountReference: string | null;

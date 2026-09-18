@@ -31,6 +31,20 @@ describe('C2B callbacks', () => {
     expect(verdicts).toEqual(['applied', 'duplicate']);
   });
 
+  it('keeps the name the validation callback saw, and uses it when the confirmation has none', async () => {
+    await request(app).post('/cb/sekret/c2b/validate').set('X-Forwarded-For', SAF_IP).send({ ...body('RKT9000001'), FirstName: 'Jane', MiddleName: 'Wanjiru', LastName: 'Doe' });
+    await request(app).post('/cb/sekret/c2b/confirm').set('X-Forwarded-For', SAF_IP).send({ ...body('RKT9000001'), FirstName: '', MiddleName: '', LastName: '' });
+    const [row] = await deps.db.query<{ recipient_name: string | null }>('SELECT recipient_name FROM requests WHERE receipt=$1', ['RKT9000001']);
+    expect(row.recipient_name).toBe('Jane Wanjiru Doe');
+  });
+
+  it('stores the name cleanly and keeps the parts Safaricom sent on the row', async () => {
+    await request(app).post('/cb/sekret/c2b/confirm').set('X-Forwarded-For', SAF_IP).send({ ...body('RKT9000002'), FirstName: '254712345678 - JANE', MiddleName: 'WANJIRU', LastName: 'DOE' });
+    const [row] = await deps.db.query<{ recipient_name: string; payload_json: { lastName: string } }>('SELECT recipient_name, payload_json FROM requests WHERE receipt=$1', ['RKT9000002']);
+    expect(row.recipient_name).toBe('JANE WANJIRU DOE');
+    expect(row.payload_json.lastName).toBe('DOE');
+  });
+
   it('a body that is not a payment answers 200, keeps the raw and inserts nothing', async () => {
     const r = await request(app).post('/cb/sekret/c2b/confirm').set('X-Forwarded-For', SAF_IP).send({ hello: 'world' });
     expect(r.status).toBe(200);

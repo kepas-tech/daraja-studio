@@ -53,7 +53,11 @@ describe('/cb/b2c', () => {
       const [row] = await deps.db.query<{ status: string; receipt: string; recipient_name: string; result_source: string; conversation_id: string }>('SELECT status, receipt, recipient_name, result_source, conversation_id FROM requests WHERE id=$1', [reqId]);
       expect(row.status).toBe('completed');
       expect(row.receipt).toBe('RI6BZTPXNM');
-      expect(row.recipient_name).toBe('254700123456 - Jane Doe');
+      // Phase A: Safaricom's "254700123456 - Jane Doe" is stored as the name alone; the raw body,
+      // phone prefix and all, stays in raw_result_json.
+      expect(row.recipient_name).toBe('Jane Doe');
+      const [kept] = await deps.db.query<{ raw_result_json: { Result: unknown } }>('SELECT raw_result_json FROM requests WHERE id=$1', [reqId]);
+      expect(kept.raw_result_json.Result).toBeTruthy();
       expect(row.result_source).toBe('callback');
       expect(row.conversation_id).toBe('AG_OCB1');
       const [bal] = await deps.db.query<{ utility_cents: string; working_cents: string; charges_paid_cents: string | null }>('SELECT utility_cents, working_cents, charges_paid_cents FROM balances');

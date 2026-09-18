@@ -16,7 +16,9 @@ class FakeEventSource {
 vi.stubGlobal('EventSource', FakeEventSource);
 afterEach(() => cleanup());
 
-const answered = { id: 'q1', type: 'status_query', subtype: 'lookup', status: 'completed', amountCents: 25000, currency: 'KES', recipient: { kind: 'phone', value: 'RI6BZTPXNM', name: '254700123456 - Jane Doe' }, remarks: null, receipt: 'RI6BZTPXNM', createdAt: '2026-09-06T11:00:00Z', sentAt: '2026-09-06T11:00:01Z', resultAt: '2026-09-06T11:00:05Z', resultSource: 'callback', safaricomSaid: 'The service request is processed successfully.', meaning: 'Safaricom reports this transaction as Completed.', whatToDo: null, retriable: false, pollAttempts: 0, checked: null, createdBy: null };
+// A lookup moves no money of its own, so the read layer gives it no direction and the detail block
+// labels the person "Name" rather than guessing From or To.
+const answered = { id: 'q1', type: 'status_query', subtype: 'lookup', status: 'completed', amountCents: 25000, currency: 'KES', recipient: { kind: 'phone', value: 'RI6BZTPXNM', name: 'Jane Doe' }, direction: null, party: { name: 'Jane Doe', number: 'RI6BZTPXNM', savedName: null }, remarks: null, receipt: 'RI6BZTPXNM', createdAt: '2026-09-06T11:00:00Z', sentAt: '2026-09-06T11:00:01Z', resultAt: '2026-09-06T11:00:05Z', resultSource: 'callback', safaricomSaid: 'The service request is processed successfully.', meaning: 'Safaricom reports this transaction as Completed.', whatToDo: null, retriable: false, pollAttempts: 0, checked: null, createdBy: null };
 
 describe('History › Ask Safaricom about a receipt', () => {
   it('does not offer Safaricom for a receipt that is already in the list', async () => {
@@ -47,7 +49,8 @@ describe('History › Ask Safaricom about a receipt', () => {
     es.emit('request.updated', { type: 'request.updated', payload: { id: 'q1', status: 'completed' }, at: new Date().toISOString() });
     await screen.findByText('Safaricom reports this transaction as Completed.');
     await waitFor(() => expect(screen.getByText('KES 250')).toBeInTheDocument());
-    await waitFor(() => expect(screen.getByText('254700123456 - Jane Doe')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Jane Doe')).toBeInTheDocument());
+    expect(screen.getByText(copy.request.name)).toBeInTheDocument();
   });
 
   it('W2: re-fetches on SSE reconnect (open) without waiting for a missed event', async () => {

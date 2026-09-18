@@ -38,7 +38,8 @@ async function lastEventSource(): Promise<FakeEventSource> {
 }
 
 const sent = { id: 'r1', type: 'b2c', subtype: 'BusinessPayment', status: 'sent', amountCents: 100, currency: 'KES', recipient: { kind: 'phone', value: '254700123456', name: null }, remarks: null, receipt: null, createdAt: '2026-09-06T11:00:00Z', sentAt: '2026-09-06T11:00:01Z', resultAt: null, resultSource: null, safaricomSaid: null, meaning: null, whatToDo: null, retriable: false, pollAttempts: 0, checked: null, createdBy: { id: 'p', displayName: 'Owner' } };
-const completed = { ...sent, status: 'completed', receipt: 'RI6BZTPXNM', recipient: { ...sent.recipient, name: '254700123456 - Jane Doe' }, resultAt: '2026-09-06T11:00:05Z', resultSource: 'callback' };
+// Round 3, phase A: the read layer hands back the name alone, so this is the shape the page reads.
+const completed = { ...sent, status: 'completed', receipt: 'RI6BZTPXNM', recipient: { ...sent.recipient, name: 'Jane Doe' }, party: { name: 'Jane Doe', number: '254700123456', savedName: null }, direction: 'out', resultAt: '2026-09-06T11:00:05Z', resultSource: 'callback' };
 const balance = { workingCents: 1400, utilityCents: 3439200, chargesPaidCents: 0, queriedAt: new Date().toISOString() };
 
 function fetchFor(handlers: Record<string, (init?: RequestInit) => Response>) {
@@ -91,6 +92,25 @@ describe('SendPhone', () => {
     render(<MemoryRouter><SendPhone /></MemoryRouter>);
     await fillForm();
     expect(await screen.findByText(copy.send.phone.review.nameNote)).toBeInTheDocument();
+  });
+
+  // Round 3, phase A: the confirmed name goes with the payment, so Waiting is not blank while
+  // Safaricom thinks about it.
+  it('sends the name Safaricom confirmed along with the payment', async () => {
+    let posted: { recipientName?: string } | null = null;
+    vi.stubGlobal('fetch', fetchFor({
+      'GET /api/balances/latest': () => new Response(JSON.stringify(balance), { status: 200 }),
+      'POST /api/send/name-check': () => new Response(JSON.stringify({ available: true, name: 'JANE D****** O******' }), { status: 200 }),
+      'POST /api/send/phone': (init) => { posted = JSON.parse(String(init?.body)); return new Response(JSON.stringify(sent), { status: 201 }); },
+    }));
+    render(<MemoryRouter><SendPhone /></MemoryRouter>);
+    await fillForm();
+    await screen.findByText(copy.send.phone.review.name('JANE D****** O******'));
+    fireEvent.click(screen.getByRole('button', { name: copy.send.phone.send }));
+    fireEvent.change(screen.getByLabelText(copy.confirm.yourPassword), { target: { value: 'studio-pw' } });
+    fireEvent.click(screen.getByRole('button', { name: copy.confirm.confirm }));
+    await screen.findByText(copy.send.phone.result.sent);
+    expect(posted!.recipientName).toBe('JANE D****** O******');
   });
 
   it('review warns when Safaricom does not know the number, and still lets the owner decide', async () => {

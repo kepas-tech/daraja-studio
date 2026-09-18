@@ -95,7 +95,7 @@ async function main() {
   const settingsService = createSettingsService({ db, config, settings, instance, cache, daraja, operators, orgs });
   const moneyOut = createMoneyOutService({ db, settings, cache, daraja, events, config, orgs });
   const collect = createCollectService({ db, settings, daraja, events, config, orgs });
-  const moneyIn = createMoneyInService({ db, settings, daraja, events, orgs });
+  const moneyIn = createMoneyInService({ db, settings, daraja, events, orgs, cache });
   const bulk = createBulkService({ db, settings, config, events, moneyOut });
   const invoices = createInvoicesService({ db, settings, daraja, events, orgs });
   // Feature 2: businesses and customers. Needs the settings store for the last business used, so the

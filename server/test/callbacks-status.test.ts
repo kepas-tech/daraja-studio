@@ -6,13 +6,13 @@ const { app, deps, close } = makeApp();
 afterAll(async () => { await deps.events.stop(); await close(); });
 const SAF_IP = '196.201.214.200';
 
-function statusBody(queryOc: string, opts: { code?: number; status?: string; receipt?: string; amount?: number } = {}) {
+function statusBody(queryOc: string, opts: { code?: number; status?: string; receipt?: string; amount?: number; debit?: string; credit?: string } = {}) {
   const code = opts.code ?? 0;
   return { Result: {
     ResultType: 0, ResultCode: code, ResultDesc: code === 0 ? 'The service request is processed successfully.' : 'The format of parameter null is invalid.',
     OriginatorConversationID: queryOc, ConversationID: `AG_${queryOc}`, TransactionID: opts.receipt ?? '',
     ...(code === 0 ? { ResultParameters: { ResultParameter: [
-      { Key: 'DebitPartyName', Value: '600999 - ACME' }, { Key: 'CreditPartyName', Value: '254700123456 - Jane Doe' },
+      { Key: 'DebitPartyName', Value: opts.debit ?? '600999 - ACME' }, { Key: 'CreditPartyName', Value: opts.credit ?? '254700123456 - Jane Doe' },
       { Key: 'TransactionStatus', Value: opts.status ?? 'Completed' }, { Key: 'Amount', Value: opts.amount ?? 1 },
       { Key: 'ReceiptNo', Value: opts.receipt ?? 'RI6BZTPXNM' }, { Key: 'FinalisedTime', Value: 20260906142000 },
       { Key: 'ReasonType', Value: 'Business Payment to Customer via API' },
@@ -50,7 +50,7 @@ describe('/cb/status', () => {
       const r = await request(app).post('/cb/sekret/status').set('X-Forwarded-For', SAF_IP).send(statusBody('Q1'));
       expect(r.status).toBe(200);
       const [tr] = await deps.db.query<{ status: string; receipt: string; result_source: string; recipient_name: string }>('SELECT status, receipt, result_source, recipient_name FROM requests WHERE id=$1', [t]);
-      expect(tr).toEqual({ status: 'completed', receipt: 'RI6BZTPXNM', result_source: 'poll', recipient_name: '254700123456 - Jane Doe' });
+      expect(tr).toEqual({ status: 'completed', receipt: 'RI6BZTPXNM', result_source: 'poll', recipient_name: 'Jane Doe' });
       const [qr] = await deps.db.query<{ status: string; raw_result_json: unknown }>('SELECT status, raw_result_json FROM requests WHERE id=$1', [q]);
       expect(qr.status).toBe('completed');
       expect(qr.raw_result_json).toBeTruthy();
@@ -124,8 +124,32 @@ describe('/cb/status', () => {
     expect(qr.status).toBe('completed');
     expect(qr.receipt).toBe('RI6BZTPXNM');
     expect(Number(qr.amount_cents)).toBe(25000);
-    expect(qr.recipient_name).toBe('254700123456 - Jane Doe');
+    expect(qr.recipient_name).toBe('Jane Doe');
     expect(qr.meaning).toMatch(/Completed/);
+  });
+
+  it('a lookup names the payer from DebitPartyName and gives that name to the row it holds (phase A)', async () => {
+    // The studio already holds the paybill payment this receipt belongs to, written without a name
+    // (the Pull API's placeholder name reads as none). The lookup is the recovery path.
+    const [money] = await deps.db.query<{ id: string }>(
+      `INSERT INTO requests(type, subtype, originator_conversation_id, status, amount_cents, currency, recipient_kind, recipient_value, receipt, result_source, result_code, result_desc, result_at)
+       VALUES ('c2b','Pay Bill','c2b:RI6BZTPXNM','completed',100,'KES','phone','254712345678','RI6BZTPXNM','poll','0','Completed',now()) RETURNING id`);
+    const q = await query('Q12', null, 'lookup');
+    await request(app).post('/cb/sekret/status').set('X-Forwarded-For', SAF_IP).send(statusBody('Q12', { debit: '254712345678 - JANE DOE', credit: '600999 - KEPAS' }));
+    const [mr] = await deps.db.query<{ recipient_name: string | null }>('SELECT recipient_name FROM requests WHERE id=$1', [money.id]);
+    expect(mr.recipient_name).toBe('JANE DOE');
+    const [qr] = await deps.db.query<{ recipient_name: string | null }>('SELECT recipient_name FROM requests WHERE id=$1', [q]);
+    expect(qr.recipient_name).toBe('JANE DOE');
+  });
+
+  it('a name already on the row is never overwritten by a lookup (phase A)', async () => {
+    const [money] = await deps.db.query<{ id: string }>(
+      `INSERT INTO requests(type, subtype, originator_conversation_id, status, amount_cents, currency, recipient_kind, recipient_value, recipient_name, receipt, result_source, result_code, result_desc, result_at)
+       VALUES ('c2b','Pay Bill','c2b:RI6BZTPXNM','completed',100,'KES','phone','254712345678','Jane Wanjiru','RI6BZTPXNM','poll','0','Completed',now()) RETURNING id`);
+    await query('Q13', null, 'lookup');
+    await request(app).post('/cb/sekret/status').set('X-Forwarded-For', SAF_IP).send(statusBody('Q13', { debit: '254712345678 - JANE DOE', credit: '600999 - KEPAS' }));
+    const [mr] = await deps.db.query<{ recipient_name: string | null }>('SELECT recipient_name FROM requests WHERE id=$1', [money.id]);
+    expect(mr.recipient_name).toBe('Jane Wanjiru');
   });
 
   it('an amount disagreement still applies the outcome, but raises status_amount_mismatch', async () => {

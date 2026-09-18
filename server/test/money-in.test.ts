@@ -100,6 +100,14 @@ describe('money in', () => {
     expect(all.body.items.map((r: { type: string }) => r.type)).toEqual(['c2b']);
   });
 
+  it('the recent list shows every kind of money in, not only paybill payments (phase A)', async () => {
+    await register();
+    await deps.db.query(`INSERT INTO requests(type, originator_conversation_id, status, amount_cents, currency, recipient_kind, recipient_value, sent_at, result_at) VALUES ('invoice_payment','invpay:1','completed',100,'KES','phone','254700123456',now(),now())`);
+    await deps.db.query(`INSERT INTO requests(type, originator_conversation_id, status, amount_cents, currency, recipient_kind, recipient_value, sent_at) VALUES ('express','oc-ex','sent',200,'KES','shortcode','174379',now())`);
+    const recent = await request(app).get('/api/money-in/recent').set('Cookie', cookie);
+    expect(recent.body.items.map((r: { type: string }) => r.type).sort()).toEqual(['express', 'invoice_payment']);
+  });
+
   it('the check finds a payment whose confirmation never arrived, once', async () => {
     await register();
     await fake.customerPays({ amount: 100, phone: '254700123456', account: 'ACC-1', deliver: false });
@@ -125,5 +133,11 @@ describe('money in', () => {
     expect(eatStamp(new Date('2026-09-16T07:15:30Z'))).toBe('2026-09-16 10:15:30');
     expect(pulledToPayment({ transactionId: 'RC1', trxDate: '2026-09-16 10:15:30', msisdn: '254700123456', sender: 'JANE', billreference: 'A', amount: '12.5' })).toMatchObject({ transId: 'RC1', amount: 12.5, transTime: '20260916101530', billRefNumber: 'A' });
     expect(pulledToPayment({ amount: '1' })).toBeNull();
+    // Phase A: the portal's `sender` column and the three callback-shaped name fields are two
+    // spellings of the same thing. The named parts win when Safaricom sent them; `sender` stands in
+    // when it did not, whole (it carries the phone too, which the row's own value already has).
+    expect(pulledToPayment({ transactionId: 'RC2', amount: '1', sender: 'JANE DOE' })).toMatchObject({ firstName: 'JANE DOE', middleName: '', lastName: '' });
+    expect(pulledToPayment({ transactionId: 'RC3', amount: '1', FirstName: 'Jane', MiddleName: 'Wanjiru', LastName: 'Doe' })).toMatchObject({ firstName: 'Jane', middleName: 'Wanjiru', lastName: 'Doe' });
+    expect(pulledToPayment({ transactionId: 'RC4', amount: '1', sender: 'MPESA', FirstName: 'Jane', MiddleName: 'Wanjiru', LastName: 'Doe' })).toMatchObject({ firstName: 'Jane', middleName: 'Wanjiru', lastName: 'Doe' });
   });
 });

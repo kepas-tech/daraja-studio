@@ -226,7 +226,11 @@ export const copy = {
     status: { pending: 'Preparing', sent: 'Waiting', completed: 'Paid', failed: 'Failed', unknown: 'Needs a check', cancelled: 'Cancelled', rejected: 'Rejected', awaiting_approval: 'Waiting for approval' } as Record<string, string>,
     type: { b2c: 'Sent to a phone', c2b: 'Paid by a payer', invoice_payment: 'Invoice paid', ratiba: 'Standing order', express: 'Asked a business to pay', bonga: 'Paid with Bonga points', stk: 'Asked a payer to pay', reversal: 'Reversal', balance: 'Balance check', status_query: 'Payment lookup' } as Record<string, string>,
     subtype: { BusinessPayment: 'Business payment', SalaryPayment: 'Salary', PromotionPayment: 'Promotion', refresh: 'Balance refresh', lookup: 'Lookup', sweep: 'Safaricom check' } as Record<string, string>,
-    to: 'To', amount: 'Amount', receipt: 'Receipt', when: 'When', by: 'By', category: 'Category',
+    /** Round 3, phase A: the person leads, and the word follows the row's direction. "Name" is for
+     * a row that moves no money at all — a lookup — where neither From nor To is true. */
+    from: 'From', to: 'To', name: 'Name',
+    savedAs: (name: string) => `Saved as ${name}`,
+    amount: 'Amount', receipt: 'Receipt', when: 'When', by: 'By', category: 'Category',
     checkedBy: (name: string, note: string) => `Checked by ${name}: ${note}`,
     sendAgain: 'Send again', tryAgain: 'Try again', checkNow: 'Check with Safaricom now', reverseThis: 'Reverse this payment',
     held: 'Held for a second person to approve. Nothing has left your account.', decidedBy: (name: string) => `Decided by ${name}`,
@@ -415,13 +419,11 @@ export const copy = {
   history: {
     title: 'History', safaricom: 'Account Statement', search: 'Search phone, name or receipt', searchPlaceholder: 'Phone, name or receipt', from: 'From', to: 'To', status: 'Status', any: 'Any status',
     empty: 'Nothing here yet.', loadMore: 'Load more', previous: 'Previous', next: 'Next', page: (n: number) => `Page ${n}`,
-    columns: { when: 'When', what: 'What', to: 'To', amount: 'Amount', status: 'Status', charge: 'Safaricom’s charge', receipt: 'Receipt' },
+    columns: { when: 'When', what: 'What', who: 'Who', amount: 'Amount', status: 'Status', charge: 'Safaricom’s charge', receipt: 'Receipt' },
     direction: 'Direction', directions: { all: 'In and out', in: 'Money in', out: 'Money out' } as Record<string, string>,
     business: 'Business', anyBusiness: 'Every business',
     oneAccount: (name: string) => 'Showing one account: ' + name,
     clearAccount: 'Show every account',
-    /** The owner's own label for the person, shown above the name Safaricom holds. */
-    fromContact: 'Saved as',
     /** Feature 3: every row the filters select, in a file for a spreadsheet. */
     export: 'Export as a spreadsheet', exporting: 'Making the file…', exported: 'Saved to your downloads.',
   },

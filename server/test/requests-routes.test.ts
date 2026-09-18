@@ -236,6 +236,60 @@ describe('GET /api/requests', () => {
     expect(r.body.items.map((i: { subtype: string }) => i.subtype)).not.toContain('BusinessPayment');
   });
 
+  // Phase A: one column, two people. The read layer names the person by direction, so a screen
+  // never has to ask what type it is reading.
+  it('names the person on the other side by direction, and cleans a name stored before phase A', async () => {
+    const [moneyIn] = await deps.db.query<{ id: string }>(
+      `INSERT INTO requests(type, subtype, originator_conversation_id, status, amount_cents, currency, recipient_kind, recipient_value, recipient_name, account_reference, sent_at, result_at)
+       VALUES ('c2b','Pay Bill','oc-in','completed',25000,'KES','phone','254712345678','254712345678 - JANE DOE','ACC-9',now(),now()) RETURNING id`);
+    const [moneyOut] = await deps.db.query<{ id: string }>(
+      `INSERT INTO requests(type, subtype, originator_conversation_id, status, amount_cents, currency, recipient_kind, recipient_value, recipient_name, sent_at)
+       VALUES ('b2c','BusinessPayment','oc-out','sent',10000,'KES','phone','254700123456','Jane Doe',now()) RETURNING id`);
+    const [held] = await deps.db.query<{ id: string }>(
+      `INSERT INTO requests(type, subtype, originator_conversation_id, status, amount_cents, currency, recipient_kind, recipient_value, recipient_name, sent_at)
+       VALUES ('b2c','BusinessPayment','oc-held','awaiting_approval',10000,'KES','phone','254700123457','Jane Doe',now()) RETURNING id`);
+
+    const inside = await request(app).get(`/api/requests/${moneyIn.id}`).set('Cookie', cookie);
+    expect(inside.body.direction).toBe('in');
+    expect(inside.body.party).toEqual({ name: 'JANE DOE', number: '254712345678', savedName: null });
+    expect(inside.body.recipient.name).toBe('JANE DOE');
+
+    const out = await request(app).get(`/api/requests/${moneyOut.id}`).set('Cookie', cookie);
+    expect(out.body.direction).toBe('out');
+    expect(out.body.party.name).toBe('Jane Doe');
+
+    // A row that moves no money has no direction, so the lookup screen cannot label its party wrongly.
+    const [query] = await deps.db.query<{ id: string }>(
+      `INSERT INTO requests(type, subtype, originator_conversation_id, status, sent_at) VALUES ('status_query','lookup','oc-look','sent',now()) RETURNING id`);
+    expect((await request(app).get(`/api/requests/${query.id}`).set('Cookie', cookie)).body.direction).toBeNull();
+
+    // A payout with no name yet falls back to the contact the owner saved for that number.
+    await deps.db.query(`INSERT INTO contacts(kind, name, phone) VALUES ('phone','Mum','254700123457')`);
+    await deps.db.query(`UPDATE requests SET contact_id=(SELECT id FROM contacts WHERE name='Mum') WHERE id=$1`, [held.id]);
+    const waiting = await request(app).get('/api/waiting').set('Cookie', cookie);
+    const row = (waiting.body.approvals.items as { id: string; party: { name: string | null; savedName: string | null } }[]).find((x) => x.id === held.id)!;
+    expect(row.party).toEqual({ name: 'Jane Doe', number: '254700123457', savedName: 'Mum' });
+  });
+
+  it('never shows a name Safaricom only sent as a token', async () => {
+    const [row] = await deps.db.query<{ id: string }>(
+      `INSERT INTO requests(type, subtype, originator_conversation_id, status, amount_cents, currency, recipient_kind, recipient_value, sent_at)
+       VALUES ('c2b','Pay Bill','oc-hash','completed',100,'KES','phone',repeat('a',64),now()) RETURNING id`);
+    const g = await request(app).get(`/api/requests/${row.id}`).set('Cookie', cookie);
+    expect(g.body.party.number).toBeNull();
+  });
+
+  it('filters by the direction word, so the page never keeps a list of types that can drift', async () => {
+    await deps.db.query(`INSERT INTO requests(type, originator_conversation_id, status, sent_at) VALUES ('c2b','oc-d1','completed',now()), ('express','oc-d2','sent',now()), ('b2c','oc-d3','sent',now())`);
+    const inn = await request(app).get('/api/requests').query({ direction: 'in' }).set('Cookie', cookie);
+    expect(inn.body.items.map((i: { type: string }) => i.type).sort()).toEqual(['c2b', 'express']);
+    const out = await request(app).get('/api/requests').query({ direction: 'out' }).set('Cookie', cookie);
+    expect(out.body.items.map((i: { type: string }) => i.type)).toEqual(['b2c']);
+    // An explicit list still wins, so nothing that used ?type= before this changes meaning.
+    const one = await request(app).get('/api/requests').query({ type: 'c2b' }).set('Cookie', cookie);
+    expect(one.body.items.map((i: { type: string }) => i.type)).toEqual(['c2b']);
+  });
+
   it('markChecked refuses a non-money-type unknown row', async () => {
     const [row] = await deps.db.query<{ id: string }>(`INSERT INTO requests(type, originator_conversation_id, status, sent_at) VALUES ('status_query','oc-sq','unknown',now()) RETURNING id`);
     const r = await request(app).post(`/api/requests/${row.id}/checked`).set('Cookie', cookie).set('x-csrf-token', csrf).send({ note: 'x', password: 'correct horse' });

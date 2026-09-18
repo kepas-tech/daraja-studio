@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.38.0 — names, everywhere
+
+- **A name on every row, whichever way the money went.** Studio already received far more names than
+  it showed: a paybill payment arrives with up to three name parts, a payout result repeats the
+  person's name, and a status result names both sides. Each of those is now read, cleaned in one
+  place and stored — so a payment shows who paid and a payout shows who was paid, on Home, History,
+  the request card and Waiting.
+- **The name leads, the number sits under it.** Safaricom's party names arrive as
+  `"254712345678 - JANE DOE"`; the repeated number is dropped and the name becomes the headline.
+  Money in says **From** and money out says **To**, taken from the row's own direction rather than
+  guessed by each screen.
+- **A saved contact no longer hides Safaricom's name.** When the two differ, both are shown — the
+  mismatch is exactly what the owner needs to see.
+- **A payout is named from the moment it is sent**, from the saved contact, then the account it is
+  for, then the name Safaricom confirmed on the review screen.
+- **Money in shows all of it**, not only paybill payments: an express ask, a Bonga redemption, an
+  invoice payment and a standing order are all money in. The Pull API's `MPESA` placeholder is
+  read as "no name" rather than a person, and an invoice payment is named from the account it was
+  billed to.
+
 ## 0.37.0 — the operator pool, the rest of it
 
 - **One request in flight per operator.** A send takes a short lease on the operator that signs it,

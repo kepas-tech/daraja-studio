@@ -3,6 +3,7 @@ import type { AppDeps } from '../app.js';
 import { requireAuth, requireCsrf, requireOwner, requireStepUp } from '../auth/middleware.js';
 import { requirePermission } from '../permissions/middleware.js';
 import { listRequests } from '../money_out/reads.js';
+import { INCOMING_TYPES } from '../money_out/registry.js';
 import { clientIp } from '../util/ip.js';
 
 /**
@@ -12,7 +13,9 @@ import { clientIp } from '../util/ip.js';
 export function moneyInRoutes(deps: AppDeps): Router {
   const r = Router();
   r.get('/status', requireAuth(deps.db), requirePermission(deps.db, 'money_in.view'), async (_req, res, next) => { try { res.json(await deps.moneyIn.status()); } catch (e) { next(e); } });
-  r.get('/recent', requireAuth(deps.db), requirePermission(deps.db, 'money_in.view'), async (_req, res, next) => { try { res.json(await listRequests(deps.db, { type: ['c2b'], limit: 20 }, deps.config.egressIps)); } catch (e) { next(e); } });
+  // Phase A: every kind of money in, not only a paybill payment — an express ask, a Bonga
+  // redemption, an invoice payment and a standing order all arrive here too.
+  r.get('/recent', requireAuth(deps.db), requirePermission(deps.db, 'money_in.view'), async (_req, res, next) => { try { res.json(await listRequests(deps.db, { type: INCOMING_TYPES, limit: 20 }, deps.config.egressIps)); } catch (e) { next(e); } });
   // Feature 2: payments whose account number names no business, or a customer number nobody holds.
   // Each one carries the reason and enough for the page to offer its own one-click fix.
   r.get('/unmatched', requireAuth(deps.db), requirePermission(deps.db, 'money_in.view'), async (_req, res, next) => {

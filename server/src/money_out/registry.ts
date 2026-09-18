@@ -95,6 +95,18 @@ export const COLLECT_TYPES: string[] = Object.keys(COLLECT_KINDS);
 /** Everything the tenant should see in History, whichever direction the money moved. */
 /** Money that arrives without a request from us (M2): read by History, never polled, never a send. */
 export const MONEY_IN_TYPES: string[] = ['c2b', 'invoice_payment'];
+/**
+ * Round 3, phase A: everything that arrives rather than leaves — a payment request the payer
+ * answered, and money that landed without one. The one list the read layer needs to tell which way a
+ * row's money moved, so no screen has to work it out from type strings of its own.
+ */
+export const INCOMING_TYPES: string[] = [...COLLECT_TYPES, ...MONEY_IN_TYPES];
+/** Which way one row's money moves: `in`, `out`, or null for a row that moves none at all —
+ * a status query, a balance check. */
+export function directionOf(type: string): 'in' | 'out' | null {
+  if (INCOMING_TYPES.includes(type)) return 'in';
+  return MONEY_TYPES.includes(type) ? 'out' : null;
+}
 export const LEDGER_TYPES: string[] = [...MONEY_TYPES, ...COLLECT_TYPES, ...MONEY_IN_TYPES];
 
 /** Every kind that answers on one callback path, in either direction. The callback resolves the row

@@ -4,7 +4,7 @@ import { useSession } from '../app/session';
 import { ErrorCard, explainApiError, type Explained } from '../components/ErrorCard';
 import { Flash } from '../components/Flash';
 import { useToast } from '../components/Toast';
-import { Link, useSearchParams } from 'react-router';
+import { useSearchParams } from 'react-router';
 import { api, saveDownload } from '../api/client';
 import type { BusinessView, Page, RequestView } from '../api/types';
 import { Button } from '../components/Button';
@@ -13,12 +13,11 @@ import { StatusPill } from '../components/StatusPill';
 import { STATUS_TONE } from '../components/RequestCard';
 import { PageHeader } from '../components/PageHeader';
 import { copy } from '../copy/en';
-import { money, phone, when } from '../format';
+import { money, when } from '../format';
+import { PartyLine, partyOf, partyWord } from '../components/PartyLine';
 
 const PAGE = 7;
 const STATUSES = ['completed', 'sent', 'failed', 'unknown', 'pending', 'cancelled'];
-/** Which way the money moved. Types are named here, not on the server, so the filter is one query param. */
-const DIRECTION_TYPES: Record<string, string> = { in: 'c2b,stk', out: 'b2c,reversal' };
 
 export function History() {
   const toast = useToast();
@@ -74,7 +73,8 @@ export function History() {
   // One definition of what the filters mean, shared by the list and the export.
   const filterParams = useCallback(() => {
     const p = new URLSearchParams();
-    if (q.trim()) p.set('q', q.trim()); if (from) p.set('from', from); if (to) p.set('to', to); if (status) p.set('status', status); if (direction && DIRECTION_TYPES[direction]) p.set('type', DIRECTION_TYPES[direction]); if (business) p.set('businessId', business); if (accountId) p.set('accountId', accountId);
+    // The direction goes as the word the person chose; the server owns which types that means.
+    if (q.trim()) p.set('q', q.trim()); if (from) p.set('from', from); if (to) p.set('to', to); if (status) p.set('status', status); if (direction) p.set('direction', direction); if (business) p.set('businessId', business); if (accountId) p.set('accountId', accountId);
     return p;
   }, [q, from, to, status, direction, business, accountId]);
   const params = useCallback((c?: string | null) => {
@@ -141,7 +141,7 @@ export function History() {
                 <dt className="text-muted">{copy.lookup.says}</dt><dd>{lookup.meaning}</dd>
                 <dt className="text-muted">{copy.request.receipt}</dt><dd><code>{lookup.receipt}</code></dd>
                 <dt className="text-muted">{copy.request.amount}</dt><dd>{money(lookup.amountCents)}</dd>
-                {lookup.recipient.name && <><dt className="text-muted">{copy.request.to}</dt><dd>{lookup.recipient.name}</dd></>}
+                {lookup && partyOf(lookup).name && <><dt className="text-muted">{partyWord(lookup)}</dt><dd>{partyOf(lookup).name}</dd></>}
               </dl>
             )}
             {showLookup && explained && <div className="mt-3"><ErrorCard error={explained} /></div>}
@@ -160,10 +160,9 @@ export function History() {
                 <tr key={r.id} className="border-t border-line">
                   <td className="px-4 py-3 whitespace-nowrap">{when(r.createdAt)}</td>
                   <td className="px-4 py-3">{r.category ?? copy.request.subtype[r.subtype ?? ''] ?? copy.request.type[r.type] ?? r.type}</td>
-                  <td className="px-4 py-3"><Link to={`/requests/${r.id}`}>{r.recipient.kind === 'phone' ? phone(r.recipient.value) : r.recipient.value ?? '—'}</Link>
-                    {/* The saved name is the owner's own label, so it is named; otherwise Safaricom's name stands alone. */}
-                    {r.contactName ? <span className="block text-sm text-muted">{copy.history.fromContact} {r.contactName}</span> : r.recipient.name && <span className="block text-sm text-muted">{r.recipient.name}</span>}
-                  </td>
+                  {/* Round 3, phase A: the person leads and the number sits under them. The saved
+                      contact's own label follows when it differs from the name on the row. */}
+                  <td className="px-4 py-3"><PartyLine r={r} to={`/requests/${r.id}`} /></td>
                   <td className="px-4 py-3 whitespace-nowrap">{money(r.amountCents)}</td>
                   <td className="px-4 py-3"><StatusPill kind={STATUS_TONE[r.status] ?? 'muted'}>{copy.request.status[r.status] ?? r.status}</StatusPill></td>
                   {/* Feature 11: what this row cost when it was written. Blank before the feature, and for an amount with no band. */}

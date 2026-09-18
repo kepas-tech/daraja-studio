@@ -127,7 +127,7 @@ export function SendPhone() {
   }).catch(() => {}), [toast]);
   const requestIdRef = useRef<string | null>(null);
   requestIdRef.current = request?.id ?? null;
-  // W2: re-fetch on every SSE (re)connect, not just on an event that might never arrive, and keep
+  // W2: re-fetch on every SSE (re)connect, not only on an event that might never arrive, and keep
   // polling every 15 s while the card still says "Sent" — never a busy loop, cleared on unmount
   // or once the result is in.
   useEvents(useCallback((e) => {
@@ -144,7 +144,10 @@ export function SendPhone() {
   const submit = async (confirm: Confirm) => {
     setBusy(true); setDialogError(null); setErr(null);
     try {
-      const r = await api.post<RequestView>('/api/send/phone', { phone: to, amountCents: cents, category: kind || undefined, remarks: remarks || undefined, contactId: contactId ?? undefined, businessId: businessId || undefined, confirmDuplicate: confirmDuplicate || undefined, ...confirm });
+      // Round 3, phase A: the name Safaricom just confirmed goes with the payment, so the row is
+      // named from the moment it exists rather than only once the result comes back.
+      const confirmedName = nameCheck?.available ? nameCheck.name : undefined;
+      const r = await api.post<RequestView>('/api/send/phone', { phone: to, amountCents: cents, category: kind || undefined, remarks: remarks || undefined, contactId: contactId ?? undefined, businessId: businessId || undefined, recipientName: confirmedName, confirmDuplicate: confirmDuplicate || undefined, ...confirm });
       setRequest(r); setConfirm(false); setDuplicate(null); setConfirmDuplicate(false); setStep('result');
       const resultCopy = copy.send.phone.result as Record<string, string>;
       toast.show(r.status === 'completed' ? 'success' : r.status === 'failed' ? 'error' : 'info', resultCopy[r.status] ?? r.status);

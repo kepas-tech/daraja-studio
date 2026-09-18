@@ -192,11 +192,13 @@ describe('Send money to a phone, from a saved contact', () => {
 describe('History and the saved contact', () => {
   const row = (id: string, contactName: string | null, recipientName: string | null) => ({ id, type: 'b2c', subtype: 'BusinessPayment', status: 'completed', amountCents: 100, currency: 'KES', recipient: { kind: 'phone', value: '254700123456', name: recipientName }, remarks: null, contactName, receipt: 'RI' + id, category: null, createdAt: at, sentAt: at, resultAt: at, resultSource: 'callback', safaricomSaid: null, meaning: null, whatToDo: null, retriable: false, pollAttempts: 0, checked: null, createdBy: { id: 'p1', displayName: 'Owner' } });
 
-  it('names the saved contact, and falls back to the name Safaricom returned', async () => {
+  // Round 3, phase A: the saved contact no longer hides Safaricom's own name. Both are shown when
+  // they differ, because that mismatch is exactly what a person needs to see.
+  it('shows both names when the saved contact differs from the name Safaricom returned', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => json({ items: [row('1', 'Jane Doe', 'JANE D****** O******'), row('2', null, 'PETER M******')], nextCursor: null })));
     render(<MemoryRouter><History /></MemoryRouter>);
-    expect(await screen.findByText(copy.history.fromContact + ' Jane Doe')).toBeInTheDocument();
+    expect(await screen.findByText('JANE D****** O******')).toBeInTheDocument();
+    expect(screen.getByText(copy.request.savedAs('Jane Doe'))).toBeInTheDocument();
     expect(screen.getByText('PETER M******')).toBeInTheDocument();
-    expect(screen.queryByText('JANE D****** O******')).toBeNull();
   });
 });

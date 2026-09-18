@@ -136,7 +136,9 @@ export function createBulkService(deps: { db: Db; settings: Settings; config: Co
         if (results[String(i)]) continue;
         const r = p.rows[i];
         try {
-          const v = await deps.moneyOut.send({ phone: r.phone, amountCents: r.amountCents, commandId: 'BusinessPayment', category: p.category ?? undefined, remarks: r.note ?? undefined, contactId: contactIdByPhone.get(r.phone), businessId: p.business_id ?? undefined, bulk: { planId, index: i } }, actor);
+          // Phase A: a bulk row's own name column is a name known at send time, so it names the
+          // payout when the phone matches no saved contact.
+          const v = await deps.moneyOut.send({ phone: r.phone, amountCents: r.amountCents, commandId: 'BusinessPayment', category: p.category ?? undefined, remarks: r.note ?? undefined, contactId: contactIdByPhone.get(r.phone), businessId: p.business_id ?? undefined, recipientName: r.name ?? undefined, bulk: { planId, index: i } }, actor);
           results[String(i)] = { requestId: v.id, status: v.status };
         } catch (e) {
           // A refusal before Safaricom (duplicate of an earlier single send, cap, no operator): the

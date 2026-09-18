@@ -13,7 +13,8 @@ import { PageHeader } from '../components/PageHeader';
 import { StatusPill } from '../components/StatusPill';
 import { STATUS_TONE } from '../components/RequestCard';
 import { copy } from '../copy/en';
-import { money, phone } from '../format';
+import { money } from '../format';
+import { PartyLine } from '../components/PartyLine';
 import type { BalanceView, BusinessSummaryRow, HomeSummary, Page, Problem, RequestView, SettingsView } from '../api/types';
 
 const RELOAD_ON: readonly string[] = ['operator.updated', 'setup.updated', 'balance.updated'];
@@ -132,7 +133,8 @@ export function Home() {
       <Card title={copy.home.recent} bodyClassName="p-0" actions={<Link to="/history" className="text-sm">{copy.home.viewAll}</Link>}>
         {recent.length === 0 ? <p className="p-4 text-base text-muted">{copy.home.noRecent}</p> : (
           <ul>
-            {recent.map((r) => <li key={r.id} className={`${cardRow} flex items-center justify-between gap-3 text-base`}><Link to={`/requests/${r.id}`}>{phone(r.recipient.value)}</Link><span>{money(r.amountCents)}</span><StatusPill kind={STATUS_TONE[r.status] ?? 'muted'}>{copy.request.status[r.status] ?? r.status}</StatusPill></li>)}
+            {/* Round 3, phase A: the person leads here too — this list used to show a number alone. */}
+            {recent.map((r) => <li key={r.id} className={`${cardRow} flex items-center justify-between gap-3 text-base`}><PartyLine r={r} to={`/requests/${r.id}`} /><span>{money(r.amountCents)}</span><StatusPill kind={STATUS_TONE[r.status] ?? 'muted'}>{copy.request.status[r.status] ?? r.status}</StatusPill></li>)}
           </ul>
         )}
       </Card>

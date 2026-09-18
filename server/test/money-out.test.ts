@@ -66,6 +66,19 @@ describe('money out: send', () => {
     expect(audit[0].target).toBe(v.id);
   });
 
+  // Phase A: the name the review screen confirmed is written the moment the row exists, so the
+  // Waiting page is not blank while Safaricom thinks about it.
+  it('writes the best name known at send time: the confirmed name check, then the saved contact', async () => {
+    const svc = createMoneyOutService({ ...deps, daraja: factory(ack, opId), events });
+    const checked = await svc.send({ phone: '0700123456', amountCents: 100, commandId: 'BusinessPayment', recipientName: 'Jane Doe' }, ACTOR);
+    expect(checked.recipient.name).toBe('Jane Doe');
+    const [contact] = await deps.db.query<{ id: string }>(`INSERT INTO contacts(kind, name, phone) VALUES ('phone','Mum','254700123456') RETURNING id`);
+    const saved = await svc.send({ phone: '0700123456', amountCents: 200, commandId: 'BusinessPayment', contactId: contact.id }, ACTOR);
+    expect(saved.recipient.name).toBe('Mum');
+    // A name Safaricom sends with its own phone in front is cleaned before it is stored.
+    expect((await deps.db.query<{ recipient_name: string }>('SELECT recipient_name FROM requests WHERE id=$1', [checked.id]))[0].recipient_name).toBe('Jane Doe');
+  });
+
   it('keeps the ack\'s own OriginatorConversationID when Safaricom returns one different from ours', async () => {
     const send = vi.fn(async () => ({ conversationId: 'AG_2', originatorConversationId: 'SAF-OC-1', responseCode: '0', responseDescription: 'Accept the service request successfully.' }));
     const svc = createMoneyOutService({ ...deps, daraja: factory(send, opId), events });

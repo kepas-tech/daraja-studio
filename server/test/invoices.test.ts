@@ -131,6 +131,20 @@ describe('invoices', () => {
     expect(un.body.items.map((x: { receipt: string }) => x.receipt)).toEqual(['BMX']);
   });
 
+  // Phase A: a Bill Manager push carries no payer name, so the row is named from the account the
+  // reference belongs to. The name is the customer behind it, and a name Safaricom does send wins.
+  it('names the payer on an invoice payment from the account behind the reference', async () => {
+    await optIn();
+    const [b] = await deps.db.query<{ id: string }>(`INSERT INTO businesses(code, name) VALUES ('001','Shop') RETURNING id`);
+    const [a] = await deps.db.query<{ id: string; full_number: string }>(`INSERT INTO accounts(business_id, number, name) VALUES ($1,'359','Jane Wanjiru') RETURNING id, full_number`, [b.id]);
+    const r = await h(request(app).post('/api/invoices')).send({ ...INV, accountId: a.id });
+    expect(r.status).toBe(201);
+    expect(r.body.accountReference).toBe(a.full_number);
+    await fake.customerPaysInvoice({ account: a.full_number, amount: 500 });
+    const [row] = await deps.db.query<{ recipient_name: string | null; recipient_value: string | null }>(`SELECT recipient_name, recipient_value FROM requests WHERE type='invoice_payment' ORDER BY created_at DESC LIMIT 1`);
+    expect(row).toEqual({ recipient_name: 'Jane Wanjiru', recipient_value: '254700123456' });
+  });
+
   it('cancel works only on an unpaid invoice; recording a payment tells Safaricom and marks it', async () => {
     await optIn();
     const a = (await h(request(app).post('/api/invoices')).send(INV)).body;

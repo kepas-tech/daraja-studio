@@ -37,6 +37,19 @@ describe('History', () => {
     expect(screen.getByRole('link', { name: /0700 123 456/ })).toHaveAttribute('href', '/requests/3');
   });
 
+  // Round 3, phase A: the person leads and the number sits under them, whichever way the money
+  // went, and the owner's own label for that number follows only when it differs.
+  it('leads each row with the person, money in as readily as money out', async () => {
+    const named = { ...row('1', 'completed'), type: 'c2b', direction: 'in', recipient: { kind: 'phone', value: '254712345678', name: 'JANE DOE' }, party: { name: 'JANE DOE', number: '254712345678', savedName: 'Mum' } };
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ items: [named], nextCursor: null }), { status: 200 })));
+    render(<MemoryRouter><History /></MemoryRouter>);
+    const link = await screen.findByRole('link', { name: /JANE DOE/ });
+    expect(link).toHaveTextContent('0712 345 678');
+    expect(link).toHaveTextContent(copy.request.savedAs('Mum'));
+    // The header no longer promises a direction the list does not have.
+    expect(screen.getByText(copy.history.columns.who)).toBeInTheDocument();
+  });
+
   it('shows the empty state', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ items: [], nextCursor: null }), { status: 200 })));
     render(<MemoryRouter><History /></MemoryRouter>);

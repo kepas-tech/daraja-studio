@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router';
 import { api, ApiError } from '../api/client';
 import { useEvents } from '../api/events';
 import { useSession } from '../app/session';
@@ -13,7 +12,8 @@ import { PasswordConfirmDialog } from '../components/PasswordConfirmDialog';
 import { TextField } from '../components/TextField';
 import { useToast } from '../components/Toast';
 import { copy } from '../copy/en';
-import { money, phone, when } from '../format';
+import { money, when } from '../format';
+import { PartyLine, partyWord } from '../components/PartyLine';
 import { useStepUp } from './settings/useStepUp';
 
 /**
@@ -53,7 +53,8 @@ function WaitingRows({ section, onCheck, checking }: { section: WaitingSection; 
             <tr key={r.id} className='border-t border-line'>
               <td className='px-4 py-3 whitespace-nowrap'>{when(r.createdAt)}</td>
               <td className='px-4 py-3'>{whatOf(r)}</td>
-              <td className='px-4 py-3'><Link to={'/requests/' + r.id}>{r.recipient.value ? phone(r.recipient.value) : '—'}</Link>{r.recipient.name && <span className='block text-sm text-muted'>{r.recipient.name}</span>}</td>
+              {/* Round 3, phase A: the person leads and the number sits under them. */}
+              <td className='px-4 py-3'><PartyLine r={r} to={'/requests/' + r.id} /></td>
               <td className='px-4 py-3 whitespace-nowrap'>{money(r.amountCents)}</td>
               <td className='px-4 py-3'>{copy.request.status[r.status] ?? r.status}</td>
               <td className='px-4 py-3 whitespace-nowrap'>{ageOf(r.sentAt ?? r.createdAt)}</td>
@@ -126,7 +127,7 @@ export function Approvals() {
                   return (
                     <Card key={r.id} title={money(r.amountCents)} actions={<span className='text-sm text-muted'>{when(r.createdAt)}</span>} bodyClassName='space-y-3 p-4'>
                       <dl className='grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-base'>
-                        <dt className='text-muted'>{copy.request.to}</dt><dd><Link to={`/requests/${r.id}`}>{phone(r.recipient.value)}</Link>{r.recipient.name && <span className='block text-sm text-muted'>{r.recipient.name}</span>}</dd>
+                        <dt className='text-muted'>{partyWord(r)}</dt><dd><PartyLine r={r} to={`/requests/${r.id}`} /></dd>
                         {r.category && <><dt className='text-muted'>{copy.request.category}</dt><dd>{r.category}</dd></>}
                         {r.remarks && <><dt className='text-muted'>{copy.send.phone.remarks}</dt><dd>{r.remarks}</dd></>}
                         <dt className='text-muted'>{c.madeBy}</dt><dd>{r.createdBy?.displayName ?? '—'}</dd>

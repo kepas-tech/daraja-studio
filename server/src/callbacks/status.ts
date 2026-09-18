@@ -2,7 +2,8 @@ import { parseStatusResult } from '@kepas/daraja-js';
 import type { PoolClient } from 'pg';
 import type { CallbackHandler, CallbackVerdict } from './router.js';
 import { explain } from '../sdk/meaning.js';
-import { MONEY_TYPES } from '../money_out/registry.js';
+import { directionOf, LEDGER_TYPES, MONEY_TYPES } from '../money_out/registry.js';
+import { personName } from '../util/names.js';
 import { scheduleBalanceRefresh } from '../money_out/balanceRefresh.js';
 
 export const FAILED_STATUSES: ReadonlySet<string> = new Set(['failed', 'cancelled', 'reversed', 'expired', 'declined', 'rejected']);
@@ -10,19 +11,19 @@ const FINAL = new Set(['completed', 'failed', 'cancelled', 'rejected']);
 const LIVE = new Set(['sent', 'pending', 'unknown']);
 const LIVE_QUERY = `type='status_query' AND status IN ('sent','unknown')`;
 
-type QueryRow = { id: string; payload_json: { targetRequestId?: string } };
+type QueryRow = { id: string; subtype: string | null; recipient_value: string | null; payload_json: { targetRequestId?: string } };
 
 /** A live query row by `conversation_id` alone — the only key Safaricom assigns per individual
  * query. `SKIP LOCKED` so a concurrent handler already finalising this exact row does not
  * make this lookup see nothing and wrongly fall through past a row that is, in fact, live. */
 async function findLiveByConversationId(c: PoolClient, convId: string): Promise<QueryRow | null> {
   const live = await c.query<QueryRow>(
-    `SELECT id, payload_json FROM requests WHERE ${LIVE_QUERY} AND conversation_id = $1 ORDER BY created_at ASC LIMIT 1 FOR UPDATE SKIP LOCKED`, [convId]);
+    `SELECT id, subtype, recipient_value, payload_json FROM requests WHERE ${LIVE_QUERY} AND conversation_id = $1 ORDER BY created_at ASC LIMIT 1 FOR UPDATE SKIP LOCKED`, [convId]);
   return live.rows[0] ?? null;
 }
 
-/** Whether `conversation_id` names an already-answered (non-live) query — a true redelivery. Only
- * meaningful once a live search on the same id has already come up empty. */
+/** Whether `conversation_id` names an already-answered (non-live) query — a true redelivery. It
+ * only tells the two apart once a live search on the same id has already come up empty. */
 async function findFinalByConversationId(c: PoolClient, convId: string): Promise<{ id: string } | null> {
   const final = await c.query<{ id: string }>(
     `SELECT id FROM requests WHERE type='status_query' AND conversation_id = $1`, [convId]);
@@ -34,10 +35,10 @@ async function findFinalByConversationId(c: PoolClient, convId: string): Promise
  * payment, so the oldest live row is taken deterministically. */
 async function findLiveByOcid(c: PoolClient, oc: string): Promise<QueryRow | null> {
   const byAck = await c.query<QueryRow>(
-    `SELECT id, payload_json FROM requests WHERE ${LIVE_QUERY} AND payload_json->>'ackOriginatorConversationId' = $1 ORDER BY created_at ASC LIMIT 1 FOR UPDATE SKIP LOCKED`, [oc]);
+    `SELECT id, subtype, recipient_value, payload_json FROM requests WHERE ${LIVE_QUERY} AND payload_json->>'ackOriginatorConversationId' = $1 ORDER BY created_at ASC LIMIT 1 FOR UPDATE SKIP LOCKED`, [oc]);
   if (byAck.rows[0]) return byAck.rows[0];
   const byOwn = await c.query<QueryRow>(
-    `SELECT id, payload_json FROM requests WHERE ${LIVE_QUERY} AND originator_conversation_id = $1 ORDER BY created_at ASC LIMIT 1 FOR UPDATE SKIP LOCKED`, [oc]);
+    `SELECT id, subtype, recipient_value, payload_json FROM requests WHERE ${LIVE_QUERY} AND originator_conversation_id = $1 ORDER BY created_at ASC LIMIT 1 FOR UPDATE SKIP LOCKED`, [oc]);
   return byOwn.rows[0] ?? null;
 }
 
@@ -61,7 +62,19 @@ export const statusHandler: CallbackHandler = async ({ db, events, body }) => {
 
   const ex = explain('status', r.resultCode, r.resultDesc);
   const transactionStatus = r.transactionStatus ?? null;
-  const creditParty = str(r.params.CreditPartyName ?? r.params['Credit Party Name']);
+  // Phase A: Safaricom names both sides of the transaction, each as "phone - NAME". Which one is
+  // the person depends on which way the money moved — money in names the payer on the debit side,
+  // money out the person paid on the credit side — so the choice follows the row's own direction. A
+  // row whose direction Studio cannot tell keeps the credit party, which is what this handler has
+  // always stored.
+  const creditParty = personName(str(r.params.CreditPartyName ?? r.params['Credit Party Name']));
+  const debitParty = personName(str(r.params.DebitPartyName ?? r.params['Debit Party Name']));
+  const partyFor = (type: string | null | undefined): string | null => {
+    const direction = directionOf(type ?? '');
+    if (direction === 'in') return debitParty;
+    if (direction === 'out') return creditParty;
+    return creditParty ?? debitParty;
+  };
   const amountCents = r.params.Amount != null && Number.isFinite(Number(r.params.Amount)) ? Math.round(Number(r.params.Amount) * 100) : null;
   const queryMeaning = r.success && transactionStatus ? `Safaricom reports this transaction as ${transactionStatus}.` : ex.meaning;
   const st = (transactionStatus ?? '').toLowerCase();
@@ -86,8 +99,8 @@ export const statusHandler: CallbackHandler = async ({ db, events, body }) => {
       // back) the ORIGINAL transaction's own OriginatorConversationID, so if pollTarget's own
       // INSERT never landed (C1's "process died between the ack and our INSERT"), the money row
       // itself can still be found directly by that same id.
-      const money = await c.query<{ id: string; status: string; amount_cents: string | null }>(
-        `SELECT id, status, amount_cents FROM requests WHERE type = ANY($1) AND (originator_conversation_id = $2 OR payload_json->>'ackOriginatorConversationId' = $2) ORDER BY created_at ASC LIMIT 1 FOR UPDATE`, [MONEY_TYPES, oc]);
+      const money = await c.query<{ id: string; type: string; status: string; amount_cents: string | null }>(
+        `SELECT id, type, status, amount_cents FROM requests WHERE type = ANY($1) AND (originator_conversation_id = $2 OR payload_json->>'ackOriginatorConversationId' = $2) ORDER BY created_at ASC LIMIT 1 FOR UPDATE`, [MONEY_TYPES, oc]);
       const m = money.rows[0];
       if (!m) return { verdict: 'unmatched' as const };
       if (!LIVE.has(m.status)) return { verdict: 'unmatched_final' as const, targetId: m.id };
@@ -97,22 +110,41 @@ export const statusHandler: CallbackHandler = async ({ db, events, body }) => {
         `UPDATE requests SET status=$2, result_at=now(), result_source='poll', result_code=NULL, result_desc=$3, meaning=$4, retriable=false,
            receipt=COALESCE($5, receipt), recipient_name=COALESCE($6, recipient_name)
          WHERE id=$1`,
-        [m.id, applied, transactionStatus, `Safaricom's own record of this payment says: ${transactionStatus}.`, applied === 'completed' ? (r.receipt ?? null) : null, creditParty]);
+        [m.id, applied, transactionStatus, `Safaricom's own record of this payment says: ${transactionStatus}.`, applied === 'completed' ? (r.receipt ?? null) : null, partyFor(m.type)]);
       return { verdict: 'applied_direct' as const, targetId: m.id, applied };
+    }
+
+    // Phase A: a receipt lookup is the one query row with no target of ours, and it is how a payment
+    // Safaricom never confirmed gets its name back. When Studio already holds the row that receipt
+    // belongs to, that row's own direction picks which of Safaricom's two names is the person, and
+    // the name is written onto it — but only where it has none, so a name already known is never
+    // overwritten. Only the name is touched: status, amount and receipt are left alone, which is why
+    // migration 004's final-row guard lets this through.
+    let queryParty: string | null = creditParty;
+    if (found.subtype === 'lookup' && found.recipient_value) {
+      const [held] = (await c.query<{ id: string; type: string; recipient_name: string | null }>(
+        `SELECT id, type, recipient_name FROM requests WHERE receipt=$1 AND type = ANY($2) ORDER BY created_at ASC LIMIT 1 FOR UPDATE`,
+        [found.recipient_value, LEDGER_TYPES])).rows;
+      if (held) {
+        queryParty = partyFor(held.type);
+        if (queryParty && personName(held.recipient_name) === null) {
+          await c.query(`UPDATE requests SET recipient_name=$2 WHERE id=$1`, [held.id, queryParty]);
+        }
+      }
     }
 
     const query = await c.query<{ id: string }>(
       `UPDATE requests SET status=$2, result_at=now(), result_source='callback', result_code=$3, result_desc=$4, meaning=$5, retriable=$6,
          raw_result_json=$7::jsonb, receipt=COALESCE($8, receipt), recipient_name=COALESCE($9, recipient_name), amount_cents=COALESCE($10, amount_cents)
        WHERE id=$1 RETURNING id`,
-      [found.id, r.success ? 'completed' : 'failed', String(r.resultCode), r.resultDesc, queryMeaning, ex.retriable, JSON.stringify(body), r.receipt ?? null, creditParty, amountCents]);
+      [found.id, r.success ? 'completed' : 'failed', String(r.resultCode), r.resultDesc, queryMeaning, ex.retriable, JSON.stringify(body), r.receipt ?? null, queryParty, amountCents]);
     const queryId = query.rows[0].id;
 
     const targetId = found.payload_json.targetRequestId ?? null;
     if (!targetId) return { verdict: 'applied' as const, requestId: queryId, targetId: null, applied: null, disagreed: false, unclear: false, amountMismatch: false };
     if (!applied) return { verdict: 'applied' as const, requestId: queryId, targetId, applied: null, disagreed: false, unclear: r.success, amountMismatch: false };
 
-    const t = await c.query<{ status: string; amount_cents: string | null }>('SELECT status, amount_cents FROM requests WHERE id=$1 FOR UPDATE', [targetId]);
+    const t = await c.query<{ status: string; type: string; amount_cents: string | null }>('SELECT status, type, amount_cents FROM requests WHERE id=$1 FOR UPDATE', [targetId]);
     const current = t.rows[0];
     if (!current) return { verdict: 'applied' as const, requestId: queryId, targetId, applied: null, disagreed: false, unclear: true, amountMismatch: false };
     const disagreed = FINAL.has(current.status) && current.status !== applied;
@@ -129,7 +161,7 @@ export const statusHandler: CallbackHandler = async ({ db, events, body }) => {
       `UPDATE requests SET status=$2, result_at=now(), result_source='poll', result_code=NULL, result_desc=$3, meaning=$4, retriable=false,
          receipt=COALESCE($5, receipt), recipient_name=COALESCE($6, recipient_name)
        WHERE id=$1`,
-      [targetId, applied, transactionStatus, `Safaricom's own record of this payment says: ${transactionStatus}.`, applied === 'completed' ? (r.receipt ?? null) : null, creditParty]);
+      [targetId, applied, transactionStatus, `Safaricom's own record of this payment says: ${transactionStatus}.`, applied === 'completed' ? (r.receipt ?? null) : null, partyFor(current.type)]);
     return { verdict: 'applied' as const, requestId: queryId, targetId, applied, disagreed, unclear: false, amountMismatch };
   });
 

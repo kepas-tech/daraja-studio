@@ -37,14 +37,17 @@ describe('Home', () => {
         return new Response(JSON.stringify({ mode: 'sandbox', environments: { sandbox: slot, production: { ...slot, operators: [], ready: { creds: false, operator: false } } }, org: { name: '', nominatedNumber: '', notificationPhone: '' }, publicVerifiedAt: 'x', stkEnabled: true, publicUrl: 'x', httpsSeen: true, allowlist: [], setupCompletedAt: 'x' }), { status: 200 });
       }
       if (url === '/api/balances/latest') return new Response(JSON.stringify({ workingCents: 1400, utilityCents: 3439200, chargesPaidCents: 0, queriedAt: new Date().toISOString() }), { status: 200 });
-      if (url.startsWith('/api/requests?')) return new Response(JSON.stringify({ items: [{ id: 'r1', type: 'b2c', subtype: 'BusinessPayment', status: 'completed', amountCents: 100, currency: 'KES', recipient: { kind: 'phone', value: '254700123456', name: null }, remarks: null, receipt: 'RI1', createdAt: '2026-09-06T11:00:00Z', sentAt: null, resultAt: null, resultSource: null, safaricomSaid: null, meaning: null, whatToDo: null, retriable: false, pollAttempts: 0, checked: null, createdBy: null }], nextCursor: null }), { status: 200 });
+      if (url.startsWith('/api/requests?')) return new Response(JSON.stringify({ items: [{ id: 'r1', type: 'b2c', subtype: 'BusinessPayment', status: 'completed', amountCents: 100, currency: 'KES', recipient: { kind: 'phone', value: '254700123456', name: 'Jane Doe' }, direction: 'out', party: { name: 'Jane Doe', number: '254700123456', savedName: null }, remarks: null, receipt: 'RI1', createdAt: '2026-09-06T11:00:00Z', sentAt: null, resultAt: null, resultSource: null, safaricomSaid: null, meaning: null, whatToDo: null, retriable: false, pollAttempts: 0, checked: null, createdBy: null }], nextCursor: null }), { status: 200 });
       throw new Error(`unexpected fetch ${url}`);
     });
     vi.stubGlobal('fetch', fetchMock);
     render(<MemoryRouter><SessionProvider><Home /></SessionProvider></MemoryRouter>);
     await screen.findByText('KES 34,392');
     expect(screen.getByText(copy.home.recent)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /0700 123 456/ })).toHaveAttribute('href', '/requests/r1');
+    // Round 3, phase A: the recent list used to show a number and no name at all.
+    const recent = screen.getByRole('link', { name: /Jane Doe/ });
+    expect(recent).toHaveAttribute('href', '/requests/r1');
+    expect(recent).toHaveTextContent('0700 123 456');
     expect(screen.getByText(copy.home.connected)).toBeInTheDocument();
     // Sandbox: the owner sees the way to real money.
     expect(screen.getByTestId('sandbox-banner')).toHaveTextContent(copy.home.sandboxBanner);

@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react';
 import { StatusPill } from './StatusPill';
 import { ErrorCard } from './ErrorCard';
+import { PartyLine, partyWord } from './PartyLine';
 import { copy } from '../copy/en';
-import { money, phone, when } from '../format';
+import { money, when } from '../format';
 import type { RequestView } from '../api/types';
 
 export const STATUS_TONE: Record<string, 'ok' | 'warn' | 'bad' | 'muted'> = { pending: 'muted', sent: 'warn', completed: 'ok', failed: 'bad', unknown: 'warn', cancelled: 'muted', rejected: 'bad', awaiting_approval: 'warn' };
@@ -17,8 +18,10 @@ export function RequestCard({ request: r, children }: { request: RequestView; ch
         <StatusPill kind={STATUS_TONE[r.status] ?? 'muted'}>{label}</StatusPill>
       </div>
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-base">
-        <dt className="text-muted">{copy.request.to}</dt>
-        <dd>{r.recipient.kind === 'phone' ? phone(r.recipient.value) : r.recipient.value ?? '—'}{r.recipient.name && <span className="block text-sm text-muted">{r.recipient.name}</span>}</dd>
+        {/* Round 3, phase A: the person leads and the number sits under them, and the row's own
+            direction says whether that person is the payer or the one paid. */}
+        <dt className="text-muted">{partyWord(r)}</dt>
+        <dd><PartyLine r={r} /></dd>
         {r.category && <><dt className="text-muted">{copy.request.category}</dt><dd>{r.category}</dd></>}
         {r.receipt && <><dt className="text-muted">{copy.request.receipt}</dt><dd><code>{r.receipt}</code></dd></>}
         <dt className="text-muted">{copy.request.when}</dt>
