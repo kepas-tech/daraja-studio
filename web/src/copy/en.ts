@@ -69,6 +69,9 @@ export const copy = {
     { key: 'bulk', label: 'Bulk send', safaricom: 'Bulk Task › Bulk Payment', path: '/bulk', icon: 'document-list', group: 'out', phase: 5, available: true, advanced: true },
     { key: 'approvals', label: 'Waiting', safaricom: 'Review Transaction', path: '/approvals', icon: 'clipboard-check', group: 'out', phase: 5, available: true },
     { key: 'reverse', label: 'Reverse a payment', safaricom: 'Reversal', path: '/reverse', icon: 'arrow-left-circle', group: 'out', phase: 2, available: true, advanced: true },
+    // Round 3, phase E: the developer side. Under Advanced, and in Manage rather than beside the
+    // everyday money pages.
+    { key: 'api-keys', label: 'API keys', safaricom: null, path: '/api-keys', icon: 'cog', group: 'manage', phase: 3, available: true, advanced: true },
     { key: 'businesses', label: 'Businesses', safaricom: null, path: '/businesses', icon: 'grid-3', group: 'manage', phase: 5, available: true },
     { key: 'who-did-what', label: 'Who did what', safaricom: null, path: '/who-did-what', icon: 'search', group: 'manage', phase: 5, available: true },
     { key: 'settings', label: 'Settings', safaricom: 'My Preference', path: '/settings', icon: 'cog', group: 'manage', phase: 1, available: true },
@@ -85,7 +88,35 @@ export const copy = {
       bonga: 'Let a payer pay with their Bonga points.',
       bulk: 'Payroll or suppliers: a list of phone sends, checked in full, sent one by one.',
       reverse: 'Send a payment back to whoever paid it.',
+      'api-keys': 'Let another system call this studio, with a key you can stop at any time.',
     } as Record<string, string>,
+  },
+  /**
+   * Round 3, phase E: API keys. The page turns on one fact — the secret is shown once — so the
+   * words say it twice: once before the key is made, once beside the key itself.
+   */
+  apiKeys: {
+    title: 'API keys',
+    intro: 'A key lets another system call this studio as one of your roles. It is shown once, when it is made, and Studio keeps only a hash of it: nobody, including you, can read it back. Anything that needs a person’s password — sending money, reversing, changing settings — cannot be done with a key at all.',
+    create: 'Make a key',
+    creating: 'Making…',
+    name: 'What is this key for?',
+    namePlaceholder: 'Payroll script',
+    role: 'What may it do?',
+    roles: { operator: 'Operator — may send and look', viewer: 'Viewer — may only look', approver: 'Approver — may look and release held sends' } as Record<string, string>,
+    shownOnce: 'Copy this key now. This is the only time Studio shows it; a lost key is replaced, never looked up.',
+    gotIt: 'Done',
+    list: 'Your keys',
+    empty: 'No keys yet.',
+    created: (w: string, who: string | null) => (who ? `Made ${w} by ${who}` : `Made ${w}`),
+    lastUsed: (w: string) => `Last used ${w}`,
+    neverUsed: 'Never used',
+    revoked: (w: string) => `Stopped ${w}`,
+    rotatedFrom: 'Replaced an older key',
+    rotate: 'Replace with a new key',
+    revoke: 'Stop this key',
+    afterRotate: 'The old key stopped working the moment this one was made.',
+    afterRevoke: 'That key cannot be used again.',
   },
   comingSoon: { title: 'Not in this version yet', badge: 'Coming soon', body: 'Planned for a later release.' },
   login: { title: 'Log in', username: 'Username', password: 'Password', button: 'Log in', locked: 'Too many wrong tries. Wait 15 minutes and try again.', guideLink: 'How to use Daraja Studio' },

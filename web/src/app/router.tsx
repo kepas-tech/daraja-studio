@@ -20,6 +20,7 @@ import { People } from '../pages/People';
 import { Contacts } from '../pages/Contacts';
 import { AccountStatement } from '../pages/AccountStatement';
 import { Reconcile } from '../pages/Reconcile';
+import { ApiKeys } from '../pages/ApiKeys';
 import { Businesses } from '../pages/Businesses';
 import { WhoDidWhat } from '../pages/WhoDidWhat';
 import { Notifications } from '../pages/Notifications';
@@ -70,6 +71,7 @@ function Gate() {
         <Route path="/businesses" element={<Businesses />} />
         <Route path="/accounts/:id" element={<AccountStatement />} />
         <Route path="/reconcile" element={<Reconcile />} />
+        <Route path="/api-keys" element={<ApiKeys />} />
         <Route path="/who-did-what" element={<WhoDidWhat />} />
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/not-possible" element={<NotPossible />} />

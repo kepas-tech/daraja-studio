@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.50.0 — API keys, under Advanced
+
+- **Another system can call this studio with a key.** A key carries one of your roles — Viewer may
+  only look, Operator may send and look, Approver may look and release held sends — and may call
+  exactly what that role may call. Anything that needs a person's password or PIN (sending money,
+  reversing, changing settings) cannot be done with a key at all.
+- **The secret is shown once.** Studio keeps only a hash of it, so a key that is lost is replaced,
+  never looked up. Replace with a new key rotates it: the new secret is shown once and the old key
+  stops working in the same moment. Stop this key revokes it for good.
+- **Nothing about a key is ever logged.** Audit rows carry the name and the first characters; the
+  secret, its hash and any signature never reach a log, an audit row or a list.
+- **A key can never manage keys**, so a leaked key cannot mint its successor.
 ## 0.49.0 — buy airtime, and the honest edge of the API
 
 - **Buy airtime is listed as a send type, with the truth on it.** Safaricom's M-Pesa API has no

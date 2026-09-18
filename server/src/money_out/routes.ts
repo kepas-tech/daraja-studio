@@ -187,7 +187,7 @@ export function requestRoutes(deps: AppDeps): Router {
       if (!row) throw new HttpError(404, 'not_found', 'That request does not exist.');
       const kind = KINDS[row.type];
       if (!kind) throw new HttpError(404, 'not_found', 'That request does not exist.');
-      await assertPermission(deps.db, req.person!, kind.permission);
+      await assertPermission(deps.db, req.person!, kind.permission, req.apiKey?.permissions);
       const { queryId } = await deps.moneyOut.pollOne(id, { personId: req.person!.id });
       res.status(202).json({ requestId: queryId });
     } catch (e) { next(e); }

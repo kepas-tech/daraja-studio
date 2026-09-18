@@ -133,6 +133,14 @@ export interface RequestView {
    * written before the feature, and on an amount no band covers — never a zero standing for unknown. */
   chargeCents?: number | null;
 }
+/** Round 3, phase E: an API key as the list shows it. The secret is never part of this shape. */
+export interface ApiKeyView {
+  id: string; name: string; prefix: string; role: 'operator' | 'viewer' | 'approver';
+  createdAt: string; lastUsedAt: string | null; revokedAt: string | null; rotatedFrom: string | null;
+  createdBy: { id: string; displayName: string } | null;
+}
+/** The one answer that carries the secret: create and rotate, and nothing else. */
+export interface ApiKeyCreated { key: ApiKeyView; secret: string }
 /** Round 3, phase D-5: the case file on a payment, as `/api/requests/:id/case` reads it. */
 export interface CaseNoteView { id: string; note: string; at: string; by: { id: string; displayName: string } | null }
 export interface CaseView {

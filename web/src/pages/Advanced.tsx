@@ -9,7 +9,8 @@ import { copy } from '../copy/en';
  */
 export function Advanced() {
   const c = copy.advancedPage;
-  const groups = (['in', 'out'] as const).map((g) => ({ g, items: copy.nav.filter((e) => e.available && e.advanced && e.group === g) })).filter((x) => x.items.length > 0);
+  // Round 3, phase E: Manage joins the two money groups, which is where the developer side lives.
+  const groups = (['in', 'out', 'manage'] as const).map((g) => ({ g, items: copy.nav.filter((e) => e.available && e.advanced && e.group === g) })).filter((x) => x.items.length > 0);
   return (
     <>
       <PageHeader title={copy.advancedPage.title} subtitle={c.intro} />

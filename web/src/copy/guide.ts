@@ -866,6 +866,27 @@ export const guide: GuideSection[] = [
         ],
       },
       {
+        key: 'api-keys',
+        title: 'Let another system call Studio',
+        where: ['Advanced', 'API keys'],
+        who: 'Owner',
+        path: '/api-keys',
+        steps: [
+          'Make a key: give it a name you will recognise (Payroll script) and pick what it may do — Viewer can only look, Operator can send and look, Approver can look and release held sends.',
+          'Studio shows the key once. Copy it then; a lost key is replaced, never looked up, because only a hash of it is kept.',
+          'The caller sends it as `Authorization: Bearer <key>`. Nothing else changes: the key may call exactly what its role may call, and is refused anything that needs a person’s password — sending money, reversing, changing settings.',
+          'Replace with a new key rotates it: the new secret is shown once and the old key stops working in the same moment. Stop this key revokes it for good.',
+          'The list shows the key’s name, its first characters, who made it, when it was last used, and whether it has been stopped. The secret itself is never shown again, and never written to a log or the audit trail.',
+        ],
+        notes: ['A key belongs to the organisation, not to a person: it keeps working if the person who made it leaves. Stop it when its script is retired.'],
+        api: [
+          { method: 'GET', path: '/api/keys', who: 'owner; the prefix and the facts, never the secret' },
+          { method: 'POST', path: '/api/keys', who: 'owner, password; body { name, role }; answers once with the secret' },
+          { method: 'POST', path: '/api/keys/:id/rotate', who: 'owner, password; a new secret, and the old key stops' },
+          { method: 'POST', path: '/api/keys/:id/revoke', who: 'owner, password' },
+        ],
+      },
+      {
         key: 'reverse',
         title: 'Reverse a payment',
         safaricom: 'Reversal',

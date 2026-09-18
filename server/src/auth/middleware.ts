@@ -31,6 +31,8 @@ declare global {
   namespace Express {
     interface Request {
       person?: Person; personHash?: string; sessionId?: string; csrf?: string; rawBody?: string;
+      /** Round 3, phase E: set when this request came in with an API key rather than a session. */
+      apiKey?: { keyId: string; name: string; prefix: string; role: 'operator' | 'viewer' | 'approver'; permissions: import('../permissions/catalog.js').PermissionKey[] };
       org?: OrgView; authProblem?: string;
       /** The optional PIN's hash, kept off request.person so it can never be serialised (brief 2, item 3). */
       personPinHash?: string | null;
@@ -66,6 +68,9 @@ export const requirePasswordChanged: RequestHandler = (req, _res, next) => {
 
 export const requireCsrf: RequestHandler = (req, _res, next) => {
   if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
+  // A key is not a browser session and has no CSRF token to carry; its whole authorisation is the
+  // bearer token, which a cross-site form cannot set. Phase E.
+  if (req.apiKey) return next();
   const sent = req.get('x-csrf-token');
   if (!req.csrf || !sent) return next(new HttpError(403, 'csrf', 'This form has expired. Reload the page and try again.'));
   const a = Buffer.from(sent);

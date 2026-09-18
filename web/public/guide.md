@@ -702,6 +702,25 @@ Safaricom calls this: Review Transaction · Where: Pay out → Waiting · Who: A
 | POST | `/api/requests/:id/check` | the permission of that kind of send |
 | PUT | `/api/settings/approval-threshold` | owner, password; body { cents } |
 
+### Let another system call Studio
+
+Where: Advanced → API keys · Who: Owner · Route: /api-keys
+
+1. Make a key: give it a name you will recognise (Payroll script) and pick what it may do — Viewer can only look, Operator can send and look, Approver can look and release held sends.
+2. Studio shows the key once. Copy it then; a lost key is replaced, never looked up, because only a hash of it is kept.
+3. The caller sends it as `Authorization: Bearer <key>`. Nothing else changes: the key may call exactly what its role may call, and is refused anything that needs a person’s password — sending money, reversing, changing settings.
+4. Replace with a new key rotates it: the new secret is shown once and the old key stops working in the same moment. Stop this key revokes it for good.
+5. The list shows the key’s name, its first characters, who made it, when it was last used, and whether it has been stopped. The secret itself is never shown again, and never written to a log or the audit trail.
+
+- A key belongs to the organisation, not to a person: it keeps working if the person who made it leaves. Stop it when its script is retired.
+
+| Method | Path | Who |
+|---|---|---|
+| GET | `/api/keys` | owner; the prefix and the facts, never the secret |
+| POST | `/api/keys` | owner, password; body { name, role }; answers once with the secret |
+| POST | `/api/keys/:id/rotate` | owner, password; a new secret, and the old key stops |
+| POST | `/api/keys/:id/revoke` | owner, password |
+
 ### Reverse a payment
 
 Safaricom calls this: Reversal · Where: Manage → Advanced → Reverse a payment · Who: Owner or Operator · Route: /reverse · Permission: reverse.request
