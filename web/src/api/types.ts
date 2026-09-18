@@ -155,8 +155,8 @@ export interface MoneyInView {
   registering: boolean; lastError: string | null; alreadyRegistered: boolean;
 }
 export type NameCheck =
-  | { available: true; name: string }
-  | { available: false; reason: 'not_found' | 'not_enabled' | 'unavailable'; said: string | null };
+  | { available: true; name: string; paidBefore: boolean }
+  | { available: false; reason: 'not_found' | 'not_enabled' | 'unavailable'; said: string | null; paidBefore: boolean };
 export interface BalanceView { workingCents: number | null; utilityCents: number | null; chargesPaidCents: number | null; queriedAt: string; /** Feature 9: money-out that has not finished, in cents. */ waitingCents: number }
 /** Round 3, phase D-3: one check Studio made with Safaricom, as `GET /api/requests/checks` reads it. */
 export interface CheckView {

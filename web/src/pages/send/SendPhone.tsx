@@ -78,6 +78,9 @@ export function SendPhone() {
     : nameCheck?.reason === 'not_enabled' ? copy.send.phone.review.nameNotEnabled
     : copy.send.phone.review.nameNote;
   const unknownNumber = nameCheck != null && !nameCheck.available && nameCheck.reason === 'not_found';
+  // Phase D-4: the first payment to a number is the one worth pausing over. Only a settled answer
+  // says anything: while the check is running, or when it could not be asked, the screen stays quiet.
+  const firstTime = nameCheck != null && nameCheck.paidBefore === false;
   // W5 (spec §10): the cap is enforced server-side (service.ts) regardless — this is only so the
   // operator sees it before typing their password rather than after a 409 in the dialog.
   useEffect(() => { if (step === 'review') api.get<{ sendCapCents: number | null }>('/healthz').then((h) => setCap(h.sendCapCents)).catch(() => {}); }, [step]);
@@ -250,6 +253,7 @@ export function SendPhone() {
             <p className="text-sm text-muted">{copy.send.phone.review.debits}</p>
             {cap !== null && <p className="text-sm text-muted">{copy.send.phone.review.cap(money(cap))}</p>}
             {unknownNumber && <Flash tone="danger" role="alert">{copy.send.phone.review.nameNotFound}</Flash>}
+            {firstTime && <Flash tone="neutral" role="alert" data-testid="first-time">{copy.send.phone.review.firstTime}</Flash>}
             {short && <Flash tone="danger" role="alert">{covered ? copy.send.phone.review.move(money(gap)) : copy.send.phone.review.short}</Flash>}
             {duplicate && (
               <Flash tone="neutral" role="alert">

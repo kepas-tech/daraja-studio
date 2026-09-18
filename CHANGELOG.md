@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.44.0 — the first time you pay a number
+
+- **The review screen says when this studio has never paid the number before**, beside the name
+  Safaricom holds: "You have never paid this number before. Check the number and the name before you
+  send." The first payment to a number is the one worth pausing over.
+- **The answer comes from Studio's own rows**, so it is there even when Safaricom cannot name the
+  number or has not switched the name check on. A payout Safaricom accepted counts as paid; one that
+  failed paid nobody, and a pending or cancelled row never happened, so neither counts.
+- **The manual's send step now describes the review as it is**: both balances, Working and Utility,
+  with what Utility will hold after the send, and the first-time line.
 ## 0.43.0 — recent checks on History
 
 - **History lists the checks Studio has made with Safaricom**, under the payments: a person pressing

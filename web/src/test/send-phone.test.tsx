@@ -114,6 +114,28 @@ describe('SendPhone', () => {
     expect(posted!.recipientName).toBe('JANE D****** O******');
   });
 
+  // Round 3, phase D-4: the first payment to a number is said on the review, before the password.
+  it('says when this studio has never paid the number before', async () => {
+    vi.stubGlobal('fetch', fetchFor({
+      'GET /api/balances/latest': () => new Response(JSON.stringify(balance), { status: 200 }),
+      'POST /api/send/name-check': () => new Response(JSON.stringify({ available: true, name: 'JANE D****** O******', paidBefore: false }), { status: 200 }),
+    }));
+    render(<MemoryRouter><SendPhone /></MemoryRouter>);
+    await fillForm();
+    expect(await screen.findByTestId('first-time')).toHaveTextContent(copy.send.phone.review.firstTime);
+    cleanup();
+
+    // A number this studio has paid before says nothing at all, even when Safaricom cannot name it.
+    vi.stubGlobal('fetch', fetchFor({
+      'GET /api/balances/latest': () => new Response(JSON.stringify(balance), { status: 200 }),
+      'POST /api/send/name-check': () => new Response(JSON.stringify({ available: false, reason: 'not_enabled', said: null, paidBefore: true }), { status: 200 }),
+    }));
+    render(<MemoryRouter><SendPhone /></MemoryRouter>);
+    await fillForm();
+    await screen.findByText(copy.send.phone.review.nameNotEnabled);
+    expect(screen.queryByTestId('first-time')).toBeNull();
+  });
+
   it('review warns when Safaricom does not know the number, and still lets the owner decide', async () => {
     vi.stubGlobal('fetch', fetchFor({
       'GET /api/balances/latest': () => new Response(JSON.stringify(balance), { status: 200 }),

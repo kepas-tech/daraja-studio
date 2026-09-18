@@ -286,6 +286,8 @@ export const copy = {
         nameNotEnabled: 'Safaricom has not switched on name checks for your number yet, so check the number. The manual says how to ask.',
         name: (n: string) => `Registered to ${n}. Safaricom hides part of the name.`,
         nameNotFound: 'Safaricom does not know this number. Check it before you send.',
+        /** Round 3, phase D-4: the first payment to a number, said before anyone types a password. */
+        firstTime: 'You have never paid this number before. Check the number and the name before you send.',
         feeNote: 'Safaricom charges its fee on top, taken from your Utility account.', debits: 'Taken from: Utility account',
         chargeLabel: 'Safaricom’s charge',
         charge: (amount: string) => `Safaricom’s charge: ${amount}, taken from Utility`,
