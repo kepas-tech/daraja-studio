@@ -12,7 +12,9 @@ import { Home } from '../pages/Home';
 import { MoneyIn } from '../pages/MoneyIn';
 import { SendPhone } from '../pages/send/SendPhone';
 import { copy } from '../copy/en';
+import { wordsOf } from '../businessTypes';
 import { answer, next } from './questionnaire';
+import { OTHER, RENTAL, SHIPPED_FIXTURES } from './typeFixtures';
 
 const state = vi.hoisted(() => ({ mayManage: true }));
 vi.mock('../app/session', () => ({
@@ -31,8 +33,12 @@ vi.stubGlobal('EventSource', FakeEventSource);
 afterEach(() => { cleanup(); state.mayManage = true; });
 
 const at = '2026-09-17T08:00:00Z';
-const kepas: BusinessView = { id: 'b1', code: '000', name: 'Kepas Hardware', active: true, accountCount: 1, numbers: { width: 3, capacity: 900, used: 1 }, createdAt: at };
-const rentals: BusinessView = { id: 'b2', code: '001', name: 'Rentals', active: true, accountCount: 0, numbers: { width: 3, capacity: 900, used: 0 }, createdAt: at };
+// Round 3, phase B: the first business is a rental, so its words are Tenant and Room or unit; the
+// second is neutral, which is what a business made before this feature reads as.
+const kepas: BusinessView = { id: 'b1', code: '000', name: 'Kepas Hardware', active: true, accountCount: 1, numbers: { width: 3, capacity: 900, used: 1 }, createdAt: at, type: RENTAL };
+const rentals: BusinessView = { id: 'b2', code: '001', name: 'Rentals', active: true, accountCount: 0, numbers: { width: 3, capacity: 900, used: 0 }, createdAt: at, type: OTHER };
+const tenantWords = wordsOf(RENTAL);
+const roomWords = { ...tenantWords, one: tenantWords.sub!, a: 'a ' + tenantWords.sub!.toLowerCase(), many: tenantWords.subs! };
 /** Jane is a customer account at 000359 with one account under her, Room 4 at 000359123. */
 const room: AccountView = { id: 'k2', businessId: 'b1', parentId: 'k1', number: '123', fullNumber: '000359123', name: 'Room 4', phone: null, note: null, createdAt: at, previousHolder: null, children: [] };
 const jane: AccountView = { id: 'k1', businessId: 'b1', parentId: null, number: '359', fullNumber: '000359', name: 'Jane Doe', phone: '254712345678', note: null, createdAt: at, previousHolder: null, children: [room] };
@@ -46,6 +52,8 @@ function mountBusinesses(handlers: Handlers = {}, items: BusinessView[] = [kepas
     const h = handlers[key];
     if (h) return h(init);
     if (key === 'GET /api/businesses') return json({ items, lastUsedId: null });
+    // The page reads the kinds of business with the list, for the picker and the kinds card.
+    if (key === 'GET /api/business-types') return json({ items: SHIPPED_FIXTURES });
     if (key === 'GET /api/businesses/b1/accounts') return json({ items: [jane] });
     throw new Error('unexpected fetch ' + key);
   });
@@ -60,18 +68,21 @@ describe('Businesses and their accounts', () => {
     const row = await screen.findByTestId('business-b1');
     expect(within(row).getByText(/Kepas Hardware/)).toBeInTheDocument();
     expect(within(row).getByText('000')).toBeInTheDocument();
-    expect(within(row).getByText(copy.businesses.accountCount(1))).toBeInTheDocument();
+    expect(within(row).getByText(copy.businesses.accountCount(1, 'Tenant', 'Tenants'))).toBeInTheDocument();
+    // Round 3, phase B: the kind of business is named, with what it expects.
+    expect(within(row).getByTestId('kind-b1')).toHaveTextContent('Rental or property');
+    expect(within(row).getByTestId('expects-b1')).toHaveTextContent(copy.typeWords.regularLine.monthly);
     // The width in use, in the owner's words: 3 digits, 1 of 900 used.
     expect(within(row).getByTestId('numbers-b1')).toHaveTextContent(copy.businesses.numbersLine(3, 1, 900));
 
-    fireEvent.click(within(row).getByRole('button', { name: copy.businesses.accounts }));
+    fireEvent.click(within(row).getByRole('button', { name: copy.businesses.accounts('Tenants') }));
     const customer = await screen.findByTestId('account-k1');
     expect(within(customer).getByText('Jane Doe')).toBeInTheDocument();
     expect(within(customer).getByTestId('full-k1')).toHaveTextContent('000359');
     // The owner is told what to say to the payer: the paybill, then the full account number.
     expect(within(customer).getByText(copy.businesses.tellThem('600999', '000359'))).toBeInTheDocument();
     // And the account under her is right there, printed with its own full number.
-    expect(within(customer).getByText(copy.businesses.accountsUnder('Jane Doe'))).toBeInTheDocument();
+    expect(within(customer).getByText(copy.businesses.accountsUnder('Jane Doe', 'Rooms or units'))).toBeInTheDocument();
     expect(within(customer).getByText(/000359123/)).toBeInTheDocument();
   });
 
@@ -94,7 +105,7 @@ describe('Businesses and their accounts', () => {
     expect(screen.queryByLabelText(copy.businesses.code)).toBeNull();
     fireEvent.change(screen.getByLabelText(copy.businesses.name), { target: { value: 'Farm' } });
     fireEvent.click(screen.getByRole('button', { name: copy.businesses.save }));
-    await waitFor(() => expect(posted).toEqual({ name: 'Farm' }));
+    await waitFor(() => expect(posted).toEqual({ name: 'Farm', typeKey: 'other' }));
   });
 
   it('switches a business off and on with the same route', async () => {
@@ -112,11 +123,11 @@ describe('Businesses and their accounts', () => {
       'GET /api/businesses/b1/accounts': () => json({ items: [jane, { ...jane, id: 'k9', number: '482', fullNumber: '000482', name: 'Peter', children: [] }] }),
     });
     const row = await screen.findByTestId('business-b1');
-    fireEvent.click(within(row).getByRole('button', { name: copy.businesses.accounts }));
-    fireEvent.click(await screen.findByRole('button', { name: copy.businesses.addCustomer }));
+    fireEvent.click(within(row).getByRole('button', { name: copy.businesses.accounts('Tenants') }));
+    fireEvent.click(await screen.findByRole('button', { name: copy.businesses.addAccount(tenantWords.a) }));
     // No label anywhere on the form is a number box: Studio draws the number, not the owner.
     expect(screen.queryByLabelText(/account number/i)).toBeNull();
-    fireEvent.change(screen.getByLabelText(copy.businesses.customerName), { target: { value: 'Peter' } });
+    fireEvent.change(screen.getByLabelText(copy.businesses.accountName('Tenant')), { target: { value: 'Peter' } });
     fireEvent.change(screen.getByLabelText(copy.businesses.customerPhone), { target: { value: '0712 000 001' } });
     fireEvent.click(screen.getByRole('button', { name: copy.businesses.save }));
     await waitFor(() => expect(posted).toEqual({ name: 'Peter', phone: '254712000001', note: undefined }));
@@ -129,9 +140,10 @@ describe('Businesses and their accounts', () => {
       'POST /api/accounts/k1/sub-accounts': (init) => { posted = JSON.parse(String(init?.body)); return json({ ...room, id: 'k7', number: '482', fullNumber: '000359482', name: 'Room 7' }, 201); },
     });
     const row = await screen.findByTestId('business-b1');
-    fireEvent.click(within(row).getByRole('button', { name: copy.businesses.accounts }));
-    fireEvent.click(await screen.findByRole('button', { name: copy.businesses.addAccount }));
-    fireEvent.change(screen.getByLabelText(copy.businesses.customerName), { target: { value: 'Room 7' } });
+    fireEvent.click(within(row).getByRole('button', { name: copy.businesses.accounts('Tenants') }));
+    // The level under an account is called what this kind of business calls it.
+    fireEvent.click(await screen.findByRole('button', { name: copy.businesses.addSub(roomWords.a) }));
+    fireEvent.change(screen.getByLabelText(copy.businesses.accountName('Room or unit')), { target: { value: 'Room 7' } });
     fireEvent.click(screen.getByRole('button', { name: copy.businesses.save }));
     await waitFor(() => expect(posted).toEqual({ name: 'Room 7', phone: undefined, note: undefined }));
   });
@@ -140,7 +152,7 @@ describe('Businesses and their accounts', () => {
     let sent: unknown = null;
     mountBusinesses({ 'DELETE /api/accounts/k1': (init) => { sent = JSON.parse(String(init?.body)); return new Response(null, { status: 204 }); } });
     const row = await screen.findByTestId('business-b1');
-    fireEvent.click(within(row).getByRole('button', { name: copy.businesses.accounts }));
+    fireEvent.click(within(row).getByRole('button', { name: copy.businesses.accounts('Tenants') }));
     const customer = await screen.findByTestId('account-k1');
     fireEvent.click(within(customer).getAllByRole('button', { name: copy.businesses.retire })[0]!);
     // The dialog asks for the name and the password; nothing is sent until both are given.

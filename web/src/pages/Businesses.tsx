@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api/client';
 import type { Confirm } from '../api/types';
-import type { AccountView, BusinessView, HistoryEntry } from '../api/types';
+import type { AccountView, BusinessTypeView, BusinessView, HistoryEntry, TypeTemplate } from '../api/types';
 import { useSession } from '../app/session';
 import { Button } from '../components/Button';
 import { Card, cardRow } from '../components/Card';
@@ -12,8 +12,10 @@ import { PageHeader } from '../components/PageHeader';
 import { PhoneInput } from '../components/PhoneInput';
 import { TextField } from '../components/TextField';
 import { useToast } from '../components/Toast';
+import { BusinessTypeForm } from '../components/BusinessTypeForm';
 import { copy } from '../copy/en';
 import { normalizeKe, phone } from '../format';
+import { expectationLines, wordsOf, type TypeWords } from '../businessTypes';
 
 /** The code the form shows as the one Studio will give: the lowest of 000-999 not yet used. */
 function nextFreeCode(taken: string[]): string {
@@ -21,19 +23,32 @@ function nextFreeCode(taken: string[]): string {
   return '999';
 }
 
-interface BusinessDraft { name: string }
+interface BusinessDraft { name: string; typeKey: string }
 
 /**
  * One business: a name, and nothing else. The three-digit code every account number starts with is
  * Studio's to give — the next free one, lowest first — so there is no box for it here.
  */
-function BusinessForm({ existing, offered, error, onSave, onCancel }: { existing: BusinessView | null; offered: string; error: Error | Explained | null; onSave: (draft: BusinessDraft) => Promise<void>; onCancel: () => void }) {
+function BusinessForm({ existing, offered, types, error, onSave, onCancel }: { existing: BusinessView | null; offered: string; types: BusinessTypeView[]; error: Error | Explained | null; onSave: (draft: BusinessDraft) => Promise<void>; onCancel: () => void }) {
   const c = copy.businesses;
   const [name, setName] = useState(existing?.name ?? '');
+  const [typeKey, setTypeKey] = useState(existing?.type.key ?? 'other');
+  const control = 'min-h-11 w-full rounded-md border border-line bg-surface px-3 text-base text-ink focus:outline-2 focus:-outline-offset-1 focus:outline-brand';
   return (
     <div className="space-y-3">
       <p className="text-base text-muted">{c.addIntro}</p>
       <TextField label={c.name} value={name} maxLength={80} onChange={(e) => setName(e.target.value)} autoFocus />
+      {/* Round 3, phase B: the kind of business is asked for here, because it decides the words
+          Studio uses for everything this business holds from now on. */}
+      {!existing && (
+        <label className="block">
+          <span className="mb-1 block text-base font-medium">{c.kindStep}</span>
+          <span className="mb-1 block text-sm text-muted">{c.kindStepHint}</span>
+          <select aria-label={c.kindStep} className={control} value={typeKey} onChange={(e) => setTypeKey(e.target.value)}>
+            {types.map((t) => <option key={t.key} value={t.key}>{t.name}</option>)}
+          </select>
+        </label>
+      )}
       {existing ? (
         <p className="text-sm text-muted">{c.code}: <code>{existing.code}</code></p>
       ) : (
@@ -41,7 +56,7 @@ function BusinessForm({ existing, offered, error, onSave, onCancel }: { existing
       )}
       <ErrorCard error={error} />
       <div className="flex gap-2">
-        <Button type="button" disabled={name.trim().length === 0} onClick={() => void onSave({ name })}>{c.save}</Button>
+        <Button type="button" disabled={name.trim().length === 0} onClick={() => void onSave({ name, typeKey })}>{c.save}</Button>
         <Button type="button" variant="secondary" onClick={onCancel}>{c.cancel}</Button>
       </div>
     </div>
@@ -54,13 +69,13 @@ interface AccountDraft { name: string; phone: string; note: string }
  * One account — a customer, or something under a customer. There is no number box anywhere: Studio
  * draws the number and never lets it be typed, so the only words here are the owner's own.
  */
-function AccountForm({ existing, error, onSave, onCancel }: { existing: AccountView | null; error: Error | Explained | null; onSave: (draft: AccountDraft) => Promise<void>; onCancel: () => void }) {
+function AccountForm({ existing, words, error, onSave, onCancel }: { existing: AccountView | null; words: TypeWords; error: Error | Explained | null; onSave: (draft: AccountDraft) => Promise<void>; onCancel: () => void }) {
   const c = copy.businesses;
   const [draft, setDraft] = useState<AccountDraft>({ name: existing?.name ?? '', phone: existing?.phone ?? '', note: existing?.note ?? '' });
   const phoneOk = draft.phone.trim().length === 0 || normalizeKe(draft.phone) !== null;
   return (
     <div className="space-y-3">
-      <TextField label={c.customerName} value={draft.name} maxLength={80} onChange={(e) => setDraft({ ...draft, name: e.target.value })} autoFocus />
+      <TextField label={c.accountName(words.one)} value={draft.name} maxLength={80} onChange={(e) => setDraft({ ...draft, name: e.target.value })} autoFocus />
       <PhoneInput label={c.customerPhone} value={draft.phone} onChange={(v) => setDraft({ ...draft, phone: v })} />
       <TextField label={c.customerNote} value={draft.note} maxLength={200} onChange={(e) => setDraft({ ...draft, note: e.target.value })} />
       <ErrorCard error={error} />
@@ -83,7 +98,13 @@ export function Businesses() {
   const { person, permissions, org } = useSession();
   const mayManage = !!person?.is_owner || permissions.includes('businesses.manage');
   const [data, setData] = useState<{ items: BusinessView[]; lastUsedId: string | null } | null>(null);
+  const [types, setTypes] = useState<BusinessTypeView[]>([]);
   const [accounts, setAccounts] = useState<Record<string, AccountView[]>>({});
+  // Round 3, phase B: the kind of business a row is being changed to, and the kind whose words are
+  // being edited ('new' for a kind the owner is adding).
+  const [changingKind, setChangingKind] = useState<string | null>(null);
+  const [kindDraft, setKindDraft] = useState('');
+  const [editingType, setEditingType] = useState<string | 'new' | null>(null);
   const [err, setErr] = useState<Error | Explained | null>(null);
   const [formErr, setFormErr] = useState<Error | Explained | null>(null);
   const [adding, setAdding] = useState(false);
@@ -100,8 +121,13 @@ export function Businesses() {
   const [holders, setHolders] = useState<Record<string, HistoryEntry[]>>({});
 
   const load = useCallback(async () => {
-    try { setData(await api.get<{ items: BusinessView[]; lastUsedId: string | null }>('/api/businesses')); setErr(null); }
-    catch (e) { setErr(explainApiError(e)); }
+    try {
+      const [list, kinds] = await Promise.all([
+        api.get<{ items: BusinessView[]; lastUsedId: string | null }>('/api/businesses'),
+        api.get<{ items: BusinessTypeView[] }>('/api/business-types'),
+      ]);
+      setData(list); setTypes(kinds.items); setErr(null);
+    } catch (e) { setErr(explainApiError(e)); }
   }, []);
   useEffect(() => { void load(); }, [load]);
 
@@ -122,11 +148,39 @@ export function Businesses() {
     setFormErr(null);
     try {
       if (editing) await api.put('/api/businesses/' + editing, { name: draft.name.trim(), active: data?.items.find((b) => b.id === editing)?.active ?? true });
-      else await api.post('/api/businesses', { name: draft.name.trim() });
+      else await api.post('/api/businesses', { name: draft.name.trim(), typeKey: draft.typeKey });
       toast.success(c.saved);
       setAdding(false); setEditing(null);
       await load();
     } catch (e) { setFormErr(explainApiError(e)); }
+  };
+
+  // Changing the kind changes words: the promise on screen says so, and the server writes one column.
+  const changeKind = async (b: BusinessView) => {
+    setFormErr(null);
+    try {
+      await api.put('/api/businesses/' + b.id + '/type', { typeKey: kindDraft });
+      toast.success(c.kindChanged(types.find((t) => t.key === kindDraft)?.name ?? kindDraft));
+      setChangingKind(null); setKindDraft('');
+      await load();
+    } catch (e) { setFormErr(explainApiError(e)); }
+  };
+
+  const saveType = async (value: { name: string; template: TypeTemplate }) => {
+    setFormErr(null);
+    try {
+      if (editingType === 'new') await api.post('/api/business-types', value);
+      else await api.put('/api/business-types/' + editingType, value);
+      toast.success(editingType === 'new' ? copy.typeWords.added : copy.typeWords.saved);
+      setEditingType(null);
+      await load();
+    } catch (e) { setFormErr(explainApiError(e)); }
+  };
+
+  const removeType = async (t: BusinessTypeView) => {
+    setFormErr(null);
+    try { await api.del('/api/business-types/' + t.key, {}); toast.success(copy.typeWords.removed); await load(); }
+    catch (e) { setFormErr(explainApiError(e)); }
   };
 
   const flip = async (b: BusinessView) => {
@@ -208,29 +262,37 @@ export function Businesses() {
 
       {adding && (
         <Card className="mb-6 max-w-xl" bodyClassName="p-4">
-          <BusinessForm existing={null} offered={offered} error={formErr} onSave={saveBusiness} onCancel={() => { setAdding(false); setFormErr(null); }} />
+          <BusinessForm existing={null} offered={offered} types={types} error={formErr} onSave={saveBusiness} onCancel={() => { setAdding(false); setFormErr(null); }} />
         </Card>
       )}
       {data.items.length === 0 && !adding && <p className="mb-4 text-base text-muted">{c.empty}</p>}
 
       <Card bodyClassName="p-0">
         <ul>
-          {data.items.map((b) => (
+          {data.items.map((b) => {
+            const words = wordsOf(b.type);
+            // Narrowed once here: the level under an account exists only when the kind names one.
+            const sub = words.sub;
+            return (
             <li key={b.id} data-testid={'business-' + b.id} className={cardRow}>
               {editing === b.id ? (
-                <BusinessForm existing={b} offered={offered} error={formErr} onSave={saveBusiness} onCancel={() => { setEditing(null); setFormErr(null); }} />
+                <BusinessForm existing={b} offered={offered} types={types} error={formErr} onSave={saveBusiness} onCancel={() => { setEditing(null); setFormErr(null); }} />
               ) : (
                 <div className="space-y-3">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <span className="flex min-w-0 flex-col">
                       <span className="text-base font-medium"><code>{b.code}</code> · {b.name}{!b.active && <span className="text-muted"> · {c.off}</span>}</span>
-                      <span className="text-sm text-muted">{c.accountCount(b.accountCount)}</span>
+                      <span className="text-sm text-muted" data-testid={'kind-' + b.id}>{c.kind(b.type.name)}</span>
+                      <span className="text-sm text-muted">{c.accountCount(b.accountCount, words.one, words.many)}</span>
                       <span className="text-sm text-muted" data-testid={'numbers-' + b.id}>{c.numbersLine(b.numbers.width, b.numbers.used, b.numbers.capacity)}</span>
+                      {/* Round 3, phase B: what this kind of business expects, in its own words. */}
+                      <span className="text-sm text-muted" data-testid={'expects-' + b.id}>{expectationLines(b.type.template).join(' ')}</span>
                     </span>
                     <span className="flex flex-wrap items-center gap-2">
-                      <Button type="button" variant="secondary" onClick={() => open(b.id)}>{c.accounts}</Button>
+                      <Button type="button" variant="secondary" onClick={() => open(b.id)}>{c.accounts(words.many)}</Button>
                       {mayManage && (
                         <>
+                          <Button type="button" variant="secondary" onClick={() => { setAdding(false); setFormErr(null); setChangingKind(b.id); setKindDraft(b.type.key); }}>{c.changeKind}</Button>
                           <Button type="button" variant="secondary" onClick={() => { setAdding(false); setFormErr(null); setEditing(b.id); }}>{c.edit}</Button>
                           <Button type="button" variant={b.active ? 'danger' : 'secondary'} onClick={() => void flip(b)}>{b.active ? c.switchOff : c.switchOn}</Button>
                           <Button type="button" variant="danger" onClick={() => setDeleting({ id: b.id, name: b.name, businessId: b.id, kind: 'business' })}>{c.retire}</Button>
@@ -239,17 +301,32 @@ export function Businesses() {
                     </span>
                   </div>
 
+                  {/* Changing the kind sits right here, with what it does and does not touch. */}
+                  {changingKind === b.id && (
+                    <div className="space-y-2 rounded-md border border-line bg-page p-3">
+                      <p className="text-base font-medium">{c.changeKindTitle(b.name)}</p>
+                      <p className="text-sm text-muted">{c.changeKindBody}</p>
+                      <div className="flex flex-wrap items-end gap-2">
+                        <select aria-label={c.changeKind} className="min-h-11 rounded-md border border-line bg-surface px-3 text-base text-ink" value={kindDraft} onChange={(e) => setKindDraft(e.target.value)}>
+                          {types.map((t) => <option key={t.key} value={t.key}>{t.name}</option>)}
+                        </select>
+                        <Button type="button" disabled={kindDraft === b.type.key} onClick={() => void changeKind(b)}>{c.save}</Button>
+                        <Button type="button" variant="secondary" onClick={() => { setChangingKind(null); setFormErr(null); }}>{c.cancel}</Button>
+                      </div>
+                    </div>
+                  )}
+
                   {openId === b.id && (
                     <div className="space-y-3 rounded-md border border-line bg-page p-3">
                       {addingTo === b.id ? (
-                        <AccountForm existing={null} error={formErr} onSave={(d) => saveAccount(b, d)} onCancel={() => { setAddingTo(null); setFormErr(null); }} />
-                      ) : mayManage && <Button type="button" variant="secondary" onClick={() => { setFormErr(null); setEditingAccount(null); setAddingTo(b.id); }}>{c.addCustomer}</Button>}
-                      {(accounts[b.id] ?? []).length === 0 && addingTo !== b.id && <p className="text-sm text-muted">{c.noCustomers}</p>}
+                        <AccountForm existing={null} words={words} error={formErr} onSave={(d) => saveAccount(b, d)} onCancel={() => { setAddingTo(null); setFormErr(null); }} />
+                      ) : mayManage && <Button type="button" variant="secondary" onClick={() => { setFormErr(null); setEditingAccount(null); setAddingTo(b.id); }}>{c.addAccount(words.a)}</Button>}
+                      {(accounts[b.id] ?? []).length === 0 && addingTo !== b.id && <p className="text-sm text-muted">{c.noAccounts(words.many)}</p>}
                       <ul>
                         {(accounts[b.id] ?? []).map((x) => (
                           <li key={x.id} data-testid={'account-' + x.id} className="border-t border-line py-2 first:border-t-0">
                             {editingAccount === x.id ? (
-                              <AccountForm existing={x} error={formErr} onSave={(d) => editAccount(b, d, x.id)} onCancel={() => { setEditingAccount(null); setFormErr(null); }} />
+                              <AccountForm existing={x} words={words} error={formErr} onSave={(d) => editAccount(b, d, x.id)} onCancel={() => { setEditingAccount(null); setFormErr(null); }} />
                             ) : (
                               <div className="space-y-2">
                                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -276,14 +353,16 @@ export function Businesses() {
                                     <ul>{holders[x.id]!.map((h, i) => <li key={i} className="text-muted">{h.name} · {c.wasHeldBy(h.name, h.deletedAt.slice(0, 10))}</li>)}</ul>
                                   </div>
                                 )}
+                                {/* The level under an account exists only when this kind of business has one. */}
+                                {sub && (
                                 <div className="space-y-2 rounded-md border border-line p-2">
-                                  <p className="text-sm font-medium">{c.accountsUnder(x.name)}</p>
-                                  {x.children.length === 0 && addingTo !== x.id && <p className="text-sm text-muted">{c.noAccountsUnder}</p>}
+                                  <p className="text-sm font-medium">{c.accountsUnder(x.name, words.subs ?? sub)}</p>
+                                  {x.children.length === 0 && addingTo !== x.id && <p className="text-sm text-muted">{c.noUnder(words.subs ?? sub)}</p>}
                                   <ul>
                                     {x.children.map((k) => (
                                       <li key={k.id} data-testid={'account-' + k.id} className="py-1">
                                         {editingAccount === k.id ? (
-                                          <AccountForm existing={k} error={formErr} onSave={(d) => editAccount(b, d, k.id)} onCancel={() => { setEditingAccount(null); setFormErr(null); }} />
+                                          <AccountForm existing={k} words={{ ...words, one: sub, a: 'a ' + sub.toLowerCase(), many: words.subs ?? sub }} error={formErr} onSave={(d) => editAccount(b, d, k.id)} onCancel={() => { setEditingAccount(null); setFormErr(null); }} />
                                         ) : (
                                           <div className="flex flex-wrap items-center justify-between gap-3">
                                             <span className="text-base"><code>{k.fullNumber}</code> · {k.name}{k.note ? <span className="text-sm text-muted"> · {k.note}</span> : null}</span>
@@ -299,9 +378,10 @@ export function Businesses() {
                                     ))}
                                   </ul>
                                   {addingTo === x.id ? (
-                                    <AccountForm existing={null} error={formErr} onSave={(d) => saveUnder(b, x, d)} onCancel={() => { setAddingTo(null); setFormErr(null); }} />
-                                  ) : mayManage && <Button type="button" variant="secondary" onClick={() => { setFormErr(null); setEditingAccount(null); setAddingTo(x.id); }}>{c.addAccount}</Button>}
+                                    <AccountForm existing={null} words={{ ...words, one: sub, a: 'a ' + sub.toLowerCase(), many: words.subs ?? sub }} error={formErr} onSave={(d) => saveUnder(b, x, d)} onCancel={() => { setAddingTo(null); setFormErr(null); }} />
+                                  ) : mayManage && <Button type="button" variant="secondary" onClick={() => { setFormErr(null); setEditingAccount(null); setAddingTo(x.id); }}>{c.addSub('a ' + sub.toLowerCase())}</Button>}
                                 </div>
+                                )}
                               </div>
                             )}
                           </li>
@@ -312,9 +392,44 @@ export function Businesses() {
                 </div>
               )}
             </li>
-          ))}
+            );
+          })}
         </ul>
       </Card>
+
+      {/* Round 3, phase B: the kinds themselves. Data the owner edits, not code. */}
+      {mayManage && (
+        <Card className="mt-6" title={c.kindsTitle} bodyClassName="space-y-3 p-4">
+          <p className="text-sm text-muted">{c.kindsIntro}</p>
+          <ErrorCard error={formErr} />
+          <ul className="space-y-2">
+            {types.map((t) => (
+              <li key={t.key} data-testid={'type-' + t.key} className="rounded-md border border-line p-3">
+                {editingType === t.key ? (
+                  <BusinessTypeForm existing={t} error={null} onSave={saveType} onCancel={() => { setEditingType(null); setFormErr(null); }} />
+                ) : (
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <span className="flex min-w-0 flex-col">
+                      <span className="text-base font-medium">{t.name}</span>
+                      <span className="text-sm text-muted">{copy.businesses.accountCount(0, t.template.accountNoun, wordsOf(t).many).replace(/^0 /, '')} · {expectationLines(t.template).join(' ')}</span>
+                      <span className="text-sm text-muted">{t.template.statementNoun}{t.template.categories.length > 0 ? ' · ' + t.template.categories.join(', ') : ''}</span>
+                    </span>
+                    <span className="flex flex-wrap items-center gap-2">
+                      <Button type="button" variant="secondary" onClick={() => { setFormErr(null); setEditingType(t.key); }}>{copy.typeWords.edit}</Button>
+                      <Button type="button" variant="danger" onClick={() => void removeType(t)}>{copy.typeWords.remove}</Button>
+                    </span>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+          {editingType === 'new' ? (
+            <BusinessTypeForm existing={null} error={null} onSave={saveType} onCancel={() => { setEditingType(null); setFormErr(null); }} />
+          ) : (
+            <Button type="button" onClick={() => { setFormErr(null); setEditingType('new'); }}>{copy.typeWords.add}</Button>
+          )}
+        </Card>
+      )}
       {!mayManage && <p className="mt-4 text-sm text-muted">{c.noManage}</p>}
       <PasswordConfirmDialog open={deleting !== null} danger busy={busy}
         title={deleting ? c.deleteTitle(deleting.name) : ''}

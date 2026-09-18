@@ -21,6 +21,7 @@ import { createMoneyInService } from './money_in/service.js';
 import { createBulkService } from './money_out/bulk.js';
 import { createInvoicesService } from './invoices/service.js';
 import { createBusinessesService } from './businesses/service.js';
+import { createBusinessTypesService } from './businesses/types.js';
 import { createNotificationsService } from './notifications/service.js';
 import { createNotificationWriter } from './notifications/writer.js';
 import { createPushService } from './push/service.js';
@@ -101,6 +102,8 @@ async function main() {
   // Feature 2: businesses and customers. Needs the settings store for the last business used, so the
   // pickers can default to it, and the egress IPs for the rows the unmatched fixes hand back.
   const businesses = createBusinessesService({ db, settings, events, egressIps: config.egressIps });
+  // Round 3, phase B: the kinds of business. Data, not code: the rows are seeded and then edited.
+  const businessTypes = createBusinessTypesService({ db });
   // Feature 4: the inbox. The writer follows the same hub the browser follows, so a line exists
   // before any page is opened.
   const notifications = createNotificationsService({ db, events });
@@ -124,7 +127,7 @@ async function main() {
   const scheduler = createScheduler(db, buildHandlers({ db, events, settings, moneyOut, operators, moneyIn, bulk }));
   scheduler.start();
 
-  const app = buildApp({ config, db, keyring, orgs, settings, instance, cache, events, daraja, operators, settingsService, moneyOut, collect, moneyIn, bulk, invoices, businesses, push, problems, webauthn, fetchImpl, scheduler });
+  const app = buildApp({ config, db, keyring, orgs, settings, instance, cache, events, daraja, operators, settingsService, moneyOut, collect, moneyIn, bulk, invoices, businesses, businessTypes, push, problems, webauthn, fetchImpl, scheduler });
   const listenFallback = db.getFallbackOrg();
   const envLabel = listenFallback
     ? await withOrg(listenFallback, async () => (await settings.get('daraja.environment')) ?? 'sandbox')

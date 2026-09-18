@@ -17,6 +17,7 @@ import { useToast } from '../components/Toast';
 import { copy } from '../copy/en';
 import { money, phone, when } from '../format';
 import { PartyLine, partyOf } from '../components/PartyLine';
+import { typeOf, wordsOf } from '../businessTypes';
 import { useStepUp } from './settings/useStepUp';
 
 
@@ -113,7 +114,7 @@ function UnmatchedRow({ row, businesses, onDone }: { row: UnmatchedView; busines
             <Button type="button" variant="secondary" disabled={!accountId || busy} onClick={() => void assign(known.id, accountId)}>{c.assign}</Button>
           </div>
           <div className="flex flex-wrap items-end gap-2">
-            <TextField label={copy.businesses.customerName} value={name} maxLength={80} onChange={(e) => setName(e.target.value)} />
+            <TextField label={copy.businesses.accountName(wordsOf(typeOf(known)).one)} value={name} maxLength={80} onChange={(e) => setName(e.target.value)} />
             <Button type="button" disabled={busy} onClick={() => void addAndAssign()}>{c.addCustomer(known.name)}</Button>
           </div>
         </div>

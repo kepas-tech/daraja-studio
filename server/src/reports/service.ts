@@ -60,6 +60,12 @@ export interface HomeSummary {
   inCents: number; inCount: number; outCents: number; outCount: number;
   /** Rows that have not finished: still preparing, at Safaricom, or waiting for approval. */
   pending: number; failed: number;
+  /**
+   * Round 3, phase B: what Home leads with depends on the kind of business, so two more figures ride
+   * along. Money in since the first of this Nairobi month, and what open invoices still ask for.
+   */
+  monthInCents: number;
+  unpaidInvoiceCents: number; unpaidInvoiceCount: number;
 }
 
 export interface ReportsService {
@@ -186,11 +192,25 @@ export function createReportsService(deps: { db: Db }): ReportsService {
                 COUNT(*) FILTER (WHERE r.status = 'failed')::int AS failed
            FROM requests r
           WHERE r.type = ANY($1::text[]) AND r.created_at > now() - interval '24 hours'`, [LEDGER_TYPES, IN_TYPES, OUT_TYPES]);
-      if (!row) return { inCents: 0, inCount: 0, outCents: 0, outCount: 0, pending: 0, failed: 0 };
+      const [month] = await deps.db.query<{ cents: string }>(
+        `SELECT COALESCE(SUM(amount_cents), 0)::bigint AS cents FROM requests
+          WHERE type = ANY($1::text[]) AND status = 'completed'
+            AND created_at >= date_trunc('month', now() AT TIME ZONE 'Africa/Nairobi') AT TIME ZONE 'Africa/Nairobi'`,
+        [IN_TYPES]);
+      // Open invoices: what was asked for, less what has been paid. A cancelled or paid invoice is
+      // not owed. Money Studio never held, and never will: this is a total of what people owe.
+      const [owed] = await deps.db.query<{ cents: string; n: number }>(
+        `SELECT COALESCE(SUM(amount_cents - paid_cents), 0)::bigint AS cents, COUNT(*)::int AS n
+           FROM customer_invoices WHERE status IN ('sent','partly_paid')`);
+      if (!row) {
+        return { inCents: 0, inCount: 0, outCents: 0, outCount: 0, pending: 0, failed: 0, monthInCents: Number(month?.cents ?? 0), unpaidInvoiceCents: Number(owed?.cents ?? 0), unpaidInvoiceCount: owed?.n ?? 0 };
+      }
       return {
         inCents: Number(row.in_cents), inCount: row.in_count,
         outCents: Number(row.out_cents), outCount: row.out_count,
         pending: row.pending, failed: row.failed,
+        monthInCents: Number(month?.cents ?? 0),
+        unpaidInvoiceCents: Number(owed?.cents ?? 0), unpaidInvoiceCount: owed?.n ?? 0,
       };
     },
   };

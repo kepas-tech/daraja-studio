@@ -279,6 +279,50 @@ export const guide: GuideSection[] = [
     ],
   },
   {
+    key: 'kinds',
+    title: 'Kinds of business, and the words they bring',
+    intro: 'What kind of business this is decides what Studio calls the things it holds and what it watches for. It is a row of data, not a setting built into the program: you pick one, and you may change its words or add your own.',
+    tasks: [
+      {
+        key: 'pick',
+        title: 'Pick the kind when you make a business',
+        where: ['Businesses'],
+        who: 'Owner, or anybody given permission to change businesses',
+        path: '/businesses',
+        permission: 'businesses.manage',
+        steps: [
+          'Press Add a business, type its name, and answer "What kind of business is this?".',
+          'The kind sets eight things: what one account is called, what an account under another is called, whether money is expected regularly and how often, whether each account stands for a set amount, the payment categories, what happens with invoices and reminders, what Home leads with, and what this business’s statement is called.',
+          'Nine kinds ship with Studio: rental or property, clinic or health, church or religious, school, shop or retail, services or freelance, savings group or chama, transport, and Other, which is neutral and turns nothing on.',
+          'Every account, and every payment that already names the business, keeps its number and its record whatever kind you pick. Changing the kind changes words only, never money.',
+        ],
+        api: [
+          { method: 'GET', path: '/api/business-types', who: 'signed in' },
+          { method: 'POST', path: '/api/businesses', who: 'businesses.manage; body { name, typeKey }' },
+        ],
+      },
+      {
+        key: 'change',
+        title: 'Change the kind, or the words in it',
+        where: ['Businesses', 'a business'],
+        path: '/businesses',
+        steps: [
+          'Change the kind, on the business’s own row, moves it to another kind. The promise on screen is the whole of it: accounts, numbers, and every payment that already names this business stay exactly as they are.',
+          'Under Kinds of business, at the bottom of the page, press Edit the words on any kind: the account noun, the account-under noun, the statement name and the categories are words you type, so a kind of business Studio has never heard of reads properly without waiting for a new version.',
+          'The four that are behaviour — how often money is expected, whether an account stands for a set amount, what happens with invoices and reminders, and what Home leads with — are picked from the list, because each one is wired to something Studio does.',
+          'Deleting a kind is allowed only while no business uses it. Deleting one keeps its name out of the way for ever; it never comes back on its own.',
+          'The words show up as you work: Accounts, Money in, Invoices, Reports and Home all use them.',
+        ],
+        api: [
+          { method: 'PUT', path: '/api/businesses/:id/type', who: 'businesses.manage; body { typeKey }' },
+          { method: 'POST', path: '/api/business-types', who: 'businesses.manage; body { name, template }' },
+          { method: 'PUT', path: '/api/business-types/:key', who: 'businesses.manage; body { name, template }' },
+          { method: 'DELETE', path: '/api/business-types/:key', who: 'businesses.manage; refused while a business uses it' },
+        ],
+      },
+    ],
+  },
+  {
     key: 'login',
     title: 'Logging in and finding your way',
     tasks: [

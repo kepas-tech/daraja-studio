@@ -10,6 +10,7 @@ import { PageHeader } from '../components/PageHeader';
 import { Segmented } from '../components/Segmented';
 import { useToast } from '../components/Toast';
 import { copy } from '../copy/en';
+import { typeOf } from '../businessTypes';
 import { money } from '../format';
 import type { BusinessSummaryRow, BusinessView, ReportsView } from '../api/types';
 
@@ -76,9 +77,12 @@ export function Reports() {
   const control = 'min-h-10 rounded-md border border-line bg-surface px-3 text-base text-ink focus:outline-2 focus:-outline-offset-1 focus:outline-brand';
   const cell = 'px-4 py-3 whitespace-nowrap';
   const th = 'px-4 py-2 font-medium';
+  // Round 3, phase B: with one business in view, this is that business's statement, and its kind of
+  // business says what the statement is called. With several, the page is the studio's own report.
+  const picked = businesses.find((b) => b.id === business) ?? (businesses.length === 1 ? businesses[0] : null);
   return (
     <>
-      <PageHeader title={copy.reports.title} />
+      <PageHeader title={picked ? copy.reports.statement(typeOf(picked).template.statementNoun) : copy.reports.title} />
       <Card bodyClassName="p-0" className="mb-6">
         <div className="flex flex-wrap items-center gap-2 border-b border-line bg-page px-4 py-3">
           <div className="min-w-64 flex-1">

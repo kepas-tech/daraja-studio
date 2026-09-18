@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.39.0 — what kind of business this is
+
+- **A business is asked what kind it is**, as it is made, and the answer is data: a row in
+  `business_types` with a template, seeded into the organisation and editable by the owner. Nine
+  ship — rental or property, clinic or health, church or religious, school, shop or retail, services
+  or freelance, savings group or chama, transport, and Other, which is neutral and turns nothing on.
+- **The template sets eight things**: what an account is called, what an account under another is
+  called, whether money is expected regularly and how often, whether each account stands for a set
+  amount, the payment categories, what happens with invoices and reminders, what Home leads with,
+  and what the business's statement is called. The words are the owner's to type; the four that are
+  behaviour are chosen from a list, because each is wired to something Studio does.
+- **The words follow the business**: "Add a tenant", "3 tenants", "Rooms or units under Jane", the
+  leading line on Home ("Who is behind: 3 tenants"), the Invoices screen, and Reports, which is the
+  business's statement by name — "Rent statement", "Fee statement", "Giving record".
+- **Change the kind afterwards**, or edit the words in it, and add a kind of your own: a new kind of
+  business needs no new version. Changing the kind changes words only — accounts, numbers, and every
+  payment that already names a business stay exactly as they are.
+
 ## 0.38.0 — names, everywhere
 
 - **A name on every row, whichever way the money went.** Studio already received far more names than

@@ -164,11 +164,29 @@ export interface ContactView {
   name: string; phone: string | null; shortcode: string | null;
   accountReference: string | null; note: string | null; createdAt: string;
 }
+/**
+ * Round 3, phase B: what kind of business this is, as data. The words the owner can edit (the two
+ * nouns, the statement name, the categories) and the four modes wired to something Studio does.
+ */
+export interface TypeTemplate {
+  accountNoun: string;
+  subAccountNoun: string | null;
+  regular: 'no' | 'weekly' | 'monthly' | 'each_term';
+  standingAmount: 'none' | 'fixed' | 'pledge';
+  categories: string[];
+  invoices: 'on' | 'per_visit' | 'each_term' | 'off';
+  reminders: boolean;
+  homeLead: 'behind' | 'takings' | 'giving' | 'outstanding' | 'nothing';
+  statementNoun: string;
+}
+export interface BusinessTypeView { key: string; name: string; template: TypeTemplate }
 /** `GET /api/businesses` (brief 2, item 1). Routing by the first three digits. */
 export interface BusinessView {
   id: string; code: string; name: string; active: boolean; accountCount: number; createdAt: string;
   /** The open number width for this business's customers, for the plain line the page shows. */
   numbers: { width: number; capacity: number; used: number };
+  /** Round 3, phase B: the kind of business, and the words that come with it. */
+  type: BusinessTypeView;
 }
 /**
  * `GET /api/businesses/:id/accounts`. Studio mints every digit: `number` is this level's own digits
@@ -185,8 +203,9 @@ export interface AccountView {
 }
 /** One past holder of a number, for "Past holders of this number". */
 export interface HistoryEntry { name: string; phone: string | null; level: 'business' | 'account' | 'sub_account'; createdAt: string; deletedAt: string; deletedBy: string | null }
-/** `GET /api/businesses/summary`: one row per business for the day, in cents. History, never cash. */
-export interface BusinessSummaryRow { businessId: string; code: string; name: string; inCents: number; outCents: number }
+/** `GET /api/businesses/summary`: one row per business for the day, in cents. History, never cash.
+ * Round 3, phase B adds the kind of business, its words, and how many accounts it holds. */
+export interface BusinessSummaryRow { businessId: string; code: string; name: string; type: BusinessTypeView; accountCount: number; inCents: number; outCents: number }
 /** `GET /api/reports` (feature 6). One line per Nairobi day in the window, days with nothing included. */
 export interface ReportDay { day: string; inCents: number; inCount: number; outCents: number; outCount: number; completed: number; failed: number; unknown: number }
 /** One reason Safaricom gave for a failure, with how many payments it explains and their total. */
@@ -207,7 +226,11 @@ export interface ReportsView {
 export type ProblemKind = 'operator_down' | 'no_callback' | 'balance_refused';
 export interface Problem { kind: ProblemKind; detail: { name: string | null; minutes: number | null } | null }
 /** `GET /api/reports/summary`: the last 24 hours, for the strip on Home. */
-export interface HomeSummary { inCents: number; inCount: number; outCents: number; outCount: number; pending: number; failed: number }
+export interface HomeSummary {
+  inCents: number; inCount: number; outCents: number; outCount: number; pending: number; failed: number;
+  /** Round 3, phase B: what Home leads with follows the kind of business. */
+  monthInCents: number; unpaidInvoiceCents: number; unpaidInvoiceCount: number;
+}
 /**
  * `GET /api/money-in/unmatched`: a c2b row that needs a decision, and why. The optional fields are
  * what the one-click fix needs to name itself (which business, and for no_sub, which customer's

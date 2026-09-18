@@ -50,13 +50,14 @@ import { billManagerHandler } from './callbacks/billmanager.js';
 import { expressHandler, ratibaHandler } from './callbacks/collectKinds.js';
 import { invoiceRoutes } from './invoices/routes.js';
 import { contactsRoutes } from './contacts/routes.js';
-import { accountsRoutes, businessesRoutes } from './businesses/routes.js';
+import { accountsRoutes, businessTypesRoutes, businessesRoutes } from './businesses/routes.js';
 import { notificationRoutes } from './notifications/routes.js';
 import { pushRoutes } from './push/routes.js';
 import { reportsRoutes } from './reports/routes.js';
 import { auditRoutes } from './audit/routes.js';
 import { feeRoutes } from './fees/routes.js';
 import type { BusinessesService } from './businesses/service.js';
+import type { BusinessTypesService } from './businesses/types.js';
 import type { InvoicesService } from './invoices/service.js';
 import type { Scheduler } from './scheduler/loop.js';
 import type { PushService } from './push/service.js';
@@ -85,6 +86,8 @@ export interface AppDeps {
   invoices: InvoicesService;
   /** Feature 2: the businesses one paybill serves, their account numbers, and the unmatched fixes. */
   businesses: BusinessesService;
+  /** Round 3, phase B: the kinds of business, and the words each kind brings with it. */
+  businessTypes: BusinessTypesService;
   /** Brief 2, item 2: the three states that mean something is wrong, for Home's banner. */
   problems: ProblemService;
   /** Brief 2, item 5b: the fingerprint ceremonies. Absent in tests that build the app without one. */
@@ -164,6 +167,7 @@ export function buildApp(deps: AppDeps): express.Express {
   // Brief 2, item 1: businesses and their account numbers. The account routes sit at their own
   // address, because an account id already names its business; the design's paths are these.
   app.use('/api/businesses', businessesRoutes(deps));
+  app.use('/api/business-types', businessTypesRoutes(deps));
   app.use('/api/accounts', accountsRoutes(deps));
   // Feature 4: the inbox the writer fills and the bell reads.
   app.use('/api/notifications', notificationRoutes(deps));

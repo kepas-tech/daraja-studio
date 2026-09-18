@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import type { AccountView, BusinessView } from '../api/types';
 import { copy } from '../copy/en';
+import { typeOf, wordsOf } from '../businessTypes';
 
 /**
  * Pick a saved account and Studio fills the account reference with its full number. Used by Ask a
@@ -39,10 +40,12 @@ export function AccountPicker({ label, onPick }: { label?: string; onPick: (acco
 
   if (businesses.length === 0) return null;
   const business = businesses.find((b) => b.id === businessId) ?? businesses[0];
+  // Round 3, phase B: the account is whatever this kind of business calls it.
+  const words = wordsOf(typeOf(business));
   const pick = 'flex w-full items-baseline justify-between gap-3 rounded px-2 py-1 text-left text-base hover:bg-line/60';
   return (
     <div className="space-y-2 rounded-md border border-line bg-page p-3">
-      <p className="text-base font-medium">{label ?? c.pickCustomer}</p>
+      <p className="text-base font-medium">{label ?? c.pickCustomer(words.one)}</p>
       <p className="text-sm text-muted">{c.pickHint}</p>
       {businesses.length > 1 && (
         <select aria-label={c.title} className={control} value={businessId} onChange={(e) => { setQ(''); setBusinessId(e.target.value); }}>
@@ -51,7 +54,7 @@ export function AccountPicker({ label, onPick }: { label?: string; onPick: (acco
       )}
       <input type="search" aria-label={c.searchCustomers} placeholder={c.searchCustomers} className={control} value={q} onChange={(e) => setQ(e.target.value)} />
       {accounts === null && <p role="status" className="text-sm text-muted">{copy.app.loading}</p>}
-      {accounts?.length === 0 && <p className="text-sm text-muted">{c.noCustomers}</p>}
+      {accounts?.length === 0 && <p className="text-sm text-muted">{c.noAccounts(words.many)}</p>}
       {accounts && accounts.length > 0 && (
         <ul className="max-h-56 overflow-y-auto">
           {accounts.map((x) => (

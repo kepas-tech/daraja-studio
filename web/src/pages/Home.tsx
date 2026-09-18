@@ -15,6 +15,7 @@ import { STATUS_TONE } from '../components/RequestCard';
 import { copy } from '../copy/en';
 import { money } from '../format';
 import { PartyLine } from '../components/PartyLine';
+import { plural, typeOf } from '../businessTypes';
 import type { BalanceView, BusinessSummaryRow, HomeSummary, Page, Problem, RequestView, SettingsView } from '../api/types';
 
 const RELOAD_ON: readonly string[] = ['operator.updated', 'setup.updated', 'balance.updated'];
@@ -63,6 +64,16 @@ export function Home() {
     if (e.type === 'balance.updated' || e.type === 'request.updated') loadMoney();
     if (e.type === 'org.updated') void refresh();
   }, [load, loadMoney, refresh, balances.onEvent]), true, reloadAll);
+  // The kind of business the studio is, when there is exactly one, and the line its type leads with.
+  const only = byBusiness.length === 1 ? byBusiness[0] : null;
+  const onlyType = only ? typeOf(only) : null;
+  const leadKey = onlyType?.template.homeLead ?? 'nothing';
+  const leadLine = !today || !only || !onlyType ? null
+    : leadKey === 'behind' ? copy.home.lead.behind(only.accountCount ?? 0, plural(onlyType.template.accountNoun))
+    : leadKey === 'takings' ? copy.home.lead.takings(money(today.inCents), today.inCount)
+    : leadKey === 'giving' ? copy.home.lead.giving(money(today.monthInCents))
+    : leadKey === 'outstanding' ? copy.home.lead.outstanding(money(today.unpaidInvoiceCents), today.unpaidInvoiceCount)
+    : null;
   const active = v?.environments[v.mode];
   const alerts: string[] = [];
   if (active && !active.ready.operator) alerts.push(copy.home.noOperator);
@@ -96,6 +107,9 @@ export function Home() {
       <BalanceHero balance={balance} message={balances.msg} className="mb-2" action={<Button type="button" variant="secondary" onClick={() => void balances.refresh()} disabled={balances.busy}>{balances.busy ? copy.balances.refreshing : copy.balances.refresh}</Button>} />
       {today && (
         <div data-testid="home-today" className="mt-2 mb-6 rounded-md border border-line bg-surface px-4 py-3 text-base">
+          {/* Round 3, phase B: what Home leads with follows the kind of business, when the studio
+              has one. With several, each business's own words are on its row below. */}
+          {leadLine && <p data-testid="home-lead" className="mb-1 font-semibold">{leadLine}</p>}
           <p><span className="font-semibold">{copy.home.today.last24h}</span>{' · '}{copy.home.today.in(money(today.inCents), today.inCount)} · {copy.home.today.out(money(today.outCents), today.outCount)}</p>
           <p className="text-sm text-muted">{copy.home.today.waiting(today.pending)} · {copy.home.today.failed(today.failed)}</p>
         </div>
@@ -123,7 +137,7 @@ export function Home() {
           <ul>
             {byBusiness.map((b) => (
               <li key={b.businessId} data-testid={'home-business-' + b.businessId} className={cardRow + ' flex flex-wrap items-center justify-between gap-3 text-base'}>
-                <span className="min-w-0"><code>{b.code}</code> · {b.name}</span>
+                <span className="min-w-0"><code>{b.code}</code> · {b.name}<span className="block text-sm text-muted">{copy.businesses.kind(typeOf(b).name)}</span></span>
                 <span className="text-sm"><span className="text-muted">{copy.home.in} </span>{money(b.inCents)}<span className="text-muted"> · {copy.home.out} </span>{money(b.outCents)}</span>
               </li>
             ))}

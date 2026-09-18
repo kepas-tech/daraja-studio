@@ -10,6 +10,7 @@ import { audit } from '../audit/log.js';
 import { getRequest, type RequestView } from '../money_out/reads.js';
 import { MONEY_TYPES } from '../money_out/registry.js';
 import { loadIndex, parseAccount, type UnmatchedReason } from './match.js';
+import { ensureTypes, listTypes, OTHER_TEMPLATE, type BusinessTypeView } from './types.js';
 
 /**
  * Brief 2, items 1 and 1b: the businesses one paybill serves, and the account numbers Studio draws
@@ -26,7 +27,7 @@ import { loadIndex, parseAccount, type UnmatchedReason } from './match.js';
 export interface Actor { personId: string; ip: string }
 /** The open width of a scope, for the plain line the Businesses page shows. */
 export interface NumberWidth { width: number; capacity: number; used: number }
-export interface BusinessView { id: string; code: string; name: string; active: boolean; accountCount: number; numbers: NumberWidth; createdAt: string }
+export interface BusinessView { id: string; code: string; name: string; active: boolean; accountCount: number; numbers: NumberWidth; createdAt: string; /** Round 3, phase B: the kind of business this is, and the words that come with it. */ type: BusinessTypeView }
 /** Who held this number before it was handed out again, when that was within the last year. */
 export interface PastHolder { name: string; until: string }
 export interface AccountView {
@@ -48,7 +49,7 @@ export type UnmatchedPayment = RequestView & {
   /** The account the number named, for no_sub, so the card can say which one has no such sub-account. */
   accountName: string | null;
 };
-export interface BusinessSummaryItem { businessId: string; code: string; name: string; inCents: number; outCents: number }
+export interface BusinessSummaryItem { businessId: string; code: string; name: string; /** Round 3, phase B: Home leads with this business's own words. */ type: BusinessTypeView; inCents: number; outCents: number; /** How many accounts the business holds, for the "who is behind" line. */ accountCount: number }
 export interface BusinessSummary { items: BusinessSummaryItem[] }
 export interface AccountInput { name: string; phone?: string | null; note?: string | null }
 /** One past holder of a number, for "Past holders of this number". */
@@ -69,8 +70,10 @@ const REISSUE_MEMORY_MONTHS = 12;
 
 export interface BusinessesService {
   list(): Promise<{ items: BusinessView[]; lastUsedId: string | null }>;
-  create(name: string, actor: Actor): Promise<BusinessView>;
+  create(name: string, typeKey: string, actor: Actor): Promise<BusinessView>;
   update(id: string, name: string, active: boolean, actor: Actor): Promise<BusinessView>;
+  /** Round 3, phase B: change the kind of business, which changes its words and nothing else. */
+  updateType(id: string, typeKey: string, actor: Actor): Promise<BusinessView>;
   /** Delete a business. Refused while it still has accounts: their numbers are somebody's. */
   deleteBusiness(id: string, typedName: string, actor: Actor): Promise<void>;
   /** The accounts of one business, each with its live sub-accounts nested under it. */
@@ -89,7 +92,7 @@ export interface BusinessesService {
   unmatched(limit?: number): Promise<UnmatchedPayment[]>;
 }
 
-interface BusinessRow { id: string; code: string; name: string; active: boolean; created_at: Date; account_count?: number }
+interface BusinessRow { id: string; code: string; name: string; active: boolean; type_key: string | null; created_at: Date; account_count?: number }
 interface AccountRow {
   id: string; business_id: string; parent_id: string | null; number: string; full_number: string;
   name: string; phone: string | null; note: string | null; created_at: Date;
@@ -113,10 +116,13 @@ function requireOrg(): string {
   return orgId;
 }
 
-const toBusinessView = (r: BusinessRow, numbers: NumberWidth): BusinessView => ({
+const toBusinessView = (r: BusinessRow, numbers: NumberWidth, type: BusinessTypeView): BusinessView => ({
   id: r.id, code: r.code.trim(), name: r.name, active: r.active,
-  accountCount: Number(r.account_count ?? 0), numbers, createdAt: r.created_at.toISOString(),
+  accountCount: Number(r.account_count ?? 0), numbers, createdAt: r.created_at.toISOString(), type,
 });
+
+/** A business's words fall back to the neutral template only if its type row is somehow gone. */
+const NEUTRAL: BusinessTypeView = { key: 'other', name: 'Other', template: OTHER_TEMPLATE };
 
 const toAccountView = (r: AccountRow, children: AccountView[] = [], previousHolder: PastHolder | null = null): AccountView => ({
   id: r.id, businessId: r.business_id, parentId: r.parent_id, number: r.number, fullNumber: r.full_number,
@@ -151,6 +157,15 @@ async function widthReport(db: Db): Promise<Map<string, NumberWidth>> {
 export function createBusinessesService(deps: { db: Db; settings: Settings; events: EventHub; egressIps?: string[]; rng?: Rng }): BusinessesService {
   const egressIps = deps.egressIps ?? [];
   const rng: Rng = deps.rng ?? ((max: number) => randomInt(max));
+
+  /** The type a caller named, checked against this organisation's own rows. */
+  async function chosenType(typeKey: string | null | undefined): Promise<BusinessTypeView> {
+    await ensureTypes(deps.db);
+    const key = typeKey?.trim() || 'other';
+    const found = (await listTypes(deps.db)).find((t) => t.key === key);
+    if (!found) throw new HttpError(400, 'unknown_type', 'That kind of business does not exist. Pick one from the list.');
+    return found;
+  }
 
   async function businessRow(id: string): Promise<BusinessRow> {
     const [row] = await deps.db.query<BusinessRow>(
@@ -286,18 +301,22 @@ export function createBusinessesService(deps: { db: Db; settings: Settings; even
 
   return {
     async list() {
+      const types = new Map((await listTypes(deps.db)).map((t) => [t.key, t]));
       const rows = await deps.db.query<BusinessRow>(
         `SELECT b.*, (SELECT count(*)::int FROM accounts a WHERE a.business_id = b.id) AS account_count
            FROM businesses b ORDER BY b.code`);
       const numbers = await widthReport(deps.db);
-      const items = rows.map((r) => toBusinessView(r, numbers.get(r.id) ?? { width: FIRST_WIDTH, capacity: WIDTH_CAPACITY, used: 0 }));
+      const items = rows.map((r) => toBusinessView(r, numbers.get(r.id) ?? { width: FIRST_WIDTH, capacity: WIDTH_CAPACITY, used: 0 }, types.get(r.type_key ?? 'other') ?? NEUTRAL));
       const last = await deps.settings.get('send.lastBusinessId');
       return { items, lastUsedId: last && items.some((b) => b.id === last) ? last : null };
     },
 
     // The lock is what makes "next free, lowest first" true when two people press Add at once: the
     // second waits, then sees the first row and takes the code after it.
-    async create(name, actor) {
+    // The kind of business is asked for at the same moment as the name, because it decides the words
+    // Studio uses for everything that business holds from then on.
+    async create(name, typeKey, actor) {
+      const chosen = await chosenType(typeKey);
       try {
         const row = await deps.db.tx(async (c) => {
           await c.query(`SELECT pg_advisory_xact_lock(hashtext('businesses'))`);
@@ -306,15 +325,32 @@ export function createBusinessesService(deps: { db: Db; settings: Settings; even
               WHERE NOT EXISTS (SELECT 1 FROM businesses b WHERE b.code = to_char(g, 'FM000')) ORDER BY g LIMIT 1`)).rows;
           if (!free) throw new HttpError(409, 'no_codes_left', 'All one thousand business codes are in use.');
           const { rows } = await c.query<BusinessRow>(
-            `INSERT INTO businesses(code, name) VALUES ($1,$2) RETURNING *`, [free.code, name]);
+            `INSERT INTO businesses(code, name, type_key) VALUES ($1,$2,$3) RETURNING *`, [free.code, name, chosen.key]);
           return rows[0];
         });
-        await audit(deps.db, { personId: actor.personId, action: 'business.added', target: row.id, after: { code: row.code.trim(), name }, ip: actor.ip });
-        return toBusinessView({ ...row, account_count: 0 }, { width: FIRST_WIDTH, capacity: WIDTH_CAPACITY, used: 0 });
+        await audit(deps.db, { personId: actor.personId, action: 'business.added', target: row.id, after: { code: row.code.trim(), name, type: chosen.key }, ip: actor.ip });
+        return toBusinessView({ ...row, account_count: 0 }, { width: FIRST_WIDTH, capacity: WIDTH_CAPACITY, used: 0 }, chosen);
       } catch (e) {
         if (isUnique(e)) throw new HttpError(409, 'name_taken', 'You already have a business with that name.');
         throw e;
       }
+    },
+
+    // Changing the type changes words, never money: the business keeps its code, its accounts, its
+    // numbers and every payment that already names it. One column, one audit row.
+    async updateType(id, typeKey, actor) {
+      const chosen = await chosenType(typeKey);
+      const before = await businessRow(id);
+      const [row] = await deps.db.query<BusinessRow>(
+        `UPDATE businesses SET type_key=$2, updated_at=now() WHERE id=$1 AND org_id=$3
+         RETURNING *, (SELECT count(*)::int FROM accounts a WHERE a.business_id = businesses.id) AS account_count`,
+        [id, chosen.key, requireOrg()]);
+      await audit(deps.db, {
+        personId: actor.personId, action: 'business.type_changed', target: id,
+        before: { type: before.type_key ?? 'other' }, after: { type: chosen.key, typeName: chosen.name }, ip: actor.ip,
+      });
+      const numbers = await widthReport(deps.db);
+      return toBusinessView(row, numbers.get(id) ?? { width: FIRST_WIDTH, capacity: WIDTH_CAPACITY, used: 0 }, chosen);
     },
 
     async update(id, name, active, actor) {
@@ -326,7 +362,8 @@ export function createBusinessesService(deps: { db: Db; settings: Settings; even
           [id, name, active, requireOrg()]);
         await audit(deps.db, { personId: actor.personId, action: 'business.updated', target: id, before: { name: before.name, active: before.active }, after: { name, active }, ip: actor.ip });
         const numbers = await widthReport(deps.db);
-        return toBusinessView(row, numbers.get(id) ?? { width: FIRST_WIDTH, capacity: WIDTH_CAPACITY, used: 0 });
+        const type = (await listTypes(deps.db)).find((t) => t.key === (row.type_key ?? 'other')) ?? NEUTRAL;
+        return toBusinessView(row, numbers.get(id) ?? { width: FIRST_WIDTH, capacity: WIDTH_CAPACITY, used: 0 }, type);
       } catch (e) {
         if (isUnique(e)) throw new HttpError(409, 'name_taken', 'You already have a business with that name.');
         throw e;
@@ -462,18 +499,27 @@ export function createBusinessesService(deps: { db: Db; settings: Settings; even
       return view;
     },
 
+    // Home reads this: each business with its own words, how many accounts it holds, and the day's
+    // money. The type travels with the row so Home can lead with what this kind of business watches.
     async summary(day) {
       const [d] = await deps.db.query<{ day: string }>(`SELECT COALESCE($1::date, (now() AT TIME ZONE 'Africa/Nairobi')::date)::text AS day`, [day ?? null]);
-      const rows = await deps.db.query<{ business_id: string; code: string; name: string; in_cents: string; out_cents: string }>(
-        `SELECT b.id AS business_id, b.code, b.name,
+      const types = new Map((await listTypes(deps.db)).map((t) => [t.key, t]));
+      const rows = await deps.db.query<{ business_id: string; code: string; name: string; type_key: string | null; account_count: number; in_cents: string; out_cents: string }>(
+        `SELECT b.id AS business_id, b.code, b.name, b.type_key,
+             (SELECT count(*)::int FROM accounts a WHERE a.business_id = b.id) AS account_count,
              COALESCE(SUM(CASE WHEN r.type = 'c2b' AND r.status = 'completed' THEN r.amount_cents ELSE 0 END), 0)::bigint AS in_cents,
              COALESCE(SUM(CASE WHEN r.type = ANY($2) AND r.status IN ('sent','completed') THEN r.amount_cents ELSE 0 END), 0)::bigint AS out_cents
            FROM businesses b
            LEFT JOIN requests r ON r.business_id = b.id AND (r.created_at AT TIME ZONE 'Africa/Nairobi')::date = $1::date
-           GROUP BY b.id, b.code, b.name ORDER BY b.code`,
+           GROUP BY b.id, b.code, b.name, b.type_key ORDER BY b.code`,
         [d.day, MONEY_TYPES]);
       return {
-        items: rows.map((r) => ({ businessId: r.business_id, code: r.code.trim(), name: r.name, inCents: Number(r.in_cents), outCents: Number(r.out_cents) })),
+        items: rows.map((r) => ({
+          businessId: r.business_id, code: r.code.trim(), name: r.name,
+          type: types.get(r.type_key ?? 'other') ?? NEUTRAL,
+          accountCount: Number(r.account_count),
+          inCents: Number(r.in_cents), outCents: Number(r.out_cents),
+        })),
       };
     },
 

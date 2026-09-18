@@ -5,6 +5,7 @@ import { requireAuth, requireCsrf, requireStepUp } from '../auth/middleware.js';
 import { requirePermission } from '../permissions/middleware.js';
 import { clientIp } from '../util/ip.js';
 import { HttpError } from '../util/errors.js';
+import { typeTemplate } from './types.js';
 
 /**
  * Brief 2, items 1 and 1b. Reading is open to any signed-in person, because the Send, Ask-for-payment,
@@ -31,7 +32,11 @@ const updateSchema = z.object({ name, active: z.boolean() });
  * Strict on purpose, both of them: a business code and an account number are Studio's to give, so
  * neither is a field of any body a client sends. A body that carries one is a 400, not a row.
  */
-const createSchema = z.object({ name }).strict();
+// Round 3, phase B: the kind of business is chosen as the business is made, and defaults to the
+// neutral one, so every caller that predates this keeps working.
+const createSchema = z.object({ name, typeKey: z.string().trim().min(1).max(30).optional() }).strict();
+const typeBody = z.object({ name: z.string().trim().min(1).max(40), template: typeTemplate }).strict();
+const typeKeySchema = z.object({ typeKey: z.string().trim().min(1).max(30) }).strict();
 const accountSchema = z.object({ name, phone, note }).strict();
 const assignSchema = z.object({ businessId: uuid, accountId: uuid.nullish() });
 const listSchema = z.object({ q: z.string().trim().max(80).optional() });
@@ -68,7 +73,7 @@ export function businessesRoutes(deps: AppDeps): Router {
   r.post('/', requirePermission(deps.db, 'businesses.manage'), async (req, res, next) => {
     try {
       const b = parse(createSchema, req.body);
-      res.status(201).json(await deps.businesses.create(b.name, actor(req)));
+      res.status(201).json(await deps.businesses.create(b.name, b.typeKey ?? 'other', actor(req)));
     } catch (e) { next(e); }
   });
 
@@ -88,6 +93,17 @@ export function businessesRoutes(deps: AppDeps): Router {
       if (!isUuid(id)) throw new HttpError(404, 'not_found', NOT_FOUND);
       const b = parse(updateSchema, req.body);
       res.json(await deps.businesses.update(id, b.name, b.active, actor(req)));
+    } catch (e) { next(e); }
+  });
+
+  // Round 3, phase B: change the kind of business. Words change; codes, accounts, numbers and every
+  // payment that already names the business do not.
+  r.put('/:id/type', requirePermission(deps.db, 'businesses.manage'), async (req, res, next) => {
+    try {
+      const id = String(req.params.id);
+      if (!isUuid(id)) throw new HttpError(404, 'not_found', NOT_FOUND);
+      const b = parse(typeKeySchema, req.body);
+      res.json(await deps.businesses.updateType(id, b.typeKey, actor(req)));
     } catch (e) { next(e); }
   });
 
@@ -119,6 +135,40 @@ export function businessesRoutes(deps: AppDeps): Router {
       const b = parse(accountSchema, req.body);
       res.status(201).json(await deps.businesses.addAccount(id, b, actor(req)));
     } catch (e) { next(e); }
+  });
+
+  return r;
+}
+
+/**
+ * Round 3, phase B: the kinds of business. Reading is open to any signed-in person — the account
+ * pickers and the Businesses page name the words a type carries — while writing takes
+ * businesses.manage, the same permission as the businesses themselves.
+ */
+export function businessTypesRoutes(deps: AppDeps): Router {
+  const r = Router();
+  r.use(requireAuth(deps.db), requireCsrf);
+
+  r.get('/', async (_req, res, next) => {
+    try { res.json(await deps.businessTypes.list()); } catch (e) { next(e); }
+  });
+
+  r.post('/', requirePermission(deps.db, 'businesses.manage'), async (req, res, next) => {
+    try {
+      const b = parse(typeBody, req.body);
+      res.status(201).json(await deps.businessTypes.create(b, actor(req)));
+    } catch (e) { next(e); }
+  });
+
+  r.put('/:key', requirePermission(deps.db, 'businesses.manage'), async (req, res, next) => {
+    try {
+      const b = parse(typeBody, req.body);
+      res.json(await deps.businessTypes.update(String(req.params.key), b, actor(req)));
+    } catch (e) { next(e); }
+  });
+
+  r.delete('/:key', requirePermission(deps.db, 'businesses.manage'), async (req, res, next) => {
+    try { await deps.businessTypes.remove(String(req.params.key), actor(req)); res.status(204).end(); } catch (e) { next(e); }
   });
 
   return r;

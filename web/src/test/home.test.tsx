@@ -4,6 +4,7 @@ import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { SessionProvider } from '../app/session';
 import { Home } from '../pages/Home';
 import { copy } from '../copy/en';
+import { RENTAL } from './typeFixtures';
 
 class FakeEventSource {
   static instances: FakeEventSource[] = [];
@@ -37,6 +38,10 @@ describe('Home', () => {
         return new Response(JSON.stringify({ mode: 'sandbox', environments: { sandbox: slot, production: { ...slot, operators: [], ready: { creds: false, operator: false } } }, org: { name: '', nominatedNumber: '', notificationPhone: '' }, publicVerifiedAt: 'x', stkEnabled: true, publicUrl: 'x', httpsSeen: true, allowlist: [], setupCompletedAt: 'x' }), { status: 200 });
       }
       if (url === '/api/balances/latest') return new Response(JSON.stringify({ workingCents: 1400, utilityCents: 3439200, chargesPaidCents: 0, queriedAt: new Date().toISOString() }), { status: 200 });
+      // Round 3, phase B: the kind of business Home leads with, and the figures it reads.
+      if (url === '/api/businesses/summary') return new Response(JSON.stringify({ items: [{ businessId: 'b1', code: '000', name: 'White House', type: RENTAL, accountCount: 3, inCents: 450000, outCents: 0 }] }), { status: 200 });
+      if (url === '/api/reports/summary') return new Response(JSON.stringify({ inCents: 450000, inCount: 3, outCents: 0, outCount: 0, pending: 0, failed: 0, monthInCents: 900000, unpaidInvoiceCents: 0, unpaidInvoiceCount: 0 }), { status: 200 });
+      if (url === '/api/health/problems') return new Response(JSON.stringify({ items: [] }), { status: 200 });
       if (url.startsWith('/api/requests?')) return new Response(JSON.stringify({ items: [{ id: 'r1', type: 'b2c', subtype: 'BusinessPayment', status: 'completed', amountCents: 100, currency: 'KES', recipient: { kind: 'phone', value: '254700123456', name: 'Jane Doe' }, direction: 'out', party: { name: 'Jane Doe', number: '254700123456', savedName: null }, remarks: null, receipt: 'RI1', createdAt: '2026-09-06T11:00:00Z', sentAt: null, resultAt: null, resultSource: null, safaricomSaid: null, meaning: null, whatToDo: null, retriable: false, pollAttempts: 0, checked: null, createdBy: null }], nextCursor: null }), { status: 200 });
       throw new Error(`unexpected fetch ${url}`);
     });
@@ -49,6 +54,9 @@ describe('Home', () => {
     expect(recent).toHaveAttribute('href', '/requests/r1');
     expect(recent).toHaveTextContent('0700 123 456');
     expect(screen.getByText(copy.home.connected)).toBeInTheDocument();
+    // Round 3, phase B: with one business, Home leads with what its kind of business watches, in
+    // that kind's own word for an account.
+    expect(await screen.findByTestId('home-lead')).toHaveTextContent('Who is behind: 3 tenants');
     // Sandbox: the owner sees the way to real money.
     expect(screen.getByTestId('sandbox-banner')).toHaveTextContent(copy.home.sandboxBanner);
     expect(screen.getByRole('link', { name: copy.home.goLive })).toHaveAttribute('href', '/go-live');

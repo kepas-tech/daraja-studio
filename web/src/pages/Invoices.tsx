@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router';
 import { api, ApiError, saveDownload } from '../api/client';
 import { useEvents } from '../api/events';
 import { useSession } from '../app/session';
-import type { InvoiceView, InvoicesSettingsView } from '../api/types';
+import type { BusinessTypeView, InvoiceView, InvoicesSettingsView } from '../api/types';
 import { Button } from '../components/Button';
 import { Card, cardRow } from '../components/Card';
 import { ErrorCard, explainApiError, type Explained } from '../components/ErrorCard';
@@ -17,6 +17,7 @@ import { PasswordConfirmDialog } from '../components/PasswordConfirmDialog';
 import { PhoneInput } from '../components/PhoneInput';
 import { Questionnaire } from '../components/Questionnaire';
 import { AccountPicker } from '../components/AccountPicker';
+import { expectationLines } from '../businessTypes';
 import { Segmented } from '../components/Segmented';
 import { StatusPill } from '../components/StatusPill';
 import { TextField } from '../components/TextField';
@@ -160,6 +161,9 @@ function NewInvoice({ onCancel, onDone }: { onCancel: () => void; onDone: (inv: 
   const [cents, setCents] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<Error | Explained | null>(null);
+  // Round 3, phase B: the kind of business behind the picked account says what this kind of
+  // business does with invoices and reminders.
+  const [kind, setKind] = useState<BusinessTypeView | null>(null);
   const items = f.items.split('\n').map((l) => l.trim()).filter(Boolean).map((l) => { const i = l.lastIndexOf(','); const name = i < 0 ? l : l.slice(0, i).trim(); const amt = i < 0 ? NaN : Number(l.slice(i + 1).replace(/,/g, '')); return { name, amountCents: Math.round(amt * 100) }; });
   const itemsOk = items.every((i) => i.name && Number.isFinite(i.amountCents) && i.amountCents > 0);
   const itemsTotal = items.reduce((s, i) => s + (Number.isFinite(i.amountCents) ? i.amountCents : 0), 0);
@@ -179,7 +183,8 @@ function NewInvoice({ onCancel, onDone }: { onCancel: () => void; onDone: (inv: 
         { key: 'invoice', question: c.invoiceName, valid: f.invoiceName.trim().length > 0, render: () => <TextField label={c.invoiceName} labelHidden value={f.invoiceName} onChange={(e) => setF({ ...f, invoiceName: e.target.value })} autoFocus /> },
         { key: 'account', question: c.accountReference, hint: c.accountHint, valid: f.accountReference.trim().length > 0 && f.accountReference.trim().length <= 20, render: () => (
           <div className="space-y-3">
-            <AccountPicker label={c.pickCustomer} onPick={(x) => setF((prev) => ({ ...prev, accountId: x.id, accountReference: x.fullNumber, customerName: prev.customerName.trim() || x.name, customerPhone: prev.customerPhone.trim() || (x.phone ?? '') }))} />
+            <AccountPicker label={c.pickCustomer} onPick={(x, b) => { setKind(b.type); setF((prev) => ({ ...prev, accountId: x.id, accountReference: x.fullNumber, customerName: prev.customerName.trim() || x.name, customerPhone: prev.customerPhone.trim() || (x.phone ?? '') })); }} />
+            {kind && <p className="text-sm text-muted" data-testid="invoice-kind">{copy.businesses.kind(kind.name)} · {expectationLines(kind.template).join(' ')}</p>}
             <p className="text-sm text-muted">{c.pickCustomerHint}</p>
             <TextField label={c.accountReference} labelHidden value={f.accountReference} onChange={(e) => setF({ ...f, accountReference: e.target.value })} autoFocus />
           </div>
