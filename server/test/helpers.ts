@@ -20,6 +20,7 @@ import { createInvoicesService } from '../src/invoices/service.js';
 import { createBusinessesService, type Rng } from '../src/businesses/service.js';
 import { createBusinessTypesService } from '../src/businesses/types.js';
 import { createStatementService } from '../src/businesses/statement.js';
+import { createReconcileService } from '../src/reconcile/service.js';
 import { createPushService } from '../src/push/service.js';
 import { createProblemService } from '../src/health/problems.js';
 import { createWebauthnService, type WebauthnVerifier } from '../src/auth/webauthn.js';
@@ -156,6 +157,7 @@ export function makeApp(extra: { fetchImpl?: typeof fetch; daraja?: DarajaFactor
   const businesses = createBusinessesService({ ...base, events, egressIps: base.config.egressIps, rng: extra.rng });
   const businessTypes = createBusinessTypesService({ db: base.db });
   const statements = createStatementService({ db: base.db });
+  const reconcile = createReconcileService({ db: base.db, settings: base.settings, daraja });
   // A real key pair would reach a real push service, so tests always hand in a fake sender.
   const push = createPushService({ db: base.db, vapid: base.config.vapid, sender: extra.pushSender });
   const problems = createProblemService({ db: base.db });
@@ -164,7 +166,7 @@ export function makeApp(extra: { fetchImpl?: typeof fetch; daraja?: DarajaFactor
   const webauthn = createWebauthnService({ db: base.db, cache: base.cache, publicUrl: base.config.publicUrl, verifier: extra.webauthn });
   const deps: AppDeps = {
     ...base,
-    events, daraja, operators, settingsService, moneyOut, collect, moneyIn, bulk, invoices, businesses, businessTypes, statements, push, problems, webauthn, fetchImpl: extra.fetchImpl,
+    events, daraja, operators, settingsService, moneyOut, collect, moneyIn, bulk, invoices, businesses, businessTypes, statements, reconcile, push, problems, webauthn, fetchImpl: extra.fetchImpl,
   };
   const app = buildApp(deps);
   return { app, deps, close: async () => { await base.db.end(); } };

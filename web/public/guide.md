@@ -418,6 +418,19 @@ Where: History → a row · Route: /requests/:id
 | POST | `/api/requests/:id/check` | signed in |
 | POST | `/api/requests/:id/checked` | lookup.view, password; body { note } |
 
+### Check nothing is missing
+
+Where: Check nothing is missing · Who: Anybody who may see money in · Route: /reconcile · Permission: money_in.view
+
+1. Pick how far back — seven, thirty or ninety days — and press Check now. Studio asks Safaricom for its own record of that window.
+2. The first list is what Safaricom shows and Studio has no record of, with the receipt, the amount, the payer and the account they typed. Nothing is written by this page: Check for missed payments, on Money in, is the press that records one.
+3. The second list is the other way round: a payment Studio recorded that Safaricom’s pull did not return. Open it in History to see what happened to it.
+4. Below them, the two balances Safaricom last reported are compared with the money that moved between them — money in to Working, payouts and their charges from Utility — so you can see whether the books are complete. A difference is stated, never hidden.
+
+| Method | Path | Who |
+|---|---|---|
+| POST | `/api/reconcile` | money_in.view; body { days } — reads only |
+
 ## Get paid
 
 Money coming in. Nothing here takes money out of your accounts.

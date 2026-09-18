@@ -533,6 +533,23 @@ export const guide: GuideSection[] = [
           { method: 'POST', path: '/api/requests/:id/checked', who: 'lookup.view, password; body { note }' },
         ],
       },
+      {
+        key: 'reconcile',
+        title: 'Check nothing is missing',
+        where: ['Check nothing is missing'],
+        who: 'Anybody who may see money in',
+        path: '/reconcile',
+        permission: 'money_in.view',
+        steps: [
+          'Pick how far back — seven, thirty or ninety days — and press Check now. Studio asks Safaricom for its own record of that window.',
+          'The first list is what Safaricom shows and Studio has no record of, with the receipt, the amount, the payer and the account they typed. Nothing is written by this page: Check for missed payments, on Money in, is the press that records one.',
+          'The second list is the other way round: a payment Studio recorded that Safaricom’s pull did not return. Open it in History to see what happened to it.',
+          'Below them, the two balances Safaricom last reported are compared with the money that moved between them — money in to Working, payouts and their charges from Utility — so you can see whether the books are complete. A difference is stated, never hidden.',
+        ],
+        api: [
+          { method: 'POST', path: '/api/reconcile', who: 'money_in.view; body { days } — reads only' },
+        ],
+      },
     ],
   },
   {

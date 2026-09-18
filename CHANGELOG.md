@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.41.0 — check nothing is missing
+
+- **One page compares Safaricom's own record with Studio's.** Pick a window and press Check: Studio
+  pulls Safaricom's transactions for those days and lists, first, what Safaricom shows and Studio has
+  no row for, with the receipt, the amount, the payer and the account they typed; and second, what
+  Studio recorded that the pull did not return.
+- **The balances Safaricom reported are checked too**: money in lands in Working, payouts and their
+  charges leave Utility, so the last two readings are compared with the money that moved between
+  them and any difference is stated, never hidden.
+- **It is a read.** Nothing found is recorded, corrected or applied by this page — Check for missed
+  payments, on Money in, is the press that records one.
+
 ## 0.40.0 — statements and who is behind
 
 - **Every account has a running statement**: each payment in, each payout out and each invoice

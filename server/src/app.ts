@@ -59,6 +59,8 @@ import { feeRoutes } from './fees/routes.js';
 import type { BusinessesService } from './businesses/service.js';
 import type { BusinessTypesService } from './businesses/types.js';
 import type { StatementService } from './businesses/statement.js';
+import type { ReconcileService } from './reconcile/service.js';
+import { reconcileRoutes } from './reconcile/routes.js';
 import type { InvoicesService } from './invoices/service.js';
 import type { Scheduler } from './scheduler/loop.js';
 import type { PushService } from './push/service.js';
@@ -91,6 +93,8 @@ export interface AppDeps {
   businessTypes: BusinessTypesService;
   /** Round 3, phase C: one account's running statement, and who is behind. */
   statements: StatementService;
+  /** Round 3, phase D-1: Safaricom's record against Studio's, read only. */
+  reconcile: ReconcileService;
   /** Brief 2, item 2: the three states that mean something is wrong, for Home's banner. */
   problems: ProblemService;
   /** Brief 2, item 5b: the fingerprint ceremonies. Absent in tests that build the app without one. */
@@ -171,6 +175,8 @@ export function buildApp(deps: AppDeps): express.Express {
   // address, because an account id already names its business; the design's paths are these.
   app.use('/api/businesses', businessesRoutes(deps));
   app.use('/api/business-types', businessTypesRoutes(deps));
+  // Round 3, phase D-1: check nothing is missing. A read that reaches Safaricom for its record.
+  app.use('/api/reconcile', reconcileRoutes(deps));
   app.use('/api/accounts', accountsRoutes(deps));
   // Feature 4: the inbox the writer fills and the bell reads.
   app.use('/api/notifications', notificationRoutes(deps));

@@ -206,6 +206,8 @@ export function MoneyIn() {
               <span className="text-sm text-muted">{view.pullCheckedAt ? c.lastChecked(when(view.pullCheckedAt)) : c.checksHourly}</span>
             </div>
             {found !== null && <Flash tone={found > 0 ? 'success' : 'neutral'} role="status">{c.found(found)}</Flash>}
+            {/* Round 3, phase D-1: the read-only check of Safaricom's own record against Studio's. */}
+            <p className="text-sm"><Link to="/reconcile">{copy.reconcile.openFromMoneyIn}</Link></p>
           </Card>
         )}
         <ErrorCard error={err} />
