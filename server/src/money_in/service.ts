@@ -23,6 +23,12 @@ export interface MoneyInView {
   lastError: string | null;
   /** Safaricom said the addresses were already on record when this studio registered: kept as registered, with a caveat. */
   alreadyRegistered: boolean;
+  /** Round 5: where this paybill's confirmations arrive today. Null until the owner answers. */
+  arrival: 'studio' | 'forwarder' | null;
+  /** The last payment fed in by another system, if any. */
+  lastFedAt: string | null;
+  /** Live API keys that may feed money in (the forwarder role). */
+  feedKeys: number;
 }
 export interface MoneyInService {
   status(): Promise<MoneyInView>;
@@ -33,6 +39,8 @@ export interface MoneyInService {
   checkMissed(): Promise<{ found: number; checkedAt: string }>;
   /** The hourly job: nothing to do until the owner has registered. */
   checkMissedIfRegistered(): Promise<void>;
+  /** Round 5: the answer to "where do these payments arrive today". */
+  setArrival(arrival: 'studio' | 'forwarder', actor: Actor): Promise<MoneyInView>;
 }
 
 export const NOT_REGISTERED = 'Turn on Money in first, so Safaricom knows where to send payments.';
@@ -88,14 +96,27 @@ export function createMoneyInService(deps: { db: Db; settings: Settings; daraja:
   const svc: MoneyInService = {
     async status() {
       const env = await mode();
-      const s = await deps.settings.getMany([`env.${env}.c2bRegisteredAt`, `env.${env}.pullRegisteredAt`, `env.${env}.pullCheckedAt`, `env.${env}.c2bRegisterStartedAt`, `env.${env}.c2bRegisterError`, `env.${env}.c2bAlreadyRegistered`, 'org.nominatedNumber', 'public.verifiedAt']);
+      const s = await deps.settings.getMany([`env.${env}.c2bRegisteredAt`, `env.${env}.pullRegisteredAt`, `env.${env}.pullCheckedAt`, `env.${env}.c2bRegisterStartedAt`, `env.${env}.c2bRegisterError`, `env.${env}.c2bAlreadyRegistered`, 'org.nominatedNumber', 'public.verifiedAt', 'moneyIn.arrival']);
+      // Round 5: what the feed branch needs to show its state, read here so one call answers the page.
+      const [fed] = await deps.db.query<{ at: Date | null }>(`SELECT max(result_at) AS at FROM requests WHERE result_source = 'feed'`);
+      const [keys] = await deps.db.query<{ n: number }>(`SELECT count(*)::int AS n FROM api_keys WHERE role = 'forwarder' AND revoked_at IS NULL`);
+      const arrival = s['moneyIn.arrival'] === 'studio' || s['moneyIn.arrival'] === 'forwarder' ? s['moneyIn.arrival'] as 'studio' | 'forwarder' : null;
       const started = s[`env.${env}.c2bRegisterStartedAt`];
       const registering = !!started && Date.now() - Date.parse(started) < 2 * 60_000;
       return {
         mode: env, c2bRegisteredAt: s[`env.${env}.c2bRegisteredAt`], pullRegisteredAt: s[`env.${env}.pullRegisteredAt`], pullCheckedAt: s[`env.${env}.pullCheckedAt`],
         nominatedNumber: s['org.nominatedNumber'], publicVerified: !!s['public.verifiedAt'], registering, lastError: s[`env.${env}.c2bRegisterError`],
         alreadyRegistered: s[`env.${env}.c2bAlreadyRegistered`] === 'true',
+        arrival,
+        lastFedAt: fed?.at ? fed.at.toISOString() : null,
+        feedKeys: keys?.n ?? 0,
       };
+    },
+
+    async setArrival(arrival, actor) {
+      await deps.settings.set('moneyIn.arrival', arrival);
+      await audit(deps.db, { personId: actor.personId, ip: actor.ip, action: 'money_in.arrival_set', after: { arrival } });
+      return svc.status();
     },
     async register(actor) {
       const env = await mode();

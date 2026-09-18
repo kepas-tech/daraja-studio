@@ -22,6 +22,8 @@ export const PERMISSIONS = [
   { key: 'contacts.manage', label: 'Can keep the contact list', role: null },
   { key: 'businesses.manage', label: 'Can set up businesses and their accounts', role: null },
   { key: 'cases.manage', label: 'Can open, record and close a case on a payment', role: null },
+  // Round 5: the inbox another system posts this paybill's confirmations to. Nothing else. */
+  { key: 'money_in.feed', label: 'Can feed money in from another system', role: null },
 ] as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[number]['key'];

@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import { api, ApiError } from '../api/client';
 import { useEvents } from '../api/events';
 import { useSession } from '../app/session';
+import { Segmented } from '../components/Segmented';
 import type { AccountView, BusinessView, MoneyInView, Page, RequestView, UnmatchedView } from '../api/types';
 import { TextField } from '../components/TextField';
 import { Button } from '../components/Button';
@@ -130,7 +131,7 @@ function UnmatchedRow({ row, businesses, onDone }: { row: UnmatchedView; busines
  */
 export function MoneyIn() {
   const toast = useToast();
-  const { person } = useSession();
+  const { person, org } = useSession();
   const stepUp = useStepUp();
   const c = copy.moneyIn;
   const [view, setView] = useState<MoneyInView | null>(null);
@@ -185,6 +186,33 @@ export function MoneyIn() {
   // Round 4: ask Safaricom about a few payments whose payer's name Studio never learned. A read:
   // the query itself writes only a check row, and the name lands on the payment when the answer
   // comes back, so the count is re-read after each press.
+  // Round 5: the answer to where payments arrive, and the test that proves the feed before the
+  // first real payment. The answer is a preference; the test records one payment through the
+  // same path and removes it, so nothing reaches anyone's books.
+  const [testing, setTesting] = useState(false);
+  const [testSaid, setTestSaid] = useState<string | null>(null);
+  const inbox = typeof window === 'undefined' ? '/api/money-in/feed' : window.location.origin + '/api/money-in/feed';
+  const sample = {
+    TransactionType: 'Pay Bill', TransID: 'RC12345678', TransTime: '20260919121530', TransAmount: '250.00',
+    BusinessShortCode: org?.shortcode ?? '600999', BillRefNumber: '000-KEPAS-1', InvoiceNumber: '',
+    OrgAccountBalance: '12345.00', ThirdPartyTransID: '', MSISDN: '254712345678',
+    FirstName: 'SAMWEL', MiddleName: 'NGUGI', LastName: 'IRUNGU',
+  };
+  const chooseArrival = async (arrival: 'studio' | 'forwarder') => {
+    setErr(null);
+    try { setView(await api.post<MoneyInView>('/api/money-in/arrival', { arrival })); }
+    catch (e) { setErr(e instanceof ApiError ? explainApiError(e) : new Error(copy.error.generic)); }
+  };
+  const runTest = async () => {
+    setTesting(true); setTestSaid(null); setErr(null);
+    try {
+      const r = await api.post<{ ok: boolean; said: string }>('/api/money-in/feed/test', {});
+      setTestSaid(r.said);
+      if (!r.ok) toast.error(r.said);
+    } catch (e) { setErr(e instanceof ApiError ? explainApiError(e) : new Error(copy.error.generic)); }
+    finally { setTesting(false); }
+  };
+
   const findNames = async () => {
     setFinding(true); setNamesMsg(null); setErr(null);
     try {
@@ -205,6 +233,42 @@ export function MoneyIn() {
       <PageHeader title={c.title} safaricom={c.safaricom} />
       <div className="space-y-6">
         <p className="text-base text-muted">{c.intro}</p>
+        {/* Round 5: one question, two honest answers. The feed stays open whichever is chosen, so
+            a changeover cannot lose a payment. */}
+        <Card title={c.arrival.title} bodyClassName="space-y-3 p-4" data-testid="arrival">
+          <p className="text-base">{c.arrival.intro}</p>
+          <div className="max-w-xl">
+            <Segmented name="money-in-arrival" label={c.arrival.title} value={view.arrival ?? 'studio'}
+              options={[{ value: 'studio' as const, label: c.arrival.studio }, { value: 'forwarder' as const, label: c.arrival.forwarder }]}
+              onChange={(v) => { if (person?.is_owner) void chooseArrival(v); }} />
+          </div>
+          <p className="text-base">
+            {view.arrival === 'forwarder'
+              ? (view.lastFedAt ? c.arrival.stateFed(when(view.lastFedAt)) : c.arrival.stateFedNever)
+              : view.arrival === 'studio' ? c.arrival.stateStudio : c.arrival.stateUnset}
+          </p>
+          <p className="text-base">{view.arrival === 'forwarder' ? c.arrival.forwarderWhat : c.arrival.studioWhat}</p>
+          {!person?.is_owner && <p className="text-sm text-muted">{c.arrival.saveNote}</p>}
+          {view.arrival === 'forwarder' && (
+            <div className="space-y-3" data-testid="feed-branch">
+              <p className="text-sm text-muted">{c.arrival.keys(view.feedKeys)}</p>
+              <p className="text-sm"><Link to="/api-keys">{c.arrival.makeKey}</Link></p>
+              <div>
+                <p className="text-sm text-muted">{c.arrival.inbox}</p>
+                <p className="break-all"><code data-testid="inbox-url">{inbox}</code></p>
+              </div>
+              <div>
+                <p className="text-sm text-muted">{c.arrival.sample}</p>
+                <pre className="overflow-x-auto rounded-md border border-line bg-page p-3 text-sm"><code>{JSON.stringify(sample, null, 2)}</code></pre>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <Button type="button" variant="secondary" disabled={testing} onClick={() => void runTest()}>{testing ? c.arrival.testing : c.arrival.test}</Button>
+                <span className="text-sm text-muted">{c.arrival.testNote}</span>
+              </div>
+              {testSaid && <Flash tone="success" role="status">{testSaid}</Flash>}
+            </div>
+          )}
+        </Card>
         <Card title={copy.org.envLine[view.mode]} bodyClassName="space-y-3 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <StatusPill kind={on ? 'ok' : 'muted'}>{on ? c.registered(when(view.c2bRegisteredAt)) : c.notRegistered}</StatusPill>

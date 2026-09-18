@@ -105,7 +105,7 @@ export const copy = {
     name: 'What is this key for?',
     namePlaceholder: 'Payroll script',
     role: 'What may it do?',
-    roles: { operator: 'Operator — may send and look', viewer: 'Viewer — may only look', approver: 'Approver — may look and release held sends' } as Record<string, string>,
+    roles: { operator: 'Operator — may send and look', viewer: 'Viewer — may only look', approver: 'Approver — may look and release held sends', forwarder: 'Forwarder — may only feed money in' } as Record<string, string>,
     shownOnce: 'Copy this key now. This is the only time Studio shows it; a lost key is replaced, never looked up.',
     gotIt: 'Done',
     list: 'Your keys',
@@ -333,7 +333,7 @@ export const copy = {
     markChecked: 'Mark as checked', markedChecked: 'Marked as checked.', markCheckedNote: 'What did you find? (for example: "Paid, seen in the portal")', markCheckedConfirm: 'Mark this as checked?',
     waiting: 'Waiting for Safaricom…', notFound: 'That request does not exist.', notFoundTitle: 'Request not found',
     timeline: { created: 'Created', sent: 'Sent', result: 'Result', checked: 'Checked' },
-    source: { callback: "from Safaricom's reply", poll: 'from a status check', ack: "from Safaricom's acknowledgement" } as Record<string, string>,
+    source: { callback: "from Safaricom's reply", poll: 'from a status check', ack: "from Safaricom's acknowledgement", feed: 'fed in by another system' } as Record<string, string>,
   },
   send: {
     title: 'Send money', safaricom: 'Initiate Transaction', later: 'Coming soon', planned: 'Planned', where: 'Where it is done', phoneIntro: 'Money leaves your Utility account and arrives on the phone.',
@@ -926,6 +926,30 @@ export const copy = {
      * Round 4: recovering the payer names. Some payments arrive with the sender written as MPESA,
      * because their confirmation went to another system and Studio only saw the pull.
      */
+    /**
+     * Round 5: one question with two honest answers. A shortcode has one pair of C2B addresses
+     * and they belong to whoever registered them, so Studio either takes them over or is fed.
+     */
+    arrival: {
+      title: 'Where do your paybill payments arrive today?',
+      intro: 'A paybill number has one pair of confirmation addresses, and they belong to whoever registered them. So there are two honest answers, and Studio works either way.',
+      studio: 'Studio receives them',
+      studioWhat: 'Studio registers its own addresses with Safaricom. Turn Money in on below, and payments arrive here directly.',
+      forwarder: 'Another system receives them',
+      forwarderWhat: 'Nothing on Safaricom changes. That system posts each confirmation to the address below, and Studio records it exactly as if Safaricom had sent it — name, amount, receipt and all.',
+      stateFed: (w: string) => `Payments are fed from another system. Last one received ${w}.`,
+      stateFedNever: 'Payments are fed from another system. Nothing has arrived yet.',
+      stateStudio: 'Studio receives these payments itself.',
+      stateUnset: 'Nothing has been chosen yet.',
+      keys: (n: number) => (n === 0 ? 'No key may feed money in yet.' : n === 1 ? 'One key may feed money in.' : n + ' keys may feed money in.'),
+      makeKey: 'Make a key with the Forwarder role',
+      inbox: 'The address to post to',
+      sample: 'What to post: Safaricom’s own confirmation body, untouched.',
+      test: 'Send a test',
+      testing: 'Sending a test…',
+      testNote: 'The test records one payment through this path, sends it twice to prove nothing doubles, and removes it. Nothing reaches your books, your inbox or your webhooks.',
+      saveNote: 'Only the owner can change this answer.',
+    },
     names: {
       title: 'Find the missing names',
       body: 'Some payments show MPESA where a person should be: their confirmation went to another system, so Studio only ever saw the pull, and the pull does not carry a name. Safaricom’s own record of a payment still does, so Studio can ask about a few of them and put the name on the payment. It is a read — no money moves — and a payment that already has a name is never asked about.',

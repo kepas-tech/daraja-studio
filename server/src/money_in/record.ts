@@ -22,7 +22,13 @@ export const validationNameKey = (receipt: string): string => `c2b:name:${receip
  * pull check may find the same payment later, so the receipt is the identity: an advisory lock
  * keyed on it serialises a callback racing the check, and the second writer sees the first row.
  */
-export async function recordC2b(deps: { db: Db; events: EventHub; cache?: Cache }, p: C2bPayment, source: 'callback' | 'poll'): Promise<{ verdict: 'applied' | 'duplicate'; requestId: string }> {
+/**
+ * Round 5: `source` is how the payment reached Studio — Safaricom's own confirmation (`callback`),
+ * the pull (`poll`), or another system posting the confirmation through (`feed`). `silent` is for
+ * the inbox's own test, which records a payment to prove the path and then removes it: nothing is
+ * announced, so no screen, inbox line or webhook ever hears about a test.
+ */
+export async function recordC2b(deps: { db: Db; events: EventHub; cache?: Cache }, p: C2bPayment, source: 'callback' | 'poll' | 'feed', opts: { silent?: boolean } = {}): Promise<{ verdict: 'applied' | 'duplicate'; requestId: string }> {
   const receipt = String(p.transId).trim();
   // Phase A: every part Safaricom sent becomes the name, cleaned once by the helper. Only when the
   // confirmation itself carries no name does the one the validation callback saw for this same
@@ -70,6 +76,6 @@ export async function recordC2b(deps: { db: Db; events: EventHub; cache?: Cache 
     );
     return { verdict: 'applied' as const, requestId: ins.rows[0].id };
   });
-  if (out.verdict === 'applied') await deps.events.publish('request.updated', { id: out.requestId, status: 'completed' });
+  if (out.verdict === 'applied' && !opts.silent) await deps.events.publish('request.updated', { id: out.requestId, status: 'completed' });
   return out;
 }

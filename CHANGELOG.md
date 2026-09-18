@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.54.0 — register, or be fed
+
+- **One question, two honest answers.** A paybill number has one pair of C2B confirmation addresses
+  and they belong to whoever registered them, so Money in now asks *where do your paybill payments
+  arrive today?* — **Studio receives them** (today's register flow, unchanged) or **another system
+  receives them** and feeds Studio. The answer is a setting the owner can change later.
+- **The inbox.** `POST /api/money-in/feed` takes Safaricom's own C2B confirmation body untouched —
+  the same field names the callback carries — parses it with the same parser, and records the
+  payment exactly as a confirmation would, the payer's name included. It is authenticated with a
+  phase E API key whose role is **Forwarder**: that role may feed money in and do nothing else.
+- **Idempotent on the receipt.** A payment already recorded by the feed, by Studio's own
+  confirmation, or by the hourly pull is answered as a duplicate and changes nothing — so the feed
+  and the pull can both run and a payment is never counted twice. Fed payments carry their own
+  `result_source`, so every screen can tell the three apart.
+- **A test that proves the path** before the first real payment: it records one test payment, sends
+  the same body twice to show the receipt rule, and removes it — nothing reaches the books, the
+  inbox or the webhooks. Money in shows the state and the last payment fed in.
 ## 0.53.0 — the missing payer names come back
 
 - **Why they were missing.** This paybill's confirmation address belongs to another system, so Studio

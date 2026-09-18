@@ -8,7 +8,7 @@ import { KEY_ROLES } from './service.js';
 
 const createSchema = z.object({
   name: z.string().trim().min(1).max(60),
-  role: z.enum(['operator', 'viewer', 'approver']),
+  role: z.enum(['operator', 'viewer', 'approver', 'forwarder']),
 });
 
 const isUuid = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);

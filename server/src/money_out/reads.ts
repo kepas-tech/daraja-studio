@@ -13,7 +13,7 @@ export interface RequestView {
   /** The account number the payer typed on a money-in row (Safaricom's billRefNumber); null on a
    * money-out row, which has no account number. Feature 2 reads the business code out of it. */
   accountReference: string | null;
-  createdAt: string; sentAt: string | null; resultAt: string | null; resultSource: 'callback' | 'poll' | 'ack' | null;
+  createdAt: string; sentAt: string | null; resultAt: string | null; resultSource: 'callback' | 'poll' | 'ack' | 'feed' | null;
   safaricomSaid: string | null; meaning: string | null; whatToDo: string | null; retriable: boolean; pollAttempts: number;
   checked: { by: { id: string; displayName: string } | null; at: string; note: string } | null;
   createdBy: { id: string; displayName: string } | null;

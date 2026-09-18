@@ -4,6 +4,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { MoneyIn } from '../pages/MoneyIn';
 import { History } from '../pages/History';
 import { copy } from '../copy/en';
+import { when } from '../format';
 
 class FakeEventSource {
   listeners: Record<string, EventListener[]> = {};
@@ -101,6 +102,38 @@ describe('Money in', () => {
     expect(await screen.findByText(copy.moneyIn.names.asked(3, 0))).toBeInTheDocument();
     // The count is read again after the press: the names land as the answers arrive.
     await waitFor(() => expect(screen.getByTestId('missing-names')).toHaveTextContent(copy.moneyIn.names.count(0)));
+  });
+  // Round 5: the question, and the feed branch with the test that proves the path.
+  it('answers where payments arrive and proves the feed with a test', async () => {
+    let posted: unknown = null;
+    vi.stubGlobal('fetch', fetchFor({
+      'GET /api/money-in/status': () => new Response(JSON.stringify(status({ arrival: 'forwarder', lastFedAt: '2026-09-19T09:00:00Z', feedKeys: 1 })), { status: 200 }),
+      'GET /api/money-in/recent': () => new Response(JSON.stringify({ items: [], nextCursor: null }), { status: 200 }),
+      'GET /api/money-in/missing-names': () => new Response(JSON.stringify({ count: 0, perRun: 5 }), { status: 200 }),
+      'POST /api/money-in/feed/test': () => new Response(JSON.stringify({ ok: true, said: 'The path works: TEST123456 was recorded as a fed payment. The test payment has been removed.' }), { status: 200 }),
+      'POST /api/money-in/arrival': (init) => { posted = JSON.parse(String(init?.body)); return new Response(JSON.stringify(status({ arrival: 'studio' })), { status: 200 }); },
+    }));
+    render(<MemoryRouter><MoneyIn /></MemoryRouter>);
+
+    const card = await screen.findByTestId('arrival');
+    expect(card).toHaveTextContent(copy.moneyIn.arrival.title);
+    expect(card).toHaveTextContent(copy.moneyIn.arrival.stateFed(when('2026-09-19T09:00:00Z')));
+    expect(card).toHaveTextContent(copy.moneyIn.arrival.keys(1));
+    expect(card).toHaveTextContent(copy.moneyIn.arrival.forwarderWhat);
+    expect(screen.getByTestId('inbox-url')).toHaveTextContent('/api/money-in/feed');
+    expect(screen.getByRole('link', { name: copy.moneyIn.arrival.makeKey })).toHaveAttribute('href', '/api-keys');
+    // The sample carries Safaricom's own field names, so a forwarder can post the body untouched.
+    const branch = screen.getByTestId('feed-branch');
+    for (const field of ['TransactionType', 'TransID', 'TransTime', 'TransAmount', 'BusinessShortCode', 'BillRefNumber', 'MSISDN', 'FirstName']) {
+      expect(branch).toHaveTextContent(field);
+    }
+
+    fireEvent.click(screen.getByRole('button', { name: copy.moneyIn.arrival.test }));
+    expect(await screen.findByText(/The path works/)).toBeInTheDocument();
+
+    // Answering the question the other way is saved: the switch the owner can change later.
+    fireEvent.click(screen.getByLabelText(copy.moneyIn.arrival.studio));
+    await waitFor(() => expect(posted).toEqual({ arrival: 'studio' }));
   });
 });
 

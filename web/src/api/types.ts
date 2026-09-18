@@ -123,7 +123,7 @@ export interface RequestView {
   previousHolderUntil?: string | null;
   /** The account's id, so Money in can offer History filtered to that account. Optional until the server sends it. */
   accountId?: string | null;
-  createdAt: string; sentAt: string | null; resultAt: string | null; resultSource: 'callback' | 'poll' | 'ack' | null;
+  createdAt: string; sentAt: string | null; resultAt: string | null; resultSource: 'callback' | 'poll' | 'ack' | 'feed' | null;
   safaricomSaid: string | null; meaning: string | null; whatToDo: string | null; retriable: boolean; pollAttempts: number;
   checked: { by: { id: string; displayName: string } | null; at: string; note: string } | null;
   createdBy: { id: string; displayName: string } | null;
@@ -180,6 +180,12 @@ export interface MoneyInView {
   mode: 'sandbox' | 'production'; c2bRegisteredAt: string | null; pullRegisteredAt: string | null; pullCheckedAt: string | null;
   nominatedNumber: string | null; publicVerified: boolean;
   registering: boolean; lastError: string | null; alreadyRegistered: boolean;
+  /** Round 5: where this paybill's confirmations arrive today; null until the owner says. */
+  arrival: 'studio' | 'forwarder' | null;
+  /** The last payment fed in by another system, if any. */
+  lastFedAt: string | null;
+  /** Live API keys that may feed money in (the forwarder role). */
+  feedKeys: number;
 }
 export type NameCheck =
   | { available: true; name: string; paidBefore: boolean }

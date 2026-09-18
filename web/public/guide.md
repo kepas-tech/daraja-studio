@@ -471,7 +471,11 @@ Safaricom calls this: C2B · Where: Get paid → Money in · Who: Owner turns it
 2. If Safaricom says the addresses were already on record, that counts as on. Should a payment then never show, an older address may be on record at Safaricom; their API support can reset it.
 3. From then on every payer payment to your number shows here and in History the moment Safaricom reports it.
 4. Check for missed payments asks Safaricom for anything whose news never arrived. Studio does the same every hour on its own.
-5. Find the missing names fills in the payers Studio never learned. A payment whose confirmation went to another system is only ever seen in the pull, and the pull writes MPESA where a person should be; Safaricom’s own record of that payment still carries the payer’s name, so Studio asks about a few at a time by receipt and puts the name on the payment when the answer comes back. It runs by itself every fifteen minutes and the button is the same thing on demand. It is a read: no money moves, and a payment that already has a name is never asked about.
+5. Where do your paybill payments arrive today? Two honest answers. Studio receives them: turn Money in on below and Studio registers its own addresses with Safaricom. Another system receives them: nothing on Safaricom changes, and that system posts each confirmation to Studio instead — the address and a key to paste are shown under that answer.
+6. The feed takes Safaricom’s own confirmation body, untouched: the same fields the callback carries, posted to the address shown, with a key whose role is Forwarder. Make one under Advanced › API keys — that role may feed money in and do nothing else, and the key is shown once.
+7. A payment is identified by its receipt, so nothing is ever counted twice: a payment already recorded by the feed, by Studio’s own confirmation or by the hourly pull is answered as a duplicate and changes nothing. That is what makes leaving the feed on through a changeover safe.
+8. Send a test proves the whole path before the first real payment: it records one test payment through the feed, sends the very same body twice to show the receipt rule, and removes it. Nothing reaches your books, your inbox or your webhooks.
+9. Find the missing names fills in the payers Studio never learned. A payment whose confirmation went to another system is only ever seen in the pull, and the pull writes MPESA where a person should be; Safaricom’s own record of that payment still carries the payer’s name, so Studio asks about a few at a time by receipt and puts the name on the payment when the answer comes back. It runs by itself every fifteen minutes and the button is the same thing on demand. It is a read: no money moves, and a payment that already has a name is never asked about.
 
 - Every payment is accepted. Safaricom only asks Studio to approve payments if its support team has switched that on for your number.
 - Test the address in Settings first; Safaricom must be able to reach Studio.
@@ -484,6 +488,9 @@ Safaricom calls this: C2B · Where: Get paid → Money in · Who: Owner turns it
 | POST | `/api/money-in/check` | money_in.view |
 | GET | `/api/money-in/missing-names` | money_in.view; how many completed payments still have no payer name |
 | POST | `/api/money-in/find-names` | money_in.view; asks Safaricom about five of them by receipt; a read |
+| POST | `/api/money-in/feed` | money_in.feed (an API key with the Forwarder role); Safaricom’s own confirmation body; 201 recorded, 200 duplicate |
+| POST | `/api/money-in/feed/test` | money_in.feed; records one test payment, proves the receipt rule, removes it |
+| POST | `/api/money-in/arrival` | owner; body { arrival: "studio" | "forwarder" } — the answer to where payments arrive |
 
 ### How account numbers work
 

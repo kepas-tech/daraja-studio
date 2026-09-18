@@ -39,6 +39,8 @@ export type SettingKey =
   | 'send.approvalThresholdCents'
   // Feature 2: the business the last send was made under, so the pickers default to it.
   | 'send.lastBusinessId'
+  // Round 5: where this paybill's confirmations arrive today — 'studio' or 'forwarder'.
+  | 'moneyIn.arrival'
   | EnvSettingKey;
 
 const ENCRYPTED_SLOTS = ['consumerKey', 'consumerSecret', 'passkey', 'certPem', 'billManagerAppKey'] as const;

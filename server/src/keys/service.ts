@@ -19,8 +19,8 @@ import type { OrgView } from '../orgs/service.js';
  * Nothing here is ever logged: not the key, not its hash, not a signature. Audit rows carry the
  * prefix and the name, which is what a person needs to recognise the key in a list.
  */
-export type KeyRole = 'operator' | 'viewer' | 'approver';
-export const KEY_ROLES: readonly KeyRole[] = ['operator', 'viewer', 'approver'];
+export type KeyRole = 'operator' | 'viewer' | 'approver' | 'forwarder';
+export const KEY_ROLES: readonly KeyRole[] = ['operator', 'viewer', 'approver', 'forwarder'];
 
 export interface ApiKeyView {
   id: string; name: string; prefix: string; role: KeyRole;

@@ -7,7 +7,12 @@ import type { PermissionKey } from './catalog.js';
  * `owner` is not here — `requirePermission` short-circuits on `is_owner`, so an owner needs no rows.
  * `custom` is not here either — it means "whatever the checkboxes set", so nothing is written.
  */
-export const ROLE_PRESETS: Record<'operator' | 'viewer' | 'approver', PermissionKey[]> = {
+/**
+ * Round 5: `forwarder` is a role for an API key, not for a person — a key that may do one thing,
+ * post this paybill's confirmations to Studio's inbox, and nothing else at all.
+ */
+export const ROLE_PRESETS: Record<'operator' | 'viewer' | 'approver' | 'forwarder', PermissionKey[]> = {
+  forwarder: ['money_in.feed'],
   /** Staff who send. */
   operator: ['balances.view', 'send.phone', 'send.pochi', 'pay.paybill', 'pay.till', 'lookup.view', 'money_in.view', 'history.export', 'cases.manage'],
   /** An accountant or an auditor. */
