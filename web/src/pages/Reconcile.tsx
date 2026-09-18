@@ -21,8 +21,8 @@ export interface ReconcileView {
     latest: Reading | null; previous: Reading | null;
     movement: {
       inCents: number; outCents: number; chargeCents: number; paymentsIn: number; paymentsOut: number;
-      expectedWorkingCents: number | null; expectedUtilityCents: number | null;
-      workingDifferenceCents: number | null; utilityDifferenceCents: number | null;
+      workingChangeCents: number | null; utilityChangeCents: number | null;
+      expectedChangeCents: number | null; actualChangeCents: number | null; differenceCents: number | null;
     };
   };
   checkedAt: string;
@@ -110,13 +110,12 @@ export function Reconcile() {
                     {c.reading(when(v.balance.latest.at), money(v.balance.latest.workingCents), money(v.balance.latest.utilityCents))}
                   </p>
                   <p className="text-base" data-testid="balance-movement">{c.movement(money(v.balance.movement.inCents), money(v.balance.movement.outCents), money(v.balance.movement.chargeCents), v.balance.movement.paymentsIn)}</p>
-                  <p className={tone(v.balance.movement.workingDifferenceCents)} data-testid="balance-working">
-                    {c.account(copy.balances.working, money(v.balance.movement.expectedWorkingCents), money(v.balance.latest.workingCents))}{' '}
-                    {v.balance.movement.workingDifferenceCents === 0 ? c.agrees : c.differs(money(Math.abs(v.balance.movement.workingDifferenceCents ?? 0)))}
-                  </p>
-                  <p className={tone(v.balance.movement.utilityDifferenceCents)} data-testid="balance-utility">
-                    {c.account(copy.balances.utility, money(v.balance.movement.expectedUtilityCents), money(v.balance.latest.utilityCents))}{' '}
-                    {v.balance.movement.utilityDifferenceCents === 0 ? c.agrees : c.differs(money(Math.abs(v.balance.movement.utilityDifferenceCents ?? 0)))}
+                  <p className="text-sm text-muted" data-testid="balance-change">{c.perAccount(money(v.balance.movement.workingChangeCents), money(v.balance.movement.utilityChangeCents))}</p>
+                  {/* Studio does not assume which float account Safaricom credits, so the two are
+                      compared together, and a difference is stated rather than hidden. */}
+                  <p className={tone(v.balance.movement.differenceCents)} data-testid="balance-agrees">
+                    {c.movementTotal(money(v.balance.movement.expectedChangeCents), money(v.balance.movement.actualChangeCents))}{' '}
+                    {v.balance.movement.differenceCents === 0 ? c.agrees : c.differs(money(Math.abs(v.balance.movement.differenceCents ?? 0)))}
                   </p>
                 </>
               )}

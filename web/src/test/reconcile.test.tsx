@@ -20,7 +20,7 @@ const answer = (over: Record<string, unknown> = {}) => ({
   balance: {
     latest: { workingCents: 1250000, utilityCents: 480000, at: '2026-09-18T07:00:00Z' },
     previous: { workingCents: 1000000, utilityCents: 500000, at: '2026-09-17T07:00:00Z' },
-    movement: { inCents: 250000, outCents: 100000, chargeCents: 5000, paymentsIn: 1, paymentsOut: 1, expectedWorkingCents: 1250000, expectedUtilityCents: 395000, workingDifferenceCents: 0, utilityDifferenceCents: 85000 },
+    movement: { inCents: 250000, outCents: 100000, chargeCents: 5000, paymentsIn: 1, paymentsOut: 1, workingChangeCents: 250000, utilityChangeCents: -20000, expectedChangeCents: 145000, actualChangeCents: 230000, differenceCents: 85000 },
   },
   checkedAt: '2026-09-18T08:00:00Z',
   ...over,
@@ -44,8 +44,8 @@ describe('check nothing is missing', () => {
     expect(screen.getByTestId('missing-RC00000001')).toHaveTextContent('KES 500');
     expect(screen.getByTestId('missing-RC00000001')).toHaveTextContent('ACC-9');
     // The balance that does not agree says so, and by how much.
-    expect(screen.getByTestId('balance-working')).toHaveTextContent(copy.reconcile.agrees);
-    expect(screen.getByTestId('balance-utility')).toHaveTextContent(copy.reconcile.differs('KES 850'));
+    expect(screen.getByTestId('balance-change')).toHaveTextContent(copy.reconcile.perAccount('KES 2,500', 'KES -200'));
+    expect(screen.getByTestId('balance-agrees')).toHaveTextContent(copy.reconcile.differs('KES 850'));
     expect(screen.getByTestId('balance-movement')).toHaveTextContent(copy.reconcile.movement('KES 2,500', 'KES 1,000', 'KES 50', 1));
   });
 

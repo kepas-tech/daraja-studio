@@ -48,11 +48,15 @@ export interface ReconcileView {
   balance: {
     latest: { workingCents: number | null; utilityCents: number | null; at: string } | null;
     previous: { workingCents: number | null; utilityCents: number | null; at: string } | null;
-    /** What moved between the two readings, and what each account should read now. */
+    /**
+     * What moved between the two readings, and what the two accounts together should have done.
+     * Studio does not assume which float account Safaricom credits, so the comparison is on the two
+     * of them added up; each account's own change is shown beside it.
+     */
     movement: {
       inCents: number; outCents: number; chargeCents: number; paymentsIn: number; paymentsOut: number;
-      expectedWorkingCents: number | null; expectedUtilityCents: number | null;
-      workingDifferenceCents: number | null; utilityDifferenceCents: number | null;
+      workingChangeCents: number | null; utilityChangeCents: number | null;
+      expectedChangeCents: number | null; actualChangeCents: number | null; differenceCents: number | null;
     };
   };
   checkedAt: string;
@@ -125,8 +129,8 @@ export function createReconcileService(deps: { db: Db; settings: Settings; daraj
       const previous = readings[1] ?? null;
       let movement = {
         inCents: 0, outCents: 0, chargeCents: 0, paymentsIn: 0, paymentsOut: 0,
-        expectedWorkingCents: null as number | null, expectedUtilityCents: null as number | null,
-        workingDifferenceCents: null as number | null, utilityDifferenceCents: null as number | null,
+        workingChangeCents: null as number | null, utilityChangeCents: null as number | null,
+        expectedChangeCents: null as number | null, actualChangeCents: null as number | null, differenceCents: null as number | null,
       };
       if (latest && previous) {
         const [moved] = await deps.db.query<{ in_cents: string; out_cents: string; charge_cents: string; in_n: number; out_n: number }>(
@@ -136,16 +140,20 @@ export function createReconcileService(deps: { db: Db; settings: Settings; daraj
         const chargeCents = Number(moved?.charge_cents ?? 0);
         const w0 = previous.working_cents === null ? null : Number(previous.working_cents);
         const u0 = previous.utility_cents === null ? null : Number(previous.utility_cents);
-        // Paybill money lands in the Working account; payouts and their charges come from Utility.
-        const expectedWorking = w0 === null ? null : w0 + inCents;
-        const expectedUtility = u0 === null ? null : u0 - outCents - chargeCents;
         const w1 = latest.working_cents === null ? null : Number(latest.working_cents);
         const u1 = latest.utility_cents === null ? null : Number(latest.utility_cents);
+        const totalBefore = w0 === null || u0 === null ? null : w0 + u0;
+        const totalAfter = w1 === null || u1 === null ? null : w1 + u1;
+        // Money in adds; payouts and Safaricom's charges take away. Which float account either one
+        // lands in is Safaricom's business, so the check compares the two of them together.
+        const expectedChange = inCents - outCents - chargeCents;
+        const actualChange = totalBefore === null || totalAfter === null ? null : totalAfter - totalBefore;
         movement = {
           inCents, outCents, chargeCents, paymentsIn: moved?.in_n ?? 0, paymentsOut: moved?.out_n ?? 0,
-          expectedWorkingCents: expectedWorking, expectedUtilityCents: expectedUtility,
-          workingDifferenceCents: expectedWorking === null || w1 === null ? null : w1 - expectedWorking,
-          utilityDifferenceCents: expectedUtility === null || u1 === null ? null : u1 - expectedUtility,
+          workingChangeCents: w0 === null || w1 === null ? null : w1 - w0,
+          utilityChangeCents: u0 === null || u1 === null ? null : u1 - u0,
+          expectedChangeCents: expectedChange, actualChangeCents: actualChange,
+          differenceCents: actualChange === null ? null : actualChange - expectedChange,
         };
       }
 

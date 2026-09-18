@@ -77,7 +77,8 @@ describe('check nothing is missing', () => {
     await deps.db.query(
       `INSERT INTO balances(working_cents, utility_cents, charges_paid_cents, raw, queried_at) VALUES (1000000, 500000, NULL, '{}'::jsonb, $1), (1250000, 480000, 5000, '{}'::jsonb, $2)`,
       [before, after]);
-    // Between them: 2,500 in and 1,000 out, with a 50 charge — so Utility should read 500,000 − 1,000 − 50.
+    // Between them: 2,500 in and 1,000 out, with a 50 charge, so the two accounts together should
+    // have risen by 145,000 cents. They rose by 230,000, and the check says by how much they differ.
     await deps.db.query(
       `INSERT INTO requests(type, originator_conversation_id, status, amount_cents, currency, created_at, charge_cents) VALUES
         ('c2b','oc-r1','completed',250000,'KES',$1,0),
@@ -87,9 +88,8 @@ describe('check nothing is missing', () => {
     expect(r.body.balance.previous).toMatchObject({ workingCents: 1000000, utilityCents: 500000 });
     expect(r.body.balance.movement).toMatchObject({
       inCents: 250000, outCents: 100000, chargeCents: 5000, paymentsIn: 1, paymentsOut: 1,
-      expectedWorkingCents: 1250000, expectedUtilityCents: 395000,
-      // Working agrees exactly; Utility is short of what Studio expected, and says by how much.
-      workingDifferenceCents: 0, utilityDifferenceCents: 85000,
+      workingChangeCents: 250000, utilityChangeCents: -20000,
+      expectedChangeCents: 145000, actualChangeCents: 230000, differenceCents: 85000,
     });
   });
 

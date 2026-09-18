@@ -492,6 +492,8 @@ export const copy = {
     reading: (when: string, working: string, utility: string) => `${when} · Working ${working} · Utility ${utility}`,
     movement: (inAmount: string, outAmount: string, charge: string, n: number) => `Between the two readings: ${inAmount} in from ${n} payment${n === 1 ? '' : 's'}, ${outAmount} out, ${charge} in Safaricom's charges.`,
     account: (name: string, expected: string, actual: string) => `${name}: Studio expected ${expected}, Safaricom says ${actual}`,
+    movementTotal: (expected: string, actual: string) => 'The two accounts together should have changed by ' + expected + '. Safaricom says they changed by ' + actual + '.',
+    perAccount: (working: string, utility: string) => 'Working moved by ' + working + ', Utility by ' + utility + '.',
     agrees: 'It agrees.',
     differs: (difference: string) => `It does not agree by ${difference}.`,
     checkedAt: (when: string) => 'Checked ' + when,
