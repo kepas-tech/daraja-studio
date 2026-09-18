@@ -6,6 +6,7 @@ import { FingerprintCard } from './FingerprintCard';
 import { LockScreen } from './LockScreen';
 import { useLockWatchers } from './useLockWatchers';
 import { api } from '../api/client';
+import { CriticalAlert } from '../components/CriticalAlert';
 import { Flash } from '../components/Flash';
 import { Icon } from '../components/Icon';
 import { ToastHost } from '../components/Toast';
@@ -70,6 +71,8 @@ export function Layout() {
           <div className="mx-auto max-w-4xl p-4 md:p-6">
             {/* A suspended organisation keeps every read; only its writes are refused. */}
             {org?.status === 'suspended' && <Flash tone="danger" role="status" className="mb-6">{copy.org.suspended}</Flash>}
+            {/* Round 3, phase D-8: an unread critical alert stands on every page, until it is read. */}
+            <CriticalAlert />
             {/* Brief 2, item 5b: the one-time offer of a fingerprint, in the page and never a dialog. */}
             <FingerprintCard />
             <Outlet />

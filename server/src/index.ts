@@ -27,6 +27,7 @@ import { createReconcileService } from './reconcile/service.js';
 import { createCasesService } from './cases/service.js';
 import { createNotificationsService } from './notifications/service.js';
 import { createNotificationWriter } from './notifications/writer.js';
+import { createCriticalBuzzer } from './notifications/buzz.js';
 import { createPushService } from './push/service.js';
 import { createProblemService } from './health/problems.js';
 import { createScheduler } from './scheduler/loop.js';
@@ -120,6 +121,8 @@ async function main() {
   const push = createPushService({ db, vapid: config.vapid });
   console.log(`web push: ${push.configured() ? 'on' : 'off (no VAPID keys)'}`);
   const notificationWriter = createNotificationWriter({ db, events, notifications, push, egressIps: config.egressIps });
+  // Round 3, phase D-8: the reminder an unread critical alert keeps getting until it is read.
+  const buzz = createCriticalBuzzer({ db, events, push });
   // Brief 2, item 2: the three states Home's banner reports, read from what is already stored.
   const problems = createProblemService({ db });
   // Brief 2, item 5b: the fingerprint. Its relying party is the public address, so without one the
@@ -133,7 +136,8 @@ async function main() {
   await ensureRecurring(db, 'daily', 86400);
   await ensureRecurring(db, 'c2b_pull', 3600);
   await ensureRecurring(db, 'approvals_expire', 600);
-  const scheduler = createScheduler(db, buildHandlers({ db, events, settings, moneyOut, operators, moneyIn, bulk }));
+  await ensureRecurring(db, 'critical_buzz', 600);
+  const scheduler = createScheduler(db, buildHandlers({ db, events, settings, moneyOut, operators, moneyIn, bulk, buzz }));
   scheduler.start();
 
   const app = buildApp({ config, db, keyring, orgs, settings, instance, cache, events, daraja, operators, settingsService, moneyOut, collect, moneyIn, bulk, invoices, businesses, businessTypes, statements, reconcile, cases, push, problems, webauthn, fetchImpl, scheduler });

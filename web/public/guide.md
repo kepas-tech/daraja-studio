@@ -348,11 +348,13 @@ Where: Home → Notifications · Who: Anyone logged in · Route: /notifications
 5. Mark as read clears one line; Mark all read at the top clears the bell.
 6. The page keeps itself up to date: a payment that finishes while the page is open gets its own line without a refresh.
 7. On this device, at the top, turns on notifications the phone or computer shows while Studio is closed. Press Turn on notifications on this device and allow them when the browser asks. Send a test proves it works; Turn off on this device stops it for that one device.
+8. A red line — Something is wrong, the operator that sends has stopped working — does not wait to be noticed. It stands at the top of every page until somebody presses I have read it, and until then Studio reminds about it every fifteen minutes: the device buzzes, and the phone gets the same line again with “Still unread” in front. Reading it is what stops the reminders; after eight of them Studio stops on its own rather than buzzing all night.
 
 - These lines are written by Studio from what Safaricom reports. They are not a message from Safaricom.
 - Device notifications are off unless the person who runs Studio has set the server up for them, and each device is turned on separately.
 - A message on a device shows the same sentence as the line here. Pressing it brings Studio back to the front, or opens that payment when Studio is not already running.
 - A line that happens again does not make a second line: it moves to the top and its count goes up. Reading it does not bring it back.
+- The reminders are for red lines only. A payment that failed, or money that came in, is written once and left in the list.
 
 | Method | Path | Who |
 |---|---|---|

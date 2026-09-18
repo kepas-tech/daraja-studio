@@ -64,7 +64,9 @@ describe('standing orders, express checkout and Bonga', () => {
     await deps.db.query(`UPDATE jobs SET run_at=now() - interval '1 minute' WHERE id=$1`, [job.id]);
     const { createScheduler } = await import('../src/scheduler/loop.js');
     const { buildHandlers } = await import('../src/scheduler/handlers.js');
-    const sched = createScheduler(deps.db, buildHandlers({ db: deps.db, events: deps.events, settings: deps.settings, moneyOut: deps.moneyOut, operators: deps.operators, moneyIn: deps.moneyIn, bulk: deps.bulk }), { intervalMs: 60_000 });
+    // Phase D-8: the handler map carries the critical-alert buzzer; this test never runs it.
+    const { createCriticalBuzzer } = await import('../src/notifications/buzz.js');
+    const sched = createScheduler(deps.db, buildHandlers({ db: deps.db, events: deps.events, settings: deps.settings, moneyOut: deps.moneyOut, operators: deps.operators, moneyIn: deps.moneyIn, bulk: deps.bulk, buzz: createCriticalBuzzer({ db: deps.db, events: deps.events }) }), { intervalMs: 60_000 });
     await sched.tick();
     expect(await row(q.body.id)).toMatchObject({ status: 'unknown', meaning: NO_ANSWER_YET });
   });

@@ -4,6 +4,7 @@ import { makeApp, resetTables, loginAsOwner, TEST_ORG_ID } from './helpers.js';
 import { encrypt } from '../src/crypto/secrets.js';
 import type { DarajaFactory } from '../src/sdk/client.js';
 import { buildHandlers } from '../src/scheduler/handlers.js';
+import { createCriticalBuzzer } from '../src/notifications/buzz.js';
 import { createScheduler } from '../src/scheduler/loop.js';
 import { BALANCE_REFRESH_DELAY_MS } from '../src/money_out/balanceRefresh.js';
 
@@ -120,6 +121,8 @@ describe('a settled request refreshes the balance, once a minute', () => {
     const handlers = buildHandlers({
       db: deps.db, events: deps.events, settings: deps.settings, moneyOut: deps.moneyOut,
       operators: deps.operators, moneyIn: deps.moneyIn, bulk: deps.bulk,
+      // Phase D-8: every handler map carries the critical-alert buzzer; this test never runs it.
+      buzz: createCriticalBuzzer({ db: deps.db, events: deps.events }),
     });
     const scheduler = createScheduler(deps.db, handlers, { workerId: 'balance-refresh-test' });
     expect(await scheduler.tick()).toBe(1);

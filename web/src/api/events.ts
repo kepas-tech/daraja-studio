@@ -8,11 +8,14 @@ export interface StudioEvent { type: string; payload: unknown; at: string }
 export function useEvents(onEvent: (e: StudioEvent) => void, enabled = true, onOpen?: () => void) {
   useEffect(() => {
     if (!enabled) return;
+    // A browser without it (and every jsdom test that does not stub one) still gets its page: the
+    // stream is an extra, never the thing the screen is built on.
+    if (typeof EventSource === 'undefined') return;
     const es = new EventSource('/api/events');
     const handler = (ev: MessageEvent) => { try { onEvent(JSON.parse(ev.data)); } catch { /* ignore */ } };
     // Every named event the server publishes to a tenant stream, in one place: a name missing here
     // is a screen that never hears about the change (review correction B08).
-    for (const t of ['request.updated', 'balance.updated', 'operator.updated', 'alert', 'setup.updated', 'org.updated', 'bulk.updated', 'invoice.updated', 'money_in.updated', 'notification.created']) es.addEventListener(t, handler as EventListener);
+    for (const t of ['request.updated', 'balance.updated', 'operator.updated', 'alert', 'setup.updated', 'org.updated', 'bulk.updated', 'invoice.updated', 'money_in.updated', 'notification.created', 'notification.buzz']) es.addEventListener(t, handler as EventListener);
     if (onOpen) es.onopen = () => onOpen();
     return () => es.close();
   }, [onEvent, enabled, onOpen]);

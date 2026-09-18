@@ -693,6 +693,16 @@ export const copy = {
     repeated: (n: number) => '×' + n,
     repeatedTitle: (n: number) => 'The same thing happened ' + n + ' times.',
     severity: { info: 'For your information', success: 'Went well', warning: 'Needs a look', critical: 'Something is wrong' } as Record<string, string>,
+    /**
+     * Round 3, phase D-8: an unread critical alert makes itself known on every page, and goes on
+     * doing it until somebody reads it.
+     */
+    critical: {
+      title: 'Something is wrong, and nobody has read it',
+      lead: 'Studio keeps reminding about this one until it is read.',
+      read: 'I have read it',
+      readDone: 'Read. The reminders stop.',
+    },
     push: {
       title: 'On this device',
       intro: 'Get a message on this device when something happens, even when Studio is closed. Each device is turned on on its own.',

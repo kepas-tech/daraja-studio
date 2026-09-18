@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.48.0 — an unread critical alert keeps buzzing
+
+- **A red line stands at the top of every page until it is read.** Something is wrong — the operator
+  that sends has stopped working, or every operator is down — used to be one line in the inbox. It
+  now shows on every screen, with `I have read it` as the way to clear it.
+- **Until then Studio reminds about it every fifteen minutes.** Every open tab buzzes, and every
+  device gets the same line again with "Still unread" in front of it and a fresh tag, so the phone
+  shows the reminder rather than replacing the banner it already showed. Reading the alert is what
+  stops it; after eight reminders Studio stops on its own rather than buzzing all night.
+- **Only critical lines remind.** A failed payment or money that came in is written once and left in
+  the list.
 ## 0.47.0 — the three charts on Reports
 
 - **Reports draws the window as three pictures** above its tables: **money per day** as a pair of
