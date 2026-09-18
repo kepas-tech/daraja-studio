@@ -207,10 +207,15 @@ export const copy = {
     shortcodeLine: (code: string | null, env: string, ownName: string | null, kind?: string | null) => [copy.org.numberLine(kind, code), copy.org.envLine[env] ?? env, ownName].filter(Boolean).join(' · '),
     latestBalance: 'Latest balance', noBalance: 'No balance yet', recent: 'Recent requests', noRecent: 'Nothing sent yet.',
     byBusiness: 'Today by business', in: 'In', out: 'Out',
-    /** Feature 9: what the balance is, and what has not gone out yet. "Balance" is the Utility account. */
+    /**
+     * Round 3, phase D-2: both float accounts, named, beside what has not gone out yet. Money in
+     * lands in Working and sends leave Utility, so one figure called "Balance" was never the whole
+     * answer: the owner moves float between the two, and needs to see both to decide.
+     */
     balanceLine: {
-      line: (balance: string, waiting: string) => `Balance ${balance} · waiting to go out ${waiting}`,
-      short: 'Move float from Working before the next send. The float move is not built yet, so use the Safaricom portal for now.',
+      line: (working: string, utility: string, waiting: string) => `Working ${working} · Utility ${utility} · waiting to go out ${waiting}`,
+      move: (amount: string) => `Move ${amount} from Working to Utility before the next send. The float move is not built yet, so use the Safaricom portal for now.`,
+      notEnough: 'Working cannot cover it either. Top up in the Safaricom portal before the next send.',
       none: 'No balance yet, so Studio cannot say what is waiting to go out.',
     },
     /** Feature 6: the last 24 hours in one strip under the balance. Money only, never housekeeping. */
@@ -285,9 +290,11 @@ export const copy = {
         chargeLabel: 'Safaricom’s charge',
         charge: (amount: string) => `Safaricom’s charge: ${amount}, taken from Utility`,
         chargeNone: 'Safaricom’s charge: not known for this amount.',
-        balanceNow: 'Utility balance now', balanceAfter: 'After this send', balanceMissing: 'No balance yet. Refresh in Balances to see it here.',
-        balanceStale: (w: string) => `Balance last checked ${w}. Refresh in Balances if in doubt.`,
-        short: 'Not enough in Utility for this send. Move float from Working first (arrives in 2B; use the Safaricom portal for now).',
+        balanceNow: 'Utility balance now', balanceWorking: 'Working balance now', balanceAfter: 'After this send',
+        balanceMissing: 'No balance yet. Refresh on Home to see it here.',
+        balanceStale: (w: string) => `Balance last checked ${w}. Refresh on Home if in doubt.`,
+        move: (amount: string) => `Not enough in Utility for this send. Move ${amount} from Working to Utility first; the float move is not built yet, so use the Safaricom portal.`,
+        short: 'Not enough in Utility for this send, and Working cannot cover it. Top up in the Safaricom portal first.',
         cap: (amount: string) => `This studio is capped at ${amount} per send.`,
       },
       confirmTitle: (amount: string, to: string) => `Send ${amount} to ${to}?`,

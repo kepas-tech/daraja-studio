@@ -23,7 +23,11 @@ export function BalanceHero({ balance, action, message, children, className = ''
   // Feature 9: money on its way out, against the account sends come from. Only a real balance can
   // answer "is there enough", so nothing is drawn while the first read is still in flight.
   const waiting = balance?.waitingCents ?? 0;
-  const short = balance != null && balance.utilityCents !== null && waiting > balance.utilityCents;
+  // D-2: name both float accounts. Working is where payments land, Utility is what sends leave, so
+  // the gap between them is the float the owner has to move — and Working may or may not hold it.
+  const gap = balance != null && balance.utilityCents !== null && waiting > balance.utilityCents ? waiting - balance.utilityCents : 0;
+  const short = gap > 0;
+  const covered = short && balance?.workingCents != null && balance.workingCents >= gap;
   return (
     <Card className={className} bodyClassName="p-4 md:p-5">
       {message && <Flash tone="neutral" role="status" className="mb-4">{message}</Flash>}
@@ -37,10 +41,10 @@ export function BalanceHero({ balance, action, message, children, className = ''
       </div>
       {balance !== undefined && (
         <p className={`mt-4 text-sm ${short ? 'font-semibold text-danger' : 'text-muted'}`}>
-          {balance === null ? copy.home.balanceLine.none : copy.home.balanceLine.line(money(balance.utilityCents), money(waiting))}
+          {balance === null ? copy.home.balanceLine.none : copy.home.balanceLine.line(money(balance.workingCents), money(balance.utilityCents), money(waiting))}
         </p>
       )}
-      {short && <p className="mt-1 text-sm text-danger">{copy.home.balanceLine.short}</p>}
+      {short && <p className="mt-1 text-sm text-danger">{covered ? copy.home.balanceLine.move(money(gap)) : copy.home.balanceLine.notEnough}</p>}
       <p className="mt-4 text-sm text-muted">{balance ? <>{copy.balances.asOf(when(balance.queriedAt))} · {copy.balances.charges}: {money(balance.chargesPaidCents)}</> : copy.balances.never}</p>
       {children}
     </Card>

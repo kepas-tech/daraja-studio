@@ -164,6 +164,10 @@ export function SendPhone() {
   const pickedContact = contacts?.find((c) => c.id === contactId) ?? null;
   const utilityAfter = balance?.utilityCents != null && cents !== null ? balance.utilityCents - cents : null;
   const short = utilityAfter !== null && utilityAfter < 0;
+  // D-2: both accounts on the review. When Utility cannot cover the send, say how much to move and
+  // whether Working holds it, instead of leaving the person stuck on one number.
+  const gap = short && utilityAfter !== null ? -utilityAfter : 0;
+  const covered = short && balance?.workingCents != null && balance.workingCents >= gap;
   const overCap = cap !== null && cents !== null && cents > cap;
   const stale = balance?.queriedAt ? Date.now() - new Date(balance.queriedAt).getTime() > STALE_MS : false;
 
@@ -239,12 +243,14 @@ export function SendPhone() {
               <dt className="text-muted">{copy.send.phone.review.balanceNow}</dt>
               <dd>{balance === undefined ? copy.app.loading : balance === null || balance.utilityCents === null ? copy.send.phone.review.balanceMissing : money(balance.utilityCents)}
                 {stale && balance?.queriedAt && <span className="block text-sm text-muted">{copy.send.phone.review.balanceStale(when(balance.queriedAt))}</span>}</dd>
+              <dt className="text-muted">{copy.send.phone.review.balanceWorking}</dt>
+              <dd>{balance === undefined ? copy.app.loading : balance === null || balance.workingCents === null ? copy.send.phone.review.balanceMissing : money(balance.workingCents)}</dd>
               {utilityAfter !== null && <><dt className="text-muted">{copy.send.phone.review.balanceAfter}</dt><dd>{money(utilityAfter)}</dd></>}
             </dl>
             <p className="text-sm text-muted">{copy.send.phone.review.debits}</p>
             {cap !== null && <p className="text-sm text-muted">{copy.send.phone.review.cap(money(cap))}</p>}
             {unknownNumber && <Flash tone="danger" role="alert">{copy.send.phone.review.nameNotFound}</Flash>}
-            {short && <Flash tone="danger" role="alert">{copy.send.phone.review.short}</Flash>}
+            {short && <Flash tone="danger" role="alert">{covered ? copy.send.phone.review.move(money(gap)) : copy.send.phone.review.short}</Flash>}
             {duplicate && (
               <Flash tone="neutral" role="alert">
                 <p>{copy.send.phone.duplicate(when(duplicate.at))}</p>

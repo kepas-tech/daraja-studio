@@ -3,6 +3,7 @@ import { MemoryRouter, useLocation, useNavigate } from 'react-router';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { SendPhone } from '../pages/send/SendPhone';
 import { copy } from '../copy/en';
+import { money } from '../format';
 import { answer, next } from './questionnaire';
 
 function LocationProbe() {
@@ -288,12 +289,26 @@ describe('SendPhone', () => {
     expect(last).not.toHaveProperty('confirmDuplicate');
   });
 
-  it('a wrong password keeps the dialog open with the server message; a short balance blocks Send', async () => {
+  it('a short balance blocks Send and says what to move from Working', async () => {
     const fetchMock = fetchFor({
       'GET /api/balances/latest': () => new Response(JSON.stringify({ ...balance, utilityCents: 50 }), { status: 200 }),
       'POST /api/send/phone': () => new Response(JSON.stringify({ error: { code: 'step_up_required', message: 'Enter your own password to confirm.' } }), { status: 403 }),
     });
     vi.stubGlobal('fetch', fetchMock);
+    render(<MemoryRouter><SendPhone /></MemoryRouter>);
+    await fillForm();
+    // D-2: the review shows both accounts. Utility holds KES 0.50 and the send is KES 1, so the
+    // gap is KES 0.50 and Working (KES 14 here) can cover it.
+    expect(screen.getByText(copy.send.phone.review.balanceWorking)).toBeInTheDocument();
+    expect(screen.getByText(copy.send.phone.review.move(money(50)))).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: copy.send.phone.send })).toBeDisabled();
+    cleanup();
+
+    // Working cannot cover the gap either: say so plainly instead of naming an amount to move.
+    vi.stubGlobal('fetch', fetchFor({
+      'GET /api/balances/latest': () => new Response(JSON.stringify({ ...balance, utilityCents: 50, workingCents: 10 }), { status: 200 }),
+      'POST /api/send/phone': () => new Response(JSON.stringify({ error: { code: 'step_up_required', message: 'x' } }), { status: 403 }),
+    }));
     render(<MemoryRouter><SendPhone /></MemoryRouter>);
     await fillForm();
     expect(screen.getByText(copy.send.phone.review.short)).toBeInTheDocument();
@@ -312,7 +327,8 @@ describe('SendPhone', () => {
     answer(copy.send.phone.amount, '2', { exact: false });
     next();
     fireEvent.click(screen.getByRole('button', { name: copy.send.phone.next }));
-    await screen.findByText(copy.send.phone.review.balanceMissing);
+    // D-2: both accounts are on the review, so with no balance yet the line appears twice.
+    expect(await screen.findAllByText(copy.send.phone.review.balanceMissing)).toHaveLength(2);
     fireEvent.click(screen.getByRole('button', { name: copy.send.phone.send }));
     fireEvent.change(screen.getByLabelText(copy.confirm.yourPassword), { target: { value: 'studio-pw' } });
     fireEvent.click(screen.getByRole('button', { name: copy.confirm.confirm }));

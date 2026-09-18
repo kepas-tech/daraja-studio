@@ -418,7 +418,7 @@ export const guide: GuideSection[] = [
           'Utility account is the money you pay out to phones; Safaricom’s fees come from it too. Working account is where payments land; it also pays other paybills and tills.',
           'Refresh asks Safaricom for today’s balance. "As of" says when it was last read; "Charges paid" is the fees so far. A balance more than a day old is flagged.',
           'Studio also reads the balance by itself: every time a payment finishes, it asks Safaricom again within a minute, so the number follows the last thing that happened. Nothing is charged for this and the Refresh button still works.',
-          'Under the figures, one line: "Balance KES X · waiting to go out KES Y". The first is the Utility account, the second is every payment that has not finished yet. When more is waiting than Utility holds, the line turns red and tells you to move float from Working first.',
+          'Under the figures, one line names both accounts: "Working KES X · Utility KES Y · waiting to go out KES Z". Working is where payments land, Utility is what sends leave, and the waiting figure is every payment that has not finished yet. When more is waiting than Utility holds, the line turns red and says how much to move from Working — or that Working cannot cover it, so a top-up is needed.',
           'Three tiles open the pages used most: Send money, Ask for payment, History.',
           'Under the balance, a strip covers the last 24 hours: what came in, what went out, and how many payments are waiting or failed. Reports shows the same numbers over a longer window.',
           'Recent requests shows the last five; View all opens History.',

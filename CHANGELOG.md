@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.42.0 — both float balances, named
+
+- **Home names both accounts**: Working, Utility, and what is still waiting to go out, on one line
+  under the two figures. Money in lands in Working and sends leave Utility, so a single figure called
+  "Balance" was never the whole answer — the owner moves float between the two.
+- **When Utility cannot cover what is waiting, the line says how much to move from Working**, and
+  keeps the plain fact that the float move itself is not built yet, so it is done in the Safaricom
+  portal. When Working cannot cover it either, it says that instead of naming an amount.
+- **The send review shows both accounts too**, so a person short in Utility sees what Working holds
+  before giving up, with the same move line when Working can cover the send.
+- **Two stale pointers fixed**: "Refresh in Balances" pointed at a page that no longer exists; it now
+  says Home, where the balances are.
 ## 0.41.0 — check nothing is missing
 
 - **One page compares Safaricom's own record with Studio's.** Pick a window and press Check: Studio

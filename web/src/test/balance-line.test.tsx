@@ -11,18 +11,24 @@ const at = '2026-09-17T00:00:00Z';
 const view = (over: Partial<BalanceView> = {}): BalanceView =>
   ({ workingCents: 1400, utilityCents: 3439200, chargesPaidCents: 0, queriedAt: at, waitingCents: 0, ...over });
 
-describe('the Home balance line (feature 9)', () => {
-  it('shows the Utility balance and what is still waiting to go out', () => {
+// Round 3, phase D-2: both float accounts, named, not one number.
+describe('the Home balance line (feature 9, phase D-2)', () => {
+  it('names Working and Utility beside what is still waiting to go out', () => {
     render(<BalanceHero balance={view({ waitingCents: 400000 })} />);
-    expect(screen.getByText(copy.home.balanceLine.line(money(3439200), money(400000)))).toBeInTheDocument();
+    expect(screen.getByText(copy.home.balanceLine.line(money(1400), money(3439200), money(400000)))).toBeInTheDocument();
   });
 
-  it('turns red and says what to do when more is waiting than Utility holds', () => {
-    const { container } = render(<BalanceHero balance={view({ utilityCents: 500, waitingCents: 400000 })} />);
-    const line = screen.getByText(copy.home.balanceLine.line(money(500), money(400000)));
+  it('says how much to move from Working when Utility cannot cover what is waiting', () => {
+    const { container } = render(<BalanceHero balance={view({ utilityCents: 500, workingCents: 400000, waitingCents: 400000 })} />);
+    const line = screen.getByText(copy.home.balanceLine.line(money(400000), money(500), money(400000)));
     expect(line.className).toContain('text-danger');
-    expect(screen.getByText(copy.home.balanceLine.short)).toBeInTheDocument();
+    expect(screen.getByText(copy.home.balanceLine.move(money(399500)))).toBeInTheDocument();
     expect(container.querySelectorAll('p.text-danger')).toHaveLength(2);
+  });
+
+  it('says Working cannot cover it either when it cannot', () => {
+    render(<BalanceHero balance={view({ utilityCents: 500, workingCents: 1000, waitingCents: 400000 })} />);
+    expect(screen.getByText(copy.home.balanceLine.notEnough)).toBeInTheDocument();
   });
 
   it('says there is no balance instead of showing a zero', () => {
