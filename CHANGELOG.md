@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.47.0 — the three charts on Reports
+
+- **Reports draws the window as three pictures** above its tables: **money per day** as a pair of
+  bars for each day, with the tallest bar being the window's own busiest day; **what happened** to the
+  payments as paid, failed and needing a check; and the **success rate** as one bar with the share on
+  top. No chart library: bars in the brand's own colours, sized from the same read the tables use, so
+  a picture can never tell a different story from the numbers beside it.
+- **Each chart carries a sentence** naming what it shows, so the three are readable without seeing the
+  bars.
 ## 0.46.0 — a staff member asks for a reversal, the owner approves
 
 - **A reversal asked for by somebody who may not approve it now waits.** The password records the

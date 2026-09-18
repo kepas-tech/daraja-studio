@@ -372,9 +372,10 @@ Where: Home → Reports · Who: Anyone logged in · Route: /reports · Permissio
 1. Open Reports from the menu, under Home.
 2. Choose how far back: Last 7 days, Last 30 days or Last 90 days. The choice applies to the table, to the failure list and to the file.
 3. The line under the buttons adds the window up: what came in, what went out, and the share of finished payments that went through. A payment Safaricom has not answered yet has its own column and is left out of that share.
-4. The table has one line per day, days with nothing included, so a quiet day reads as a quiet day. Money in and money out are in shillings; Paid, Failed and Needs a check are counts.
-5. Why things failed — last 7 days lists Safaricom’s own reason for each failure, with how many payments it explains and how much they came to.
-6. Export as a spreadsheet saves the day-by-day table with the same window and business you chose. The button shows for the owner and for anybody given permission to export.
+4. Under that, three pictures of the same window: money per day as a pair of bars for each day (the tallest bar is the window’s own busiest day), what happened to the payments in it, and the success rate as one bar. Every picture is drawn from the same rows as the table beneath it, and each carries a sentence for anybody who cannot see the bars.
+5. The table has one line per day, days with nothing included, so a quiet day reads as a quiet day. Money in and money out are in shillings; Paid, Failed and Needs a check are counts.
+6. Why things failed — last 7 days lists Safaricom’s own reason for each failure, with how many payments it explains and how much they came to.
+7. Export as a spreadsheet saves the day-by-day table with the same window and business you chose. The button shows for the owner and for anybody given permission to export.
 
 - Only money counts here. Balance checks and payment lookups are left out, and the numbers are the same ones History shows.
 - By business appears when you run more than one business: each one’s own money in and out for the window. It is history, not cash: M-Pesa holds one pool for the whole paybill.

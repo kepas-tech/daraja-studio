@@ -9,6 +9,7 @@ import { Loading } from '../components/Loading';
 import { PageHeader } from '../components/PageHeader';
 import { Segmented } from '../components/Segmented';
 import { useToast } from '../components/Toast';
+import { DayChart, StatusChart, SuccessChart } from '../components/Charts';
 import { copy } from '../copy/en';
 import { typeOf } from '../businessTypes';
 import { money } from '../format';
@@ -136,6 +137,27 @@ export function Reports() {
           </>
         )}
       </Card>
+
+      {/* Round 3, phase D-7: the same window as three pictures, above the tables that carry the
+          numbers. Drawn from this page's own read, so they cannot tell a different story. */}
+      {view && (
+        <Card title={copy.reports.charts.title} className="mb-6">
+          <div className="grid gap-6 md:grid-cols-3">
+            <div>
+              <p className="mb-2 text-sm font-semibold">{copy.reports.charts.days}</p>
+              <DayChart days={view.days} label={dayLabel} />
+            </div>
+            <div>
+              <p className="mb-2 text-sm font-semibold">{copy.reports.charts.status}</p>
+              <StatusChart totals={view.totals} />
+            </div>
+            <div>
+              <p className="mb-2 text-sm font-semibold">{copy.reports.charts.rate}</p>
+              <SuccessChart completed={view.totals.completed} failed={view.totals.failed} />
+            </div>
+          </div>
+        </Card>
+      )}
 
       {view && (
         <Card title={copy.reports.failuresTitle} bodyClassName="p-0" className="mb-6">

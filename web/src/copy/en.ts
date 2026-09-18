@@ -625,6 +625,22 @@ export const copy = {
     totalOut: (amount: string, n: number) => `${amount} out to ${n} payment${n === 1 ? '' : 's'}`,
     /** The rate is made of two named numbers, so the page never shows a percentage on its own. */
     rate: (percent: number, paid: number, failed: number) => `${percent}% of finished payments went through (${paid} paid, ${failed} failed).`,
+    /**
+     * Round 3, phase D-7: three pictures of the same window, drawn from the same read as the tables.
+     * Each carries a sentence for anybody who cannot see the bars.
+     */
+    charts: {
+      title: 'The window in three pictures',
+      days: 'Money per day',
+      daysLabel: (n: number, inCents: string, outCents: string) => `${n} day${n === 1 ? '' : 's'}: ${inCents} in, ${outCents} out. Every day is in the table below.`,
+      peak: (amount: string) => `Tallest bar ${amount}`,
+      status: 'What happened',
+      statusLabel: (n: number) => `What happened to ${n} payment${n === 1 ? '' : 's'}: paid, failed, or waiting on an answer.`,
+      paid: 'Paid', failed: 'Failed', unknown: 'Needs a check',
+      rateSplit: (paid: number, failed: number) => `${paid} paid, ${failed} failed`,
+      rateNothing: 'Nothing has finished in this window.',
+      rate: 'Success rate',
+    },
     rateNothing: 'Nothing has finished in this window yet.',
     rateNote: 'A payment Safaricom has not answered yet is counted in its own column, not here.',
     tableCaption: 'Day by day',

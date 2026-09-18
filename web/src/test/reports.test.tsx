@@ -138,6 +138,31 @@ describe('Reports export', () => {
     expect(await screen.findByText('You do not have permission to export history.')).toBeInTheDocument();
     expect(saved).toEqual([]);
   });
+
+  // Round 3, phase D-7: the three pictures of the window, drawn from the same read the table
+  // underneath uses, each with a sentence for anybody who cannot see the bars.
+  it('draws the three charts from the same window as the tables', async () => {
+    mountReports();
+    await screen.findByTestId('report-day-2026-09-16');
+
+    // Money per day: a pair of bars per day, the day with money at full height, the empty day at none.
+    expect(screen.getByTestId('chart-days')).toHaveAccessibleName(copy.reports.charts.daysLabel(2, 'KES 5,000', 'KES 300'));
+    expect(screen.getByTestId('bar-in-2026-09-16').style.height).toBe('100%');
+    expect(screen.getByTestId('bar-out-2026-09-16').style.height).toBe('6%');
+    expect(screen.getByTestId('bar-in-2026-09-17').style.height).toBe('0%');
+    expect(screen.getByTestId('chart-days')).toHaveTextContent(copy.reports.charts.peak('KES 5,000'));
+
+    // What happened: two paid, one failed, one still waiting on an answer.
+    expect(screen.getByTestId('chart-status')).toHaveAccessibleName(copy.reports.charts.statusLabel(4));
+    expect(screen.getByTestId('status-bar-completed').style.width).toBe('100%');
+    expect(screen.getByTestId('status-bar-failed').style.width).toBe('50%');
+    expect(screen.getByTestId('status-bar-unknown').style.width).toBe('50%');
+
+    // Success rate: two of the three finished payments went through.
+    expect(screen.getByTestId('chart-rate')).toHaveAccessibleName(copy.reports.rate(67, 2, 1));
+    expect(Number.parseFloat(screen.getByTestId('rate-paid').style.width)).toBeCloseTo(66.67, 1);
+    expect(Number.parseFloat(screen.getByTestId('rate-failed').style.width)).toBeCloseTo(33.33, 1);
+  });
 });
 
 describe('Home 24-hour strip', () => {
