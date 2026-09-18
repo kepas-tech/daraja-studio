@@ -50,7 +50,8 @@ export interface MoneyOutService {
   pollOne(requestId: string, actor?: { personId: string }): Promise<{ queryId: string }>;
   markChecked(requestId: string, note: string, actor: Actor): Promise<RequestView>;
   refreshBalance(actor: Actor | null): Promise<{ requestId: string }>;
-  lookup(receipt: string, actor: Actor): Promise<{ requestId: string }>;
+  /** Round 4: `actor.personId` is null when Studio asked on its own, to fill a missing name. */
+  lookup(receipt: string, actor: { personId: string | null; ip: string }, opts?: { subject?: string }): Promise<{ requestId: string }>;
   /** M4: a second person sends a held row down the ordinary path. */
   release(requestId: string, actor: Actor): Promise<RequestView>;
   /**
@@ -743,7 +744,7 @@ export function createMoneyOutService(deps: { db: Db; settings: Settings; cache:
       return { requestId: row.id };
     },
 
-    async lookup(receipt, actor) {
+    async lookup(receipt, actor, opts) {
       // Read-only permission (`lookup.view`), no cooldown at the route — this is the only thing
       // stopping a repeat click for the same receipt from hitting Safaricom's Transaction Status
       // API on every request. A fresh receipt, or the same one after the window, is always
@@ -758,7 +759,7 @@ export function createMoneyOutService(deps: { db: Db; settings: Settings; cache:
       try {
         ack = await client.status.transaction({ transactionId: receipt, resultUrl: cb.status, queueTimeoutUrl: cb.status, remarks: 'studio lookup' });
       } catch (e) { throw sdkCallError(e, 'status', deps.config.egressIps); }
-      const q = await recordStatusQuery(ack, { subtype: 'lookup', payload: { receipt, ackOriginatorConversationId: ack.originatorConversationId }, recipientValue: receipt, createdBy: actor.personId });
+      const q = await recordStatusQuery(ack, { subtype: 'lookup', payload: { receipt, ackOriginatorConversationId: ack.originatorConversationId, ...(opts?.subject ? { subject: opts.subject } : {}) }, recipientValue: receipt, createdBy: actor.personId });
       await enqueue(deps.db, 'request_timeout', { requestId: q.id }, { runAt: new Date(Date.now() + 5 * 60_000), maxAttempts: 3 });
       await audit(deps.db, { personId: actor.personId, action: 'lookup.requested', target: q.id, ip: actor.ip });
       return { requestId: q.id };

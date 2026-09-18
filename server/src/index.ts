@@ -26,6 +26,7 @@ import { createStatementService } from './businesses/statement.js';
 import { createReconcileService } from './reconcile/service.js';
 import { createCasesService } from './cases/service.js';
 import { createApiKeysService } from './keys/service.js';
+import { createNameBackfill } from './money_in/names.js';
 import { createWebhooksService } from './webhooks/service.js';
 import { createWebhookDispatcher } from './webhooks/dispatcher.js';
 import { createWebhookWriter } from './webhooks/writer.js';
@@ -125,6 +126,8 @@ async function main() {
   const webhookDispatch = createWebhookDispatcher({ db, keyring });
   const webhookWriter = createWebhookWriter({ db, events, webhooks, egressIps: config.egressIps });
   webhookWriter.start();
+  // Round 4: the payer names Studio never received, asked for a few at a time.
+  const nameBackfill = createNameBackfill({ db, moneyOut });
   // Feature 4: the inbox. The writer follows the same hub the browser follows, so a line exists
   // before any page is opened.
   const notifications = createNotificationsService({ db, events });
@@ -149,10 +152,11 @@ async function main() {
   await ensureRecurring(db, 'approvals_expire', 600);
   await ensureRecurring(db, 'critical_buzz', 600);
   await ensureRecurring(db, 'webhook_dispatch', 30);
-  const scheduler = createScheduler(db, buildHandlers({ db, events, settings, moneyOut, operators, moneyIn, bulk, buzz, webhooks: webhookDispatch }));
+  await ensureRecurring(db, 'name_backfill', 900);
+  const scheduler = createScheduler(db, buildHandlers({ db, events, settings, moneyOut, operators, moneyIn, bulk, buzz, webhooks: webhookDispatch, nameBackfill }));
   scheduler.start();
 
-  const app = buildApp({ config, db, keyring, orgs, settings, instance, cache, events, daraja, operators, settingsService, moneyOut, collect, moneyIn, bulk, invoices, businesses, businessTypes, statements, reconcile, cases, apiKeys, webhooks, push, problems, webauthn, fetchImpl, scheduler });
+  const app = buildApp({ config, db, keyring, orgs, settings, instance, cache, events, daraja, operators, settingsService, moneyOut, collect, moneyIn, bulk, invoices, businesses, businessTypes, statements, reconcile, cases, apiKeys, webhooks, nameBackfill, push, problems, webauthn, fetchImpl, scheduler });
   const listenFallback = db.getFallbackOrg();
   const envLabel = listenFallback
     ? await withOrg(listenFallback, async () => (await settings.get('daraja.environment')) ?? 'sandbox')

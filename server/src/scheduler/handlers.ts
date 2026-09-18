@@ -156,6 +156,8 @@ export function buildHandlers(
     buzz: CriticalBuzzer;
     /** Round 3, phase E: the webhook deliveries that are due a try. */
     webhooks: ReturnType<typeof createWebhookDispatcher>;
+    /** Round 4: a few payments asked about, to put a payer's name on them. */
+    nameBackfill: { ask(opts?: { limit?: number }): Promise<unknown> };
   },
 ): Record<string, JobHandler> {
   return {
@@ -172,6 +174,9 @@ export function buildHandlers(
     // Every 30 seconds: every webhook delivery that is due, signed and posted, with the retry curve
     // deciding what happens to the ones that are not answered.
     webhook_dispatch: async () => { await forEachOrg(deps.db, async () => { await deps.webhooks.dispatchOnce(); }); },
+    // Round 4, every fifteen minutes: a few payments whose payer Studio never learned are asked
+    // about by receipt. Spaced and capped, because the answers arrive on their own callbacks.
+    name_backfill: async () => { await forEachOrg(deps.db, async () => { await deps.nameBackfill.ask({ limit: 5 }); }); },
     request_timeout: requestTimeoutHandler({ db: deps.db, events: deps.events }),
     money_out_sweep: sweepHandler({ db: deps.db, moneyOut: deps.moneyOut }),
     housekeeping: housekeepingHandler({ db: deps.db }),

@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.53.0 — the missing payer names come back
+
+- **Why they were missing.** This paybill's confirmation address belongs to another system, so Studio
+  only ever sees those payments in the pull — and the pull writes `MPESA` where a person should be.
+  Safaricom's own record of the payment still carries the payer: a status query by receipt returns
+  `DebitPartyName`, for example `254115599147 - Bazil Mwendwa Wambua`.
+- **Find the missing names**, on Money in, asks about five completed payments at a time; the same
+  job runs by itself every fifteen minutes. It skips a receipt it asked about in the last six hours
+  and skips any payment that already has a real name.
+- **It is a read.** The query writes a check row and nothing else. The name is written onto the
+  payment when Safaricom's answer arrives, on the status callback, and only the name is touched:
+  status, amount and receipt stay exactly as they were, and a name already known is never overwritten.
+- **A refused token is expected, not an error.** Studio and the other system on this Daraja app mint
+  tokens that kill each other's, so a 401 stops the run and the next one tries again.
 ## 0.52.0 — the deliveries page
 
 - **Advanced › Webhooks › Deliveries** lists everything Studio has sent to the address: what

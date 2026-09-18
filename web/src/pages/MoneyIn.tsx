@@ -142,6 +142,14 @@ export function MoneyIn() {
   const [checking, setChecking] = useState(false);
   const [found, setFound] = useState<number | null>(null);
   const justStarted = useRef(false);
+  // Round 4: the payer names Studio never received. `null` while the count is unknown, so the
+  // card stays quiet rather than claiming every payment has a name.
+  const [names, setNames] = useState<{ count: number; perRun: number } | null>(null);
+  const [finding, setFinding] = useState(false);
+  const [namesMsg, setNamesMsg] = useState<string | null>(null);
+  const loadNames = useCallback(() => api.get<{ count: number; perRun: number }>('/api/money-in/missing-names')
+    .then(setNames).catch(() => setNames(null)), []);
+  useEffect(() => { void loadNames(); }, [loadNames]);
 
   const load = useCallback(async () => {
     const [v, r, u, b] = await Promise.all([
@@ -172,6 +180,22 @@ export function MoneyIn() {
     try { const r = await api.post<{ found: number; checkedAt: string }>('/api/money-in/check', {}); setFound(r.found); await load(); }
     catch (e) { setErr(e instanceof ApiError ? explainApiError(e) : new Error(copy.error.generic)); }
     finally { setChecking(false); }
+  };
+
+  // Round 4: ask Safaricom about a few payments whose payer's name Studio never learned. A read:
+  // the query itself writes only a check row, and the name lands on the payment when the answer
+  // comes back, so the count is re-read after each press.
+  const findNames = async () => {
+    setFinding(true); setNamesMsg(null); setErr(null);
+    try {
+      const r = await api.post<{ asked: number; remaining: number; stopped: string | null }>('/api/money-in/find-names', {});
+      setNamesMsg(r.stopped === 'auth' ? c.names.stoppedAuth
+        : r.stopped === 'not_ready' ? c.names.stoppedNotReady
+        : r.stopped ? c.names.stoppedOther
+        : c.names.asked(r.asked, r.remaining));
+      await loadNames();
+    } catch (e) { setErr(e instanceof ApiError ? explainApiError(e) : new Error(copy.error.generic)); }
+    finally { setFinding(false); }
   };
 
   if (!view) return <><PageHeader title={c.title} safaricom={c.safaricom} />{err ? <ErrorCard error={err} /> : <Loading />}</>;
@@ -208,6 +232,17 @@ export function MoneyIn() {
             {found !== null && <Flash tone={found > 0 ? 'success' : 'neutral'} role="status">{c.found(found)}</Flash>}
             {/* Round 3, phase D-1: the read-only check of Safaricom's own record against Studio's. */}
             <p className="text-sm"><Link to="/reconcile">{copy.reconcile.openFromMoneyIn}</Link></p>
+          </Card>
+        )}
+        {on && (
+          <Card title={c.names.title} bodyClassName="space-y-3 p-4" data-testid="missing-names">
+            <p className="text-base">{c.names.body}</p>
+            {names && <p className="text-sm text-muted">{c.names.count(names.count)}</p>}
+            <div className="flex flex-wrap items-center gap-3">
+              <Button type="button" variant="secondary" disabled={finding} onClick={() => void findNames()}>{finding ? c.names.finding : c.names.button}</Button>
+              <span className="text-sm text-muted">{c.names.note}</span>
+            </div>
+            {namesMsg && <Flash tone="neutral" role="status">{namesMsg}</Flash>}
           </Card>
         )}
         <ErrorCard error={err} />

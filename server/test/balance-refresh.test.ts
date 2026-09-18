@@ -125,6 +125,8 @@ describe('a settled request refreshes the balance, once a minute', () => {
       buzz: createCriticalBuzzer({ db: deps.db, events: deps.events }),
       // Phase E: the webhook dispatcher rides along, unused by this test too.
       webhooks: { dispatchOnce: async () => ({ sent: 0, failed: 0, given: 0 }) },
+      // Round 4: the name backfill, likewise never run here.
+      nameBackfill: { ask: async () => ({}) },
     });
     const scheduler = createScheduler(deps.db, handlers, { workerId: 'balance-refresh-test' });
     expect(await scheduler.tick()).toBe(1);

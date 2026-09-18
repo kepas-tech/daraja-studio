@@ -66,6 +66,7 @@ import { caseRoutes, requestCaseRoutes } from './cases/routes.js';
 import type { ApiKeysService } from './keys/service.js';
 import { apiKeyRoutes } from './keys/routes.js';
 import type { WebhooksService } from './webhooks/service.js';
+import type { NameBackfill } from './money_in/names.js';
 import { webhookRoutes } from './webhooks/routes.js';
 import type { InvoicesService } from './invoices/service.js';
 import type { Scheduler } from './scheduler/loop.js';
@@ -107,6 +108,8 @@ export interface AppDeps {
   apiKeys: ApiKeysService;
   /** Round 3, phase E: the webhook address, its secret, and the deliveries queue. */
   webhooks: WebhooksService;
+  /** Round 4: filling in the payer names Studio never received. */
+  nameBackfill: NameBackfill;
   /** Brief 2, item 2: the three states that mean something is wrong, for Home's banner. */
   problems: ProblemService;
   /** Brief 2, item 5b: the fingerprint ceremonies. Absent in tests that build the app without one. */

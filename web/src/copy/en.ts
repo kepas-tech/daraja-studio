@@ -922,6 +922,22 @@ export const copy = {
     needsAddress: 'Test the public address in Settings first.',
     check: 'Check for missed payments', checking: 'Asking Safaricom…', found: (n: number) => (n === 0 ? 'Nothing missed.' : `Found ${n} missed payment${n === 1 ? '' : 's'}.`),
     lastChecked: (at: string) => `Last checked ${at}. Studio also checks every hour.`, checksHourly: 'Studio checks every hour.',
+    /**
+     * Round 4: recovering the payer names. Some payments arrive with the sender written as MPESA,
+     * because their confirmation went to another system and Studio only saw the pull.
+     */
+    names: {
+      title: 'Find the missing names',
+      body: 'Some payments show MPESA where a person should be: their confirmation went to another system, so Studio only ever saw the pull, and the pull does not carry a name. Safaricom’s own record of a payment still does, so Studio can ask about a few of them and put the name on the payment. It is a read — no money moves — and a payment that already has a name is never asked about.',
+      count: (n: number) => (n === 0 ? 'Every payment has a name.' : n === 1 ? 'One payment is still without a name.' : n + ' payments are still without a name.'),
+      button: 'Find the missing names',
+      finding: 'Asking Safaricom…',
+      note: 'Five at a time. The names land over the next few minutes, as the answers arrive.',
+      asked: (n: number, left: number) => (left === 0 ? 'Asked about ' + n + '. The names land as the answers arrive.' : 'Asked about ' + n + '. ' + left + ' still to ask.'),
+      stoppedAuth: 'Safaricom refused the token: another system on the same Daraja app minted one a moment ago. Studio tries again on its own.',
+      stoppedNotReady: 'Studio cannot ask yet — it needs a tested public address and an operator. Settings says which.',
+      stoppedOther: 'Safaricom did not answer this time. Studio tries again on its own.',
+    },
     recent: 'Latest payments', allInHistory: 'See all in History', empty: 'No payments yet.', from: 'From', account: 'Account',
     validationNote: 'Safaricom only asks this studio to approve a payment if its support team has switched that on for your paybill. Every payment is accepted.',
     unmatched: {

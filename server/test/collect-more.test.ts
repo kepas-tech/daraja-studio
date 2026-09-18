@@ -66,7 +66,7 @@ describe('standing orders, express checkout and Bonga', () => {
     const { buildHandlers } = await import('../src/scheduler/handlers.js');
     // Phase D-8: the handler map carries the critical-alert buzzer; this test never runs it.
     const { createCriticalBuzzer } = await import('../src/notifications/buzz.js');
-    const sched = createScheduler(deps.db, buildHandlers({ db: deps.db, events: deps.events, settings: deps.settings, moneyOut: deps.moneyOut, operators: deps.operators, moneyIn: deps.moneyIn, bulk: deps.bulk, buzz: createCriticalBuzzer({ db: deps.db, events: deps.events }), webhooks: { dispatchOnce: async () => ({ sent: 0, failed: 0, given: 0 }) } }), { intervalMs: 60_000 });
+    const sched = createScheduler(deps.db, buildHandlers({ db: deps.db, events: deps.events, settings: deps.settings, moneyOut: deps.moneyOut, operators: deps.operators, moneyIn: deps.moneyIn, bulk: deps.bulk, buzz: createCriticalBuzzer({ db: deps.db, events: deps.events }), webhooks: { dispatchOnce: async () => ({ sent: 0, failed: 0, given: 0 }) }, nameBackfill: { ask: async () => ({}) } }), { intervalMs: 60_000 });
     await sched.tick();
     expect(await row(q.body.id)).toMatchObject({ status: 'unknown', meaning: NO_ANSWER_YET });
   });

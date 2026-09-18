@@ -599,6 +599,7 @@ export const guide: GuideSection[] = [
           'If Safaricom says the addresses were already on record, that counts as on. Should a payment then never show, an older address may be on record at Safaricom; their API support can reset it.',
           'From then on every payer payment to your number shows here and in History the moment Safaricom reports it.',
           'Check for missed payments asks Safaricom for anything whose news never arrived. Studio does the same every hour on its own.',
+          'Find the missing names fills in the payers Studio never learned. A payment whose confirmation went to another system is only ever seen in the pull, and the pull writes MPESA where a person should be; Safaricom’s own record of that payment still carries the payer’s name, so Studio asks about a few at a time by receipt and puts the name on the payment when the answer comes back. It runs by itself every fifteen minutes and the button is the same thing on demand. It is a read: no money moves, and a payment that already has a name is never asked about.',
         ],
         notes: ['Every payment is accepted. Safaricom only asks Studio to approve payments if its support team has switched that on for your number.', 'Test the address in Settings first; Safaricom must be able to reach Studio.'],
         api: [
@@ -606,6 +607,8 @@ export const guide: GuideSection[] = [
           { method: 'GET', path: '/api/money-in/recent', who: 'money_in.view' },
           { method: 'POST', path: '/api/money-in/register', who: 'owner, password; answers 202 and works in the background' },
           { method: 'POST', path: '/api/money-in/check', who: 'money_in.view' },
+          { method: 'GET', path: '/api/money-in/missing-names', who: 'money_in.view; how many completed payments still have no payer name' },
+          { method: 'POST', path: '/api/money-in/find-names', who: 'money_in.view; asks Safaricom about five of them by receipt; a read' },
         ],
       },
       {

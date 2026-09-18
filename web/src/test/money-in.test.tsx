@@ -82,6 +82,26 @@ describe('Money in', () => {
     await screen.findByText(copy.moneyIn.needsAddress);
     expect(screen.getByRole('button', { name: copy.moneyIn.turnOn })).toBeDisabled();
   });
+  // Round 4: the payer names Studio never received, asked for a few at a time.
+  it('counts the payments without a name and asks Safaricom about them on one press', async () => {
+    let posted = 0;
+    vi.stubGlobal('fetch', fetchFor({
+      'GET /api/money-in/status': () => new Response(JSON.stringify(status({ c2bRegisteredAt: '2026-09-16T07:00:00Z' })), { status: 200 }),
+      'GET /api/money-in/recent': () => new Response(JSON.stringify({ items: [row], nextCursor: null }), { status: 200 }),
+      'GET /api/money-in/missing-names': () => new Response(JSON.stringify({ count: posted > 0 ? 0 : 3, perRun: 5 }), { status: 200 }),
+      'POST /api/money-in/find-names': () => { posted += 1; return new Response(JSON.stringify({ asked: 3, skipped: 0, remaining: 0, stopped: null }), { status: 200 }); },
+    }));
+    render(<MemoryRouter><MoneyIn /></MemoryRouter>);
+
+    const card = await screen.findByTestId('missing-names');
+    expect(card).toHaveTextContent(copy.moneyIn.names.count(3));
+    expect(card).toHaveTextContent(copy.moneyIn.names.note);
+
+    fireEvent.click(screen.getByRole('button', { name: copy.moneyIn.names.button }));
+    expect(await screen.findByText(copy.moneyIn.names.asked(3, 0))).toBeInTheDocument();
+    // The count is read again after the press: the names land as the answers arrive.
+    await waitFor(() => expect(screen.getByTestId('missing-names')).toHaveTextContent(copy.moneyIn.names.count(0)));
+  });
 });
 
 describe('History › direction', () => {

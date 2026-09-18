@@ -5,6 +5,7 @@ import { requirePermission } from '../permissions/middleware.js';
 import { listRequests } from '../money_out/reads.js';
 import { INCOMING_TYPES } from '../money_out/registry.js';
 import { clientIp } from '../util/ip.js';
+import { NAMES_PER_RUN } from './names.js';
 
 /**
  * Registration is the owner's, behind a password: it tells Safaricom where to post real money's
@@ -25,5 +26,14 @@ export function moneyInRoutes(deps: AppDeps): Router {
     try { res.status(202).json(await deps.moneyIn.register({ personId: req.person!.id, ip: clientIp(req) })); } catch (e) { next(e); }
   });
   r.post('/check', requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'money_in.view'), async (_req, res, next) => { try { res.json(await deps.moneyIn.checkMissed()); } catch (e) { next(e); } });
+  // Round 4: how many completed payments are still without a payer's name, and the one press
+  // that asks Safaricom about a few of them. A read: nothing here writes a name, a status, an
+  // amount or a receipt — the answers arrive on the status callback and fill the name there.
+  r.get('/missing-names', requireAuth(deps.db), requirePermission(deps.db, 'money_in.view'), async (_req, res, next) => {
+    try { res.json({ count: (await deps.nameBackfill.missing(1000)).length, perRun: NAMES_PER_RUN }); } catch (e) { next(e); }
+  });
+  r.post('/find-names', requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'money_in.view'), async (_req, res, next) => {
+    try { res.json(await deps.nameBackfill.ask({ limit: NAMES_PER_RUN, gapMs: 0 })); } catch (e) { next(e); }
+  });
   return r;
 }

@@ -471,6 +471,7 @@ Safaricom calls this: C2B · Where: Get paid → Money in · Who: Owner turns it
 2. If Safaricom says the addresses were already on record, that counts as on. Should a payment then never show, an older address may be on record at Safaricom; their API support can reset it.
 3. From then on every payer payment to your number shows here and in History the moment Safaricom reports it.
 4. Check for missed payments asks Safaricom for anything whose news never arrived. Studio does the same every hour on its own.
+5. Find the missing names fills in the payers Studio never learned. A payment whose confirmation went to another system is only ever seen in the pull, and the pull writes MPESA where a person should be; Safaricom’s own record of that payment still carries the payer’s name, so Studio asks about a few at a time by receipt and puts the name on the payment when the answer comes back. It runs by itself every fifteen minutes and the button is the same thing on demand. It is a read: no money moves, and a payment that already has a name is never asked about.
 
 - Every payment is accepted. Safaricom only asks Studio to approve payments if its support team has switched that on for your number.
 - Test the address in Settings first; Safaricom must be able to reach Studio.
@@ -481,6 +482,8 @@ Safaricom calls this: C2B · Where: Get paid → Money in · Who: Owner turns it
 | GET | `/api/money-in/recent` | money_in.view |
 | POST | `/api/money-in/register` | owner, password; answers 202 and works in the background |
 | POST | `/api/money-in/check` | money_in.view |
+| GET | `/api/money-in/missing-names` | money_in.view; how many completed payments still have no payer name |
+| POST | `/api/money-in/find-names` | money_in.view; asks Safaricom about five of them by receipt; a read |
 
 ### How account numbers work
 
