@@ -72,6 +72,7 @@ export const copy = {
     // Round 3, phase E: the developer side. Under Advanced, and in Manage rather than beside the
     // everyday money pages.
     { key: 'api-keys', label: 'API keys', safaricom: null, path: '/api-keys', icon: 'cog', group: 'manage', phase: 3, available: true, advanced: true },
+    { key: 'webhooks', label: 'Webhooks', safaricom: null, path: '/webhooks', icon: 'arrow-right-circle', group: 'manage', phase: 3, available: true, advanced: true },
     { key: 'businesses', label: 'Businesses', safaricom: null, path: '/businesses', icon: 'grid-3', group: 'manage', phase: 5, available: true },
     { key: 'who-did-what', label: 'Who did what', safaricom: null, path: '/who-did-what', icon: 'search', group: 'manage', phase: 5, available: true },
     { key: 'settings', label: 'Settings', safaricom: 'My Preference', path: '/settings', icon: 'cog', group: 'manage', phase: 1, available: true },
@@ -89,6 +90,7 @@ export const copy = {
       bulk: 'Payroll or suppliers: a list of phone sends, checked in full, sent one by one.',
       reverse: 'Send a payment back to whoever paid it.',
       'api-keys': 'Let another system call this studio, with a key you can stop at any time.',
+      webhooks: 'Tell one address of yours when a payment finishes, and let it check the signature.',
     } as Record<string, string>,
   },
   /**
@@ -117,6 +119,30 @@ export const copy = {
     revoke: 'Stop this key',
     afterRotate: 'The old key stopped working the moment this one was made.',
     afterRevoke: 'That key cannot be used again.',
+  },
+  /**
+   * Round 3, phase E: the webhook address and its signing secret. The words say what the receiver
+   * has to do to check a delivery, because that is the only reason the secret exists.
+   */
+  webhooks: {
+    title: 'Webhooks',
+    intro: 'One address of yours, told when something finishes: a payment that completed, failed, or is still unanswered. Each delivery is signed with a secret only you and Studio hold, so your system can tell a real one from anything else that finds the address.',
+    address: 'Where to send them',
+    url: 'Your address',
+    urlHint: 'Must be https, and on the internet — not inside this network.',
+    save: 'Save the address',
+    change: 'Change the address',
+    newSecret: 'New secret',
+    remove: 'Stop sending',
+    shownOnce: 'Copy this secret now. This is the only time Studio shows it; a lost secret is replaced, never looked up.',
+    gotIt: 'Done',
+    signature: 'Every delivery carries X-Studio-Signature: t=<seconds>,v1=<signature>. Sign the text `t.body` with this secret and SHA-256 to check it, and refuse anything older than five minutes.',
+    inUse: (url: string, hint: string, when: string) => `Sending to ${url} · secret ends ${hint} · changed ${when}`,
+    afterRotate: 'The new secret works from now on; the old one stops.',
+    afterRemove: 'Studio will stop sending. The deliveries already made stay in the list.',
+    next: 'What was sent',
+    deliveriesNote: 'Every delivery, with how many attempts it took, what your address answered and when the next try is due.',
+    deliveriesLink: 'Open Deliveries',
   },
   comingSoon: { title: 'Not in this version yet', badge: 'Coming soon', body: 'Planned for a later release.' },
   login: { title: 'Log in', username: 'Username', password: 'Password', button: 'Log in', locked: 'Too many wrong tries. Wait 15 minutes and try again.', guideLink: 'How to use Daraja Studio' },

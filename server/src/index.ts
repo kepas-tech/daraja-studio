@@ -26,6 +26,9 @@ import { createStatementService } from './businesses/statement.js';
 import { createReconcileService } from './reconcile/service.js';
 import { createCasesService } from './cases/service.js';
 import { createApiKeysService } from './keys/service.js';
+import { createWebhooksService } from './webhooks/service.js';
+import { createWebhookDispatcher } from './webhooks/dispatcher.js';
+import { createWebhookWriter } from './webhooks/writer.js';
 import { createNotificationsService } from './notifications/service.js';
 import { createNotificationWriter } from './notifications/writer.js';
 import { createCriticalBuzzer } from './notifications/buzz.js';
@@ -117,6 +120,11 @@ async function main() {
   const cases = createCasesService({ db });
   // Round 3, phase E: keys for another system to call this studio with.
   const apiKeys = createApiKeysService({ db });
+  // Round 3, phase E: the webhook address and the deliveries queue.
+  const webhooks = createWebhooksService({ db, keyring });
+  const webhookDispatch = createWebhookDispatcher({ db, keyring });
+  const webhookWriter = createWebhookWriter({ db, events, webhooks, egressIps: config.egressIps });
+  webhookWriter.start();
   // Feature 4: the inbox. The writer follows the same hub the browser follows, so a line exists
   // before any page is opened.
   const notifications = createNotificationsService({ db, events });
@@ -140,10 +148,11 @@ async function main() {
   await ensureRecurring(db, 'c2b_pull', 3600);
   await ensureRecurring(db, 'approvals_expire', 600);
   await ensureRecurring(db, 'critical_buzz', 600);
-  const scheduler = createScheduler(db, buildHandlers({ db, events, settings, moneyOut, operators, moneyIn, bulk, buzz }));
+  await ensureRecurring(db, 'webhook_dispatch', 30);
+  const scheduler = createScheduler(db, buildHandlers({ db, events, settings, moneyOut, operators, moneyIn, bulk, buzz, webhooks: webhookDispatch }));
   scheduler.start();
 
-  const app = buildApp({ config, db, keyring, orgs, settings, instance, cache, events, daraja, operators, settingsService, moneyOut, collect, moneyIn, bulk, invoices, businesses, businessTypes, statements, reconcile, cases, apiKeys, push, problems, webauthn, fetchImpl, scheduler });
+  const app = buildApp({ config, db, keyring, orgs, settings, instance, cache, events, daraja, operators, settingsService, moneyOut, collect, moneyIn, bulk, invoices, businesses, businessTypes, statements, reconcile, cases, apiKeys, webhooks, push, problems, webauthn, fetchImpl, scheduler });
   const listenFallback = db.getFallbackOrg();
   const envLabel = listenFallback
     ? await withOrg(listenFallback, async () => (await settings.get('daraja.environment')) ?? 'sandbox')

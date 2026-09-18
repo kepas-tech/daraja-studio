@@ -702,6 +702,27 @@ Safaricom calls this: Review Transaction · Where: Pay out → Waiting · Who: A
 | POST | `/api/requests/:id/check` | the permission of that kind of send |
 | PUT | `/api/settings/approval-threshold` | owner, password; body { cents } |
 
+### Tell another system when a payment finishes
+
+Where: Advanced → Webhooks · Who: Owner · Route: /webhooks
+
+1. Put in your own https address and press Save the address. Studio makes a signing secret and shows it once. Only one address is kept: saving another replaces it.
+2. Every time a payment finishes, Studio posts the same facts its own page shows — the event (`request.completed`, `request.failed`, `request.unknown` and the rest), the amount, the receipt, the person and the times — as JSON.
+3. Check the signature before you trust a delivery: the header is X-Studio-Signature: t=<seconds>,v1=<signature>, and the signature is HMAC-SHA256 of `t.body` with the secret. Refuse anything older than five minutes, so a delivery cannot be replayed.
+4. If your address does not answer 2xx, Studio tries again: after one minute, five minutes, thirty minutes, two hours, six hours, then twenty-four hours. That is six attempts; after the sixth it stops and waits for a person.
+5. New secret makes a new one and shows it once; the old secret stops verifying at that moment. Stop sending removes the address and clears the queue.
+
+- The address must be https and on the internet. An address inside this network is refused: a webhook would otherwise let Studio post its own data to itself.
+- Nothing about the secret or the signature is ever logged, and the secret is never in an audit row. The page shows only its last four characters after the one time it is displayed.
+- Deliveries are kept with what your address answered, so a receiver that was down can be checked and retried by hand.
+
+| Method | Path | Who |
+|---|---|---|
+| GET | `/api/webhooks` | owner; the address and the last four characters of the secret |
+| PUT | `/api/webhooks` | owner, password; body { url }; answers with the secret the first time |
+| POST | `/api/webhooks/secret` | owner, password; a new secret, shown once |
+| DELETE | `/api/webhooks` | owner, password; clears the queue with it |
+
 ### Let another system call Studio
 
 Where: Advanced → API keys · Who: Owner · Route: /api-keys

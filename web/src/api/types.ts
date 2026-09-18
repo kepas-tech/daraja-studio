@@ -139,6 +139,10 @@ export interface ApiKeyView {
   createdAt: string; lastUsedAt: string | null; revokedAt: string | null; rotatedFrom: string | null;
   createdBy: { id: string; displayName: string } | null;
 }
+/** Round 3, phase E: the webhook address, and the last four characters of its signing secret. */
+export interface WebhookView { url: string | null; secretHint: string | null; updatedAt: string | null }
+/** The answer a save or a rotation gives: the secret is here, and only here. */
+export interface WebhookSaved { webhook: WebhookView; secret: string | null }
 /** The one answer that carries the secret: create and rotate, and nothing else. */
 export interface ApiKeyCreated { key: ApiKeyView; secret: string }
 /** Round 3, phase D-5: the case file on a payment, as `/api/requests/:id/case` reads it. */

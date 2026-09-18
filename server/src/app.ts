@@ -65,6 +65,8 @@ import type { CasesService } from './cases/service.js';
 import { caseRoutes, requestCaseRoutes } from './cases/routes.js';
 import type { ApiKeysService } from './keys/service.js';
 import { apiKeyRoutes } from './keys/routes.js';
+import type { WebhooksService } from './webhooks/service.js';
+import { webhookRoutes } from './webhooks/routes.js';
 import type { InvoicesService } from './invoices/service.js';
 import type { Scheduler } from './scheduler/loop.js';
 import type { PushService } from './push/service.js';
@@ -103,6 +105,8 @@ export interface AppDeps {
   cases: CasesService;
   /** Round 3, phase E: keys another system calls this studio with. */
   apiKeys: ApiKeysService;
+  /** Round 3, phase E: the webhook address, its secret, and the deliveries queue. */
+  webhooks: WebhooksService;
   /** Brief 2, item 2: the three states that mean something is wrong, for Home's banner. */
   problems: ProblemService;
   /** Brief 2, item 5b: the fingerprint ceremonies. Absent in tests that build the app without one. */
@@ -191,6 +195,7 @@ export function buildApp(deps: AppDeps): express.Express {
   app.use('/api/cases', caseRoutes(deps));
   // Round 3, phase E: the developer side, under Advanced.
   app.use('/api/keys', apiKeyRoutes(deps));
+  app.use('/api/webhooks', webhookRoutes(deps));
   app.use('/api/accounts', accountsRoutes(deps));
   // Feature 4: the inbox the writer fills and the bell reads.
   app.use('/api/notifications', notificationRoutes(deps));

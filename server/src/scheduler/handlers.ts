@@ -10,6 +10,7 @@ import type { OrgStatus } from '../orgs/service.js';
 import type { MoneyInService } from '../money_in/service.js';
 import type { BulkService } from '../money_out/bulk.js';
 import type { CriticalBuzzer } from '../notifications/buzz.js';
+import type { createWebhookDispatcher } from '../webhooks/dispatcher.js';
 import type { JobHandler } from './loop.js';
 
 export const REQUEST_TIMEOUT_MEANING = 'No answer from Safaricom within 5 minutes. Try again.';
@@ -153,6 +154,8 @@ export function buildHandlers(
     bulk: Pick<BulkService, 'drain'>;
     /** Round 3, phase D-8: the reminder an unread critical alert gets, every ten minutes. */
     buzz: CriticalBuzzer;
+    /** Round 3, phase E: the webhook deliveries that are due a try. */
+    webhooks: ReturnType<typeof createWebhookDispatcher>;
   },
 ): Record<string, JobHandler> {
   return {
@@ -166,6 +169,9 @@ export function buildHandlers(
     // Every ten minutes: an unread critical alert is reminded about, and stops the moment somebody
     // reads it. The cap lives in the buzzer, not here.
     critical_buzz: async () => { await forEachOrg(deps.db, async () => { await deps.buzz.buzzOnce(); }); },
+    // Every 30 seconds: every webhook delivery that is due, signed and posted, with the retry curve
+    // deciding what happens to the ones that are not answered.
+    webhook_dispatch: async () => { await forEachOrg(deps.db, async () => { await deps.webhooks.dispatchOnce(); }); },
     request_timeout: requestTimeoutHandler({ db: deps.db, events: deps.events }),
     money_out_sweep: sweepHandler({ db: deps.db, moneyOut: deps.moneyOut }),
     housekeeping: housekeepingHandler({ db: deps.db }),

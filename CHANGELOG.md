@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.51.0 — webhooks, signed and retried
+
+- **One address per organisation is told when a payment finishes.** Studio posts the same facts its
+  own page shows — the event, the amount, the receipt, the person, the times — as JSON, to an https
+  address the owner sets under Advanced › Webhooks.
+- **Every delivery is signed.** `X-Studio-Signature: t=<seconds>,v1=<signature>`, where the signature
+  is HMAC-SHA256 of `t.body` with the organisation's own secret, so the receiver can refuse anything
+  it did not come from and anything old enough to be a replay. Nothing about the secret or the
+  signature is ever logged.
+- **The retry curve is the one the plan asked for**: one minute, five minutes, thirty minutes, two
+  hours, six hours, then twenty-four hours — six attempts, and after the sixth the delivery is left
+  failed for a person to look at.
+- **The secret is shown once**, when the address is set and when it is rotated; only its last four
+  characters are kept on the page. An address inside this network is refused, so a webhook can never
+  be pointed back at Studio itself.
 ## 0.50.0 — API keys, under Advanced
 
 - **Another system can call this studio with a key.** A key carries one of your roles — Viewer may

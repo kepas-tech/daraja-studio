@@ -84,7 +84,7 @@ describe('Nav', () => {
   it('keeps the rarely used destinations off the everyday menu and offers Advanced as a plain link to them', () => {
     render(<MemoryRouter initialEntries={['/']}><Nav /></MemoryRouter>);
     const advanced = copy.nav.filter((e) => e.advanced);
-    expect(advanced.map((e) => e.key)).toEqual(['standing-orders', 'express', 'bonga', 'bulk', 'reverse', 'api-keys']);
+    expect(advanced.map((e) => e.key)).toEqual(['standing-orders', 'express', 'bonga', 'bulk', 'reverse', 'api-keys', 'webhooks']);
     for (const e of advanced) expect(document.querySelector(`a[href="${e.path}"]`)).toBeNull();
     expect(screen.getByRole('link', { name: /Advanced/ })).toHaveAttribute('href', '/advanced');
     expect(screen.queryByRole('button', { name: 'Advanced' })).toBeNull();
@@ -127,7 +127,7 @@ describe('Nav', () => {
       if (e.safaricom) expect(screen.getByText(e.safaricom)).toBeInTheDocument();
     }
     expect(copy.nav.map((e) => e.key)).toEqual([
-      'home','notifications','history','reports','stk','money-in','qr','invoices','standing-orders','express','bonga','send','contacts','bulk','approvals','reverse','api-keys','businesses','who-did-what','settings','advanced','guide','not-possible',
+      'home','notifications','history','reports','stk','money-in','qr','invoices','standing-orders','express','bonga','send','contacts','bulk','approvals','reverse','api-keys','webhooks','businesses','who-did-what','settings','advanced','guide','not-possible',
     ]);
   });
 });
