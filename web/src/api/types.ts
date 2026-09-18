@@ -196,10 +196,54 @@ export interface BusinessView {
 export interface AccountView {
   id: string; businessId: string; parentId: string | null; number: string; fullNumber: string;
   name: string; phone: string | null; note: string | null; createdAt: string;
+  /** Round 3, phase C: what this account is expected to pay each period, when its kind has one. */
+  standingCents?: number | null;
+  lastRemindedAt?: string | null;
   /** Live sub-accounts under this account; always empty for a sub-account. */
   children: AccountView[];
   /** The number belonged to somebody else until `until`, within the last twelve months. */
   previousHolder: { name: string; until: string } | null;
+}
+/** Round 3, phase C: one line of an account's running statement. */
+export interface StatementRow {
+  at: string;
+  kind: 'in' | 'out' | 'invoice';
+  label: string;
+  amountCents: number;
+  status: string;
+  receipt: string | null;
+  reference: string | null;
+  accountName: string | null;
+  requestId: string | null;
+  invoiceId: string | null;
+}
+/** `GET /api/accounts/:id/statement`: the running statement and the one line on top of it. */
+export interface StatementView {
+  account: { id: string; name: string; fullNumber: string; phone: string | null; note: string | null; businessId: string; businessName: string; businessCode: string; parentId: string | null };
+  type: BusinessTypeView;
+  standingCents: number | null;
+  schedule: { regular: TypeTemplate['regular']; standingAmount: TypeTemplate['standingAmount']; periodsDue: number; expectedCents: number | null };
+  paidInCents: number; paidOutCents: number;
+  invoicedCents: number; unpaidInvoiceCents: number; unpaidInvoiceCount: number;
+  owedCents: number; behindPeriods: number;
+  lastRemindedAt: string | null;
+  rows: StatementRow[];
+}
+/** One account in "Who is behind". */
+export interface ArrearsRow {
+  accountId: string; name: string; fullNumber: string;
+  standingCents: number | null; periodsDue: number; expectedCents: number | null; paidInCents: number;
+  owedCents: number; behindPeriods: number; lastRemindedAt: string | null;
+  oldestInvoice: { id: string; reference: string; billedPeriod: string; dueDate: string; amountCents: number; paidCents: number } | null;
+}
+/** `GET /api/businesses/:id/arrears`. `hasArrears` is false for a kind that expects nothing regular. */
+export interface ArrearsView {
+  businessId: string; businessName: string; businessCode: string;
+  type: BusinessTypeView;
+  hasArrears: boolean;
+  rows: ArrearsRow[];
+  behindCount: number;
+  owedCents: number;
 }
 /** One past holder of a number, for "Past holders of this number". */
 export interface HistoryEntry { name: string; phone: string | null; level: 'business' | 'account' | 'sub_account'; createdAt: string; deletedAt: string; deletedBy: string | null }

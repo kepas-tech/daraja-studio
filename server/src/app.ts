@@ -58,6 +58,7 @@ import { auditRoutes } from './audit/routes.js';
 import { feeRoutes } from './fees/routes.js';
 import type { BusinessesService } from './businesses/service.js';
 import type { BusinessTypesService } from './businesses/types.js';
+import type { StatementService } from './businesses/statement.js';
 import type { InvoicesService } from './invoices/service.js';
 import type { Scheduler } from './scheduler/loop.js';
 import type { PushService } from './push/service.js';
@@ -88,6 +89,8 @@ export interface AppDeps {
   businesses: BusinessesService;
   /** Round 3, phase B: the kinds of business, and the words each kind brings with it. */
   businessTypes: BusinessTypesService;
+  /** Round 3, phase C: one account's running statement, and who is behind. */
+  statements: StatementService;
   /** Brief 2, item 2: the three states that mean something is wrong, for Home's banner. */
   problems: ProblemService;
   /** Brief 2, item 5b: the fingerprint ceremonies. Absent in tests that build the app without one. */

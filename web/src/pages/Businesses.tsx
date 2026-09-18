@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router';
 import { api } from '../api/client';
 import type { Confirm } from '../api/types';
-import type { AccountView, BusinessTypeView, BusinessView, HistoryEntry, TypeTemplate } from '../api/types';
+import type { AccountView, ArrearsView, BusinessTypeView, BusinessView, HistoryEntry, TypeTemplate } from '../api/types';
 import { useSession } from '../app/session';
 import { Button } from '../components/Button';
 import { Card, cardRow } from '../components/Card';
@@ -14,7 +15,9 @@ import { TextField } from '../components/TextField';
 import { useToast } from '../components/Toast';
 import { BusinessTypeForm } from '../components/BusinessTypeForm';
 import { copy } from '../copy/en';
-import { normalizeKe, phone } from '../format';
+import { MoneyInput } from '../components/MoneyInput';
+import { money } from '../format';
+import { normalizeKe, phone, when } from '../format';
 import { expectationLines, wordsOf, type TypeWords } from '../businessTypes';
 
 /** The code the form shows as the one Studio will give: the lowest of 000-999 not yet used. */
@@ -63,21 +66,29 @@ function BusinessForm({ existing, offered, types, error, onSave, onCancel }: { e
   );
 }
 
-interface AccountDraft { name: string; phone: string; note: string }
+interface AccountDraft { name: string; phone: string; note: string; standingCents: number | null }
 
 /**
  * One account — a customer, or something under a customer. There is no number box anywhere: Studio
  * draws the number and never lets it be typed, so the only words here are the owner's own.
  */
-function AccountForm({ existing, words, error, onSave, onCancel }: { existing: AccountView | null; words: TypeWords; error: Error | Explained | null; onSave: (draft: AccountDraft) => Promise<void>; onCancel: () => void }) {
+function AccountForm({ existing, words, standing, error, onSave, onCancel }: { existing: AccountView | null; words: TypeWords; standing: boolean; error: Error | Explained | null; onSave: (draft: AccountDraft) => Promise<void>; onCancel: () => void }) {
   const c = copy.businesses;
-  const [draft, setDraft] = useState<AccountDraft>({ name: existing?.name ?? '', phone: existing?.phone ?? '', note: existing?.note ?? '' });
+  const [draft, setDraft] = useState<AccountDraft>({ name: existing?.name ?? '', phone: existing?.phone ?? '', note: existing?.note ?? '', standingCents: existing?.standingCents ?? null });
   const phoneOk = draft.phone.trim().length === 0 || normalizeKe(draft.phone) !== null;
   return (
     <div className="space-y-3">
       <TextField label={c.accountName(words.one)} value={draft.name} maxLength={80} onChange={(e) => setDraft({ ...draft, name: e.target.value })} autoFocus />
       <PhoneInput label={c.customerPhone} value={draft.phone} onChange={(v) => setDraft({ ...draft, phone: v })} />
       <TextField label={c.customerNote} value={draft.note} maxLength={200} onChange={(e) => setDraft({ ...draft, note: e.target.value })} />
+      {/* Round 3, phase C: what this account is expected to pay each period, when the kind has a
+          standing amount. It is a number on the account; nothing charges it. */}
+      {standing && (
+        <div>
+          <MoneyInput label={copy.statement.standing} valueCents={draft.standingCents} onChange={(cents) => setDraft({ ...draft, standingCents: cents })} />
+          <p className="mt-1 text-sm text-muted">{copy.statement.standingHint}</p>
+        </div>
+      )}
       <ErrorCard error={error} />
       <div className="flex gap-2">
         <Button type="button" disabled={draft.name.trim().length === 0 || !phoneOk} onClick={() => void onSave(draft)}>{c.save}</Button>
@@ -105,6 +116,8 @@ export function Businesses() {
   const [changingKind, setChangingKind] = useState<string | null>(null);
   const [kindDraft, setKindDraft] = useState('');
   const [editingType, setEditingType] = useState<string | 'new' | null>(null);
+  // Round 3, phase C: "Who is behind" for one business, loaded when the owner asks for it.
+  const [arrears, setArrears] = useState<Record<string, ArrearsView>>({});
   const [err, setErr] = useState<Error | Explained | null>(null);
   const [formErr, setFormErr] = useState<Error | Explained | null>(null);
   const [adding, setAdding] = useState(false);
@@ -191,7 +204,7 @@ export function Businesses() {
     } catch (e) { toast.error(toastText(e)); }
   };
 
-  const body = (draft: AccountDraft) => ({ name: draft.name.trim(), phone: normalizeKe(draft.phone) ?? undefined, note: draft.note.trim() || undefined });
+  const body = (draft: AccountDraft) => ({ name: draft.name.trim(), phone: normalizeKe(draft.phone) ?? undefined, note: draft.note.trim() || undefined, standingCents: draft.standingCents ?? undefined });
 
   const saveAccount = async (business: BusinessView, draft: AccountDraft) => {
     setFormErr(null);
@@ -235,6 +248,15 @@ export function Businesses() {
       setDeleting(null);
       await Promise.all([load(), loadAccounts(businessId)]);
     } catch (e) { toast.error(toastText(e)); } finally { setBusy(false); }
+  };
+
+  /** Who is behind, in this kind's own words. Read only; nothing here charges anybody. */
+  const whoIsBehind = async (b: BusinessView) => {
+    if (arrears[b.id]) { setArrears((m) => { const n = { ...m }; delete n[b.id]; return n; }); return; }
+    try {
+      const r = await api.get<ArrearsView>('/api/businesses/' + b.id + '/arrears');
+      setArrears((m) => ({ ...m, [b.id]: r }));
+    } catch (e) { toast.error(toastText(e)); }
   };
 
   const pastHolders = async (x: AccountView) => {
@@ -293,6 +315,7 @@ export function Businesses() {
                       {mayManage && (
                         <>
                           <Button type="button" variant="secondary" onClick={() => { setAdding(false); setFormErr(null); setChangingKind(b.id); setKindDraft(b.type.key); }}>{c.changeKind}</Button>
+                          <Button type="button" variant="secondary" onClick={() => void whoIsBehind(b)}>{copy.statement.who}</Button>
                           <Button type="button" variant="secondary" onClick={() => { setAdding(false); setFormErr(null); setEditing(b.id); }}>{c.edit}</Button>
                           <Button type="button" variant={b.active ? 'danger' : 'secondary'} onClick={() => void flip(b)}>{b.active ? c.switchOff : c.switchOn}</Button>
                           <Button type="button" variant="danger" onClick={() => setDeleting({ id: b.id, name: b.name, businessId: b.id, kind: 'business' })}>{c.retire}</Button>
@@ -316,17 +339,49 @@ export function Businesses() {
                     </div>
                   )}
 
+                  {/* Round 3, phase C: who is behind, for a kind that expects money regularly. */}
+                  {arrears[b.id] && (
+                    <div className="space-y-2 rounded-md border border-line bg-page p-3" data-testid={'arrears-' + b.id}>
+                      <p className="text-base font-medium">{copy.statement.who}</p>
+                      {!arrears[b.id]!.hasArrears ? <p className="text-sm text-muted">{copy.statement.noArrearsHere}</p> : (
+                        <>
+                          <p className="text-sm text-muted">{copy.statement.whoIntro(words.many)}</p>
+                          {arrears[b.id]!.rows.length === 0 ? <p className="text-sm text-muted">{copy.statement.whoNone}</p> : (
+                            <>
+                              <p className="text-base">{copy.statement.whoTotal(money(arrears[b.id]!.owedCents), arrears[b.id]!.behindCount)}</p>
+                              <ul>
+                                {arrears[b.id]!.rows.map((x) => (
+                                  <li key={x.accountId} className="flex flex-wrap items-center justify-between gap-2 border-t border-line py-2 text-base" data-testid={'arrears-row-' + x.accountId}>
+                                    <span className="min-w-0">
+                                      <Link to={'/accounts/' + x.accountId}>{x.name}</Link>
+                                      <span className="block text-sm text-muted">
+                                        {x.owedCents > 0 ? copy.statement.behind(x.behindPeriods) : copy.statement.upToDate}
+                                        {x.oldestInvoice ? ' · ' + copy.statement.oldest(x.oldestInvoice.reference, x.oldestInvoice.billedPeriod) : ''}
+                                        {x.lastRemindedAt ? ' · ' + copy.statement.lastReminded(when(x.lastRemindedAt)) : ''}
+                                      </span>
+                                    </span>
+                                    <span className="whitespace-nowrap">{money(x.owedCents)}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
+
                   {openId === b.id && (
                     <div className="space-y-3 rounded-md border border-line bg-page p-3">
                       {addingTo === b.id ? (
-                        <AccountForm existing={null} words={words} error={formErr} onSave={(d) => saveAccount(b, d)} onCancel={() => { setAddingTo(null); setFormErr(null); }} />
+                        <AccountForm existing={null} words={words} standing={b.type.template.standingAmount === 'fixed'} error={formErr} onSave={(d) => saveAccount(b, d)} onCancel={() => { setAddingTo(null); setFormErr(null); }} />
                       ) : mayManage && <Button type="button" variant="secondary" onClick={() => { setFormErr(null); setEditingAccount(null); setAddingTo(b.id); }}>{c.addAccount(words.a)}</Button>}
                       {(accounts[b.id] ?? []).length === 0 && addingTo !== b.id && <p className="text-sm text-muted">{c.noAccounts(words.many)}</p>}
                       <ul>
                         {(accounts[b.id] ?? []).map((x) => (
                           <li key={x.id} data-testid={'account-' + x.id} className="border-t border-line py-2 first:border-t-0">
                             {editingAccount === x.id ? (
-                              <AccountForm existing={x} words={words} error={formErr} onSave={(d) => editAccount(b, d, x.id)} onCancel={() => { setEditingAccount(null); setFormErr(null); }} />
+                              <AccountForm existing={x} words={words} standing={b.type.template.standingAmount === 'fixed'} error={formErr} onSave={(d) => editAccount(b, d, x.id)} onCancel={() => { setEditingAccount(null); setFormErr(null); }} />
                             ) : (
                               <div className="space-y-2">
                                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -339,6 +394,7 @@ export function Businesses() {
                                   </span>
                                   {mayManage && (
                                     <span className="flex flex-wrap items-center gap-2">
+                                      <Link className="inline-flex min-h-11 items-center rounded-md border border-line bg-page px-4 font-semibold text-ink hover:no-underline" to={'/accounts/' + x.id}>{copy.statement.open}</Link>
                                       <Button type="button" variant="secondary" onClick={() => { setFormErr(null); setAddingTo(null); setEditingAccount(x.id); }}>{c.editAccount}</Button>
                                       <Button type="button" variant="secondary" onClick={() => void pastHolders(x)}>{c.pastHolders}</Button>
                                       <Button type="button" variant="danger" onClick={() => setDeleting({ id: x.id, name: x.name, businessId: b.id, kind: 'account' })}>{c.retire}</Button>
@@ -362,7 +418,7 @@ export function Businesses() {
                                     {x.children.map((k) => (
                                       <li key={k.id} data-testid={'account-' + k.id} className="py-1">
                                         {editingAccount === k.id ? (
-                                          <AccountForm existing={k} words={{ ...words, one: sub, a: 'a ' + sub.toLowerCase(), many: words.subs ?? sub }} error={formErr} onSave={(d) => editAccount(b, d, k.id)} onCancel={() => { setEditingAccount(null); setFormErr(null); }} />
+                                          <AccountForm existing={k} words={{ ...words, one: sub, a: 'a ' + sub.toLowerCase(), many: words.subs ?? sub }} standing={false} error={formErr} onSave={(d) => editAccount(b, d, k.id)} onCancel={() => { setEditingAccount(null); setFormErr(null); }} />
                                         ) : (
                                           <div className="flex flex-wrap items-center justify-between gap-3">
                                             <span className="text-base"><code>{k.fullNumber}</code> · {k.name}{k.note ? <span className="text-sm text-muted"> · {k.note}</span> : null}</span>
@@ -378,7 +434,7 @@ export function Businesses() {
                                     ))}
                                   </ul>
                                   {addingTo === x.id ? (
-                                    <AccountForm existing={null} words={{ ...words, one: sub, a: 'a ' + sub.toLowerCase(), many: words.subs ?? sub }} error={formErr} onSave={(d) => saveUnder(b, x, d)} onCancel={() => { setAddingTo(null); setFormErr(null); }} />
+                                    <AccountForm existing={null} words={{ ...words, one: sub, a: 'a ' + sub.toLowerCase(), many: words.subs ?? sub }} standing={false} error={formErr} onSave={(d) => saveUnder(b, x, d)} onCancel={() => { setAddingTo(null); setFormErr(null); }} />
                                   ) : mayManage && <Button type="button" variant="secondary" onClick={() => { setFormErr(null); setEditingAccount(null); setAddingTo(x.id); }}>{c.addSub('a ' + sub.toLowerCase())}</Button>}
                                 </div>
                                 )}

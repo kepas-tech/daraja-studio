@@ -320,6 +320,26 @@ export const guide: GuideSection[] = [
           { method: 'DELETE', path: '/api/business-types/:key', who: 'businesses.manage; refused while a business uses it' },
         ],
       },
+      {
+        key: 'statement',
+        title: 'One account’s statement, and who is behind',
+        where: ['Businesses', 'an account', 'Open the statement'],
+        path: '/accounts/:id',
+        steps: [
+          'Open the statement from any account. On top is one plain line: paid to date, and still owed.',
+          'Under it, every row that exists for that account, oldest first — each payment in, each payout out, and each invoice raised. Nothing here is money Studio holds, because Studio holds none.',
+          'When the kind of business expects money regularly and the account has a standing amount, the same page says what each period expects, how many periods are behind, and when a reminder was last written. Set the amount on the account itself; nothing ever charges it.',
+          'Raise the next invoice makes one invoice for the standing amount and the coming period, and sends it to Safaricom the way the Invoices page does. It happens only when you press it.',
+          'Write a reminder writes the message for you — the name, what is owed, the business and the account number. Safaricom has no reminder call and Studio has no line of its own to a phone, so the message is yours to send: copy it, or open it in your own messages.',
+          'Who is behind, on a business, lists every account that owes something, the most behind first, with the oldest unpaid invoice. A kind of business that expects nothing regularly has no such list and no arrears: its statement is just the rows.',
+        ],
+        api: [
+          { method: 'GET', path: '/api/accounts/:id/statement', who: 'signed in' },
+          { method: 'GET', path: '/api/businesses/:id/arrears', who: 'signed in' },
+          { method: 'POST', path: '/api/accounts/:id/next-invoice', who: 'invoices.manage; one invoice, nothing automatic' },
+          { method: 'POST', path: '/api/accounts/:id/remind', who: 'businesses.manage; writes the message and records it' },
+        ],
+      },
     ],
   },
   {

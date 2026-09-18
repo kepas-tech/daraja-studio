@@ -246,6 +246,24 @@ Where: Businesses → a business · Route: /businesses
 | PUT | `/api/business-types/:key` | businesses.manage; body { name, template } |
 | DELETE | `/api/business-types/:key` | businesses.manage; refused while a business uses it |
 
+### One account’s statement, and who is behind
+
+Where: Businesses → an account → Open the statement · Route: /accounts/:id
+
+1. Open the statement from any account. On top is one plain line: paid to date, and still owed.
+2. Under it, every row that exists for that account, oldest first — each payment in, each payout out, and each invoice raised. Nothing here is money Studio holds, because Studio holds none.
+3. When the kind of business expects money regularly and the account has a standing amount, the same page says what each period expects, how many periods are behind, and when a reminder was last written. Set the amount on the account itself; nothing ever charges it.
+4. Raise the next invoice makes one invoice for the standing amount and the coming period, and sends it to Safaricom the way the Invoices page does. It happens only when you press it.
+5. Write a reminder writes the message for you — the name, what is owed, the business and the account number. Safaricom has no reminder call and Studio has no line of its own to a phone, so the message is yours to send: copy it, or open it in your own messages.
+6. Who is behind, on a business, lists every account that owes something, the most behind first, with the oldest unpaid invoice. A kind of business that expects nothing regularly has no such list and no arrears: its statement is just the rows.
+
+| Method | Path | Who |
+|---|---|---|
+| GET | `/api/accounts/:id/statement` | signed in |
+| GET | `/api/businesses/:id/arrears` | signed in |
+| POST | `/api/accounts/:id/next-invoice` | invoices.manage; one invoice, nothing automatic |
+| POST | `/api/accounts/:id/remind` | businesses.manage; writes the message and records it |
+
 ## Logging in and finding your way
 
 ### Log in

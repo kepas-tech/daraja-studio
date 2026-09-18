@@ -22,6 +22,7 @@ import { createBulkService } from './money_out/bulk.js';
 import { createInvoicesService } from './invoices/service.js';
 import { createBusinessesService } from './businesses/service.js';
 import { createBusinessTypesService } from './businesses/types.js';
+import { createStatementService } from './businesses/statement.js';
 import { createNotificationsService } from './notifications/service.js';
 import { createNotificationWriter } from './notifications/writer.js';
 import { createPushService } from './push/service.js';
@@ -104,6 +105,8 @@ async function main() {
   const businesses = createBusinessesService({ db, settings, events, egressIps: config.egressIps });
   // Round 3, phase B: the kinds of business. Data, not code: the rows are seeded and then edited.
   const businessTypes = createBusinessTypesService({ db });
+  // Round 3, phase C: statements and arrears, read from the rows that exist.
+  const statements = createStatementService({ db });
   // Feature 4: the inbox. The writer follows the same hub the browser follows, so a line exists
   // before any page is opened.
   const notifications = createNotificationsService({ db, events });
@@ -127,7 +130,7 @@ async function main() {
   const scheduler = createScheduler(db, buildHandlers({ db, events, settings, moneyOut, operators, moneyIn, bulk }));
   scheduler.start();
 
-  const app = buildApp({ config, db, keyring, orgs, settings, instance, cache, events, daraja, operators, settingsService, moneyOut, collect, moneyIn, bulk, invoices, businesses, businessTypes, push, problems, webauthn, fetchImpl, scheduler });
+  const app = buildApp({ config, db, keyring, orgs, settings, instance, cache, events, daraja, operators, settingsService, moneyOut, collect, moneyIn, bulk, invoices, businesses, businessTypes, statements, push, problems, webauthn, fetchImpl, scheduler });
   const listenFallback = db.getFallbackOrg();
   const envLabel = listenFallback
     ? await withOrg(listenFallback, async () => (await settings.get('daraja.environment')) ?? 'sandbox')

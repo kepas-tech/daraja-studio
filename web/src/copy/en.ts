@@ -428,6 +428,47 @@ export const copy = {
     invoicesLine: { on: 'Invoices are on.', per_visit: 'An invoice per visit.', each_term: 'An invoice each term.', off: 'No invoices.' } as Record<string, string>,
     invoicesLineWithReminders: { on: 'Invoices are on, with reminders.', per_visit: 'An invoice per visit.', each_term: 'An invoice each term, with reminders.', off: 'No invoices.' } as Record<string, string>,
   },
+  /**
+   * Round 3, phase C: one account's running statement, and who is behind. Everything here is built
+   * from rows that exist; the kind of business supplies the words and what a period expects.
+   */
+  statement: {
+    /** The one plain line on top: what has come in, and what is still owed. */
+    line: (paid: string, owed: string) => `Paid to date ${paid}. Still owed ${owed}.`,
+    paid: 'Paid to date', owed: 'Still owed',
+    columns: { when: 'When', what: 'What', amount: 'Amount', status: 'Status', receipt: 'Receipt' },
+    subtitle: (noun: string, number: string, business: string) => `${noun} · ${number} · ${business}`,
+    empty: 'Nothing on this account yet.',
+    in: 'Money in', out: 'Money out', invoice: 'Invoice raised',
+    /** The arrears block, only for a kind that expects money regularly and has a set amount. */
+    expectTitle: 'What this period expects',
+    standing: 'Each period',
+    expected: (amount: string, periods: number) => `${periods} period${periods === 1 ? '' : 's'} due at ${amount} each`,
+    behind: (periods: number) => (periods === 1 ? '1 period behind' : periods + ' periods behind'),
+    upToDate: 'Up to date.',
+    raise: 'Raise the next invoice',
+    raised: (reference: string) => `Invoice ${reference} raised. It is on Invoices now.`,
+    remind: 'Write a reminder',
+    reminded: 'Reminder written and recorded.',
+    reminderTitle: 'The reminder, ready to send',
+    reminderHint: 'Safaricom has no reminder call, and Studio has no line of its own to a phone, so this one is yours to send.',
+    copyMessage: 'Copy the message', copied: 'Copied.',
+    sendByPhone: 'Open in messages',
+    remindedLabel: 'Last reminder',
+    lastReminded: (when: string) => 'Last reminder ' + when,
+    neverReminded: 'No reminder written yet.',
+    standingHint: 'What this account is expected to pay each period. Studio never charges it: the statement only says what is behind.',
+    setStanding: 'Set the amount each period',
+    noStanding: 'No standing amount is set for this account, so Studio cannot say what is behind.',
+    /** Who is behind, across one business. */
+    who: 'Who is behind',
+    whoNone: 'Nobody is behind.',
+    whoIntro: (many: string) => `Every ${many.toLowerCase()} that owes something, the most behind first. Nothing here is charged on its own: raise an invoice or write a reminder for one of them.`,
+    whoTotal: (amount: string, n: number) => `${amount} owed across ${n} account${n === 1 ? '' : 's'}.`,
+    open: 'Open the statement',
+    oldest: (reference: string, period: string) => `Oldest unpaid: ${reference} (${period})`,
+    noArrearsHere: 'This kind of business expects nothing regularly, so there is nothing to be behind on.',
+  },
   askToPay: {
     title: 'Ask for payment', safaricom: 'STK Push',
     intro: 'The payer gets a prompt on their phone and enters their M-Pesa PIN.',

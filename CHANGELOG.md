@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.40.0 — statements and who is behind
+
+- **Every account has a running statement**: each payment in, each payout out and each invoice
+  raised, oldest first, built only from rows that exist — never from money Studio holds, because it
+  holds none. One plain line sits on top: **paid to date, and still owed**.
+- **The standing amount per account** is what a period expects — the rent, the fee, the monthly
+  contribution — set by the owner on the account itself. Where the kind of business says money is
+  expected regularly and an amount is set, the statement says how many periods are behind, and the
+  business lists **who is behind**, the furthest first, with the oldest unpaid invoice beside each.
+  A kind that expects nothing regular gets the statement with no arrears at all.
+- **One press to raise the next invoice**, for the standing amount and the coming period, and **one
+  press to write a reminder**: the message names the person, what is owed, the business and the
+  account number, and is recorded on the account. Safaricom has no reminder call and Studio has no
+  line of its own to a phone, so the message is the owner's to send — copied, or opened in their own
+  messages.
+- **Nothing is ever charged on its own, and nothing moves without a person pressing Send.** The
+  statement only reads; the invoice press raises a demand, not a payment.
+
 ## 0.39.0 — what kind of business this is
 
 - **A business is asked what kind it is**, as it is made, and the answer is data: a row in

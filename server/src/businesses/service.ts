@@ -33,6 +33,10 @@ export interface PastHolder { name: string; until: string }
 export interface AccountView {
   id: string; businessId: string; parentId: string | null; number: string; fullNumber: string;
   name: string; phone: string | null; note: string | null; createdAt: string;
+  /** Round 3, phase C: what this account is expected to pay each period, when its kind has a standing amount. */
+  standingCents: number | null;
+  /** When a reminder for this account was last prepared. */
+  lastRemindedAt: string | null;
   /** Live sub-accounts under this account, in number order; always empty for a sub-account. */
   children: AccountView[];
   /** The number belonged to somebody else until `until`, within the last twelve months. */
@@ -51,7 +55,7 @@ export type UnmatchedPayment = RequestView & {
 };
 export interface BusinessSummaryItem { businessId: string; code: string; name: string; /** Round 3, phase B: Home leads with this business's own words. */ type: BusinessTypeView; inCents: number; outCents: number; /** How many accounts the business holds, for the "who is behind" line. */ accountCount: number }
 export interface BusinessSummary { items: BusinessSummaryItem[] }
-export interface AccountInput { name: string; phone?: string | null; note?: string | null }
+export interface AccountInput { name: string; phone?: string | null; note?: string | null; standingCents?: number | null }
 /** One past holder of a number, for "Past holders of this number". */
 export interface HistoryEntry { name: string; phone: string | null; level: 'business' | 'account' | 'sub_account'; createdAt: string; deletedAt: string; deletedBy: string | null }
 /** The random draw, injected: tests pin the number a run produces without stubbing the database. */
@@ -96,6 +100,7 @@ interface BusinessRow { id: string; code: string; name: string; active: boolean;
 interface AccountRow {
   id: string; business_id: string; parent_id: string | null; number: string; full_number: string;
   name: string; phone: string | null; note: string | null; created_at: Date;
+  standing_cents: number | null; last_reminded_at: Date | null;
 }
 interface WidthRow { id: string; scope_kind: 'accounts' | 'sub_accounts'; scope_id: string; width: number; capacity: number; used: number; closed_at: Date | null }
 /** What one mint did, and the width change it caused, when it caused one. */
@@ -106,7 +111,7 @@ interface Minted {
 
 const UNIQUE_VIOLATION = '23505';
 const isUnique = (e: unknown) => typeof e === 'object' && e !== null && (e as { code?: string }).code === UNIQUE_VIOLATION;
-const COLS = 'id, business_id, parent_id, number, full_number, name, phone, note, created_at';
+const COLS = 'id, business_id, parent_id, number, full_number, name, phone, note, standing_cents, last_reminded_at, created_at';
 const WIDTH_COLS = 'id, scope_kind, scope_id, width, capacity, used, closed_at';
 const NO_NUMBERS = 'This business has used every account number Studio can make. Delete an account you no longer need, then try again.';
 
@@ -127,6 +132,8 @@ const NEUTRAL: BusinessTypeView = { key: 'other', name: 'Other', template: OTHER
 const toAccountView = (r: AccountRow, children: AccountView[] = [], previousHolder: PastHolder | null = null): AccountView => ({
   id: r.id, businessId: r.business_id, parentId: r.parent_id, number: r.number, fullNumber: r.full_number,
   name: r.name, phone: r.phone, note: r.note, createdAt: r.created_at.toISOString(),
+  standingCents: r.standing_cents === null || r.standing_cents === undefined ? null : Number(r.standing_cents),
+  lastRemindedAt: r.last_reminded_at?.toISOString() ?? null,
   children, previousHolder,
 });
 
@@ -250,9 +257,9 @@ export function createBusinessesService(deps: { db: Db; settings: Settings; even
       for (let draw = 0; draw < DRAWS_PER_WIDTH; draw++) {
         const candidate = '9'.repeat(open.width - FIRST_WIDTH) + String(rng(WIDTH_CAPACITY)).padStart(3, '0');
         const { rows } = await c.query<AccountRow>(
-          `INSERT INTO accounts(business_id, parent_id, number, name, phone, note, created_by)
-           VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT DO NOTHING RETURNING ${COLS}`,
-          [businessId, parent ? parent.id : null, candidate, input.name, phone, input.note ?? null, actor.personId]);
+          `INSERT INTO accounts(business_id, parent_id, number, name, phone, note, standing_cents, created_by)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT DO NOTHING RETURNING ${COLS}`,
+          [businessId, parent ? parent.id : null, candidate, input.name, phone, input.note ?? null, parent ? null : input.standingCents ?? null, actor.personId]);
         if (rows[0]) {
           await c.query(`UPDATE number_widths SET used=$2 WHERE id=$1`, [open.id, used + 1]);
           return { row: rows[0], grew };
@@ -430,13 +437,16 @@ export function createBusinessesService(deps: { db: Db; settings: Settings; even
     async updateAccount(id, input, actor) {
       const before = await accountRow(id);
       const phone = input.phone ? normalizePhone(input.phone) : null;
+      // Phase C: the standing amount is the owner's number, and only the owner's. A sub-account
+      // carries none of its own: the person above it is the one who owes.
+      const standing = before.parent_id ? before.standing_cents : input.standingCents ?? null;
       const [row] = await deps.db.query<AccountRow>(
-        `UPDATE accounts SET name=$2, phone=$3, note=$4 WHERE id=$1 AND org_id=$5 RETURNING ${COLS}`,
-        [id, input.name, phone, input.note ?? null, requireOrg()]);
+        `UPDATE accounts SET name=$2, phone=$3, note=$4, standing_cents=$5 WHERE id=$1 AND org_id=$6 RETURNING ${COLS}`,
+        [id, input.name, phone, input.note ?? null, standing, requireOrg()]);
       await audit(deps.db, {
         personId: actor.personId, action: 'account.edited', target: id,
-        before: { name: before.name, note: before.note, phone: before.phone !== null },
-        after: { name: input.name, note: input.note ?? null, phone: phone !== null }, ip: actor.ip,
+        before: { name: before.name, note: before.note, phone: before.phone !== null, standingCents: before.standing_cents === null ? null : Number(before.standing_cents) },
+        after: { name: input.name, note: input.note ?? null, phone: phone !== null, standingCents: standing }, ip: actor.ip,
       });
       return toAccountView(row);
     },

@@ -37,7 +37,9 @@ const updateSchema = z.object({ name, active: z.boolean() });
 const createSchema = z.object({ name, typeKey: z.string().trim().min(1).max(30).optional() }).strict();
 const typeBody = z.object({ name: z.string().trim().min(1).max(40), template: typeTemplate }).strict();
 const typeKeySchema = z.object({ typeKey: z.string().trim().min(1).max(30) }).strict();
-const accountSchema = z.object({ name, phone, note }).strict();
+// Round 3, phase C: the standing amount one account is expected to pay each period, when its kind
+// of business has one. Sent in shillings, stored in cents, and never charged by anything automatic.
+const accountSchema = z.object({ name, phone, note, standingCents: z.number().int().positive().max(1_000_000_000).nullish() }).strict();
 const assignSchema = z.object({ businessId: uuid, accountId: uuid.nullish() });
 const listSchema = z.object({ q: z.string().trim().max(80).optional() });
 const isRealDay = (s: string) => {
@@ -98,6 +100,16 @@ export function businessesRoutes(deps: AppDeps): Router {
 
   // Round 3, phase B: change the kind of business. Words change; codes, accounts, numbers and every
   // payment that already names the business do not.
+  // Round 3, phase C: one account's running statement, and who is behind for the whole business.
+  // Both are reads; neither moves money or asks Safaricom anything.
+  r.get('/:id/arrears', async (req, res, next) => {
+    try {
+      const id = String(req.params.id);
+      if (!isUuid(id)) throw new HttpError(404, 'not_found', NOT_FOUND);
+      res.json(await deps.statements.arrears(id));
+    } catch (e) { next(e); }
+  });
+
   r.put('/:id/type', requirePermission(deps.db, 'businesses.manage'), async (req, res, next) => {
     try {
       const id = String(req.params.id);
@@ -206,6 +218,36 @@ export function accountsRoutes(deps: AppDeps): Router {
       if (!isUuid(id)) throw new HttpError(404, 'not_found', ACCOUNT_NOT_FOUND);
       const b = parse(accountSchema, req.body);
       res.json(await deps.businesses.updateAccount(id, b, actor(req)));
+    } catch (e) { next(e); }
+  });
+
+  // The account's statement: every payment in, every payout out and every invoice raised, oldest
+  // first, with what has been paid and what is still owed on top.
+  r.get('/:id/statement', async (req, res, next) => {
+    try {
+      const id = String(req.params.id);
+      if (!isUuid(id)) throw new HttpError(404, 'not_found', ACCOUNT_NOT_FOUND);
+      res.json(await deps.statements.statement(id));
+    } catch (e) { next(e); }
+  });
+
+  // One press, and one invoice: the account's standing amount for the coming period, built here and
+  // sent by the invoices service. Nothing is raised until this runs, and nothing is ever automatic.
+  r.post('/:id/next-invoice', requirePermission(deps.db, 'invoices.manage'), async (req, res, next) => {
+    try {
+      const id = String(req.params.id);
+      if (!isUuid(id)) throw new HttpError(404, 'not_found', ACCOUNT_NOT_FOUND);
+      const input = await deps.statements.nextInvoice(id);
+      res.status(201).json(await deps.invoices.create(input, actor(req)));
+    } catch (e) { next(e); }
+  });
+
+  // The reminder Studio writes for the owner to send: recorded, never sent by Studio itself.
+  r.post('/:id/remind', requirePermission(deps.db, 'businesses.manage'), async (req, res, next) => {
+    try {
+      const id = String(req.params.id);
+      if (!isUuid(id)) throw new HttpError(404, 'not_found', ACCOUNT_NOT_FOUND);
+      res.json(await deps.statements.remind(id, actor(req)));
     } catch (e) { next(e); }
   });
 

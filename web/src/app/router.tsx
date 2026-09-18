@@ -18,6 +18,7 @@ import { Reports } from '../pages/Reports';
 import { RequestDetail } from '../pages/RequestDetail';
 import { People } from '../pages/People';
 import { Contacts } from '../pages/Contacts';
+import { AccountStatement } from '../pages/AccountStatement';
 import { Businesses } from '../pages/Businesses';
 import { WhoDidWhat } from '../pages/WhoDidWhat';
 import { Notifications } from '../pages/Notifications';
@@ -66,6 +67,7 @@ function Gate() {
         <Route path="/people" element={<People />} />
         <Route path="/contacts" element={<Contacts />} />
         <Route path="/businesses" element={<Businesses />} />
+        <Route path="/accounts/:id" element={<AccountStatement />} />
         <Route path="/who-did-what" element={<WhoDidWhat />} />
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/not-possible" element={<NotPossible />} />
