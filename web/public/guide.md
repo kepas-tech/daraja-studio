@@ -640,7 +640,7 @@ Where: Pay out → Contacts · Who: Anyone signed in can look; the owner, or a r
 
 Safaricom calls this: Initiate Transaction › Business Payment to Customer · Where: Pay out → Send money → To a phone · Who: Owner or Operator · Route: /send/phone · Permission: send.phone
 
-1. Open Send money and press To a phone. (The other kinds, to a business wallet, a paybill, a till, float moves, top-ups and KRA, say Coming soon.)
+1. Open Send money and press To a phone. (The other kinds, to a business wallet, a paybill, a till, float moves, top-ups and KRA, say Coming soon. Buying airtime is listed there too, and it says the honest thing: Safaricom’s M-Pesa API has no airtime command, so it is bought from the phone or the portal — the page links to the card that says where.)
 2. Phone number.
 3. Amount in KES, whole shillings.
 4. What kind of payment is this? One of your own categories (Settings › Payment categories); each is one of Safaricom’s three kinds, Business payment, Salary or Promotion.

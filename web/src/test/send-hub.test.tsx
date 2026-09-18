@@ -1,4 +1,4 @@
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { describe, it, expect, afterEach } from 'vitest';
 import { SendHub } from '../pages/send/SendHub';
@@ -7,11 +7,23 @@ import { copy } from '../copy/en';
 afterEach(() => cleanup());
 
 describe('SendHub', () => {
-  it('lists the seven kinds; only To a phone links, the rest say 2B', () => {
+  it('lists the eight kinds; only To a phone links, the rest say 2B', () => {
     render(<MemoryRouter><SendHub /></MemoryRouter>);
     const link = screen.getByRole('link', { name: /To a phone/ });
     expect(link).toHaveAttribute('href', '/send/phone');
-    expect(screen.getAllByText(copy.send.later)).toHaveLength(6);
+    expect(screen.getAllByText(copy.send.later)).toHaveLength(7);
     expect(screen.getByText('Business Payment to Customer', { exact: false })).toBeInTheDocument();
+  });
+
+  // Round 3, phase D-9: airtime is listed, and it says the real reason rather than promising a
+  // day that cannot come — Safaricom's M-Pesa API has no airtime command.
+  it('lists airtime among the planned kinds, with the reason and where it is really bought', () => {
+    render(<MemoryRouter><SendHub /></MemoryRouter>);
+    const row = screen.getByTestId('planned-airtime');
+    expect(row).toHaveTextContent(copy.send.kinds.find((k) => k.key === 'airtime')!.label);
+    expect(row).toHaveTextContent('no airtime command');
+    expect(within(row).getByRole('link', { name: copy.send.where })).toHaveAttribute('href', '/not-possible');
+    // The other planned kinds are only unbuilt, and say nothing extra.
+    expect(screen.getByTestId('planned-kra')).not.toHaveTextContent(copy.send.where);
   });
 });

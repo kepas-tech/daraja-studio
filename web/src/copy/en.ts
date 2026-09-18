@@ -2,6 +2,11 @@ import type { IconName } from '../icons/lineMd';
 
 export interface NavEntry { key: string; label: string; safaricom: string | null; path: string; icon: IconName; group: 'home' | 'in' | 'out' | 'manage' | 'help'; phase: 1 | 2 | 3 | 4 | 5; available: boolean; /** Set up once or used rarely: folded under Advanced, grouped the same way. */ advanced?: boolean }
 export interface NotPossibleItem { key: string; title: string; what: string; why: string; portalPath: string; ussd?: string }
+/**
+ * One send type on the Send money hub. `note` is for a kind that cannot be built at all rather
+ * than one that is merely not built yet, and `noteTo` is the page that says why (phase D-9).
+ */
+export interface SendKind { key: string; label: string; safaricom: string; path: string; live: boolean; note?: string; noteTo?: string }
 
 export const copy = {
   qr: {
@@ -256,7 +261,7 @@ export const copy = {
     source: { callback: "from Safaricom's reply", poll: 'from a status check', ack: "from Safaricom's acknowledgement" } as Record<string, string>,
   },
   send: {
-    title: 'Send money', safaricom: 'Initiate Transaction', later: 'Coming soon', planned: 'Planned', phoneIntro: 'Money leaves your Utility account and arrives on the phone.',
+    title: 'Send money', safaricom: 'Initiate Transaction', later: 'Coming soon', planned: 'Planned', where: 'Where it is done', phoneIntro: 'Money leaves your Utility account and arrives on the phone.',
     kinds: [
       { key: 'phone', label: 'To a phone', safaricom: 'Business Payment to Customer', path: '/send/phone', live: true },
       { key: 'pochi', label: 'To a business wallet (pochi)', safaricom: 'Business To Pochi', path: '/send/pochi', live: false },
@@ -265,7 +270,14 @@ export const copy = {
       { key: 'float', label: 'Move float Working → Utility', safaricom: 'MMF to Utility', path: '/send/float', live: false },
       { key: 'topup', label: 'Top up another B2C shortcode', safaricom: 'B2C Account Top Up', path: '/send/topup', live: false },
       { key: 'kra', label: 'Pay tax to KRA', safaricom: 'Tax Remittance', path: '/send/kra', live: false },
-    ],
+      //
+      // Round 3, phase D-9: airtime. Safaricom's M-Pesa API has no airtime command — not in B2C,
+      // not in B2B, and Bonga redeems the customer's own points rather than buying anything — so
+      // this one is listed with the reason instead of a promise. The card on Not possible via API
+      // says where it is really bought.
+      { key: 'airtime', label: 'Buy airtime', safaricom: 'Portal and phone only', path: '/send/airtime', live: false,
+        note: 'Safaricom publishes no airtime command in the M-Pesa API, so Studio cannot buy it for you. The card says where it is bought.', noteTo: '/not-possible' },
+    ] as SendKind[],
     phone: {
       title: 'Send money to a phone', safaricom: 'Initiate Transaction › Business Payment to Customer',
       recipient: 'Phone number', amount: 'Amount (KES)', badPhone: 'Enter a Kenyan mobile number such as 0712 345 678.',
@@ -1132,5 +1144,6 @@ export const copy = {
     { key: 'approval-switch', title: 'Operator Creation Approval Switch', what: "Portal's own maker-checker for creating operators.", why: 'Portal setting only.', portalPath: 'Search › Organization › Details › KYC Info' },
     { key: 'c2b-urls', title: 'Change registered paybill callback URLs', what: 'Point paybill payments at a different system after the first registration in production.', why: 'Production Daraja refuses to overwrite registered URLs. View, delete and re-add them on the Daraja portal, after proving it is you with the M-PESA admin username and an SMS code.', portalPath: 'Daraja portal › Self Service › URL Management › View URLs' },
     { key: 'portal-audit', title: 'Audit log of portal actions', what: 'What people did inside the Safaricom portal.', why: 'No API. Studio audits only what happens in studio.', portalPath: 'My Preference › Audit Log' },
+    { key: 'airtime', title: 'Buy airtime', what: 'Top up a phone with airtime from the business.', why: 'The M-Pesa API has no airtime command: not B2C, not B2B, and Lipa na Bonga redeems the customer’s own points rather than buying airtime. Airtime is bought from the phone or the portal, and Studio cannot record a purchase it did not make.', portalPath: 'Business Center › Buy Airtime', ussd: '*544#' },
   ] as NotPossibleItem[],
 };

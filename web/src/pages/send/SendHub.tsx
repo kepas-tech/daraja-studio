@@ -24,8 +24,19 @@ export function SendHub() {
         <Card title={copy.send.planned} bodyClassName="p-0">
           <ul>
             {planned.map((k) => (
-              <li key={k.key} className={`${cardRow} flex items-center justify-between gap-3 text-muted`}>
-                <span className="min-w-0"><span className="block">{k.label}</span><span className="block text-xs">{copy.pageHeader.safaricomPrefix}{k.safaricom}</span></span>
+              <li key={k.key} data-testid={'planned-' + k.key} className={`${cardRow} flex items-center justify-between gap-3 text-muted`}>
+                <span className="min-w-0">
+                  <span className="block">{k.label}</span>
+                  <span className="block text-xs">{copy.pageHeader.safaricomPrefix}{k.safaricom}</span>
+                  {/* Round 3, phase D-9: a kind that cannot be built says so, and points at the
+                      page that explains why, rather than waiting for a day that never comes. */}
+                  {k.note && (
+                    <span className="mt-1 block text-xs">
+                      {k.note}{' '}
+                      {k.noteTo && <Link to={k.noteTo} className="text-brand-dark underline">{copy.send.where}</Link>}
+                    </span>
+                  )}
+                </span>
                 <span className="shrink-0 text-xs">{copy.send.later}</span>
               </li>
             ))}

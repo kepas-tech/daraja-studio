@@ -102,6 +102,7 @@ tracked here so nobody assumes sending is finished.
 | Move float, working to utility | `b2b.transferFloat` | planned |
 | Top up another shortcode | `b2b.topUp` | planned |
 | Pay tax to KRA | `b2b.remitTax` | planned |
+| Buy airtime | none exists | not possible via API — listed with the reason, bought from the portal or `*544#` |
 
 The foundation they need is built: send types live one per file under `server/src/money_out/kinds/`
 and are registered in one map, so each of these is a new file plus one line plus its tests.

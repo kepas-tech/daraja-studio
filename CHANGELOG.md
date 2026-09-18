@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.49.0 — buy airtime, and the honest edge of the API
+
+- **Buy airtime is listed as a send type, with the truth on it.** Safaricom's M-Pesa API has no
+  airtime command — not in B2C, not in B2B, and Lipa na Bonga redeems the customer's own points
+  rather than buying anything — so Studio does not pretend it can buy airtime. The row says so and
+  links to the card that explains where it is really bought.
+- **Not possible via API gains the airtime card**: what it is, why it is not here, the portal path
+  (Business Center › Buy Airtime) and the phone code (`*544#`).
+- **A kind that cannot be built says so**, rather than sitting under Coming soon for ever.
 ## 0.48.0 — an unread critical alert keeps buzzing
 
 - **A red line stands at the top of every page until it is read.** Something is wrong — the operator

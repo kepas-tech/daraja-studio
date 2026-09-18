@@ -793,7 +793,7 @@ export const guide: GuideSection[] = [
         path: '/send/phone',
         permission: 'send.phone',
         steps: [
-          'Open Send money and press To a phone. (The other kinds, to a business wallet, a paybill, a till, float moves, top-ups and KRA, say Coming soon.)',
+          'Open Send money and press To a phone. (The other kinds, to a business wallet, a paybill, a till, float moves, top-ups and KRA, say Coming soon. Buying airtime is listed there too, and it says the honest thing: Safaricom’s M-Pesa API has no airtime command, so it is bought from the phone or the portal — the page links to the card that says where.)',
           'Phone number.',
           'Amount in KES, whole shillings.',
           'What kind of payment is this? One of your own categories (Settings › Payment categories); each is one of Safaricom’s three kinds, Business payment, Salary or Promotion.',
