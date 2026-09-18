@@ -711,6 +711,8 @@ Where: Advanced → Webhooks · Who: Owner · Route: /webhooks
 3. Check the signature before you trust a delivery: the header is X-Studio-Signature: t=<seconds>,v1=<signature>, and the signature is HMAC-SHA256 of `t.body` with the secret. Refuse anything older than five minutes, so a delivery cannot be replayed.
 4. If your address does not answer 2xx, Studio tries again: after one minute, five minutes, thirty minutes, two hours, six hours, then twenty-four hours. That is six attempts; after the sixth it stops and waits for a person.
 5. New secret makes a new one and shows it once; the old secret stops verifying at that moment. Stop sending removes the address and clears the queue.
+6. Open Deliveries for everything Studio has sent: what happened, how many tries it took, what your address answered, and when the next try is due. Waiting, Delivered, Given up and All narrow the list.
+7. A delivery that has run out of tries — or one your address refused — can be put back in the queue with Try again, which buys one more attempt rather than a fresh curve.
 
 - The address must be https and on the internet. An address inside this network is refused: a webhook would otherwise let Studio post its own data to itself.
 - Nothing about the secret or the signature is ever logged, and the secret is never in an audit row. The page shows only its last four characters after the one time it is displayed.
@@ -722,6 +724,8 @@ Where: Advanced → Webhooks · Who: Owner · Route: /webhooks
 | PUT | `/api/webhooks` | owner, password; body { url }; answers with the secret the first time |
 | POST | `/api/webhooks/secret` | owner, password; a new secret, shown once |
 | DELETE | `/api/webhooks` | owner, password; clears the queue with it |
+| GET | `/api/webhooks/deliveries` | owner; state=all|pending|delivered|failed, limit |
+| POST | `/api/webhooks/deliveries/:id/retry` | owner, password; back in the queue |
 
 ### Let another system call Studio
 

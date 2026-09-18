@@ -877,6 +877,8 @@ export const guide: GuideSection[] = [
           'Check the signature before you trust a delivery: the header is X-Studio-Signature: t=<seconds>,v1=<signature>, and the signature is HMAC-SHA256 of `t.body` with the secret. Refuse anything older than five minutes, so a delivery cannot be replayed.',
           'If your address does not answer 2xx, Studio tries again: after one minute, five minutes, thirty minutes, two hours, six hours, then twenty-four hours. That is six attempts; after the sixth it stops and waits for a person.',
           'New secret makes a new one and shows it once; the old secret stops verifying at that moment. Stop sending removes the address and clears the queue.',
+          'Open Deliveries for everything Studio has sent: what happened, how many tries it took, what your address answered, and when the next try is due. Waiting, Delivered, Given up and All narrow the list.',
+          'A delivery that has run out of tries — or one your address refused — can be put back in the queue with Try again, which buys one more attempt rather than a fresh curve.',
         ],
         notes: [
           'The address must be https and on the internet. An address inside this network is refused: a webhook would otherwise let Studio post its own data to itself.',
@@ -888,6 +890,8 @@ export const guide: GuideSection[] = [
           { method: 'PUT', path: '/api/webhooks', who: 'owner, password; body { url }; answers with the secret the first time' },
           { method: 'POST', path: '/api/webhooks/secret', who: 'owner, password; a new secret, shown once' },
           { method: 'DELETE', path: '/api/webhooks', who: 'owner, password; clears the queue with it' },
+          { method: 'GET', path: '/api/webhooks/deliveries', who: 'owner; state=all|pending|delivered|failed, limit' },
+          { method: 'POST', path: '/api/webhooks/deliveries/:id/retry', who: 'owner, password; back in the queue' },
         ],
       },
       {

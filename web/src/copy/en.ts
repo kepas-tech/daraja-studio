@@ -144,6 +144,24 @@ export const copy = {
     deliveriesNote: 'Every delivery, with how many attempts it took, what your address answered and when the next try is due.',
     deliveriesLink: 'Open Deliveries',
   },
+  /**
+   * Round 3, phase E: the deliveries page. It answers the one question a developer has when a
+   * receiver goes quiet: did Studio try, what did my address say, and when is the next attempt.
+   */
+  deliveries: {
+    title: 'Deliveries',
+    intro: 'Everything Studio has sent to your webhook address: what happened, how many tries it took, what your address answered, and when the next try is due. A delivery that has run out of tries can be put back in the queue here.',
+    filter: 'Which ones?',
+    states: { all: 'All', pending: 'Waiting', delivered: 'Delivered', failed: 'Given up' } as Record<string, string>,
+    empty: { all: 'Nothing has been sent yet.', pending: 'Nothing is waiting.', delivered: 'Nothing has been delivered yet.', failed: 'Nothing has been given up on.' } as Record<string, string>,
+    columns: { when: 'When', event: 'What happened', attempts: 'Tries', status: 'Answered', said: 'It said', next: 'Next try' },
+    deliveredAt: (w: string) => `Delivered ${w}`,
+    nextAt: (w: string) => `Next try ${w}`,
+    gaveUp: 'Given up',
+    retry: 'Try again',
+    retried: 'Back in the queue. It goes on the next try.',
+    backToWebhooks: 'Back to Webhooks',
+  },
   comingSoon: { title: 'Not in this version yet', badge: 'Coming soon', body: 'Planned for a later release.' },
   login: { title: 'Log in', username: 'Username', password: 'Password', button: 'Log in', locked: 'Too many wrong tries. Wait 15 minutes and try again.', guideLink: 'How to use Daraja Studio' },
   guidePage: { contents: 'On this page', login: 'Log in', where: 'Where:', who: 'Who:', then: 'Then:', whereToGet: 'Where to get it' },

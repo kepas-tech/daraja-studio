@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.52.0 — the deliveries page
+
+- **Advanced › Webhooks › Deliveries** lists everything Studio has sent to the address: what
+  happened, how many tries it took, what your address answered and when the next try is due, with
+  Waiting, Delivered, Given up and All to narrow it. Each row about a payment links to that payment.
+- **Try again** puts a delivery back in the queue, which buys one more attempt rather than a fresh
+  curve — so a receiver that was down for a day can be caught up by hand.
+- **The developer side is complete under Advanced**: API keys, Webhooks and Deliveries, out of the
+  way of daily use and owned by the owner alone.
 ## 0.51.0 — webhooks, signed and retried
 
 - **One address per organisation is told when a payment finishes.** Studio posts the same facts its

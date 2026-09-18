@@ -22,6 +22,7 @@ import { AccountStatement } from '../pages/AccountStatement';
 import { Reconcile } from '../pages/Reconcile';
 import { ApiKeys } from '../pages/ApiKeys';
 import { Webhooks } from '../pages/Webhooks';
+import { Deliveries } from '../pages/Deliveries';
 import { Businesses } from '../pages/Businesses';
 import { WhoDidWhat } from '../pages/WhoDidWhat';
 import { Notifications } from '../pages/Notifications';
@@ -74,6 +75,7 @@ function Gate() {
         <Route path="/reconcile" element={<Reconcile />} />
         <Route path="/api-keys" element={<ApiKeys />} />
         <Route path="/webhooks" element={<Webhooks />} />
+        <Route path="/webhooks/deliveries" element={<Deliveries />} />
         <Route path="/who-did-what" element={<WhoDidWhat />} />
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/not-possible" element={<NotPossible />} />

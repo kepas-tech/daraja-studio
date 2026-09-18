@@ -141,6 +141,13 @@ export interface ApiKeyView {
 }
 /** Round 3, phase E: the webhook address, and the last four characters of its signing secret. */
 export interface WebhookView { url: string | null; secretHint: string | null; updatedAt: string | null }
+/** Round 3, phase E: one webhook delivery, as the deliveries page reads it. */
+export interface DeliveryView {
+  id: string; event: string; url: string; requestId: string | null;
+  attempts: number; lastStatus: number | null; lastResponse: string | null;
+  lastTryAt: string | null; nextRetryAt: string | null; deliveredAt: string | null; createdAt: string;
+  state: 'pending' | 'delivered' | 'failed';
+}
 /** The answer a save or a rotation gives: the secret is here, and only here. */
 export interface WebhookSaved { webhook: WebhookView; secret: string | null }
 /** The one answer that carries the secret: create and rotate, and nothing else. */
