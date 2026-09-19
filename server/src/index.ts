@@ -56,10 +56,6 @@ async function main() {
   const applied = await migrate(admin, migrationsDir, config.extensionMigrations);
   if (applied.length) console.log(`migrations applied: ${applied.join(', ')}`);
 
-  // The package installed beside Studio, if there is one, before anything reads the declarations
-  // or serves a route. Nothing installed is not a problem: this is quiet either way.
-  await loadExtension();
-
   // From here on every connection the application makes is studio_app, which row-level security
   // applies to. A warning and a role-less pool rather than dying outright when the role cannot be
   // assumed at all (a managed PostgreSQL with no CREATEROLE never ran migration 007's GRANT).
@@ -84,6 +80,15 @@ async function main() {
   // `master` is what `orgs.create` derives a brand-new organisation's key from, before its row
   // exists — the keyring can only derive a key for an organisation it can already read.
   const orgs = createOrgService({ db, keyring, master: config.secretKey });
+
+  // The package installed beside Studio, if there is one. It is loaded here, with the database, the
+  // settings and the organisation service in hand, because those are what it is handed; and before
+  // anything reads the declarations or builds the app, because those are what it adds to. Nothing
+  // installed is not a problem: this is quiet either way.
+  const extension = await loadExtension({ db, settings, orgs });
+  if (extension.routers.length > 0) {
+    console.log('extension routers mounted: ' + extension.routers.map((r) => r.path).join(', '));
+  }
 
   if (config.publicUrl) {
     try {
@@ -168,7 +173,7 @@ async function main() {
   const scheduler = createScheduler(db, buildHandlers({ db, events, settings, moneyOut, operators, moneyIn, bulk, buzz, webhooks: webhookDispatch, nameBackfill, sweep }));
   scheduler.start();
 
-  const app = buildApp({ config, db, keyring, orgs, settings, instance, cache, events, daraja, operators, settingsService, moneyOut, collect, moneyIn, bulk, invoices, businesses, businessTypes, statements, reconcile, cases, apiKeys, webhooks, nameBackfill, push, problems, webauthn, modules, sweep, fetchImpl, scheduler });
+  const app = buildApp({ config, db, keyring, orgs, settings, instance, cache, events, daraja, operators, settingsService, moneyOut, collect, moneyIn, bulk, invoices, businesses, businessTypes, statements, reconcile, cases, apiKeys, webhooks, nameBackfill, push, problems, webauthn, modules, sweep, fetchImpl, scheduler, extensionRouters: extension.routers });
   const listenFallback = db.getFallbackOrg();
   const envLabel = listenFallback
     ? await withOrg(listenFallback, async () => (await settings.get('daraja.environment')) ?? 'sandbox')

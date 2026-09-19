@@ -1,4 +1,4 @@
-import express, { type Request } from 'express';
+import express, { type Request, type Router } from 'express';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -22,7 +22,7 @@ import { requireOrgActive } from './http/orgActive.js';
 import { authRoutes } from './auth/routes.js';
 import { webauthnRoutes } from './auth/webauthnRoutes.js';
 import type { WebauthnService } from './auth/webauthn.js';
-import { requirePasswordChanged } from './auth/middleware.js';
+import { requireAuth, requireCsrf, requirePasswordChanged } from './auth/middleware.js';
 import { callbackRoutes, callbackErrorHandler } from './callbacks/router.js';
 import { selftestHandler } from './callbacks/selftest.js';
 import { balanceHandler } from './callbacks/balance.js';
@@ -82,16 +82,76 @@ import { moduleRoutes } from './modules/routes.js';
 /** The package installed beside Studio, if there is one. */
 export const EXTENSION_PACKAGE = '@kepas/studio-host';
 
-/** What an installed package is handed when it is loaded: the one place to add declarations. */
-export interface ExtensionApi {
-  registerModule(decl: ModuleDecl): void;
+/**
+ * Where a package's own routes are mounted, and nowhere else.
+ *
+ * `x` is reserved for this and for nothing else: no part of the product answers under it, and none
+ * ever may, because a package's address must not be able to collide with the studio's own. A
+ * package mounts one router, and the name it picks becomes the last part of the address.
+ */
+export const EXTENSION_ROUTE_PREFIX = '/api/x';
+
+/**
+ * The version of the extension api, and a promise rather than a label.
+ *
+ * A package reads it and may refuse to load against one it does not know. It goes up whenever
+ * anything below changes in a way a package has to know about — a part of the api that goes, one
+ * that changes shape, or one whose meaning moves. It does not go up for something added, because an
+ * older package simply does not use what it does not know about.
+ */
+export const EXTENSION_API_VERSION = 1;
+
+/** One router a package asked to have mounted. The path is built here, never by the package. */
+export interface ExtensionRouter {
+  name: string;
+  path: string;
+  router: Router;
 }
+
+/**
+ * What an installed package is handed when it is loaded. Every part of it is a promise kept for
+ * ever, so it grows only on a decision and by as little as the job needs.
+ *
+ *   db        the database handle the rest of the studio uses, in the caller's organisation
+ *   settings  the settings reader, for the settings a package reads
+ *   orgs      creating an organisation through the studio's own service, never by its own SQL
+ *   version   the api version, so a package can refuse one it does not know
+ *   registerModule   declare a part of the studio (the first widening, step two)
+ *   registerRouter   mount one router of its own under the reserved namespace
+ *
+ * Deliberately not here: permissions, menu entries and tiers. The layer a package adds is the
+ * operator's own and needs none of them, and each would be another promise to keep.
+ */
+export interface ExtensionApi {
+  readonly version: number;
+  readonly db: Db;
+  readonly settings: Settings;
+  readonly orgs: Pick<OrgService, 'create'>;
+  registerModule(decl: ModuleDecl): void;
+  registerRouter(name: string, router: Router): void;
+}
+
+/** What the boot hands the loader: the parts of a running studio a package is given. */
+export interface ExtensionHost {
+  db: Db;
+  settings: Settings;
+  orgs: Pick<OrgService, 'create'>;
+}
+
+/** What the loader found: whether a package is installed, and whatever it mounted. */
+export interface ExtensionLoad {
+  loaded: boolean;
+  routers: ExtensionRouter[];
+}
+
+/** A router's name is one plain path segment: lower case, two to thirty, starting with a letter. */
+const ROUTER_NAME = /^[a-z][a-z0-9-]{1,29}$/;
 
 const resolvesFrom = createRequire(import.meta.url);
 
 /**
  * Load the package installed beside Studio. A package exports `register`, which is handed the API
- * above.
+ * above, and whatever it mounted comes back for the app to mount.
  *
  * Absent and broken are two different things, and the whole point is telling them apart. A package
  * that is not installed is silence: a studio without one boots and serves exactly as it does with
@@ -99,15 +159,41 @@ const resolvesFrom = createRequire(import.meta.url);
  * dependency of it is missing, or its own `register` throws — stops the boot, naming the package
  * and what went wrong. Half a package would take its parts away from a studio that has tenants on
  * it, and nobody would notice until something was missing.
+ *
+ * Nothing here decides what a package may reach once a request arrives: the router it mounts is
+ * mounted by `buildApp` inside the studio's own middleware, so it carries the organisation
+ * context, the session and the CSRF check whether the package asks for them or not.
  */
-export async function loadExtension(specifier: string = EXTENSION_PACKAGE): Promise<boolean> {
+export async function loadExtension(host: ExtensionHost, specifier: string = EXTENSION_PACKAGE): Promise<ExtensionLoad> {
   // Resolvable or not is the question of whether this package is installed at all, and it is asked
   // before the import so that nothing depends on guessing the shape of an error.
-  try { resolvesFrom.resolve(specifier); } catch { return false; }
+  try { resolvesFrom.resolve(specifier); } catch { return { loaded: false, routers: [] }; }
+  const routers: ExtensionRouter[] = [];
+  const api: ExtensionApi = {
+    version: EXTENSION_API_VERSION,
+    db: host.db,
+    settings: host.settings,
+    orgs: host.orgs,
+    registerModule,
+    registerRouter(name, router) {
+      // One router, and its address is built here: a package picks a name, never a path, so nothing
+      // it can write takes it outside the namespace the studio reserved for it.
+      if (routers.length > 0) {
+        throw new Error('a package mounts one router, and this one already mounted ' + routers[0]!.path);
+      }
+      if (typeof name !== 'string' || !ROUTER_NAME.test(name)) {
+        throw new Error('a router name is lower-case letters, digits and hyphens, two to thirty of them, starting with a letter: ' + String(name));
+      }
+      if (typeof router !== 'function') {
+        throw new Error('a router must be an express router: ' + String(name));
+      }
+      routers.push({ name, path: EXTENSION_ROUTE_PREFIX + '/' + name, router });
+    },
+  };
   try {
     const mod = (await import(specifier)) as { register?: (api: ExtensionApi) => void };
-    if (typeof mod.register === 'function') mod.register({ registerModule });
-    return true;
+    if (typeof mod.register === 'function') mod.register(api);
+    return { loaded: true, routers };
   } catch (e) {
     throw new Error(`${specifier} is installed but could not be loaded: ${e instanceof Error ? e.message : String(e)}`, { cause: e });
   }
@@ -164,6 +250,8 @@ export interface AppDeps {
   scheduler?: Pick<Scheduler, 'lastTickAt'>;
   /** The fetch every Safaricom-facing call goes through. Set only by the local demo and the tests. */
   fetchImpl?: typeof fetch;
+  /** What an installed package mounted, from loadExtension. Absent when nothing is installed. */
+  extensionRouters?: ExtensionRouter[];
 }
 
 export function buildApp(deps: AppDeps): express.Express {
@@ -284,6 +372,14 @@ export function buildApp(deps: AppDeps): express.Express {
   // Step one: the page under Organisation that decides which parts of Studio exist here. Owner only,
   // and every change behind the step-up.
   app.use('/api/modules', moduleRoutes(deps));
+  // A package's own routes, under the namespace reserved for them and nowhere else, mounted last so
+  // they cannot shadow a part of the studio. They are mounted here, inside the /api chain above, so
+  // they carry the organisation context, the password gate and the active-organisation rule exactly
+  // as every router the studio mounts does — and the session and the CSRF check are applied here
+  // rather than left to the package, so neither can be left out by accident.
+  for (const extension of deps.extensionRouters ?? []) {
+    app.use(extension.path, requireAuth(deps.db), requireCsrf, extension.router);
+  }
   app.use('/api', notFound);
 
   const webDir = path.resolve(process.env.STUDIO_WEB_DIR ?? path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'web', 'dist'));
