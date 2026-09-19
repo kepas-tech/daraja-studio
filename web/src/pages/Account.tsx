@@ -28,7 +28,7 @@ const ENVS: Env[] = ['sandbox', 'production'];
  * behaves is on Settings.
  */
 export function Account() {
-  const { status, person, org, refresh } = useSession();
+  const { status, person, org, refresh, modules } = useSession();
   const toast = useToast();
   const nav = useNavigate();
   const stepUp = useStepUp();
@@ -90,9 +90,16 @@ export function Account() {
           </section>
         );
       })}
-      <Card className="mb-6" bodyClassName="p-0">
-        <SettingRow label={copy.account.people} value={<Link to="/people">{copy.settings.organisation.peopleLink}</Link>} />
+      <Card title={copy.modulesPage.title} className="mb-6" bodyClassName="space-y-3 p-4" data-testid="what-this-studio-does">
+        <p className="text-sm text-muted">{copy.account.modules.body}</p>
+        <Link to="/account/modules"><Button type="button">{copy.account.modules.link}</Button></Link>
       </Card>
+      {/* Step one: the People page goes with the people module, so the door to it goes too. */}
+      {!modules.off.includes('people') && (
+        <Card className="mb-6" bodyClassName="p-0">
+          <SettingRow label={copy.account.people} value={<Link to="/people">{copy.settings.organisation.peopleLink}</Link>} />
+        </Card>
+      )}
       <Card title={copy.account.signOut.title} className="mb-6" bodyClassName="space-y-3 p-4">
         <p className="text-sm text-muted">{copy.account.signOut.body}</p>
         <Button variant="secondary" onClick={() => stepUp.ask(copy.account.signOut.confirm, async (confirm) => {

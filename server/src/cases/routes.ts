@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { AppDeps } from '../app.js';
 import { requireAuth, requireCsrf } from '../auth/middleware.js';
 import { requirePermission } from '../permissions/middleware.js';
+import { requireModule } from '../modules/middleware.js';
 import { clientIp } from '../util/ip.js';
 import { HttpError } from '../util/errors.js';
 
@@ -28,7 +29,7 @@ const paymentId = (req: { params: unknown }): string => {
 /** Mounted at `/api/requests/:id/case`, so `:id` is the payment the case belongs to. */
 export function requestCaseRoutes(deps: AppDeps): Router {
   const r = Router({ mergeParams: true });
-  r.use(requireAuth(deps.db), requireCsrf);
+  r.use(requireAuth(deps.db), requireCsrf, requireModule(deps.modules, 'cases'));
   r.get('/', requirePermission(deps.db, 'lookup.view'), async (req, res, next) => {
     try { res.json(await deps.cases.forRequest(paymentId(req))); } catch (e) { next(e); }
   });
@@ -44,7 +45,7 @@ export function requestCaseRoutes(deps: AppDeps): Router {
 /** What is done to a case once it exists: a note, and the close. */
 export function caseRoutes(deps: AppDeps): Router {
   const r = Router();
-  r.use(requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'cases.manage'));
+  r.use(requireAuth(deps.db), requireCsrf, requireModule(deps.modules, 'cases'), requirePermission(deps.db, 'cases.manage'));
   r.post('/:id/notes', async (req, res, next) => {
     try {
       const id = String(req.params.id);

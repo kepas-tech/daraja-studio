@@ -23,6 +23,8 @@ vi.mock('../app/session', () => ({
     org: { id: 'o1', name: 'Test studio', shortcode: '600999', environment: 'production' },
     permissions: state.mayManage ? ['businesses.manage'] : [],
     refresh: async () => {},
+    // Step one: a complete session, so a page that reads what is switched off is not reading undefined.
+    modules: { off: [], menuOff: [] },
   }),
 }));
 

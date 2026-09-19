@@ -1042,6 +1042,31 @@ export const guide: GuideSection[] = [
         ],
       },
       {
+        key: 'what-this-studio-does',
+        title: 'Choose what this studio does',
+        where: ['your name, top right', 'Organisation', 'What this studio does'],
+        who: 'Owner',
+        path: '/account/modules',
+        permission: 'owner',
+        steps: [
+          'Open What this studio does under Organisation. It lists every part of Studio with a switch, one sentence about it, the menu entry it adds, and what turning it off hides.',
+          'At the top, your tier: Simple for a shop or a stall, Business for the studio as it is today, Platform for the developer side and the payment feed. Choose one and press See what will change to read exactly what it will turn on and off, then Use it and your password.',
+          'Any part can then be changed on its own: Turn off hides that part and refuses its pages, and Turn on brings it back exactly as it was.',
+          'A part another one stands on cannot be switched off while the other is on. The line beside it names what is holding it, and turning the other one off first frees it.',
+          'Custody — holding customer balances — is listed as not built yet, so there is nothing to switch there.',
+          'Every change is written to Who did what, with your name on it.',
+        ],
+        notes: [
+          'Turning a part off never deletes anything: the payments, contacts, invoices and accounts stay, and the pages come back unchanged when it is on again.',
+        ],
+        api: [
+          { method: 'GET', path: '/api/modules', who: 'owner' },
+          { method: 'POST', path: '/api/modules/tier/preview', who: 'owner; body { tier }' },
+          { method: 'POST', path: '/api/modules/tier', who: 'owner, password; body { tier }' },
+          { method: 'POST', path: '/api/modules/:key', who: 'owner, password; body { enabled }' },
+        ],
+      },
+      {
         key: 'who-did-what',
         title: 'See who changed what',
         where: ['your name, top right', 'Organisation', 'Who did what'],

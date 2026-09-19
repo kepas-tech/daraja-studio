@@ -23,6 +23,7 @@ vi.mock('../app/session', () => ({
   useSession: () => ({
     status: 'ready', person: { id: 'p1', is_owner: false },
     org: { id: 'o1', name: 'Test studio', shortcode: '600999', environment: 'production' },
+    modules: { off: [], menuOff: [] },
     permissions: state.mayManage ? ['businesses.manage'] : [],
     refresh: async () => {},
   }),

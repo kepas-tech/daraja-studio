@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.55.0 — what this studio does
+
+- **One page decides which parts of Studio this organisation has.** Under Organisation, **What this
+  studio does** lists every part — contacts, businesses and accounts, statements and arrears,
+  invoices, people and roles, approvals, reports, reconcile, case files, reversal requests,
+  notifications and push, the developer side, and the payment feed — each with its own switch, one
+  plain sentence, the permissions and menu entry it adds, and what turning it off hides.
+- **Off means hidden and refused, never deleted.** The menu stops offering it, and a page reached by
+  its own address answers **409 `module_off`**, naming the part and pointing at this page, so the
+  reason is legible. Every payment, contact, invoice and account stays exactly where it was, and
+  turning the part back on brings the view back unchanged.
+- **Three tiers, chosen and changed by the owner.** **Simple** for a shop or a stall, **Business**
+  for the studio as it stands today, **Platform** for the developer side and the payment feed. A
+  tier is a starting point, not a cage: any part can be switched on its own afterwards, and the page
+  says what that leaves you with. Choosing a tier shows exactly what it will change before it is
+  applied.
+- **A part another one stands on cannot be switched off while the other is on**, and the line beside
+  it names what is holding it: statements need businesses, approvals need people, the payment feed
+  needs the developer side. Switching one on brings on what it stands on, and says which.
+- **Custody is declared and not built.** Holding customer balances — wallets, the double-entry
+  ledger, integrity checks and the float rule — is listed under Platform as the place the later work
+  hangs, and there is nothing to switch there yet.
+- **Every change is written to Who did what**, and every switch and every tier change asks for the
+  owner's own password. An install that was already running the whole surface is on Platform from
+  the moment it upgrades; a studio that has never chosen a tier starts on Business.
+
 ## 0.54.0 — register, or be fed
 
 - **One question, two honest answers.** A paybill number has one pair of C2B confirmation addresses

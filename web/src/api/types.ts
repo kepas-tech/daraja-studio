@@ -43,6 +43,12 @@ export interface Me {
    * has to read as "no PIN" rather than as a lock nobody can open.
    */
   pin?: { set: boolean; locked: boolean; /** This person has a fingerprint enrolled (item 5b). */ bio?: boolean };
+  /**
+   * Step one of the tiers-and-modules design: what this studio has switched off, so the menu never
+   * offers a page whose routes would refuse. Optional, so an answer from an older server reads as
+   * "nothing is off" rather than as a studio with everything hidden.
+   */
+  modules?: { off: string[]; menuOff: string[] };
   /** The only host-admin signal the web reads. `person.is_host_admin` is never consulted. */
 }
 /**
@@ -355,6 +361,42 @@ export interface NotificationView {
   count: number; readAt: string | null; createdAt: string; updatedAt: string;
 }
 export interface NotificationPage { items: NotificationView[]; unread: number; nextCursor: string | null }
+/**
+ * Step one of the tiers-and-modules design: `GET /api/modules`. One part of Studio, as the owner's
+ * page reads it. The names, the sentences and what turning one off hides come from the server's own
+ * registry, so the list exists once and cannot drift from the route guard.
+ */
+export interface ModuleView {
+  key: string; name: string; sentence: string;
+  on: boolean;
+  /** False for a part that is declared and not built: it is listed, and there is nothing to switch. */
+  built: boolean; switchable: boolean;
+  /** The owner departed from their tier on this part. */
+  changed: boolean;
+  permissions: { key: string; label: string }[];
+  menu: string[];
+  hides: string;
+  needs: { key: string; name: string; on: boolean }[];
+  /** Parts that are on and stand on this one, so it cannot be switched off while they are. */
+  heldBy: { key: string; name: string }[];
+}
+export interface TierView { key: string; name: string; sentence: string; on: string[]; planned: string[] }
+export interface ModuleState {
+  tier: string;
+  /** The owner chose this tier. False means the starting tier for a studio that never chose. */
+  chosen: boolean;
+  /** The tier the current set equals, when it equals one. Null after a change made by hand. */
+  matches: string | null;
+  departures: number;
+  tiers: TierView[];
+  modules: ModuleView[];
+}
+/** What a tier change would do, before it is made. */
+export interface TierPreview {
+  from: string; tier: string;
+  changes: { key: string; name: string; from: boolean; to: boolean }[];
+  on: string[]; off: string[];
+}
 /**
  * `GET /api/audit` (feature 10). One row of the studio's own record. `before` and `after` are the
  * stored JSON, shown to the owner exactly as they were written; `person` is null for a row nobody

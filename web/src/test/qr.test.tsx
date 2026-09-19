@@ -7,7 +7,7 @@ import { copy } from '../copy/en';
 import { answer, next } from './questionnaire';
 
 const state = vi.hoisted(() => ({ allowed: true }));
-vi.mock('../app/session', () => ({ useSession: () => ({ person: { is_owner: false }, permissions: state.allowed ? ['qr.generate'] : [] }) }));
+vi.mock('../app/session', () => ({ useSession: () => ({ person: { is_owner: false }, permissions: state.allowed ? ['qr.generate'] : [], modules: { off: [], menuOff: [] } }) }));
 const text = copy.qr;
 const details = { merchantName: 'Counter shop', shortcode: '600001', environment: 'sandbox' };
 const imageUrl = 'data:image/png;base64,iVBORw0KGgo=';

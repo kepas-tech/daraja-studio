@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { AppDeps } from '../app.js';
 import { requireAuth, requireCsrf } from '../auth/middleware.js';
 import { HttpError } from '../util/errors.js';
+import { requireModule } from '../modules/middleware.js';
 import { createNotificationsService } from './service.js';
 
 const listQuery = z.object({
@@ -26,7 +27,7 @@ function parse<T>(schema: z.ZodType<T>, body: unknown): T {
 export function notificationRoutes(deps: AppDeps): Router {
   const r = Router();
   const notifications = createNotificationsService({ db: deps.db, events: deps.events });
-  r.use(requireAuth(deps.db), requireCsrf);
+  r.use(requireAuth(deps.db), requireCsrf, requireModule(deps.modules, 'notifications'));
 
   r.get('/', async (req, res, next) => {
     try { res.json(await notifications.list(parse(listQuery, req.query))); } catch (e) { next(e); }

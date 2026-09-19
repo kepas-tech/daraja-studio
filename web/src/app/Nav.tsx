@@ -15,12 +15,13 @@ import { copy, type NavEntry } from '../copy/en';
  * they are read again on every reconnect, so a badge is never left stale by an event that arrived
  * while the stream was down.
  */
-function useMenuCounts(): { approvals: { enabled: boolean }; waiting: number; unread: number } {
+function useMenuCounts(approvalsOn: boolean): { approvals: { enabled: boolean }; waiting: number; unread: number } {
   // Approvals is shown until the answer says otherwise; the inbox starts empty.
-  const [approvals, setApprovals] = useState({ enabled: true });
+  const [approvals, setApprovals] = useState({ enabled: approvalsOn });
   const [waiting, setWaiting] = useState(0);
   const [unread, setUnread] = useState(0);
-  const loadApprovals = useCallback(() => api.get<{ enabled: boolean }>('/api/approvals/count').then((r) => setApprovals({ enabled: !!r.enabled })).catch(() => {}), []);
+  // Step one: the module off means the route would refuse, so it is not called at all.
+  const loadApprovals = useCallback(() => { if (approvalsOn) void api.get<{ enabled: boolean }>('/api/approvals/count').then((r) => setApprovals({ enabled: !!r.enabled })).catch(() => {}); }, [approvalsOn]);
   const loadWaiting = useCallback(() => api.get<{ badge: number }>('/api/waiting/count').then((r) => setWaiting(r.badge ?? 0)).catch(() => {}), []);
   const loadUnread = useCallback(() => api.get<{ unread: number }>('/api/notifications/count').then((r) => setUnread(r.unread ?? 0)).catch(() => {}), []);
   const loadAll = useCallback(() => { void loadApprovals(); void loadWaiting(); void loadUnread(); }, [loadApprovals, loadWaiting, loadUnread]);
@@ -55,14 +56,16 @@ function Item({ e, onPick, badge }: { e: NavEntry; onPick: () => void; badge?: n
 const heading = 'px-3 pt-5 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted';
 
 export function Nav() {
-  const { org, person } = useSession();
+  const { org, person, modules } = useSession();
   // The open state is ours, not the browser's: a <details> element is content-hidden when closed in
   // current Chrome, so its links were never painted or clickable. Owning the state keeps the
   // open/closed decision somewhere a test can assert (see nav.test.tsx).
   const [open, setOpen] = useState(false);
   const pick = () => setOpen(false);
-  const live = copy.nav.filter((e) => e.available);
-  const { approvals, waiting, unread } = useMenuCounts();
+  // Step one: a menu entry whose module is off is not offered at all. The page behind it still
+  // exists and still refuses, with the reason, if somebody reaches it by its address.
+  const live = copy.nav.filter((e) => e.available && !modules.menuOff.includes(e.key));
+  const { approvals, waiting, unread } = useMenuCounts(!modules.off.includes('approvals'));
   // Waiting fills while Settings › Approvals is on, or while a row waits for a person (held, or
   // never answered by Safaricom); hidden only when there is nothing to do there at all. Who did
   // what is the owner's own record of who changed what, so nobody else is offered the link.

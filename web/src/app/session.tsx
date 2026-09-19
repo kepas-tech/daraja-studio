@@ -23,6 +23,8 @@ interface Session {
   pinLocked: boolean;
   /** Brief 2, item 5b: this person has a fingerprint enrolled, so the lock screen offers it. */
   pinBio: boolean;
+  /** Step one: what this studio has switched off — the modules, and the menu entries they hide. */
+  modules: { off: string[]; menuOff: string[] };
   /** Opens the session with the PIN, or with the password when the PIN has been forgotten. */
   openSession: (confirm: Confirm) => Promise<void>;
   /** Opens it with the fingerprint instead. False means the lock screen falls back to the PIN. */
@@ -41,6 +43,7 @@ const empty = () => ({
   person: null, org: null, permissions: [] as string[],
   setupStep: null as string | null, uses: null as { payOut: boolean; collect: boolean; stk: boolean } | null, passkeyProven: false, saved: null as SetupSaved | null,
   pinSet: false, pinLocked: false, pinBio: false,
+  modules: { off: [] as string[], menuOff: [] as string[] },
 });
 const noop = async () => {};
 const noopFalse = async () => false;
@@ -91,6 +94,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           status, person: me.person, org: me.org ?? null, permissions: me.permissions,
           setupStep: st.step, uses: st.uses, passkeyProven: st.passkeyProven, saved: st.saved ?? null,
           pinSet: pin.set, pinLocked: lockNow, pinBio: pin.bio === true,
+          modules: me.modules ?? { off: [], menuOff: [] },
         });
       } catch (e) {
         if (e instanceof ApiError && e.status === 401) setS({ status: 'anonymous', ...empty(), setupStep: st.step });

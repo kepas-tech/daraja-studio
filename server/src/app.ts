@@ -72,6 +72,8 @@ import type { InvoicesService } from './invoices/service.js';
 import type { Scheduler } from './scheduler/loop.js';
 import type { PushService } from './push/service.js';
 import type { ProblemService } from './health/problems.js';
+import type { ModuleService } from './modules/service.js';
+import { moduleRoutes } from './modules/routes.js';
 
 export interface AppDeps {
   config: Config;
@@ -112,6 +114,8 @@ export interface AppDeps {
   nameBackfill: NameBackfill;
   /** Brief 2, item 2: the three states that mean something is wrong, for Home's banner. */
   problems: ProblemService;
+  /** Step one of the tiers-and-modules design: what this studio does, and the tier it started from. */
+  modules: ModuleService;
   /** Brief 2, item 5b: the fingerprint ceremonies. Absent in tests that build the app without one. */
   webauthn?: WebauthnService;
   /** Feature 12: web push to the devices that subscribed. Absent in tests that build the app without it. */
@@ -166,7 +170,7 @@ export function buildApp(deps: AppDeps): express.Express {
   // Brief 2, item 5b. Mounted before the rest of /api/auth so a locked session's two open routes are
   // reached without passing anything else.
   if (deps.webauthn) app.use('/api/auth/webauthn', webauthnRoutes({ db: deps.db, webauthn: deps.webauthn }));
-  app.use('/api/auth', authRoutes(deps.db, deps.config));
+  app.use('/api/auth', authRoutes(deps.db, deps.config, deps.modules));
   app.use('/api/events', sseRoute(deps.events, deps.db));
   app.use('/api/settings', settingsRoutes(deps));
   app.use('/api/people', peopleRoutes(deps));
@@ -216,6 +220,9 @@ export function buildApp(deps: AppDeps): express.Express {
   app.use('/api/lookup', lookupRoutes(deps));
   app.use('/api/qr', qrRoutes(deps));
   app.use('/api/org', orgRoutes(deps));
+  // Step one: the page under Organisation that decides which parts of Studio exist here. Owner only,
+  // and every change behind the step-up.
+  app.use('/api/modules', moduleRoutes(deps));
   app.use('/api', notFound);
 
   const webDir = path.resolve(process.env.STUDIO_WEB_DIR ?? path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'web', 'dist'));

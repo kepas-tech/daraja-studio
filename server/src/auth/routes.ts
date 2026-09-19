@@ -11,6 +11,7 @@ import { clearCookieHeader, cookieHeader, createSession, destroySession } from '
 import { clearFailures, recordAttempt, retryAfterSeconds } from './lockout.js';
 import { checkPin, hashPin, PIN_LENGTH, PIN_PATTERN, pinKey } from './pin.js';
 import { requireAuth, requireCsrf, requireOwner, requireStepUp } from './middleware.js';
+import type { ModuleService } from '../modules/service.js';
 
 const loginSchema = z.object({ username: z.string().trim().min(1).max(200), password: z.string().min(1).max(512) });
 const changeSchema = z.object({ currentPassword: z.string().min(1), newPassword: z.string().min(MIN_PASSWORD_LENGTH).max(512) });
@@ -21,7 +22,7 @@ function maskHostAdmin<T extends { is_host_admin: boolean }>(person: T): T {
   return { ...person, is_host_admin: false };
 }
 
-export function authRoutes(db: Db, config: Config): Router {
+export function authRoutes(db: Db, config: Config, modules: ModuleService): Router {
   const r = Router();
 
   r.post('/login', async (req, res, next) => {
@@ -93,6 +94,9 @@ export function authRoutes(db: Db, config: Config): Router {
       // Brief 2, item 5b: whether this person has a fingerprint enrolled, and whether this install
       // can offer one at all. Two booleans, never an identifier.
       const [bio] = await db.query<{ one: number }>('SELECT 1 AS one FROM webauthn_credentials WHERE person_id=$1 LIMIT 1', [req.person!.id]);
+      // Step one of the tiers-and-modules design: the menu builder's half of the one answer. Nobody
+      // is asked to make a call whose module is off, and the nav hides the entry it would open.
+      const moduleState = await modules.state();
       res.json({
         person: maskHostAdmin(req.person!),
         csrf: req.csrf,
@@ -100,6 +104,11 @@ export function authRoutes(db: Db, config: Config): Router {
         // Brief 2, item 3. Only these two facts about the PIN ever leave the server: whether one is
         // set, and whether this session is waiting for it. Never the hash, never the PIN.
         pin: { set: req.personPinHash != null, locked: req.pinLocked === true, bio: config.publicUrl != null && !!bio },
+        modules: {
+          off: moduleState.modules.filter((m) => !m.on).map((m) => m.key),
+          /** The menu entries to leave out, named by the web's own nav keys. */
+          menuOff: moduleState.modules.filter((m) => !m.on).flatMap((m) => m.menu),
+        },
         // Spec 5.1. `slug` is deliberately absent: it is a host-admin handle, not a tenant's.
         org: {
           id: org.id, name: org.name, status: org.status, environment,

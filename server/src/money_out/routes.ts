@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { AppDeps } from '../app.js';
 import { requireAuth, requireCsrf, requireStepUp } from '../auth/middleware.js';
 import { requirePermission, assertPermission, personPermissions } from '../permissions/middleware.js';
+import { requireModule } from '../modules/middleware.js';
 import { requireMoneyReady } from './ready.js';
 import { getRequest, listChecks, listRequests, type RequestView } from './reads.js';
 import { audit } from '../audit/log.js';
@@ -245,9 +246,11 @@ export function lookupRoutes(deps: AppDeps): Router {
  */
 export function approvalRoutes(deps: AppDeps): Router {
   const r = Router();
+  // Step one: the approvals module owns these routes and the Waiting entry they fill.
+  const approvals = requireModule(deps.modules, 'approvals');
   const refuseSchema = z.object({ reason: z.string().trim().min(1).max(200) });
-  r.get('/', requireAuth(deps.db), requirePermission(deps.db, 'send.approve'), async (_req, res, next) => { try { res.json(await deps.moneyOut.listAwaiting()); } catch (e) { next(e); } });
-  r.get('/count', requireAuth(deps.db), async (_req, res, next) => {
+  r.get('/', requireAuth(deps.db), approvals, requirePermission(deps.db, 'send.approve'), async (_req, res, next) => { try { res.json(await deps.moneyOut.listAwaiting()); } catch (e) { next(e); } });
+  r.get('/count', requireAuth(deps.db), approvals, async (_req, res, next) => {
     try {
       // `enabled` lets the menu show Waiting for approval only while approvals are on (or something still waits).
       const [row] = await deps.db.query<{ n: number }>(`SELECT count(*)::int AS n FROM requests WHERE status='awaiting_approval'`);
@@ -255,13 +258,13 @@ export function approvalRoutes(deps: AppDeps): Router {
       res.json({ count: row.n, enabled });
     } catch (e) { next(e); }
   });
-  r.post('/:id/release', requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'send.approve'), requireMoneyReady(deps), requireStepUp(deps.db), async (req, res, next) => {
+  r.post('/:id/release', requireAuth(deps.db), requireCsrf, approvals, requirePermission(deps.db, 'send.approve'), requireMoneyReady(deps), requireStepUp(deps.db), async (req, res, next) => {
     try {
       if (!isUuid(String(req.params.id))) throw new HttpError(404, 'not_found', 'That request does not exist.');
       res.status(201).json(await deps.moneyOut.release(String(req.params.id), { personId: req.person!.id, ip: clientIp(req) }));
     } catch (e) { next(e); }
   });
-  r.post('/:id/refuse', requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'send.approve'), async (req, res, next) => {
+  r.post('/:id/refuse', requireAuth(deps.db), requireCsrf, approvals, requirePermission(deps.db, 'send.approve'), async (req, res, next) => {
     try {
       if (!isUuid(String(req.params.id))) throw new HttpError(404, 'not_found', 'That request does not exist.');
       const b = parse(refuseSchema, req.body);

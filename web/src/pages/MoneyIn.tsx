@@ -131,7 +131,12 @@ function UnmatchedRow({ row, businesses, onDone }: { row: UnmatchedView; busines
  */
 export function MoneyIn() {
   const toast = useToast();
-  const { person, org } = useSession();
+  const { person, org, modules } = useSession();
+  // Step one: the arrival question and the inbox belong to the payment-feed module, and the check
+  // against Safaricom's own record to the reconcile module. Both are hidden with their module; every
+  // read below already answers an empty list rather than an error, so nothing else changes.
+  const feedOn = !modules.off.includes('feed');
+  const reconcileOn = !modules.off.includes('reconcile');
   const stepUp = useStepUp();
   const c = copy.moneyIn;
   const [view, setView] = useState<MoneyInView | null>(null);
@@ -234,8 +239,9 @@ export function MoneyIn() {
       <div className="space-y-6">
         <p className="text-base text-muted">{c.intro}</p>
         {/* Round 5: one question, two honest answers. The feed stays open whichever is chosen, so
-            a changeover cannot lose a payment. */}
-        <Card title={c.arrival.title} bodyClassName="space-y-3 p-4" data-testid="arrival">
+            a changeover cannot lose a payment. Step one: with the feed switched off there is no
+            inbox and no Forwarder key, so the question is not asked either. */}
+        {feedOn && <Card title={c.arrival.title} bodyClassName="space-y-3 p-4" data-testid="arrival">
           <p className="text-base">{c.arrival.intro}</p>
           <div className="max-w-xl">
             <Segmented name="money-in-arrival" label={c.arrival.title} value={view.arrival ?? 'studio'}
@@ -268,7 +274,7 @@ export function MoneyIn() {
               {testSaid && <Flash tone="success" role="status">{testSaid}</Flash>}
             </div>
           )}
-        </Card>
+        </Card>}
         <Card title={copy.org.envLine[view.mode]} bodyClassName="space-y-3 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <StatusPill kind={on ? 'ok' : 'muted'}>{on ? c.registered(when(view.c2bRegisteredAt)) : c.notRegistered}</StatusPill>
@@ -294,8 +300,9 @@ export function MoneyIn() {
               <span className="text-sm text-muted">{view.pullCheckedAt ? c.lastChecked(when(view.pullCheckedAt)) : c.checksHourly}</span>
             </div>
             {found !== null && <Flash tone={found > 0 ? 'success' : 'neutral'} role="status">{c.found(found)}</Flash>}
-            {/* Round 3, phase D-1: the read-only check of Safaricom's own record against Studio's. */}
-            <p className="text-sm"><Link to="/reconcile">{copy.reconcile.openFromMoneyIn}</Link></p>
+            {/* Round 3, phase D-1: the read-only check of Safaricom's own record against Studio's.
+                Step one: hidden with its own module, which declares this as what turning it off hides. */}
+            {reconcileOn && <p className="text-sm"><Link to="/reconcile">{copy.reconcile.openFromMoneyIn}</Link></p>}
           </Card>
         )}
         {on && (

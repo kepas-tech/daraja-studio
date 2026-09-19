@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { AppDeps } from '../app.js';
 import { requireAuth, requireCsrf, requireStepUp } from '../auth/middleware.js';
 import { requirePermission } from '../permissions/middleware.js';
+import { requireModule } from '../modules/middleware.js';
 import { clientIp } from '../util/ip.js';
 import { HttpError } from '../util/errors.js';
 import { typeTemplate } from './types.js';
@@ -61,7 +62,7 @@ const actor = (req: Request) => ({ personId: req.person!.id, ip: clientIp(req) }
 
 export function businessesRoutes(deps: AppDeps): Router {
   const r = Router();
-  r.use(requireAuth(deps.db), requireCsrf);
+  r.use(requireAuth(deps.db), requireCsrf, requireModule(deps.modules, 'businesses'));
 
   r.get('/', async (_req, res, next) => {
     try { res.json(await deps.businesses.list()); } catch (e) { next(e); }
@@ -102,7 +103,8 @@ export function businessesRoutes(deps: AppDeps): Router {
   // payment that already names the business do not.
   // Round 3, phase C: one account's running statement, and who is behind for the whole business.
   // Both are reads; neither moves money or asks Safaricom anything.
-  r.get('/:id/arrears', async (req, res, next) => {
+  // Step one: arrears are the statements module's, so a studio with no statements is not offered them.
+  r.get('/:id/arrears', requireModule(deps.modules, 'statements'), async (req, res, next) => {
     try {
       const id = String(req.params.id);
       if (!isUuid(id)) throw new HttpError(404, 'not_found', NOT_FOUND);
@@ -159,7 +161,7 @@ export function businessesRoutes(deps: AppDeps): Router {
  */
 export function businessTypesRoutes(deps: AppDeps): Router {
   const r = Router();
-  r.use(requireAuth(deps.db), requireCsrf);
+  r.use(requireAuth(deps.db), requireCsrf, requireModule(deps.modules, 'businesses'));
 
   r.get('/', async (_req, res, next) => {
     try { res.json(await deps.businessTypes.list()); } catch (e) { next(e); }
@@ -189,7 +191,7 @@ export function businessTypesRoutes(deps: AppDeps): Router {
 /** The account routes live at their own address, because an account id already names its business. */
 export function accountsRoutes(deps: AppDeps): Router {
   const r = Router();
-  r.use(requireAuth(deps.db), requireCsrf);
+  r.use(requireAuth(deps.db), requireCsrf, requireModule(deps.modules, 'businesses'));
 
   // A sub-account under an account. Refused a level deeper.
   r.post('/:id/sub-accounts', requirePermission(deps.db, 'businesses.manage'), async (req, res, next) => {
@@ -223,7 +225,7 @@ export function accountsRoutes(deps: AppDeps): Router {
 
   // The account's statement: every payment in, every payout out and every invoice raised, oldest
   // first, with what has been paid and what is still owed on top.
-  r.get('/:id/statement', async (req, res, next) => {
+  r.get('/:id/statement', requireModule(deps.modules, 'statements'), async (req, res, next) => {
     try {
       const id = String(req.params.id);
       if (!isUuid(id)) throw new HttpError(404, 'not_found', ACCOUNT_NOT_FOUND);
@@ -233,7 +235,8 @@ export function accountsRoutes(deps: AppDeps): Router {
 
   // One press, and one invoice: the account's standing amount for the coming period, built here and
   // sent by the invoices service. Nothing is raised until this runs, and nothing is ever automatic.
-  r.post('/:id/next-invoice', requirePermission(deps.db, 'invoices.manage'), async (req, res, next) => {
+  // Step one: it writes an invoice, so it belongs to the invoices module as well as to businesses.
+  r.post('/:id/next-invoice', requireModule(deps.modules, 'invoices'), requirePermission(deps.db, 'invoices.manage'), async (req, res, next) => {
     try {
       const id = String(req.params.id);
       if (!isUuid(id)) throw new HttpError(404, 'not_found', ACCOUNT_NOT_FOUND);

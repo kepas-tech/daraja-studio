@@ -1,6 +1,7 @@
 import { Link } from 'react-router';
 import { Icon } from '../components/Icon';
 import { PageHeader } from '../components/PageHeader';
+import { useSession } from '../app/session';
 import { copy } from '../copy/en';
 
 /**
@@ -9,8 +10,10 @@ import { copy } from '../copy/en';
  */
 export function Advanced() {
   const c = copy.advancedPage;
+  const { modules } = useSession();
   // Round 3, phase E: Manage joins the two money groups, which is where the developer side lives.
-  const groups = (['in', 'out', 'manage'] as const).map((g) => ({ g, items: copy.nav.filter((e) => e.available && e.advanced && e.group === g) })).filter((x) => x.items.length > 0);
+  // Step one: a card whose module is off goes with the menu entry that pointed at it.
+  const groups = (['in', 'out', 'manage'] as const).map((g) => ({ g, items: copy.nav.filter((e) => e.available && e.advanced && e.group === g && !modules.menuOff.includes(e.key)) })).filter((x) => x.items.length > 0);
   return (
     <>
       <PageHeader title={copy.advancedPage.title} subtitle={c.intro} />

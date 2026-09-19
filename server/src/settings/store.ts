@@ -41,6 +41,9 @@ export type SettingKey =
   | 'send.lastBusinessId'
   // Round 5: where this paybill's confirmations arrive today — 'studio' or 'forwarder'.
   | 'moneyIn.arrival'
+  // Step one of the tiers-and-modules design: the named set of modules this studio started from —
+  // 'simple', 'business' or 'platform'. Absent means the starting tier, which is business.
+  | 'org.tier'
   | EnvSettingKey;
 
 const ENCRYPTED_SLOTS = ['consumerKey', 'consumerSecret', 'passkey', 'certPem', 'billManagerAppKey'] as const;

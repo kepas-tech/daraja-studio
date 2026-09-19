@@ -36,8 +36,9 @@ export function RequestDetail() {
   // Round 3, phase D-5: the case file on this payment. `undefined` until the read lands, `null`
   // when this payment has none; the box is drawn either way, so the empty state is where a case
   // is opened from.
-  const { person, permissions } = useSession();
-  const mayManageCase = !!person?.is_owner || permissions.includes('cases.manage');
+  const { person, permissions, modules } = useSession();
+  const casesOn = !modules.off.includes('cases');
+  const mayManageCase = casesOn && (!!person?.is_owner || permissions.includes('cases.manage'));
   const [cs, setCs] = useState<CaseView | null | undefined>(undefined);
   const [caseTitle, setCaseTitle] = useState(''); const [caseNote, setCaseNote] = useState(''); const [caseOutcome, setCaseOutcome] = useState('');
   const [caseBusy, setCaseBusy] = useState(false); const [caseErr, setCaseErr] = useState<Error | Explained | null>(null);
@@ -87,8 +88,9 @@ export function RequestDetail() {
           {r.checked && <><dt className="text-muted">{copy.request.timeline.checked}</dt><dd>{when(r.checked.at)}</dd></>}
         </dl>
         {/* Round 3, phase D-5: the case file. Paper, not money: it records what happened and it
-            never changes the payment it is about. */}
-        {cs !== undefined && (
+            never changes the payment it is about. Step one: it goes with the cases module, which
+            declares the case file on a payment as what turning it off hides. */}
+        {casesOn && cs !== undefined && (
           <div data-testid="case-file" className="rounded-md border border-line bg-surface p-5">
             <h2 className="text-base font-semibold">{copy.caseFile.title}</h2>
             {cs === null ? (

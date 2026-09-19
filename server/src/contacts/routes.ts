@@ -4,6 +4,7 @@ import { normalizePhone } from '@kepas/daraja-js';
 import type { AppDeps } from '../app.js';
 import { requireAuth, requireCsrf } from '../auth/middleware.js';
 import { requirePermission } from '../permissions/middleware.js';
+import { requireModule } from '../modules/middleware.js';
 import { audit } from '../audit/log.js';
 import { clientIp } from '../util/ip.js';
 import { HttpError } from '../util/errors.js';
@@ -91,7 +92,7 @@ function shape(b: Body): Shape {
  */
 export function contactsRoutes(deps: AppDeps): Router {
   const r = Router();
-  r.use(requireAuth(deps.db), requireCsrf);
+  r.use(requireAuth(deps.db), requireCsrf, requireModule(deps.modules, 'contacts'));
   const canManage = requirePermission(deps.db, 'contacts.manage');
   const actor = (req: Parameters<typeof clientIp>[0] & { person?: { id: string } }) => ({ personId: req.person?.id ?? null, ip: clientIp(req) });
 

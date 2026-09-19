@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { AppDeps } from '../app.js';
 import { requireAuth, requireCsrf } from '../auth/middleware.js';
 import { requirePermission } from '../permissions/middleware.js';
+import { requireModule } from '../modules/middleware.js';
 import { HttpError } from '../util/errors.js';
 
 /**
@@ -20,7 +21,7 @@ function parse<T>(schema: z.ZodType<T>, body: unknown): T {
 
 export function reconcileRoutes(deps: AppDeps): Router {
   const r = Router();
-  r.use(requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'money_in.view'));
+  r.use(requireAuth(deps.db), requireCsrf, requireModule(deps.modules, 'reconcile'), requirePermission(deps.db, 'money_in.view'));
   r.post('/', async (req, res, next) => {
     try { res.json(await deps.reconcile.check(parse(checkSchema, req.body).days)); } catch (e) { next(e); }
   });

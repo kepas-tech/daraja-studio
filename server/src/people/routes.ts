@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { AppDeps } from '../app.js';
 import type { PersonRole } from '../auth/middleware.js';
 import { requireAuth, requireCsrf, requireOwner, requireStepUp } from '../auth/middleware.js';
+import { requireModule } from '../modules/middleware.js';
 import { hashPassword, MIN_PASSWORD_LENGTH } from '../auth/password.js';
 import { ASSIGNABLE_ROLES, applyRole } from '../permissions/roles.js';
 import { audit } from '../audit/log.js';
@@ -72,7 +73,7 @@ const USERNAME_TAKEN = 'Somebody on this service already uses that name or addre
  */
 export function peopleRoutes(deps: AppDeps): Router {
   const r = Router();
-  r.use(requireAuth(deps.db), requireCsrf);
+  r.use(requireAuth(deps.db), requireCsrf, requireModule(deps.modules, 'people'));
   const stepUp = requireStepUp(deps.db);
 
   const canReadPeople: RequestHandler = (req, _res, next) => {

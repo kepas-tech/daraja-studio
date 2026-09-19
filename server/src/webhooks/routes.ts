@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { AppDeps } from '../app.js';
 import { requireAuth, requireCsrf, requireOwner } from '../auth/middleware.js';
 import { clientIp } from '../util/ip.js';
+import { requireModule } from '../modules/middleware.js';
 import { HttpError } from '../util/errors.js';
 
 const urlSchema = z.object({ url: z.string().trim().min(1).max(500) });
@@ -27,7 +28,7 @@ const isUuid = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-
  */
 export function webhookRoutes(deps: AppDeps): Router {
   const r = Router();
-  r.use(requireAuth(deps.db), requireCsrf, requireOwner);
+  r.use(requireAuth(deps.db), requireCsrf, requireModule(deps.modules, 'developer'), requireOwner);
   const actor = (req: { person?: { id: string }; headers: Record<string, unknown> }) => ({ personId: req.person!.id, ip: clientIp(req as never) });
 
   r.get('/', async (_req, res, next) => {

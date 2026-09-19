@@ -13,6 +13,7 @@ import { audit } from '../audit/log.js';
 import { PUBLIC_URL_UNVERIFIED } from '../money_out/ready.js';
 import { syncRejection } from '../money_out/service.js';
 import { recordC2b } from './record.js';
+import type { ModuleService } from '../modules/service.js';
 
 export interface Actor { personId: string; ip: string }
 export interface MoneyInView {
@@ -80,7 +81,7 @@ export function pulledToPayment(t: Record<string, unknown>): C2bPayment | null {
  * operator or is polled by the sweep: the only calls are the one-time registrations and the
  * read-only pull that backfills a confirmation Safaricom never delivered.
  */
-export function createMoneyInService(deps: { db: Db; settings: Settings; daraja: DarajaFactory; events: EventHub; orgs: OrgService; cache: Cache }): MoneyInService {
+export function createMoneyInService(deps: { db: Db; settings: Settings; daraja: DarajaFactory; events: EventHub; orgs: OrgService; cache: Cache; modules: ModuleService }): MoneyInService {
   const mode = async (): Promise<Env> => ((await deps.settings.get('daraja.environment')) as Env) ?? 'sandbox';
   const threeLines = (e: unknown): never => {
     if (e instanceof HttpError) throw e;
@@ -98,8 +99,17 @@ export function createMoneyInService(deps: { db: Db; settings: Settings; daraja:
       const env = await mode();
       const s = await deps.settings.getMany([`env.${env}.c2bRegisteredAt`, `env.${env}.pullRegisteredAt`, `env.${env}.pullCheckedAt`, `env.${env}.c2bRegisterStartedAt`, `env.${env}.c2bRegisterError`, `env.${env}.c2bAlreadyRegistered`, 'org.nominatedNumber', 'public.verifiedAt', 'moneyIn.arrival']);
       // Round 5: what the feed branch needs to show its state, read here so one call answers the page.
-      const [fed] = await deps.db.query<{ at: Date | null }>(`SELECT max(result_at) AS at FROM requests WHERE result_source = 'feed'`);
-      const [keys] = await deps.db.query<{ n: number }>(`SELECT count(*)::int AS n FROM api_keys WHERE role = 'forwarder' AND revoked_at IS NULL`);
+      // Step one: only while the feed module is on. A page must never report numbers for a part of
+      // Studio this organisation has switched off — the count of keys and the last fed payment are
+      // the feed's own facts, and they wait with it.
+      let lastFedAt: string | null = null;
+      let feedKeys = 0;
+      if (await deps.modules.isOn('feed')) {
+        const [fed] = await deps.db.query<{ at: Date | null }>(`SELECT max(result_at) AS at FROM requests WHERE result_source = 'feed'`);
+        const [keys] = await deps.db.query<{ n: number }>(`SELECT count(*)::int AS n FROM api_keys WHERE role = 'forwarder' AND revoked_at IS NULL`);
+        lastFedAt = fed?.at ? fed.at.toISOString() : null;
+        feedKeys = keys?.n ?? 0;
+      }
       const arrival = s['moneyIn.arrival'] === 'studio' || s['moneyIn.arrival'] === 'forwarder' ? s['moneyIn.arrival'] as 'studio' | 'forwarder' : null;
       const started = s[`env.${env}.c2bRegisterStartedAt`];
       const registering = !!started && Date.now() - Date.parse(started) < 2 * 60_000;
@@ -108,8 +118,8 @@ export function createMoneyInService(deps: { db: Db; settings: Settings; daraja:
         nominatedNumber: s['org.nominatedNumber'], publicVerified: !!s['public.verifiedAt'], registering, lastError: s[`env.${env}.c2bRegisterError`],
         alreadyRegistered: s[`env.${env}.c2bAlreadyRegistered`] === 'true',
         arrival,
-        lastFedAt: fed?.at ? fed.at.toISOString() : null,
-        feedKeys: keys?.n ?? 0,
+        lastFedAt,
+        feedKeys,
       };
     },
 

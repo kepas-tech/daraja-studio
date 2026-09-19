@@ -5,6 +5,7 @@ import { requireAuth, requireCsrf } from '../auth/middleware.js';
 import { clientIp } from '../util/ip.js';
 import { HttpError } from '../util/errors.js';
 import { createPushService, type PushService } from './service.js';
+import { requireModule } from '../modules/middleware.js';
 
 const subscribeBody = z.object({
   // A push endpoint is the address of this browser at its push service. Only https, and the same
@@ -34,7 +35,8 @@ const pushOff = () => new HttpError(409, 'push_off', 'Notifications are not set 
 export function pushRoutes(deps: AppDeps): Router {
   const r = Router();
   const push: PushService = deps.push ?? createPushService({ db: deps.db, vapid: deps.config.vapid });
-  r.use(requireAuth(deps.db), requireCsrf);
+  // Step one: a nudge on a device belongs with the inbox it comes from.
+  r.use(requireAuth(deps.db), requireCsrf, requireModule(deps.modules, 'notifications'));
 
   r.get('/key', (_req, res) => {
     res.json({ configured: push.configured(), publicKey: push.publicKey() });

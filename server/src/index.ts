@@ -35,6 +35,7 @@ import { createNotificationWriter } from './notifications/writer.js';
 import { createCriticalBuzzer } from './notifications/buzz.js';
 import { createPushService } from './push/service.js';
 import { createProblemService } from './health/problems.js';
+import { createModuleService } from './modules/service.js';
 import { createScheduler } from './scheduler/loop.js';
 import { ensureRecurring } from './db/jobs.js';
 import { buildHandlers } from './scheduler/handlers.js';
@@ -105,7 +106,8 @@ async function main() {
   const settingsService = createSettingsService({ db, config, settings, instance, cache, daraja, operators, orgs });
   const moneyOut = createMoneyOutService({ db, settings, cache, daraja, events, config, orgs });
   const collect = createCollectService({ db, settings, daraja, events, config, orgs });
-  const moneyIn = createMoneyInService({ db, settings, daraja, events, orgs, cache });
+  const modules = createModuleService({ db, settings });
+  const moneyIn = createMoneyInService({ db, settings, daraja, events, orgs, cache, modules });
   const bulk = createBulkService({ db, settings, config, events, moneyOut });
   const invoices = createInvoicesService({ db, settings, daraja, events, orgs });
   // Feature 2: businesses and customers. Needs the settings store for the last business used, so the
@@ -156,7 +158,7 @@ async function main() {
   const scheduler = createScheduler(db, buildHandlers({ db, events, settings, moneyOut, operators, moneyIn, bulk, buzz, webhooks: webhookDispatch, nameBackfill }));
   scheduler.start();
 
-  const app = buildApp({ config, db, keyring, orgs, settings, instance, cache, events, daraja, operators, settingsService, moneyOut, collect, moneyIn, bulk, invoices, businesses, businessTypes, statements, reconcile, cases, apiKeys, webhooks, nameBackfill, push, problems, webauthn, fetchImpl, scheduler });
+  const app = buildApp({ config, db, keyring, orgs, settings, instance, cache, events, daraja, operators, settingsService, moneyOut, collect, moneyIn, bulk, invoices, businesses, businessTypes, statements, reconcile, cases, apiKeys, webhooks, nameBackfill, push, problems, webauthn, modules, fetchImpl, scheduler });
   const listenFallback = db.getFallbackOrg();
   const envLabel = listenFallback
     ? await withOrg(listenFallback, async () => (await settings.get('daraja.environment')) ?? 'sandbox')

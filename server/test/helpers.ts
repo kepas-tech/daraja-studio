@@ -27,6 +27,7 @@ import { createWebhooksService } from '../src/webhooks/service.js';
 import { createNameBackfill } from '../src/money_in/names.js';
 import { createPushService } from '../src/push/service.js';
 import { createProblemService } from '../src/health/problems.js';
+import { createModuleService } from '../src/modules/service.js';
 import { createWebauthnService, type WebauthnVerifier } from '../src/auth/webauthn.js';
 import type { PushSender } from '../src/push/sender.js';
 import { hashPassword } from '../src/auth/password.js';
@@ -86,6 +87,15 @@ export async function ensureTestOrg(db: Db = admin()) {
                                         is_host = true, callback_secret_hash = EXCLUDED.callback_secret_hash`,
         [TEST_ORG_ID, sha256(TEST_SECRET)],
       );
+      // Step one of the tiers-and-modules design: this test database is an install that was already
+      // running the whole surface — API keys, webhooks and the payment feed are in use on it — so it
+      // is on Platform, exactly as migration 042 leaves a live one. A test that wants the starting
+      // tier instead deletes this row, which is what an organisation that has never chosen has.
+      await db.query(
+        `INSERT INTO settings(org_id, key, value) VALUES ($1, 'org.tier', 'platform')
+         ON CONFLICT (org_id, key) DO UPDATE SET value = 'platform'`,
+        [TEST_ORG_ID],
+      );
     }),
   );
   // New in this task: the reveal path and Settings need the secret readable, not only hashed. The
@@ -134,8 +144,10 @@ export function testDeps(env: Record<string, string> = {}): { config: Config; db
 
 export async function resetTables(db?: Db) {
   void db; // resets are privileged; the caller's pool is studio_app and cannot TRUNCATE.
+  // `modules` goes with the rest: a test starts on the tier's own set, with no hand-made departure
+  // left over from the test before it.
   await admin().query(
-    `TRUNCATE org_environment_verifications, contacts, accounts, number_widths, business_types, businesses, webauthn_credentials, people, permissions, sessions, login_attempts, rate_limits, operators, requests, bulk_plans, customer_invoices, notifications, push_subscriptions, balances, callbacks_raw, jobs, cache, settings RESTART IDENTITY CASCADE`,
+    `TRUNCATE org_environment_verifications, contacts, accounts, number_widths, business_types, businesses, webauthn_credentials, people, permissions, sessions, login_attempts, rate_limits, operators, requests, bulk_plans, customer_invoices, notifications, push_subscriptions, balances, callbacks_raw, jobs, cache, settings, modules RESTART IDENTITY CASCADE`,
   );
   await ensureTestOrg();
 }
@@ -154,7 +166,8 @@ export function makeApp(extra: { fetchImpl?: typeof fetch; daraja?: DarajaFactor
   const settingsService = createSettingsService({ ...base, daraja, operators, fetchImpl: extra.fetchImpl });
   const moneyOut = createMoneyOutService({ ...base, daraja, events });
   const collect = createCollectService({ ...base, daraja, events });
-  const moneyIn = createMoneyInService({ ...base, daraja, events });
+  const modules = createModuleService({ db: base.db, settings: base.settings });
+  const moneyIn = createMoneyInService({ ...base, daraja, events, modules });
   const bulk = createBulkService({ ...base, events, moneyOut, pauseMs: 0 });
   const invoices = createInvoicesService({ ...base, daraja, events });
   // Brief 2, item 1: the mint's random draw is injected, so a test pins the number a run produces.
@@ -174,7 +187,7 @@ export function makeApp(extra: { fetchImpl?: typeof fetch; daraja?: DarajaFactor
   const webauthn = createWebauthnService({ db: base.db, cache: base.cache, publicUrl: base.config.publicUrl, verifier: extra.webauthn });
   const deps: AppDeps = {
     ...base,
-    events, daraja, operators, settingsService, moneyOut, collect, moneyIn, bulk, invoices, businesses, businessTypes, statements, reconcile, cases, apiKeys, webhooks, nameBackfill, push, problems, webauthn, fetchImpl: extra.fetchImpl,
+    events, daraja, operators, settingsService, moneyOut, collect, moneyIn, bulk, invoices, businesses, businessTypes, statements, reconcile, cases, apiKeys, webhooks, nameBackfill, push, problems, webauthn, modules, fetchImpl: extra.fetchImpl,
   };
   const app = buildApp(deps);
   return { app, deps, close: async () => { await base.db.end(); } };

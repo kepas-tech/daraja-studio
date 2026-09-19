@@ -13,7 +13,7 @@ class FakeEventSource {
   close() {}
 }
 vi.stubGlobal('EventSource', FakeEventSource);
-vi.mock('../app/session', () => ({ useSession: () => ({ status: 'ready', person: { id: 'p1', display_name: 'Owner', is_owner: true }, org: null, permissions: [], refresh: async () => {} }) }));
+vi.mock('../app/session', () => ({ useSession: () => ({ status: 'ready', person: { id: 'p1', display_name: 'Owner', is_owner: true }, org: null, permissions: [], refresh: async () => {}, modules: { off: [], menuOff: [] } }) }));
 afterEach(() => cleanup());
 
 const status = (over: Record<string, unknown> = {}) => ({ mode: 'sandbox', c2bRegisteredAt: null, pullRegisteredAt: null, pullCheckedAt: null, nominatedNumber: '254700000000', publicVerified: true, registering: false, lastError: null, alreadyRegistered: false, ...over });

@@ -21,5 +21,13 @@ export default async function setup() {
       [TEST_ORG_ID],
     ),
   );
+  // Step one of the tiers-and-modules design: the tier this test database runs on. Written here and
+  // in helpers.ts's ensureTestOrg (which resetTables calls after every truncate) so a test that
+  // never resets still starts where a live install does.
+  await withSystem(() => db.query(
+    `INSERT INTO settings(org_id, key, value) VALUES ($1, 'org.tier', 'platform')
+     ON CONFLICT (org_id, key) DO UPDATE SET value = 'platform'`,
+    [TEST_ORG_ID],
+  ));
   await db.end();
 }

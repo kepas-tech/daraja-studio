@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { AppDeps } from '../app.js';
 import { requireAuth, requireCsrf, requireOwner } from '../auth/middleware.js';
 import { clientIp } from '../util/ip.js';
+import { requireModule } from '../modules/middleware.js';
 import { HttpError } from '../util/errors.js';
 import { KEY_ROLES } from './service.js';
 
@@ -26,7 +27,7 @@ function parse<T>(schema: z.ZodType<T>, body: unknown): T {
  */
 export function apiKeyRoutes(deps: AppDeps): Router {
   const r = Router();
-  r.use(requireAuth(deps.db), requireOwner);
+  r.use(requireAuth(deps.db), requireModule(deps.modules, 'developer'), requireOwner);
 
   r.get('/', async (_req, res, next) => {
     try { res.json({ items: await deps.apiKeys.list(), roles: KEY_ROLES }); } catch (e) { next(e); }

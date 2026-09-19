@@ -39,6 +39,7 @@ import { StandingOrders } from '../pages/collect/StandingOrders';
 import { Express } from '../pages/collect/Express';
 import { Bonga } from '../pages/collect/Bonga';
 import { Advanced } from '../pages/Advanced';
+import { Modules } from '../pages/Modules';
 import { Guide } from '../pages/Guide';
 import { GoLive } from '../pages/GoLive';
 
@@ -67,6 +68,8 @@ function Gate() {
         <Route path="/settings" element={<Settings />} />
         <Route path="/account" element={<Account />} />
         <Route path="/account/password" element={<VoluntaryPasswordChange />} />
+        {/* Step one of the tiers-and-modules design: the page under Organisation. */}
+        <Route path="/account/modules" element={<Modules />} />
         <Route path="/go-live" element={<GoLive />} />
         <Route path="/people" element={<People />} />
         <Route path="/contacts" element={<Contacts />} />

@@ -106,7 +106,9 @@ function AccountForm({ existing, words, standing, error, onSave, onCancel }: { e
 export function Businesses() {
   const c = copy.businesses;
   const toast = useToast();
-  const { person, permissions, org } = useSession();
+  const { person, permissions, org, modules } = useSession();
+  // Step one: statements and arrears are a module of their own, so the two doors to them go with it.
+  const statementsOn = !modules.off.includes('statements');
   const mayManage = !!person?.is_owner || permissions.includes('businesses.manage');
   const [data, setData] = useState<{ items: BusinessView[]; lastUsedId: string | null } | null>(null);
   const [types, setTypes] = useState<BusinessTypeView[]>([]);
@@ -315,7 +317,7 @@ export function Businesses() {
                       {mayManage && (
                         <>
                           <Button type="button" variant="secondary" onClick={() => { setAdding(false); setFormErr(null); setChangingKind(b.id); setKindDraft(b.type.key); }}>{c.changeKind}</Button>
-                          <Button type="button" variant="secondary" onClick={() => void whoIsBehind(b)}>{copy.statement.who}</Button>
+                          {statementsOn && <Button type="button" variant="secondary" onClick={() => void whoIsBehind(b)}>{copy.statement.who}</Button>}
                           <Button type="button" variant="secondary" onClick={() => { setAdding(false); setFormErr(null); setEditing(b.id); }}>{c.edit}</Button>
                           <Button type="button" variant={b.active ? 'danger' : 'secondary'} onClick={() => void flip(b)}>{b.active ? c.switchOff : c.switchOn}</Button>
                           <Button type="button" variant="danger" onClick={() => setDeleting({ id: b.id, name: b.name, businessId: b.id, kind: 'business' })}>{c.retire}</Button>
@@ -394,7 +396,7 @@ export function Businesses() {
                                   </span>
                                   {mayManage && (
                                     <span className="flex flex-wrap items-center gap-2">
-                                      <Link className="inline-flex min-h-11 items-center rounded-md border border-line bg-page px-4 font-semibold text-ink hover:no-underline" to={'/accounts/' + x.id}>{copy.statement.open}</Link>
+                                      {statementsOn && <Link className="inline-flex min-h-11 items-center rounded-md border border-line bg-page px-4 font-semibold text-ink hover:no-underline" to={'/accounts/' + x.id}>{copy.statement.open}</Link>}
                                       <Button type="button" variant="secondary" onClick={() => { setFormErr(null); setAddingTo(null); setEditingAccount(x.id); }}>{c.editAccount}</Button>
                                       <Button type="button" variant="secondary" onClick={() => void pastHolders(x)}>{c.pastHolders}</Button>
                                       <Button type="button" variant="danger" onClick={() => setDeleting({ id: x.id, name: x.name, businessId: b.id, kind: 'account' })}>{c.retire}</Button>

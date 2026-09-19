@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { AppDeps } from '../app.js';
 import { requireAuth, requireCsrf, requireOwner, requireStepUp } from '../auth/middleware.js';
 import { requirePermission } from '../permissions/middleware.js';
+import { requireModule } from '../modules/middleware.js';
 import { clientIp } from '../util/ip.js';
 import { HttpError } from '../util/errors.js';
 import { audit } from '../audit/log.js';
@@ -47,6 +48,9 @@ function parse<T>(schema: z.ZodType<T>, body: unknown): T {
  */
 export function invoiceRoutes(deps: AppDeps): Router {
   const r = Router();
+  // Step one: every route here is the invoices module. The guard sits after the session so a caller
+  // with no session still gets a plain 401 rather than a fact about this studio's shape.
+  r.use(requireAuth(deps.db), requireModule(deps.modules, 'invoices'));
   const a = (req: Parameters<typeof clientIp>[0] & { person?: { id: string } }) => ({ personId: req.person!.id, ip: clientIp(req) });
   const can = requirePermission(deps.db, 'invoices.manage');
   r.get('/settings', requireAuth(deps.db), can, async (_req, res, next) => { try { res.json(await deps.invoices.settings()); } catch (e) { next(e); } });

@@ -16,6 +16,7 @@ import { HttpError } from '../util/errors.js';
 import { clientIp } from '../util/ip.js';
 import { requireAuth, requireCsrf, requireStepUp } from '../auth/middleware.js';
 import { personPermissions, requirePermission } from '../permissions/middleware.js';
+import { requireModule } from '../modules/middleware.js';
 import { requireMoneyReady } from './ready.js';
 import { getRequest, type RequestView } from './reads.js';
 import { KINDS, LEDGER_TYPES, type RequestRow } from './registry.js';
@@ -225,10 +226,12 @@ function parse<T>(schema: z.ZodType<T>, value: unknown): T {
 export function reversalRoutes(deps: AppDeps): Router {
   const service = createReversalService({ ...deps, failover: (requestId, failedOperatorId) => deps.moneyOut.failover(requestId, failedOperatorId) });
   const r = Router();
+  // Step one: a reversal is a module of its own, refused before the receipt is even read.
+  const reversal = requireModule(deps.modules, 'reversals');
   // The pre-check, so the operator sees the payment and the amount before a password is asked and
   // before Safaricom is called. It refuses a receipt that never settled, in the same words the
   // action itself would use.
-  r.get('/reversal/:receipt', requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'reverse.request'), async (req, res, next) => {
+  r.get('/reversal/:receipt', requireAuth(deps.db), requireCsrf, reversal, requirePermission(deps.db, 'reverse.request'), async (req, res, next) => {
     try {
       const { receipt } = parse(receiptParamSchema, { receipt: req.params.receipt });
       const found = await service.find(receipt);
@@ -236,7 +239,7 @@ export function reversalRoutes(deps: AppDeps): Router {
       res.json(found);
     } catch (e) { next(e); }
   });
-  r.post('/reversal', requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'reverse.request'), requireMoneyReady(deps), requireStepUp(deps.db), async (req, res, next) => {
+  r.post('/reversal', requireAuth(deps.db), requireCsrf, reversal, requirePermission(deps.db, 'reverse.request'), requireMoneyReady(deps), requireStepUp(deps.db), async (req, res, next) => {
     try {
       const b = parse(reversalSchema, req.body);
       // Phase D-6: a reversal is irreversible, so somebody who may ask but not approve only asks.

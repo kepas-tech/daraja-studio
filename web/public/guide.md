@@ -848,6 +848,26 @@ Where: your name, top right → Organisation · Who: Owner · Route: /account ·
 | PUT | `/api/auth/display-name` | signed in |
 | POST | `/api/org/wipe` | owner, password, name typed |
 
+### Choose what this studio does
+
+Where: your name, top right → Organisation → What this studio does · Who: Owner · Route: /account/modules · Permission: owner
+
+1. Open What this studio does under Organisation. It lists every part of Studio with a switch, one sentence about it, the menu entry it adds, and what turning it off hides.
+2. At the top, your tier: Simple for a shop or a stall, Business for the studio as it is today, Platform for the developer side and the payment feed. Choose one and press See what will change to read exactly what it will turn on and off, then Use it and your password.
+3. Any part can then be changed on its own: Turn off hides that part and refuses its pages, and Turn on brings it back exactly as it was.
+4. A part another one stands on cannot be switched off while the other is on. The line beside it names what is holding it, and turning the other one off first frees it.
+5. Custody — holding customer balances — is listed as not built yet, so there is nothing to switch there.
+6. Every change is written to Who did what, with your name on it.
+
+- Turning a part off never deletes anything: the payments, contacts, invoices and accounts stay, and the pages come back unchanged when it is on again.
+
+| Method | Path | Who |
+|---|---|---|
+| GET | `/api/modules` | owner |
+| POST | `/api/modules/tier/preview` | owner; body { tier } |
+| POST | `/api/modules/tier` | owner, password; body { tier } |
+| POST | `/api/modules/:key` | owner, password; body { enabled } |
+
 ### See who changed what
 
 Where: your name, top right → Organisation → Who did what · Who: Owner · Route: /who-did-what · Permission: owner

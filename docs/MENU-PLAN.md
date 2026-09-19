@@ -4,12 +4,21 @@
 It is tracked in git and published, so any person, session or model can read it and know exactly
 where the project stands without asking anyone.
 
-Last updated 2026-09-17.
+Last updated 2026-09-19.
 
 ## The commitment
 
 Every item in the menu ships. **Nothing is removed to make the list look finished.** An item either
 works or is honestly labelled Coming soon until it does.
+
+## Parts that can be switched off
+
+Since 0.55.0, Studio has modules: every part above declares a key, a sentence, the permissions and
+menu entries it adds, and what turning it off hides (server/src/modules/registry.ts). An owner
+switches them on *What this studio does* under Organisation, and three tiers — Simple, Business,
+Platform — are starting points rather than cages. A part that is off hides its menu entry and refuses
+its routes with 409 `module_off`; nothing is deleted, and the table above still says whether the
+part is built, because that is a different question from whether this studio has it on.
 
 ## The rule that keeps this file honest
 
@@ -88,6 +97,7 @@ Real work that adds no menu entry, tracked here for the same reason the send typ
 | Something is wrong, on Home | Home | live | 0.30.0, deployed 2026-09-17; brief 2, item 2; an operator DOWN, a quiet Safaricom with sends pending, or a refused balance, each with one link and no dismiss button |
 | PIN lock | Organisation | live | 0.32.0, deployed 2026-09-17; brief 2, item 3; a 6-digit PIN set with the password, asked on return to the page and after 30 quiet minutes, and taken instead of the password on anything that moves money |
 | The keypad lock screen, and the fingerprint | Organisation, any locked session | live | 0.33.0, deployed 2026-09-17; brief 2, item 5; six dots and a round-keyed keypad that sends on the sixth digit, a platform-authenticator fingerprint verified on the server, devices listed and removed under Organisation |
+| What this studio does — the tiers, and every part with a switch | Organisation | live | 0.55.0, deployed 2026-09-19; step one of the tiers-and-modules design; a part that is off hides its menu entry and answers 409 `module_off` on its routes, never 404, and nothing is ever deleted |
 
 ## Send types inside Send money
 

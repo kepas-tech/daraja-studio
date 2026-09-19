@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { AppDeps } from '../app.js';
 import { requireAuth, requireCsrf } from '../auth/middleware.js';
 import { requirePermission } from '../permissions/middleware.js';
+import { requireModule } from '../modules/middleware.js';
 import { audit } from '../audit/log.js';
 import { clientIp } from '../util/ip.js';
 import { HttpError } from '../util/errors.js';
@@ -45,7 +46,7 @@ const CSV_COLUMNS = ['Day', 'Money in', 'Payments in', 'Money out', 'Payments ou
 export function reportsRoutes(deps: AppDeps): Router {
   const r = Router();
   const reports = createReportsService({ db: deps.db });
-  r.use(requireAuth(deps.db), requireCsrf);
+  r.use(requireAuth(deps.db), requireCsrf, requireModule(deps.modules, 'reports'));
 
   r.get('/', requirePermission(deps.db, 'lookup.view'), async (req, res, next) => {
     try { res.json(await reports.view(parseQuery(req.query))); } catch (e) { next(e); }
