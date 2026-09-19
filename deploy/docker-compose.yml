@@ -11,7 +11,15 @@ services:
 
   studio:
     image: ghcr.io/kepas-tech/daraja-studio:${STUDIO_VERSION:-latest}
-    build: { context: .., dockerfile: deploy/Dockerfile }
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      # The private package's repository is read with an SSH key kept on the server. A key is a
+      # credential, so it is handed to the build as a secret rather than as a build argument: it
+      # never lands in an image layer, in the build context or in a log. STUDIO_HOST_KEY_FILE names
+      # another file if the key lives elsewhere; an empty file at the path is how a machine builds
+      # this studio without the package (see deploy/Dockerfile).
+      secrets: [studio_host_key]
     restart: unless-stopped
     depends_on: { postgres: { condition: service_healthy } }
     environment:
@@ -60,6 +68,10 @@ services:
     environment: { PGPASSWORD: "${POSTGRES_PASSWORD}" }
     volumes: ["backups:/backups", "./backup.sh:/backup.sh:ro"]
     entrypoint: ["sh", "/backup.sh"]
+
+secrets:
+  studio_host_key:
+    file: "${STUDIO_HOST_KEY_FILE:-/root/.ssh/studio_host_deploy}"
 
 volumes:
   pgdata: {}
