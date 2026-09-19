@@ -41,6 +41,9 @@ export type SettingKey =
   | 'send.categories'
   // M4: sends at or above this many cents wait for a second person. 0 or unset = off.
   | 'send.approvalThresholdCents'
+  // Step three of nine: the least Safaricom will send to a phone, in cents. Absent means the
+  // default in sweep/service.ts, which is the same figure KEPAS Pay uses.
+  | 'sweep.minCents'
   // Feature 2: the business the last send was made under, so the pickers default to it.
   | 'send.lastBusinessId'
   // Round 5: where this paybill's confirmations arrive today — 'studio' or 'forwarder'.

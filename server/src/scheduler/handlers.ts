@@ -9,6 +9,7 @@ import { PASSWORD_EXPIRY_DAYS, type OperatorService } from '../operators/service
 import type { OrgStatus } from '../orgs/service.js';
 import type { MoneyInService } from '../money_in/service.js';
 import type { BulkService } from '../money_out/bulk.js';
+import type { SweepService } from '../sweep/service.js';
 import type { CriticalBuzzer } from '../notifications/buzz.js';
 import type { createWebhookDispatcher } from '../webhooks/dispatcher.js';
 import type { JobHandler } from './loop.js';
@@ -158,6 +159,8 @@ export function buildHandlers(
     webhooks: ReturnType<typeof createWebhookDispatcher>;
     /** Round 4: a few payments asked about, to put a payer's name on them. */
     nameBackfill: { ask(opts?: { limit?: number }): Promise<unknown> };
+    /** Step three of nine: what arrives for a business, sent on to its own phone. */
+    sweep: Pick<SweepService, 'run'>;
   },
 ): Record<string, JobHandler> {
   return {
@@ -179,6 +182,15 @@ export function buildHandlers(
     name_backfill: async () => { await forEachOrg(deps.db, async () => { await deps.nameBackfill.ask({ limit: 5 }); }); },
     request_timeout: requestTimeoutHandler({ db: deps.db, events: deps.events }),
     money_out_sweep: sweepHandler({ db: deps.db, moneyOut: deps.moneyOut }),
+    // Every minute: sweep-through. Each pass settles what came back, then sweeps what is due, and
+    // the window a business is on is what stops two passes paying the same money twice.
+    sweep_through: async () => {
+      const failed: string[] = [];
+      await forEachOrg(deps.db, async (org) => {
+        try { await deps.sweep.run(); } catch (e) { failed.push(org.id); throw e; }
+      });
+      if (failed.length) throw new Error(`sweep-through failed for organisation(s): ${failed.join(', ')}`);
+    },
     housekeeping: housekeepingHandler({ db: deps.db }),
     daily: dailyHandler({ db: deps.db, settings: deps.settings, events: deps.events, moneyOut: deps.moneyOut }),
     // Feature 9, one-shot: the debounced balance read a settled request asked for. It runs inside

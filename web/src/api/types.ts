@@ -414,3 +414,32 @@ export interface AuditRow {
   person: { id: string; displayName: string } | null;
   target: string | null; before: unknown; after: unknown; ip: string | null;
 }
+
+/** Step three of nine: sweep-through. One payment a sweep carried. */
+export interface SweepPayment {
+  id: string; receipt: string | null; amountCents: number; at: string; accountNumber: string | null; type: string;
+}
+/** What is owed to one business, and the payments that make the figure up. */
+export interface SweepOwed {
+  paidInCents: number; sweptCents: number; feesTakenCents: number; owedCents: number; payments: SweepPayment[];
+}
+export type SweepSchedule = 'arrival' | 'daily' | 'weekly';
+/** One sweep: a window's money, what was kept, what went, and why it did not. */
+export interface SweepRow {
+  id: string; window: string; schedule: SweepSchedule;
+  state: 'prepared' | 'sending' | 'sent' | 'failed' | 'held';
+  grossCents: number; feeCents: number; netCents: number;
+  destinationPhone: string | null; reasonCode: string | null; reason: string | null; gapCents: number | null;
+  requestId: string | null; requestStatus: string | null; receipt: string | null;
+  sentAt: string | null; createdAt: string; payments: SweepPayment[];
+}
+export interface SweepFee { percentBp: number; flatCents: number; floorCents: number | null; ceilingCents: number | null }
+/** Why nothing has left, in the owner's words. Null when there is nothing waiting. */
+export interface SweepWaiting { code: string; text: string; gapCents: number | null }
+export interface BusinessSweep {
+  businessId: string; businessName: string; businessCode: string; active: boolean;
+  destinationPhone: string | null; schedule: SweepSchedule; hour: number; weekday: number;
+  fee: SweepFee; stopped: boolean; consentedAt: string | null;
+  timetable: string; owed: SweepOwed; minCents: number; waiting: SweepWaiting | null; sweeps: SweepRow[];
+}
+export interface SweepList { items: BusinessSweep[]; minCents: number }

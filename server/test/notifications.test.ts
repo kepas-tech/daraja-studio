@@ -77,6 +77,18 @@ describe('notification classifier', () => {
     expect(swept).toMatchObject({ severity: 'warning', type: 'request.unknown' });
     expect(swept?.body).toBe('No answer from Safaricom for KES 300 to Joseph Ngumbao John yet.');
   });
+
+  // Step three of nine: a sweep that could not go is the owner's to unblock, so it lands in the
+  // inbox with the gap named and the business's own name on it.
+  it('says a held sweep out loud, with the gap and the money still owed', () => {
+    const held = classify({ type: 'alert', payload: { kind: 'sweep_held', sweepId: 'sw1', businessId: 'b1', businessName: 'Kilimani Flats', code: 'float_short', gapCents: 205700, owedCents: 500000 } });
+    expect(held).toMatchObject({ severity: 'critical', category: 'money_out', type: 'sweep.held', title: 'Sweep held', dedupeKey: 'sweep:sw1' });
+    expect(held?.body).toBe('The float is KES 2,057 short, so nothing was sent for Kilimani Flats. KES 5,000 is still owed and goes as one when the float covers it.');
+    // A hold that is not about the float reads as what it is, and is not shouted about.
+    const unpriced = classify({ type: 'alert', payload: { kind: 'sweep_held', sweepId: 'sw2', businessName: 'Kilimani Flats', code: 'no_charge_band', gapCents: 0, owedCents: 500000 } });
+    expect(unpriced).toMatchObject({ severity: 'warning', dedupeKey: 'sweep:sw2' });
+    expect(unpriced?.body).toBe('Nothing was sent for Kilimani Flats. KES 5,000 is still owed and goes with the next sweep.');
+  });
 });
 
 describe('notification writer and inbox', () => {

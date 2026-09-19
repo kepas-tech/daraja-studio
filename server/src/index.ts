@@ -36,6 +36,8 @@ import { createCriticalBuzzer } from './notifications/buzz.js';
 import { createPushService } from './push/service.js';
 import { createProblemService } from './health/problems.js';
 import { createModuleService } from './modules/service.js';
+import { createSweepService } from './sweep/service.js';
+import { createFeesService } from './fees/service.js';
 import { createScheduler } from './scheduler/loop.js';
 import { ensureRecurring } from './db/jobs.js';
 import { buildHandlers } from './scheduler/handlers.js';
@@ -111,6 +113,9 @@ async function main() {
   const moneyOut = createMoneyOutService({ db, settings, cache, daraja, events, config, orgs });
   const collect = createCollectService({ db, settings, daraja, events, config, orgs });
   const modules = createModuleService({ db, settings });
+  // Step three of nine: sweep-through. It sends through the ordinary money-out path, so a sweep is
+  // a payment row like any other — swept, polled, receipted and shown beside the rest.
+  const sweep = createSweepService({ db, settings, events, fees: createFeesService({ db }), moneyOut, modules });
   const moneyIn = createMoneyInService({ db, settings, daraja, events, orgs, cache, modules });
   const bulk = createBulkService({ db, settings, config, events, moneyOut });
   const invoices = createInvoicesService({ db, settings, daraja, events, orgs });
@@ -159,10 +164,11 @@ async function main() {
   await ensureRecurring(db, 'critical_buzz', 600);
   await ensureRecurring(db, 'webhook_dispatch', 30);
   await ensureRecurring(db, 'name_backfill', 900);
-  const scheduler = createScheduler(db, buildHandlers({ db, events, settings, moneyOut, operators, moneyIn, bulk, buzz, webhooks: webhookDispatch, nameBackfill }));
+  await ensureRecurring(db, 'sweep_through', 60);
+  const scheduler = createScheduler(db, buildHandlers({ db, events, settings, moneyOut, operators, moneyIn, bulk, buzz, webhooks: webhookDispatch, nameBackfill, sweep }));
   scheduler.start();
 
-  const app = buildApp({ config, db, keyring, orgs, settings, instance, cache, events, daraja, operators, settingsService, moneyOut, collect, moneyIn, bulk, invoices, businesses, businessTypes, statements, reconcile, cases, apiKeys, webhooks, nameBackfill, push, problems, webauthn, modules, fetchImpl, scheduler });
+  const app = buildApp({ config, db, keyring, orgs, settings, instance, cache, events, daraja, operators, settingsService, moneyOut, collect, moneyIn, bulk, invoices, businesses, businessTypes, statements, reconcile, cases, apiKeys, webhooks, nameBackfill, push, problems, webauthn, modules, sweep, fetchImpl, scheduler });
   const listenFallback = db.getFallbackOrg();
   const envLabel = listenFallback
     ? await withOrg(listenFallback, async () => (await settings.get('daraja.environment')) ?? 'sandbox')

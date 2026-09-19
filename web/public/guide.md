@@ -692,6 +692,32 @@ Safaricom calls this: Bulk Task › Bulk Payment · Where: Manage → Advanced �
 | GET | `/api/send/bulk/:id` | bulk.send |
 | POST | `/api/send/bulk/:id/retry` | bulk.send, password |
 
+### Sweep-through: money paid to a business goes on to its own phone
+
+Safaricom calls this: B2C · Where: Pay out → Sweep-through · Who: Anyone signed in can look; the owner, or a role given the permission, sets it up · Route: /sweep · Permission: sweep.manage
+
+1. Open Sweep-through in the menu. Each business on the paybill has a card: where its money goes, when it goes, what is kept, and what is owed to it with the payments that make the figure up.
+2. Set it up on a business: the phone number the money should reach, the timetable, and the fee. The screen says plainly what you are agreeing to: money paid to this number is sent to this phone, on this timetable, less this fee, and it happens without anyone pressing anything.
+3. The timetable is one of three: as it arrives (minutes after each payment), every day at an hour you choose, or every week on a day you choose. All three are Kenya time.
+4. The fee is yours: a percentage, a flat amount, or both, with a least and a most. It is worked out per sweep to the shilling and written on the sweep, so what was kept is never a guess later.
+5. Save asks for your password, and so does any later change to the phone or the timetable. Both are written to Who did what, with the before and the after.
+6. Stop sweeping is one press, and needs no password. The money stays owed and visible on the page, and goes the moment you start again.
+7. Each sweep is listed with its receipt. A sweep that could not go says why: a short float names the gap in shillings, and the whole sweep waits as one — never part of it. A sweep below what Safaricom will send waits and goes with the next one.
+
+- Nothing here holds a balance. What a business is owed is worked out every time the page is opened: payments in, less the sweeps already sent or in flight, less the fees those sweeps took. The figure and the payments under it can never disagree, because they are the same rows.
+- One sweep is written per business per window, and the window is what makes a retry, a restart or a second server unable to pay twice.
+- Before anything is sent, the net is checked against the last Utility balance Safaricom gave. Short means the whole sweep is held, the gap is named, and the bell tells you. Studio never sends against a balance it has not read recently, and never sends part of a sweep.
+- A sweep that fails is not sent again. The next window carries the same money in a new sweep, so a business is never paid twice for the same payments.
+- Stopping, or switching the Sweep-through part of Studio off, stops the money moving. Money already owed stays owed and visible either way.
+- A business with no phone number simply does not sweep, and its card says so.
+
+| Method | Path | Who |
+|---|---|---|
+| GET | `/api/sweep` | signed in; every business with what it is owed, the payments behind it, and its sweeps |
+| GET | `/api/sweep/:businessId` | signed in; the same for one business |
+| POST | `/api/sweep/:businessId` | sweep.manage, password; body { destinationPhone, schedule, hour, weekday, fee: { percentBp, flatCents, floorCents, ceilingCents } } |
+| POST | `/api/sweep/:businessId/stop` | sweep.manage; body { stopped: true | false } — one press, no password |
+
 ### Waiting
 
 Safaricom calls this: Review Transaction · Where: Pay out → Waiting · Who: Anyone logged in; an Approver or the owner releases or refuses · Route: /approvals · Permission: send.approve

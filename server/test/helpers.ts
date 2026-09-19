@@ -28,6 +28,8 @@ import { createNameBackfill } from '../src/money_in/names.js';
 import { createPushService } from '../src/push/service.js';
 import { createProblemService } from '../src/health/problems.js';
 import { createModuleService } from '../src/modules/service.js';
+import { createSweepService } from '../src/sweep/service.js';
+import { createFeesService } from '../src/fees/service.js';
 import { createWebauthnService, type WebauthnVerifier } from '../src/auth/webauthn.js';
 import type { PushSender } from '../src/push/sender.js';
 import { hashPassword } from '../src/auth/password.js';
@@ -147,7 +149,7 @@ export async function resetTables(db?: Db) {
   // `modules` goes with the rest: a test starts on the tier's own set, with no hand-made departure
   // left over from the test before it.
   await admin().query(
-    `TRUNCATE org_environment_verifications, contacts, accounts, number_widths, business_types, businesses, webauthn_credentials, people, permissions, sessions, login_attempts, rate_limits, operators, requests, bulk_plans, customer_invoices, notifications, push_subscriptions, balances, callbacks_raw, jobs, cache, settings, modules RESTART IDENTITY CASCADE`,
+    `TRUNCATE org_environment_verifications, contacts, accounts, number_widths, business_types, businesses, webauthn_credentials, people, permissions, sessions, login_attempts, rate_limits, operators, requests, bulk_plans, customer_invoices, notifications, push_subscriptions, balances, callbacks_raw, jobs, cache, settings, modules, sweep_payments, sweeps, sweep_settings RESTART IDENTITY CASCADE`,
   );
   await ensureTestOrg();
 }
@@ -182,12 +184,15 @@ export function makeApp(extra: { fetchImpl?: typeof fetch; daraja?: DarajaFactor
   // A real key pair would reach a real push service, so tests always hand in a fake sender.
   const push = createPushService({ db: base.db, vapid: base.config.vapid, sender: extra.pushSender });
   const problems = createProblemService({ db: base.db });
+  // Step three of nine: sweep-through, standing on the ordinary money-out send.
+  const fees = createFeesService({ db: base.db });
+  const sweep = createSweepService({ db: base.db, settings: base.settings, events, fees, moneyOut, modules });
   // Brief 2, item 5b: the fingerprint ceremonies. Tests hand in a fake verifier, so no real
   // authenticator is ever needed; the default relying party is a made-up https host.
   const webauthn = createWebauthnService({ db: base.db, cache: base.cache, publicUrl: base.config.publicUrl, verifier: extra.webauthn });
   const deps: AppDeps = {
     ...base,
-    events, daraja, operators, settingsService, moneyOut, collect, moneyIn, bulk, invoices, businesses, businessTypes, statements, reconcile, cases, apiKeys, webhooks, nameBackfill, push, problems, webauthn, modules, fetchImpl: extra.fetchImpl,
+    events, daraja, operators, settingsService, moneyOut, collect, moneyIn, bulk, invoices, businesses, businessTypes, statements, reconcile, cases, apiKeys, webhooks, nameBackfill, push, problems, webauthn, modules, sweep, fetchImpl: extra.fetchImpl,
   };
   const app = buildApp(deps);
   return { app, deps, close: async () => { await base.db.end(); } };

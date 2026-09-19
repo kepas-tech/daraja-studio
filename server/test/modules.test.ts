@@ -15,11 +15,11 @@ afterAll(async () => { await deps.events.stop(); await close(); });
 
 const PW = 'correct horse';
 /** Every part of Studio that exists today, plus the two declared for later and not built. */
-const KEYS = ['contacts', 'businesses', 'statements', 'invoices', 'people', 'approvals', 'reports', 'reconcile', 'cases', 'reversals', 'standing_orders', 'express_checkout', 'bonga', 'notifications', 'developer', 'feed', 'scheduled_payments', 'custody'];
+const KEYS = ['contacts', 'businesses', 'statements', 'invoices', 'people', 'approvals', 'reports', 'reconcile', 'cases', 'reversals', 'standing_orders', 'express_checkout', 'bonga', 'notifications', 'developer', 'feed', 'sweep', 'scheduled_payments', 'custody'];
 /** The parts that are declared and not built: listed, never switchable, with nothing behind them. */
 const NOT_BUILT = ['scheduled_payments', 'custody'];
 /** The menu keys the web knows about (web/src/copy/en.ts). A module may only claim one of these. */
-const NAV_KEYS = ['home', 'notifications', 'history', 'reports', 'stk', 'money-in', 'qr', 'invoices', 'standing-orders', 'express', 'bonga', 'send', 'contacts', 'bulk', 'approvals', 'reverse', 'api-keys', 'webhooks', 'businesses', 'who-did-what', 'settings', 'advanced', 'guide', 'not-possible'];
+const NAV_KEYS = ['home', 'notifications', 'history', 'reports', 'stk', 'money-in', 'qr', 'invoices', 'standing-orders', 'express', 'bonga', 'sweep', 'send', 'contacts', 'bulk', 'approvals', 'reverse', 'api-keys', 'webhooks', 'businesses', 'who-did-what', 'settings', 'advanced', 'guide', 'not-possible'];
 
 interface ModuleRow { key: string; name: string; sentence: string; on: boolean; built: boolean; switchable: boolean; changed: boolean; permissions: { key: string; label: string }[]; menu: string[]; hides: string; needs: { key: string; name: string; on: boolean }[]; heldBy: { key: string; name: string }[] }
 interface TierRow { key: string; name: string; sentence: string; on: string[]; planned: string[] }

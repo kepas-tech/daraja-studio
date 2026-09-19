@@ -10,13 +10,15 @@ const deps = testDeps();
 afterAll(() => deps.db.end());
 
 describe('permissions', () => {
-  it('catalog has the 24 keys with labels and roles', () => {
-    expect(PERMISSIONS.length).toBe(24);
+  it('catalog has the 25 keys with labels and roles', () => {
+    expect(PERMISSIONS.length).toBe(25);
     // Round 5: the inbox's own key, which is the whole of the forwarder role.
     expect(PERMISSIONS.find((p) => p.key === 'money_in.feed')?.label).toBe('Can feed money in from another system');
     expect(PERMISSIONS.find((p) => p.key === 'send.phone')?.role).toBe('ORG B2C API Initiator');
-    // Round 3, phase D-5: the case file's own key, and the only one added since this list.
+    // Round 3, phase D-5: the case file's own key.
     expect(PERMISSIONS.find((p) => p.key === 'cases.manage')?.label).toBe('Can open, record and close a case on a payment');
+    // Step three of nine: deciding where a business's money is swept to.
+    expect(PERMISSIONS.find((p) => p.key === 'sweep.manage')?.label).toBe('Can decide where a business\u2019s money is swept to');
     expect(isPermissionKey('send.phone')).toBe(true);
     expect(isPermissionKey('nope')).toBe(false);
   });

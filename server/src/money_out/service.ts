@@ -25,7 +25,12 @@ import { personName } from '../util/names.js';
 import { getRequest, listRequests, listWaiting, waitingBadge, type Page, type RequestView, type WaitingView } from './reads.js';
 
 export interface SendInput { phone: string; amountCents: number; commandId: 'BusinessPayment' | 'SalaryPayment' | 'PromotionPayment'; category?: string; remarks?: string; occasion?: string; confirmDuplicate?: boolean; /** Feature 1: the saved phone contact this send is labelled with; checked below. */ contactId?: string; /** Feature 2: the business this send belongs to. Checked below; the last one used becomes the pickers' default. */ businessId?: string; /** Brief 2, item 1: the account this money is for. Checked below, and it carries its own business. */ accountId?: string; /** Round 3, phase A: the name the review screen confirmed with Safaricom, so the row is named while it waits rather than only once the result arrives. */ recipientName?: string; /** M5: the batch this row belongs to; never accepted from a client. */ bulk?: { planId: string; index: number } }
-export interface Actor { personId: string; ip: string }
+/**
+ * Who is behind a send. `personId` is null for the one sender that is not a person: sweep-through
+ * hands a business's own money to its own number on the timetable it chose, with nobody pressing
+ * anything. The row records no author — because there is none — and the audit log says the same.
+ */
+export interface Actor { personId: string | null; ip: string }
 /**
  * What Safaricom says about the person behind a phone number, asked before a send (B2C
  * Hakikisha). `not_enabled`: Safaricom has not switched the check on for this paybill or till

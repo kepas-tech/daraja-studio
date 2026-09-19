@@ -138,6 +138,13 @@ export const MODULES: ModuleDecl[] = [
     needs: ['developer'], built: true,
   },
   {
+    key: 'sweep', name: 'Sweep-through',
+    sentence: 'Send what arrives for a business straight on to its own number.',
+    permissions: ['sweep.manage'], menu: ['sweep'],
+    hides: 'the Sweep-through page, and every automatic payout it would make',
+    needs: ['money_out', 'businesses'], built: true,
+  },
+  {
     // Declared for the B2B-and-schedules work that follows step one (design: scheduled-payments),
     // and deliberately not built here: listed for the owner, never switchable, no routes, no screen.
     // It stands on money out — the payments themselves — which is always on, and on the contact book.
@@ -180,7 +187,7 @@ export interface TierDecl {
   planned: string[];
 }
 
-const everyday = ['contacts', 'notifications', 'businesses', 'statements', 'invoices', 'people', 'approvals', 'reports', 'reconcile', 'cases', 'reversals', 'standing_orders', 'express_checkout', 'bonga'];
+const everyday = ['contacts', 'notifications', 'businesses', 'statements', 'invoices', 'people', 'approvals', 'reports', 'reconcile', 'cases', 'reversals', 'standing_orders', 'express_checkout', 'bonga', 'sweep'];
 
 export const TIERS: TierDecl[] = [
   {

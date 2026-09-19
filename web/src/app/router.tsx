@@ -40,6 +40,7 @@ import { Express } from '../pages/collect/Express';
 import { Bonga } from '../pages/collect/Bonga';
 import { Advanced } from '../pages/Advanced';
 import { Modules } from '../pages/Modules';
+import { Sweep } from '../pages/Sweep';
 import { Guide } from '../pages/Guide';
 import { GoLive } from '../pages/GoLive';
 
@@ -92,6 +93,7 @@ function Gate() {
         <Route path="/money-in" element={<MoneyIn />} />
         <Route path="/approvals" element={<Approvals />} />
         <Route path="/bulk" element={<Bulk />} />
+        <Route path="/sweep" element={<Sweep />} />
         <Route path="/bulk/:id" element={<BulkDetail />} />
         <Route path="/invoices" element={<Invoices />} />
         <Route path="/invoices/:id" element={<InvoiceDetail />} />

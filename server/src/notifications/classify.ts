@@ -24,10 +24,14 @@ export interface ClassifyInput { type: string; payload: unknown; request?: Reque
 /** Everything a customer starts, plus the invoice push: money arriving, not leaving. */
 const MONEY_IN_TYPES = new Set(['c2b', 'stk', 'ratiba', 'express', 'bonga']);
 
-/** KES 300, or KES 300.50 when the cents matter. */
+/** KES 300, KES 2,057 when the figure is bigger, or KES 300.50 when the cents matter. Grouped the
+ *  way the rest of Studio writes money, so the inbox and the page it links to read alike. */
 function kes(cents: number | null): string {
   if (cents === null) return 'KES';
-  return 'KES ' + (cents % 100 === 0 ? String(cents / 100) : (cents / 100).toFixed(2));
+  const n = cents / 100;
+  return 'KES ' + (cents % 100 === 0
+    ? n.toLocaleString('en-KE')
+    : n.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 }
 
 /**
@@ -131,6 +135,23 @@ export function classify(e: ClassifyInput): Classified | null {
       body: 'Payments out cannot go until you fix one.',
       data: { href: '/account' },
       dedupeKey: 'operators:exhausted',
+    };
+  }
+
+  // Step three of nine: a business's money could not leave — the float is short, nobody has read it,
+  // or Studio has no charge for the amount. The money is safe and still owed, and the owner is the
+  // one who can move float across, which is why this is a line in the inbox and not a log entry.
+  if (e.type === 'alert' && payload.kind === 'sweep_held') {
+    const who = typeof payload.businessName === 'string' ? payload.businessName : 'A business';
+    const owedCents = typeof payload.owedCents === 'number' ? payload.owedCents : null;
+    const gapCents = typeof payload.gapCents === 'number' && payload.gapCents > 0 ? payload.gapCents : null;
+    return {
+      severity: gapCents === null ? 'warning' : 'critical', category: 'money_out', type: 'sweep.held', title: 'Sweep held',
+      body: gapCents === null
+        ? 'Nothing was sent for ' + who + '. ' + kes(owedCents) + ' is still owed and goes with the next sweep.'
+        : 'The float is ' + kes(gapCents) + ' short, so nothing was sent for ' + who + '. ' + kes(owedCents) + ' is still owed and goes as one when the float covers it.',
+      data: { businessId: typeof payload.businessId === 'string' ? payload.businessId : null, sweepId: typeof payload.sweepId === 'string' ? payload.sweepId : null },
+      dedupeKey: 'sweep:' + (typeof payload.sweepId === 'string' ? payload.sweepId : 'held'),
     };
   }
 

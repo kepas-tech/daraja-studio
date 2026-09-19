@@ -22,7 +22,7 @@ const fixtureMigrations = path.join(fixtureDir, 'migrations');
 const fixtureEntry = path.join(fixtureDir, 'index.js');
 
 /** The core's own declarations, as they stand in the registry the app is built from. */
-const coreKeys = ['contacts', 'businesses', 'statements', 'invoices', 'people', 'approvals', 'reports', 'reconcile', 'cases', 'reversals', 'standing_orders', 'express_checkout', 'bonga', 'notifications', 'developer', 'feed', 'scheduled_payments', 'custody'];
+const coreKeys = ['contacts', 'businesses', 'statements', 'invoices', 'people', 'approvals', 'reports', 'reconcile', 'cases', 'reversals', 'standing_orders', 'express_checkout', 'bonga', 'notifications', 'developer', 'feed', 'sweep', 'scheduled_payments', 'custody'];
 
 describe('an installed package', () => {
   it('is not there by default, and Studio boots and answers exactly as it does without one', async () => {
