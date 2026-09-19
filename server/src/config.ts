@@ -33,6 +33,12 @@ const schema = z.object({
   // A directory of migrations to read after the core's own, for a package installed beside Studio.
   // Empty or unset means none is read. Its files are numbered from 900.
   STUDIO_EXTENSION_MIGRATIONS: z.preprocess((v) => (v === '' ? undefined : v), z.string().optional()),
+  // The address move: hostnames this studio has left behind, comma separated. A GET on one of them
+  // is answered with the studio's own public address, except the callback paths, which keep being
+  // served here because a request Safaricom was given the old address for expects its answer at
+  // that address. STUDIO_REDIRECT_UNTIL ends the rule on its own; both empty is no rule at all.
+  STUDIO_REDIRECT_OLD_ADDRESSES: z.preprocess((v) => (v === '' ? undefined : v), z.string().optional()),
+  STUDIO_REDIRECT_UNTIL: z.preprocess((v) => (v === '' ? undefined : v), z.string().refine((s) => !Number.isNaN(Date.parse(s)), 'STUDIO_REDIRECT_UNTIL must be a date, such as 2026-10-03T00:00:00Z').optional()),
 });
 
 export interface Config {
@@ -53,6 +59,10 @@ export interface Config {
   vapid: Vapid | null;
   /** A second migrations directory to read after the core's own. null = none is read. */
   extensionMigrations: string | null;
+  /** Hostnames this studio has moved off, lower case. Empty = nothing is redirected. */
+  redirectOldAddresses: string[];
+  /** When that redirect stops, or null for never. */
+  redirectUntil: Date | null;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv): Config {
@@ -86,6 +96,8 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
       .map((s) => s.trim())
       .filter((s) => s.length > 0),
     extensionMigrations: e.STUDIO_EXTENSION_MIGRATIONS ?? null,
+    redirectOldAddresses: (e.STUDIO_REDIRECT_OLD_ADDRESSES ?? '').split(',').map((s) => s.trim().toLowerCase()).filter((s) => s.length > 0),
+    redirectUntil: e.STUDIO_REDIRECT_UNTIL ? new Date(e.STUDIO_REDIRECT_UNTIL) : null,
     vapid: vapidFromEnv({
       STUDIO_VAPID_PUBLIC_KEY: e.STUDIO_VAPID_PUBLIC_KEY,
       STUDIO_VAPID_PRIVATE_KEY: e.STUDIO_VAPID_PRIVATE_KEY,

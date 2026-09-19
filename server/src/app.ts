@@ -168,6 +168,26 @@ export function buildApp(deps: AppDeps): express.Express {
     }
     next();
   });
+  // The address move. While the deployment names the hostnames it has left behind, a GET on one of
+  // them is sent on to the studio's own address, carrying the path and the query; the callback
+  // paths are not, because a request Safaricom was given the old address for has to be answered
+  // there. Only GET: a callback or a machine posting to the old address is served, never bounced.
+  // The rule is inert without the configuration, and STUDIO_REDIRECT_UNTIL ends it by itself.
+  if (deps.config.redirectOldAddresses.length > 0 && deps.config.publicUrl && deps.config.redirectUntil) {
+    const until = deps.config.redirectUntil.getTime();
+    app.use((req, res, next) => {
+      if (req.method !== 'GET') return next();
+      if (Date.now() > until) return next();
+      const host = req.hostname.toLowerCase();
+      if (!deps.config.redirectOldAddresses.includes(host)) return next();
+      if (/^\/cb(\/|$)/.test(req.path)) return next();
+      // An address is only an old one while it is not the studio's own: this is what stops a
+      // half-done move from redirecting the studio to itself.
+      const target = new URL(deps.config.publicUrl!);
+      if (target.hostname.toLowerCase() === host) return next();
+      res.redirect(301, target.origin + req.originalUrl);
+    });
+  }
   // The callback stack gets its own JSON parser, mounted ahead of the global one, so a
   // malformed/oversized Safaricom body never reaches the global error middleware as a 500 —
   // callbackErrorHandler stores what it can and always acks 200.

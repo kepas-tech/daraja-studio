@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.56.1 — leaving an address behind, without losing a callback
+
+- **An address the studio has moved off sends readers on.** While the deployment names its old
+  hostnames, a GET on one of them is answered **301** to the studio's own address, carrying the path
+  and the query with it. It is how `darajastudio.com` will hand over to
+  `studio.kepas.co.ke` while the move settles.
+- **The callback paths are never bounced.** A confirmation, a validation or the address self-test
+  was asked for at the old address and Safaricom expects its answer there, so `/cb/…` keeps being
+  served on the old host for as long as the rule is on. **GET only**: a machine posting to an old
+  address is served, never redirected — which is what keeps the payment feed working through a move.
+- **The rule is off by default and ends by itself.** Nothing happens unless
+  `STUDIO_REDIRECT_OLD_ADDRESSES` names a host, and `STUDIO_REDIRECT_UNTIL` (a date) stops it on
+  its own, so the two weeks cannot quietly become forever. A hostname that is also the studio's own
+  address is never redirected, so a half-finished move cannot send the studio round in circles.
+
 ## 0.56.0 — the first-run question, and a seam for what is not shipped
 
 - **Production now asks one question first: "Do you have your own paybill or till?"** *Yes* carries on
