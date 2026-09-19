@@ -1,4 +1,5 @@
 import type { Db } from '../db/pool.js';
+import type { ModuleService } from '../modules/service.js';
 import { decryptForOrg, type Keyring } from '../crypto/secrets.js';
 import { EVENT_HEADER, SIGNATURE_HEADER, checkWebhookUrl, signWebhook } from './signing.js';
 
@@ -30,11 +31,15 @@ interface DueRow {
   id: string; event: string; url: string; payload: Record<string, unknown>; attempts: number; secret_enc: string;
 }
 
-export function createWebhookDispatcher(deps: { db: Db; keyring: Keyring; fetchImpl?: typeof fetch }) {
+export function createWebhookDispatcher(deps: { db: Db; keyring: Keyring; modules: ModuleService; fetchImpl?: typeof fetch }) {
   const doFetch = deps.fetchImpl ?? fetch;
 
   return {
     async dispatchOnce(): Promise<DispatchResult> {
+      // Step one: with the developer side switched off, nothing is attempted. Every delivery stays
+      // exactly where it is — same attempt count, same due time — so switching the developer side
+      // back on sends the whole backlog rather than losing it or counting it as given up.
+      if (!(await deps.modules.isOn('developer'))) return { sent: 0, failed: 0, given: 0 };
       const due = await deps.db.query<DueRow>(
         `SELECT d.id, d.event, d.url, d.payload, d.attempts, w.secret_enc
            FROM webhook_deliveries d

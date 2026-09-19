@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.55.1 — what a studio starts as, and what Simple leaves out
+
+- **The tier is asked at setup.** A new step, *What this studio does*, sits between "What you need"
+  and your organisation details, with **Business** already chosen. The three names, their sentences
+  and what each turns on come from the same list the Organisation page draws, so the wizard cannot
+  describe a tier differently from the page that changes it. It saves with the same writer and the
+  same audit row, and every part of it stays changeable afterwards.
+- **Simple now has nothing under Advanced.** Standing orders, Express checkout and Bonga points are
+  declared as parts of their own — each with its sentence, its permission and its menu entry — and
+  left out of the Simple set. Turning one off refuses its routes with 409 `module_off` naming it,
+  and the Advanced page stops offering it. Business and Platform keep all three, as today.
+- **Scheduled payments is declared, and not built.** *Scheduled payments* — "Pay the same people on
+  a timetable" — sits in the same list, marked not built yet and standing on the money out it pays
+  with, which is always on and has no switch, and on the contact book, which does. Off in Simple, a
+  place in Business and Platform, so the work in the scheduled-payments design has somewhere to land.
+  Custody is declared the same way under Platform, as it was in 0.55.0.
+- **Nothing behind either of them.** No routes, no screens, no permission of their own: the page
+  lists them with "Not built yet" where the switch would be, and asking the server to switch one
+  answers 409 `not_built`.
+- **Outbound webhooks stop while the Developer part is off.** Every waiting delivery keeps its place
+  in the queue, its attempt count and its place on the retry curve, and switching Developer back on
+  sends the whole backlog — so a pause cannot spend an attempt, give up on a delivery, or lose one.
+  Notifications still record rows while their part is off, which is the opposite case: nothing there
+  is ever sent anywhere.
+- **What a part stands on can be a part of Studio that is always on.** Money out is the payments
+  themselves and no tier or owner switch turns it off, so the page names it ("Needs: Money out ·
+  Contacts") and it never holds anything back; a test keeps every tier's set, and every tier's
+  planned parts, closed over the dependencies that *can* be switched off.
+
 ## 0.55.0 — what this studio does
 
 - **One page decides which parts of Studio this organisation has.** Under Organisation, **What this

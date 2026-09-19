@@ -84,16 +84,20 @@ describe('finding the missing payer names', () => {
     }
 
     // Every query is a lookup with the subject recorded, and no person behind it: Studio asked.
-    const queries = await deps.db.query<{ subtype: string; created_by: string | null; payload_json: { subject?: string }; recipient_value: string }>(
-      `SELECT subtype, created_by, payload_json, recipient_value FROM requests WHERE type='status_query' ORDER BY created_at`);
+    const queries = await deps.db.query<{ id: string; subtype: string; created_by: string | null; payload_json: { subject?: string }; recipient_value: string }>(
+      `SELECT id, subtype, created_by, payload_json, recipient_value FROM requests WHERE type='status_query' ORDER BY created_at`);
     expect(queries).toHaveLength(3);
     for (const q of queries) {
       expect(q.subtype).toBe('lookup');
       expect(q.created_by).toBeNull();
       expect(q.payload_json.subject).toBe('name_fill');
     }
-    const audit = await deps.db.query<{ person_id: string | null; action: string }>(`SELECT person_id, action FROM audit_log WHERE action='lookup.requested'`);
-    expect(audit).toHaveLength(3);
+    // audit_log is append-only and shared with every other test file running beside this one, and
+    // several of them ask a lookup of their own, so the count is this run's own three requests by
+    // their ids — never every lookup row in the database, which is a race, not an assertion.
+    const audit = await deps.db.query<{ person_id: string | null; action: string }>(
+      `SELECT person_id, action FROM audit_log WHERE action='lookup.requested' AND target = ANY($1::text[])`,
+      [queries.map((q) => q.id)]);
     for (const a of audit) expect(a.person_id).toBeNull();
 
     // The next run leaves those three alone and picks up the rest.

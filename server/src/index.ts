@@ -125,7 +125,7 @@ async function main() {
   const apiKeys = createApiKeysService({ db });
   // Round 3, phase E: the webhook address and the deliveries queue.
   const webhooks = createWebhooksService({ db, keyring });
-  const webhookDispatch = createWebhookDispatcher({ db, keyring });
+  const webhookDispatch = createWebhookDispatcher({ db, keyring, modules });
   const webhookWriter = createWebhookWriter({ db, events, webhooks, egressIps: config.egressIps });
   webhookWriter.start();
   // Round 4: the payer names Studio never received, asked for a few at a time.

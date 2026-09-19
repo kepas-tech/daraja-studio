@@ -13,6 +13,10 @@ import { audit } from '../audit/log.js';
 
 const ownerSchema = z.object({ displayName: z.string().trim().min(1).max(80), username: z.string().trim().regex(/^[a-z0-9_.-]{3,32}$/i), password: z.string().min(MIN_PASSWORD_LENGTH).max(512) });
 const usesSchema = z.object({ payOut: z.boolean(), collect: z.boolean(), stk: z.boolean().default(false) });
+// Step one of the tiers-and-modules design: the tier is asked here, once, and is changeable later
+// under Organisation › What this studio does. Business is presented first and preselected, because
+// it is what a studio that has not thought about it yet should start on.
+const tierSchema = z.object({ tier: z.enum(['simple', 'business', 'platform']) });
 const orgSchema = z.object({ name: z.string().trim().min(1).max(120), nominatedNumber: z.string().trim().regex(/^254\d{9}$/), notificationPhone: z.string().trim().regex(/^254\d{9}$/) });
 const modeSchema = z.object({ environment: z.enum(['sandbox','production']), confirmShortcode: z.string().optional() });
 const shortcodeSchema = z.object({ shortcode: z.string().trim().regex(/^\d{5,7}$/) });
@@ -169,6 +173,17 @@ export function setupRoutes(deps: AppDeps): Router {
       // its own answer: receiving over paybill/till alone asks for nothing extra.
       await deps.settings.set('use.stk', String(b.stk));
       await audit(deps.db, { personId: req.person!.id, action: 'setup.uses', ip: clientIp(req), after: b });
+      await step('tier');
+      res.status(204).end();
+    } catch (e) { next(e); }
+  });
+
+  // The tier the studio starts from. It writes the same setting and the same audit row the
+  // Organisation page writes, so there is one writer and one record of the choice.
+  r.post('/tier', async (req, res, next) => {
+    try {
+      const b = parse(tierSchema, req.body);
+      await deps.modules.setTier(b.tier, { personId: req.person!.id, ip: clientIp(req) });
       await step('org');
       res.status(204).end();
     } catch (e) { next(e); }

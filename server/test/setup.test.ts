@@ -86,6 +86,21 @@ describe('setup wizard', () => {
     st = await request(app).get('/api/setup/status');
     expect(st.body.uses).toEqual({ payOut: true, collect: true, stk: true });
 
+    // Step one of the tiers-and-modules design: the tier is asked once, here, and the wizard's
+    // writer is the page's writer — the same setting and the same audit row.
+    expect((await h(request(app).post('/api/setup/tier')).send({ tier: 'simple' })).status).toBe(204);
+    st = await request(app).get('/api/setup/status');
+    expect(st.body.step).toBe('org');
+    const [tierRow] = await deps.db.query<{ value: string }>(`SELECT value FROM settings WHERE org_id=$1 AND key='org.tier'`, [TEST_ORG_ID]);
+    expect(tierRow!.value).toBe('simple');
+    const [tierAudit] = await deps.db.query<{ action: string; person_id: string | null }>(
+      `SELECT action, person_id FROM audit_log WHERE action='modules.tier_set' ORDER BY id DESC LIMIT 1`);
+    expect(tierAudit!.action).toBe('modules.tier_set');
+    expect(tierAudit!.person_id).not.toBeNull();
+    expect((await h(request(app).post('/api/setup/tier')).send({ tier: 'enterprise' })).status).toBe(400);
+    // Back to what the rest of this file expects an upgraded install to be on.
+    expect((await h(request(app).post('/api/setup/tier')).send({ tier: 'platform' })).status).toBe(204);
+
     const envResp = await h(request(app).post('/api/setup/environment')).send({ environment: 'sandbox' });
     expect(envResp.status).toBe(200);
     expect(envResp.body).toEqual({ mode: 'sandbox', ready: { creds: false, operator: false } });

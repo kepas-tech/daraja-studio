@@ -17,7 +17,8 @@ export interface ModuleDecl {
   menu: string[];
   /** What turning this module off hides, in the owner's words. */
   hides: string;
-  /** Modules this one stands on: it cannot be on while one of them is off. */
+  /** What this one stands on: another module it cannot be on without, or a part of Studio that is
+   *  always on (see ALWAYS_ON below), named to the owner and never blocking. */
   needs: string[];
   /** False for a module that is declared and not built yet: listed for the owner, never switchable. */
   built: boolean;
@@ -95,6 +96,27 @@ export const MODULES: ModuleDecl[] = [
     needs: [], built: true,
   },
   {
+    key: 'standing_orders', name: 'Standing orders',
+    sentence: 'A payer agrees once, and Safaricom collects from them on the schedule you set.',
+    permissions: ['standing_orders.manage'], menu: ['standing-orders'],
+    hides: 'the Standing orders page',
+    needs: [], built: true,
+  },
+  {
+    key: 'express_checkout', name: 'Express checkout',
+    sentence: 'Prompt another business’s till to pay this paybill.',
+    permissions: ['express.checkout'], menu: ['express'],
+    hides: 'the Express checkout page',
+    needs: [], built: true,
+  },
+  {
+    key: 'bonga', name: 'Bonga points',
+    sentence: 'Let a payer pay with their Bonga points.',
+    permissions: ['bonga.redeem'], menu: ['bonga'],
+    hides: 'the Bonga points page',
+    needs: [], built: true,
+  },
+  {
     key: 'notifications', name: 'Notifications and push',
     sentence: 'The inbox of what happened, and a nudge on the devices that asked for one.',
     permissions: [], menu: ['notifications'],
@@ -114,6 +136,16 @@ export const MODULES: ModuleDecl[] = [
     permissions: ['money_in.feed'], menu: [],
     hides: 'the inbox other systems post to, and the Forwarder key that opens it',
     needs: ['developer'], built: true,
+  },
+  {
+    // Declared for the B2B-and-schedules work that follows step one (design: scheduled-payments),
+    // and deliberately not built here: listed for the owner, never switchable, no routes, no screen.
+    // It stands on money out — the payments themselves — which is always on, and on the contact book.
+    key: 'scheduled_payments', name: 'Scheduled payments',
+    sentence: 'Pay the same people on a timetable.',
+    permissions: [], menu: [],
+    hides: 'nothing yet — it is not built',
+    needs: ['money_out', 'contacts'], built: false,
   },
   {
     // Declared here so Platform has a place to hang it, and deliberately not built in step one.
@@ -137,7 +169,7 @@ export interface TierDecl {
   planned: string[];
 }
 
-const everyday = ['contacts', 'notifications', 'businesses', 'statements', 'invoices', 'people', 'approvals', 'reports', 'reconcile', 'cases', 'reversals'];
+const everyday = ['contacts', 'notifications', 'businesses', 'statements', 'invoices', 'people', 'approvals', 'reports', 'reconcile', 'cases', 'reversals', 'standing_orders', 'express_checkout', 'bonga'];
 
 export const TIERS: TierDecl[] = [
   {
@@ -148,12 +180,12 @@ export const TIERS: TierDecl[] = [
   {
     key: 'business', name: 'Business',
     sentence: 'Studio as it stands today: businesses and account numbers, statements and arrears, invoices, people and roles, approvals, reports, checking nothing is missing, case files, reversal requests.',
-    on: everyday, planned: [],
+    on: everyday, planned: ['scheduled_payments'],
   },
   {
     key: 'platform', name: 'Platform',
     sentence: 'Everything in Business, plus the developer surface and the payment feed \u2014 and the place custody will hang when it is built.',
-    on: [...everyday, 'developer', 'feed'], planned: ['custody'],
+    on: [...everyday, 'developer', 'feed'], planned: ['scheduled_payments', 'custody'],
   },
 ];
 
@@ -161,8 +193,18 @@ export const TIERS: TierDecl[] = [
  *  the developer surface and the custody module stay off until somebody asks for them. */
 export const DEFAULT_TIER: TierKey = 'business';
 
+/**
+ * Parts of Studio that are always on and have no switch: money out is the payments themselves
+ * (B2C, B2B, bulk, reversals), and no tier and no owner switch turns paying out off. A module may
+ * stand on one of these, and the page says so, but nothing can hold it off, so no guard enforces it.
+ * Keyed by the name a declaration uses, valued by the words the owner reads.
+ */
+export const ALWAYS_ON: Record<string, string> = { money_out: 'Money out' };
+
 export function isTierKey(s: string): s is TierKey { return TIERS.some((t) => t.key === s); }
 export function moduleDecl(key: string): ModuleDecl | undefined { return MODULES.find((m) => m.key === key); }
+/** What a module stands on, in the owner's words: another module, or a part that is always on. */
+export function dependencyName(key: string): string { return moduleDecl(key)?.name ?? ALWAYS_ON[key] ?? key; }
 export function tierDecl(key: TierKey): TierDecl { return TIERS.find((t) => t.key === key)!; }
 /** Whether a tier turns this module on by itself. A module that is not built is never on. */
 export function tierHas(tier: TierKey, key: string): boolean {

@@ -6,6 +6,7 @@ import { copy } from '../../copy/en';
 import { Owner } from './Owner';
 import { Uses } from './Uses';
 import { Org } from './Org';
+import { Tier } from './Tier';
 import { Environment } from './Environment';
 import { Shortcode } from './Shortcode';
 import { Daraja } from './Daraja';
@@ -15,7 +16,7 @@ import { Operator } from './Operator';
 import { Done } from './Done';
 import logo from '../../assets/logo-long.png';
 
-const ORDER = ['owner', 'environment', 'uses', 'org', 'shortcode', 'daraja', 'public-url', 'passkey', 'operator', 'done'];
+const ORDER = ['owner', 'environment', 'uses', 'tier', 'org', 'shortcode', 'daraja', 'public-url', 'passkey', 'operator', 'done'];
 
 export function SetupLayout() {
   const s = useSession(); const nav = useNavigate(); const { pathname } = useLocation();
@@ -55,8 +56,9 @@ export function SetupLayout() {
             <Route index element={<Navigate to={`/setup/${fromSession}`} replace />} />
             <Route path="owner" element={<Owner created={s.person?.display_name ?? null} onDone={async () => { if (!s.person) await s.refresh(); go('environment'); }} />} />
             <Route path="environment" element={<Environment onDone={() => go('uses')} onBack={() => go('owner')} />} />
-            <Route path="uses" element={<Uses onDone={() => go('org')} onBack={() => go('environment')} />} />
-            <Route path="org" element={<Org onDone={() => go('shortcode')} onBack={() => go('uses')} />} />
+            <Route path="uses" element={<Uses onDone={() => go('tier')} onBack={() => go('environment')} />} />
+            <Route path="tier" element={<Tier onDone={() => go('org')} onBack={() => go('uses')} />} />
+            <Route path="org" element={<Org onDone={() => go('shortcode')} onBack={() => go('tier')} />} />
             <Route path="shortcode" element={<Shortcode onDone={() => go('daraja')} onBack={() => go('org')} />} />
             <Route path="daraja" element={<Daraja onDone={() => go('public-url')} onBack={() => go('shortcode')} />} />
             <Route path="public-url" element={<PublicUrl onDone={afterPublicUrl} onBack={() => go('daraja')} />} />

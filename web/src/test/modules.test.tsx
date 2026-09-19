@@ -39,6 +39,7 @@ const view = (over: Partial<ModuleState> = {}): ModuleState => ({
     mod({ key: 'invoices', name: 'Invoices', on: false, changed: true, sentence: 'Bills your customers can pay, with reminders.', menu: ['invoices'], hides: 'the Invoices page and every bill in it' }),
     mod({ key: 'people', name: 'People and roles', sentence: 'Who may log in, and what each of them may do.', hides: 'the People page and every role', heldBy: [{ key: 'approvals', name: 'Approvals' }] }),
     mod({ key: 'approvals', name: 'Approvals', sentence: 'A second person releases a send above the amount you set.', menu: ['approvals'], hides: 'Waiting and the approval setting', needs: [{ key: 'people', name: 'People and roles', on: true }] }),
+    mod({ key: 'scheduled_payments', name: 'Scheduled payments', on: false, built: false, switchable: false, sentence: 'Pay the same people on a timetable.', hides: 'nothing yet — it is not built', needs: [{ key: 'money_out', name: 'Money out', on: true }, { key: 'contacts', name: 'Contacts', on: true }] }),
     mod({ key: 'custody', name: 'Custody', on: false, built: false, switchable: false, sentence: 'Studio holds customer balances: wallets, a double-entry ledger, and the float rule.', hides: 'nothing yet — it is not built' }),
   ],
   ...over,
@@ -69,8 +70,13 @@ describe('What this studio does', () => {
     expect(screen.getByText(view().tiers[0]!.sentence)).toBeInTheDocument();
     // What each tier turns on, named in the tier's own card.
     expect(screen.getAllByText(/Turns on:/)).toHaveLength(view().tiers.length);
-    // Custody is declared and cannot be switched.
-    expect(screen.getByText(copy.modulesPage.notBuilt)).toBeInTheDocument();
+    // Both parts that are declared and not built are listed, and neither has a switch.
+    expect(screen.getAllByText(copy.modulesPage.notBuilt)).toHaveLength(2);
+    const scheduled = screen.getByRole('heading', { name: 'Scheduled payments' }).closest('[data-testid]') as HTMLElement;
+    expect(scheduled).toHaveTextContent('Pay the same people on a timetable.');
+    // What it stands on is named, money out included: a part that is always on and has no switch.
+    expect(scheduled).toHaveTextContent(copy.modulesPage.needs + ': Money out · Contacts');
+    expect(within(scheduled).queryByRole('button')).toBeNull();
   });
 
   it('says which module is holding another one on, and will not offer to switch it off', async () => {

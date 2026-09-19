@@ -1026,12 +1026,13 @@ export const copy = {
   },
   setup: {
     title: 'Set up your studio',
-    steps: ['Owner', 'Environment', 'What you need', 'Your organization', 'Shortcode', 'Daraja app', 'Public address', 'STK passkey', 'API operator', 'Done'],
+    steps: ['Owner', 'Environment', 'What you need', 'What this studio does', 'Your organization', 'Shortcode', 'Daraja app', 'Public address', 'STK passkey', 'API operator', 'Done'],
     stepOf: (n: number, of: number) => `Step ${n} of ${of}`,
     /** One plain sentence per step: what it is for and where the value comes from. */
     intro: {
       owner: 'Your own login. Nobody else sees this password.',
       uses: 'Tick what applies. This decides which Safaricom details the next steps ask for. You can change it later in Settings.',
+      tier: 'Where to start: a shop till, the studio as it is today, or the platform behind other systems. Nothing is fixed — every part of it can be changed later under Organisation.',
       environment: 'Sandbox is Safaricom\'s practice area with pretend money and test credentials. Production is your real M-Pesa account and real money. You can switch later in Settings.',
       org: 'Shown in the menu and on receipts.',
       shortcode: 'Your paybill or till number, as on your Safaricom letter, on the M-Pesa business portal under My Organization, or on your Production app card on the Daraja portal.',
@@ -1041,6 +1042,12 @@ export const copy = {
       operator: 'A user on the M-Pesa business portal made for Studio, Active (password set), with the roles ORG B2C API initiator, Balance Query ORG API and Transaction Status query ORG API. Only one Safaricom accepts is kept.',
       done: 'Everything Safaricom needs is in place.',
     } as Record<string, string>,
+    /** Step one of the tiers-and-modules design: the tier, asked once, Business preselected. */
+    tier: {
+      title: 'What this studio does',
+      intro: 'Pick where to start. The three names and what each turns on come from the same list the Organisation page uses, and you can change any part of it there afterwards.',
+      turnsOn: 'Turns on',
+    },
     owner: { displayName: 'Your name', username: 'Username', password: 'Choose a password (12+ characters)', button: 'Create owner', created: (name: string) => `Owner account created for ${name}.`, changeName: 'Change name', nameSaved: 'Name saved.', fixed: 'The username and password stay; change the password later from the account menu.' },
     /**
      * Asked in the business's own words, never in Safaricom's. Somebody setting up a shop should

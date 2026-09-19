@@ -5,6 +5,7 @@ import type { Config } from '../config.js';
 import type { Settings } from '../settings/store.js';
 import { requireAuth, requireCsrf, requireHttps, requireUnlocked } from '../auth/middleware.js';
 import { requirePermission } from '../permissions/middleware.js';
+import { requireModule } from '../modules/middleware.js';
 import { PUBLIC_URL_UNVERIFIED } from '../money_out/ready.js';
 import { ORG_CLOSED, ORG_SUSPENDED } from '../http/orgActive.js';
 import { clientIp } from '../util/ip.js';
@@ -70,6 +71,8 @@ export function requireCollectReady(deps: { config: Config; settings: Settings }
  */
 export function collectRoutes(deps: AppDeps): Router {
   const r = Router();
+  // Step one: the three collect kinds that are their own parts of Studio, each refused with its
+  // own name when it is off. Asking a customer to pay (STK) is core and has no switch.
   r.post('/stk', requireAuth(deps.db), requireCsrf, requireUnlocked, requirePermission(deps.db, 'stk.request'), requireCollectReady(deps), async (req, res, next) => {
     try {
       const b = parse(askToPay, req.body);
@@ -79,16 +82,16 @@ export function collectRoutes(deps: AppDeps): Router {
   });
   const actor = (req: Parameters<typeof clientIp>[0] & { person?: { id: string } }) => ({ personId: req.person!.id, ip: clientIp(req) });
   // M8, M9, M10: money in like STK, so the same readiness and no step-up password.
-  r.post('/ratiba', requireAuth(deps.db), requireCsrf, requireUnlocked, requirePermission(deps.db, 'standing_orders.manage'), requireCollectReady(deps), async (req, res, next) => {
+  r.post('/ratiba', requireAuth(deps.db), requireCsrf, requireModule(deps.modules, 'standing_orders'), requireUnlocked, requirePermission(deps.db, 'standing_orders.manage'), requireCollectReady(deps), async (req, res, next) => {
     try { res.status(201).json(await deps.collect.standingOrder(parse(standingOrder, req.body), actor(req))); } catch (e) { next(e); }
   });
-  r.post('/express', requireAuth(deps.db), requireCsrf, requireUnlocked, requirePermission(deps.db, 'express.checkout'), requireCollectReady(deps), async (req, res, next) => {
+  r.post('/express', requireAuth(deps.db), requireCsrf, requireModule(deps.modules, 'express_checkout'), requireUnlocked, requirePermission(deps.db, 'express.checkout'), requireCollectReady(deps), async (req, res, next) => {
     try { res.status(201).json(await deps.collect.expressCheckout(parse(expressCheckout, req.body), actor(req))); } catch (e) { next(e); }
   });
-  r.post('/bonga/calculate', requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'bonga.redeem'), async (req, res, next) => {
+  r.post('/bonga/calculate', requireAuth(deps.db), requireCsrf, requireModule(deps.modules, 'bonga'), requirePermission(deps.db, 'bonga.redeem'), async (req, res, next) => {
     try { res.json(await deps.collect.bongaCalculate(parse(bongaCalculate, req.body).points)); } catch (e) { next(e); }
   });
-  r.post('/bonga/redeem', requireAuth(deps.db), requireCsrf, requireUnlocked, requirePermission(deps.db, 'bonga.redeem'), requireCollectReady(deps), async (req, res, next) => {
+  r.post('/bonga/redeem', requireAuth(deps.db), requireCsrf, requireModule(deps.modules, 'bonga'), requireUnlocked, requirePermission(deps.db, 'bonga.redeem'), requireCollectReady(deps), async (req, res, next) => {
     try { res.status(201).json(await deps.collect.bongaRedeem(parse(bongaRedeem, req.body), actor(req))); } catch (e) { next(e); }
   });
   return r;

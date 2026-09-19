@@ -4,6 +4,7 @@ import { testDeps, resetTables, makeApp, loginAsOwner, makePerson, loginAs, TEST
 import { createWebhooksService } from '../src/webhooks/service.js';
 import { createWebhookDispatcher, MAX_ATTEMPTS, RETRY_SECONDS } from '../src/webhooks/dispatcher.js';
 import { createWebhookWriter } from '../src/webhooks/writer.js';
+import { createModuleService } from '../src/modules/service.js';
 import { verifyWebhook } from '../src/webhooks/signing.js';
 import type { EventHub } from '../src/events/hub.js';
 
@@ -29,8 +30,12 @@ function fakeFetch(answer: () => { status: number; body?: string }): { fetchImpl
   return { fetchImpl, sent };
 }
 
+// Step one: the dispatcher asks whether the developer side is on, so it takes the same service
+// the routes and the page take.
+const modules = createModuleService({ db: deps.db, settings: deps.settings });
+
 function dispatcher(fetchImpl: typeof fetch) {
-  return createWebhookDispatcher({ db: deps.db, keyring: deps.keyring, fetchImpl });
+  return createWebhookDispatcher({ db: deps.db, keyring: deps.keyring, modules, fetchImpl });
 }
 
 async function due(id: string) {
@@ -168,6 +173,32 @@ describe('webhooks', () => {
     const r = await row(made!.id);
     expect(r.next_retry_at).toBeNull();
     expect(r.last_response).toMatch(/^blocked: /);
+  });
+
+  it('attempts nothing while the developer side is off, and sends the backlog when it is on again', async () => {
+    const w = service();
+    await w.save('https://example.test/hooks/studio', actor);
+    const [made] = await deps.db.query<{ id: string }>(
+      `INSERT INTO webhook_deliveries(event, url, payload) VALUES ('request.completed','https://example.test/hooks/studio','{}'::jsonb) RETURNING id`);
+
+    // Off: nothing leaves, and the row is left exactly where it was — same attempt count, still
+    // due — so a pause cannot quietly spend an attempt or drop a delivery. The feed stands on the
+    // developer side, so it goes first: that rule is what keeps a machine's key from outliving the
+    // part it belongs to.
+    await modules.set('feed', false, actor);
+    await modules.set('developer', false, actor);
+    const { fetchImpl, sent } = fakeFetch(() => ({ status: 200 }));
+    expect(await dispatcher(fetchImpl).dispatchOnce()).toEqual({ sent: 0, failed: 0, given: 0 });
+    expect(sent).toHaveLength(0);
+    const held = await row(made!.id);
+    expect(held).toMatchObject({ attempts: 0, delivered_at: null, last_status: null });
+    expect(held.next_retry_at).not.toBeNull();
+
+    // On again: the backlog goes, and nothing was lost by the pause.
+    await modules.set('developer', true, actor);
+    expect(await dispatcher(fetchImpl).dispatchOnce()).toEqual({ sent: 1, failed: 0, given: 0 });
+    expect((await row(made!.id)).delivered_at).not.toBeNull();
+    expect(sent).toHaveLength(1);
   });
 
   it('turns a payment event into a delivery with the same facts the page shows', async () => {

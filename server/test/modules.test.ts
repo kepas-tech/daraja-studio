@@ -14,8 +14,10 @@ const { app, deps, close } = makeApp();
 afterAll(async () => { await deps.events.stop(); await close(); });
 
 const PW = 'correct horse';
-/** Every part of Studio that exists today, plus custody, which is declared for later and not built. */
-const KEYS = ['contacts', 'businesses', 'statements', 'invoices', 'people', 'approvals', 'reports', 'reconcile', 'cases', 'reversals', 'notifications', 'developer', 'feed', 'custody'];
+/** Every part of Studio that exists today, plus the two declared for later and not built. */
+const KEYS = ['contacts', 'businesses', 'statements', 'invoices', 'people', 'approvals', 'reports', 'reconcile', 'cases', 'reversals', 'standing_orders', 'express_checkout', 'bonga', 'notifications', 'developer', 'feed', 'scheduled_payments', 'custody'];
+/** The parts that are declared and not built: listed, never switchable, with nothing behind them. */
+const NOT_BUILT = ['scheduled_payments', 'custody'];
 /** The menu keys the web knows about (web/src/copy/en.ts). A module may only claim one of these. */
 const NAV_KEYS = ['home', 'notifications', 'history', 'reports', 'stk', 'money-in', 'qr', 'invoices', 'standing-orders', 'express', 'bonga', 'send', 'contacts', 'bulk', 'approvals', 'reverse', 'api-keys', 'webhooks', 'businesses', 'who-did-what', 'settings', 'advanced', 'guide', 'not-possible'];
 
@@ -59,17 +61,30 @@ describe('modules and tiers', () => {
   it('keeps every tier closed: a set never turns on a part without what it stands on', async () => {
     const v = await view();
     const byKey = new Map(v.modules.map((m) => [m.key, m]));
+    // A need that names a module must be switched on by the same tier; one that names a part of
+    // Studio which is always on (money out) has nothing to carry and nothing to enforce.
+    const carries = (t: TierRow, m: ModuleRow, label: string) => {
+      for (const n of m.needs) if (byKey.has(n.key)) expect(t.on, label + ' stands on ' + n.key).toContain(n.key);
+    };
     for (const t of v.tiers) {
       for (const key of t.on) {
         const m = byKey.get(key)!;
         expect(m, t.key + ': ' + key).toBeDefined();
         expect(m.built, t.key + ': ' + key).toBe(true);
         expect(t.planned).not.toContain(key);
-        for (const n of m.needs) expect(t.on, t.key + ': ' + key + ' stands on ' + n.key).toContain(n.key);
+        carries(t, m, t.key + ': ' + key);
+      }
+      // A part a tier has a place for must not be waiting on something that tier leaves off, or
+      // switching it on when it is built would be refused.
+      for (const key of t.planned) {
+        expect(byKey.has(key), t.key + ' plans ' + key).toBe(true);
+        expect(t.on, t.key + ' plans ' + key).not.toContain(key);
+        carries(t, byKey.get(key)!, t.key + ' plans ' + key);
       }
     }
-    // Every dependency a part declares names a part that exists, built or not.
-    for (const m of v.modules) for (const n of m.needs) expect(byKey.has(n.key), m.key + ' needs ' + n.key).toBe(true);
+    // Every dependency a part declares names a part that exists, built or not, or one that is
+    // always on.
+    for (const m of v.modules) for (const n of m.needs) expect(byKey.has(n.key) || n.on === true, m.key + ' needs ' + n.key).toBe(true);
   });
 
   it('refuses the routes of a module that is off with 409 module_off, and never 404', async () => {
@@ -127,6 +142,34 @@ describe('modules and tiers', () => {
     expect(back.body.alsoOn).toEqual(['people']);
     expect((await one('people')).on).toBe(true);
     expect((await one('people')).heldBy).toEqual([{ key: 'approvals', name: 'Approvals' }]);
+  });
+
+  it('leaves Simple with nothing under Advanced, and refuses each of the three kinds by name', async () => {
+    // Simple is a shop or a stall: standing orders, express checkout and Bonga points are all off,
+    // so Advanced holds nothing, and each route answers with its own part's name.
+    expect((await tier('simple')).status).toBe(200);
+    const v = await view();
+    expect(v.modules.filter((m) => m.on && m.menu.some((k) => ['standing-orders', 'express', 'bonga'].includes(k)))).toEqual([]);
+    const me = await h(request(app).get('/api/auth/me'));
+    for (const key of ['standing-orders', 'express', 'bonga']) expect(me.body.modules.menuOff).toContain(key);
+
+    const refusals: [string, string, Record<string, unknown>][] = [
+      ['standing_orders', '/api/collect/ratiba', { name: 'Rent', phone: '254700000000', amountCents: 1000, frequency: 'monthly', startDate: '2026-10-01', transactionType: 'paybill' }],
+      ['express_checkout', '/api/collect/express', { till: '600999', amountCents: 1000, paymentRef: 'INV1' }],
+      ['bonga', '/api/collect/bonga/redeem', { phone: '254700000000', points: 100 }],
+    ];
+    for (const [key, path, body] of refusals) {
+      const refused = await h(request(app).post(path)).send(body);
+      expect(refused.status, path).toBe(409);
+      expect(refused.body.error.code, path).toBe('module_off');
+      expect(refused.body.error.details, path).toMatchObject({ module: key });
+      const name = (await one(key)).name;
+      expect(refused.body.error.message, path).toContain(name);
+    }
+    // Asking a customer to pay is not one of the three: it is core. It has its own readiness rule
+    // and may refuse for that, but never with the module's own code.
+    const stk = await h(request(app).post('/api/collect/stk')).send({});
+    expect(stk.body.error?.code).not.toBe('module_off');
   });
 
   it('applies a tier’s set, and lets a person depart from it', async () => {
@@ -199,18 +242,31 @@ describe('modules and tiers', () => {
     expect((await set('invoices', false)).status).toBe(200);
   });
 
-  it('keeps custody as the place the later work hangs, and refuses to switch it', async () => {
-    const custody = await one('custody');
-    expect(custody).toMatchObject({ built: false, switchable: false, on: false });
-    expect(custody.sentence).toContain('balances');
-    const refused = await set('custody', true);
-    expect(refused.status).toBe(409);
-    expect(refused.body.error.code).toBe('not_built');
-    expect(custody.heldBy).toEqual([]);
-    // Platform is where it hangs, and it is named as not built yet.
-    const platform = (await view()).tiers.find((t) => t.key === 'platform')!;
-    expect(platform.planned).toEqual(['custody']);
-    expect(platform.on).not.toContain('custody');
+  it('lists the two parts that are declared and not built, and refuses to switch either', async () => {
+    const v = await view();
+    for (const key of NOT_BUILT) {
+      const m = await one(key);
+      expect(m, key).toMatchObject({ built: false, switchable: false, on: false, changed: false, menu: [], permissions: [] });
+      expect(m.sentence.length, key).toBeGreaterThan(20);
+      expect(m.heldBy, key).toEqual([]);
+      const refused = await set(key, true);
+      expect(refused.status, key).toBe(409);
+      expect(refused.body.error.code, key).toBe('not_built');
+    }
+    // Scheduled payments says exactly what it is and what it stands on, and money out is a part of
+    // Studio that is always on rather than a module with a switch.
+    const scheduled = await one('scheduled_payments');
+    expect(scheduled).toMatchObject({ name: 'Scheduled payments', sentence: 'Pay the same people on a timetable.' });
+    expect(scheduled.needs).toEqual([{ key: 'money_out', name: 'Money out', on: true }, { key: 'contacts', name: 'Contacts', on: true }]);
+    expect(v.modules.find((m) => m.key === 'custody')!.sentence).toContain('balances');
+
+    // A tier has a place for them, or not: Simple has none of it, Business the schedules, Platform
+    // both — and none of them is on, because none of them is built.
+    const planned = (k: string) => v.tiers.find((t) => t.key === k)!.planned;
+    expect(planned('simple')).toEqual([]);
+    expect(planned('business')).toEqual(['scheduled_payments']);
+    expect(planned('platform')).toEqual(['scheduled_payments', 'custody']);
+    for (const t of v.tiers) for (const key of NOT_BUILT) expect(t.on, t.key).not.toContain(key);
   });
 
   it('starts an organisation that has never chosen on Business, with the developer side off', async () => {

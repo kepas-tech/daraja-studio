@@ -242,7 +242,7 @@ export const guide: GuideSection[] = [
   {
     key: 'setup',
     title: 'First-run setup',
-    intro: 'The first person to open a new Studio becomes the owner and walks through up to ten steps. Back keeps your answers, and every step saves before moving on, so you can stop and come back later.',
+    intro: 'The first person to open a new Studio becomes the owner and walks through up to eleven steps. Back keeps your answers, and every step saves before moving on, so you can stop and come back later.',
     tasks: [
       {
         key: 'wizard',
@@ -253,6 +253,7 @@ export const guide: GuideSection[] = [
           'Owner: your name, a username and a password of 12 or more characters. You can change the name on the "Owner account created" screen; the username stays.',
           'Environment: Sandbox or Production. Start with Sandbox if you are still trying things out; when Safaricom has approved your app for real money, Organisation › Go live takes you across.',
           'What you need: tick "Receive money from payers", "Send money to people or businesses", or both. A separate tick, "Prompt their phone to pay", is the one thing that needs the passkey. Your ticks decide which of the later steps appear.',
+          'What this studio does: Simple for a shop or a stall, Business for the studio as it is today, or Platform for the developer side and the payment feed. Business is chosen for you. Nothing here is fixed — Organisation › What this studio does changes any part of it later.',
           'Your organization: business name, nominated number and notification phone (starting 2547). Shown in the menu and on receipts.',
           'Shortcode: your paybill or till number. Studio checks it with Safaricom and shows the name Safaricom holds for it.',
           'Daraja app: paste the "Consumer Key" and "Consumer Secret" (see Getting things from Safaricom). Studio tests them at once; "accepted" means Safaricom said yes.',
@@ -266,6 +267,7 @@ export const guide: GuideSection[] = [
           { method: 'POST', path: '/api/setup/owner', who: 'first person' },
           { method: 'POST', path: '/api/setup/environment', who: 'owner' },
           { method: 'POST', path: '/api/setup/uses', who: 'owner' },
+          { method: 'POST', path: '/api/setup/tier', who: 'owner; body { tier: "simple" | "business" | "platform" }' },
           { method: 'POST', path: '/api/setup/org', who: 'owner' },
           { method: 'POST', path: '/api/setup/shortcode', who: 'owner' },
           { method: 'POST', path: '/api/setup/daraja', who: 'owner' },
@@ -889,6 +891,7 @@ export const guide: GuideSection[] = [
           'New secret makes a new one and shows it once; the old secret stops verifying at that moment. Stop sending removes the address and clears the queue.',
           'Open Deliveries for everything Studio has sent: what happened, how many tries it took, what your address answered, and when the next try is due. Waiting, Delivered, Given up and All narrow the list.',
           'A delivery that has run out of tries — or one your address refused — can be put back in the queue with Try again, which buys one more attempt rather than a fresh curve.',
+          'While the Developer part of Studio is switched off (Organisation › What this studio does), nothing is sent at all: every waiting delivery keeps its place in the queue and its place on the curve, and switching Developer back on sends the whole backlog.',
         ],
         notes: [
           'The address must be https and on the internet. An address inside this network is refused: a webhook would otherwise let Studio post its own data to itself.',
@@ -1053,7 +1056,7 @@ export const guide: GuideSection[] = [
           'At the top, your tier: Simple for a shop or a stall, Business for the studio as it is today, Platform for the developer side and the payment feed. Choose one and press See what will change to read exactly what it will turn on and off, then Use it and your password.',
           'Any part can then be changed on its own: Turn off hides that part and refuses its pages, and Turn on brings it back exactly as it was.',
           'A part another one stands on cannot be switched off while the other is on. The line beside it names what is holding it, and turning the other one off first frees it.',
-          'Custody — holding customer balances — is listed as not built yet, so there is nothing to switch there.',
+          'Two parts are listed as not built yet, so there is nothing to switch there: scheduled payments (paying the same people on a timetable) and custody (holding customer balances). They are shown so you can see where the work that follows will hang.',
           'Every change is written to Who did what, with your name on it.',
         ],
         notes: [

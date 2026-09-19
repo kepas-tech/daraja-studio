@@ -3,7 +3,7 @@ import type { Settings } from '../settings/store.js';
 import { audit } from '../audit/log.js';
 import { HttpError } from '../util/errors.js';
 import {
-  DEFAULT_TIER, MODULES, TIERS, isTierKey, moduleDecl, permissionLabel, tierHas,
+  DEFAULT_TIER, MODULES, TIERS, dependencyName, isTierKey, moduleDecl, permissionLabel, tierHas,
   type TierDecl, type TierKey,
 } from './registry.js';
 
@@ -96,7 +96,9 @@ export function createModuleService(deps: { db: Db; settings: Settings }): Modul
       changed: explicit.has(m.key) && explicit.get(m.key) !== tierHas(tier, m.key),
       permissions: m.permissions.map((p) => ({ key: p, label: permissionLabel(p) })),
       menu: m.menu, hides: m.hides,
-      needs: m.needs.map((k) => ({ key: k, name: moduleDecl(k)!.name, on: on.get(k) === true })),
+      // A need is either another module, which can be off and hold this one on, or a part of Studio
+      // that is always on (money out), which is named for the owner and can never be off.
+      needs: m.needs.map((k) => ({ key: k, name: dependencyName(k), on: moduleDecl(k) ? on.get(k) === true : true })),
       heldBy: MODULES.filter((d) => d.needs.includes(m.key) && d.built && on.get(d.key) === true)
         .map((d) => ({ key: d.key, name: d.name })),
     }));

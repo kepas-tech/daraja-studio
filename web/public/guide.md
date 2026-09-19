@@ -179,7 +179,7 @@ Who: Owner
 
 ## First-run setup
 
-The first person to open a new Studio becomes the owner and walks through up to ten steps. Back keeps your answers, and every step saves before moving on, so you can stop and come back later.
+The first person to open a new Studio becomes the owner and walks through up to eleven steps. Back keeps your answers, and every step saves before moving on, so you can stop and come back later.
 
 ### The steps
 
@@ -188,13 +188,14 @@ Who: Owner · Route: /setup
 1. Owner: your name, a username and a password of 12 or more characters. You can change the name on the "Owner account created" screen; the username stays.
 2. Environment: Sandbox or Production. Start with Sandbox if you are still trying things out; when Safaricom has approved your app for real money, Organisation › Go live takes you across.
 3. What you need: tick "Receive money from payers", "Send money to people or businesses", or both. A separate tick, "Prompt their phone to pay", is the one thing that needs the passkey. Your ticks decide which of the later steps appear.
-4. Your organization: business name, nominated number and notification phone (starting 2547). Shown in the menu and on receipts.
-5. Shortcode: your paybill or till number. Studio checks it with Safaricom and shows the name Safaricom holds for it.
-6. Daraja app: paste the "Consumer Key" and "Consumer Secret" (see Getting things from Safaricom). Studio tests them at once; "accepted" means Safaricom said yes.
-7. Public address: Studio reads the address from your browser and shows it. Press Change only if people open Studio through a different address. Press "Test this address" so Safaricom can prove it reaches you.
-8. STK passkey (only if you ticked the phone prompt): paste the passkey and give your own phone number. Studio sends one KES 1 prompt to your phone; cancel it, nothing is taken.
-9. API operator (only if you send money): the portal user’s username, then either its password plus the certificate text, or a "Security Credential". Studio tests it with a balance check and keeps it only if Safaricom accepts it. A refused one is removed and the name is free to try again.
-10. Done: says "All set", or names the step still missing and takes you there. Finish opens Home.
+4. What this studio does: Simple for a shop or a stall, Business for the studio as it is today, or Platform for the developer side and the payment feed. Business is chosen for you. Nothing here is fixed — Organisation › What this studio does changes any part of it later.
+5. Your organization: business name, nominated number and notification phone (starting 2547). Shown in the menu and on receipts.
+6. Shortcode: your paybill or till number. Studio checks it with Safaricom and shows the name Safaricom holds for it.
+7. Daraja app: paste the "Consumer Key" and "Consumer Secret" (see Getting things from Safaricom). Studio tests them at once; "accepted" means Safaricom said yes.
+8. Public address: Studio reads the address from your browser and shows it. Press Change only if people open Studio through a different address. Press "Test this address" so Safaricom can prove it reaches you.
+9. STK passkey (only if you ticked the phone prompt): paste the passkey and give your own phone number. Studio sends one KES 1 prompt to your phone; cancel it, nothing is taken.
+10. API operator (only if you send money): the portal user’s username, then either its password plus the certificate text, or a "Security Credential". Studio tests it with a balance check and keeps it only if Safaricom accepts it. A refused one is removed and the name is free to try again.
+11. Done: says "All set", or names the step still missing and takes you there. Finish opens Home.
 
 | Method | Path | Who |
 |---|---|---|
@@ -202,6 +203,7 @@ Who: Owner · Route: /setup
 | POST | `/api/setup/owner` | first person |
 | POST | `/api/setup/environment` | owner |
 | POST | `/api/setup/uses` | owner |
+| POST | `/api/setup/tier` | owner; body { tier: "simple" | "business" | "platform" } |
 | POST | `/api/setup/org` | owner |
 | POST | `/api/setup/shortcode` | owner |
 | POST | `/api/setup/daraja` | owner |
@@ -723,6 +725,7 @@ Where: Advanced → Webhooks · Who: Owner · Route: /webhooks
 5. New secret makes a new one and shows it once; the old secret stops verifying at that moment. Stop sending removes the address and clears the queue.
 6. Open Deliveries for everything Studio has sent: what happened, how many tries it took, what your address answered, and when the next try is due. Waiting, Delivered, Given up and All narrow the list.
 7. A delivery that has run out of tries — or one your address refused — can be put back in the queue with Try again, which buys one more attempt rather than a fresh curve.
+8. While the Developer part of Studio is switched off (Organisation › What this studio does), nothing is sent at all: every waiting delivery keeps its place in the queue and its place on the curve, and switching Developer back on sends the whole backlog.
 
 - The address must be https and on the internet. An address inside this network is refused: a webhook would otherwise let Studio post its own data to itself.
 - Nothing about the secret or the signature is ever logged, and the secret is never in an audit row. The page shows only its last four characters after the one time it is displayed.
@@ -856,7 +859,7 @@ Where: your name, top right → Organisation → What this studio does · Who: O
 2. At the top, your tier: Simple for a shop or a stall, Business for the studio as it is today, Platform for the developer side and the payment feed. Choose one and press See what will change to read exactly what it will turn on and off, then Use it and your password.
 3. Any part can then be changed on its own: Turn off hides that part and refuses its pages, and Turn on brings it back exactly as it was.
 4. A part another one stands on cannot be switched off while the other is on. The line beside it names what is holding it, and turning the other one off first frees it.
-5. Custody — holding customer balances — is listed as not built yet, so there is nothing to switch there.
+5. Two parts are listed as not built yet, so there is nothing to switch there: scheduled payments (paying the same people on a timetable) and custody (holding customer balances). They are shown so you can see where the work that follows will hang.
 6. Every change is written to Who did what, with your name on it.
 
 - Turning a part off never deletes anything: the payments, contacts, invoices and accounts stay, and the pages come back unchanged when it is on again.
