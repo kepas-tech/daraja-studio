@@ -38,6 +38,10 @@ services:
       STUDIO_VAPID_PUBLIC_KEY: "${STUDIO_VAPID_PUBLIC_KEY:-}"
       STUDIO_VAPID_PRIVATE_KEY: "${STUDIO_VAPID_PRIVATE_KEY:-}"
       STUDIO_VAPID_SUBJECT: "${STUDIO_VAPID_SUBJECT:-}"
+      # The address move: hostnames this studio has left behind, and the date the redirect stops on
+      # its own. Both empty in a fresh install, which is no rule at all; see app.ts.
+      STUDIO_REDIRECT_OLD_ADDRESSES: "${STUDIO_REDIRECT_OLD_ADDRESSES:-}"
+      STUDIO_REDIRECT_UNTIL: "${STUDIO_REDIRECT_UNTIL:-}"
     expose: ["8080"]
     healthcheck: { test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"], interval: 10s, timeout: 5s, retries: 10 }
 
