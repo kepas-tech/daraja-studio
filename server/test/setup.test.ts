@@ -42,6 +42,13 @@ describe('setup environment', () => {
     await request(app).get('/api/setup/status');
     const owner = await request(app).post('/api/setup/owner').send({ displayName: 'Amina', username: 'amina', password: 'correct horse battery' });
     expect(owner.status).toBe(201);
+    // Spec 6.1: the owner the wizard writes is this install's host admin. The flag is set where the
+    // owner is made, so a fresh install has one from its first run of the wizard rather than from a
+    // later boot — and migration 008 could never have done it, because the migrations run before the
+    // boot pass creates the organisation this owner belongs to.
+    const [made] = await withSystem(() =>
+      deps.db.query<{ is_host_admin: boolean }>('SELECT is_host_admin FROM people WHERE username = $1', ['amina']));
+    expect(made.is_host_admin).toBe(true);
     const h = (r: request.Test) => r.set('Cookie', owner.headers['set-cookie'][0]).set('x-csrf-token', owner.body.csrf);
     const r = await h(request(app).post('/api/setup/environment')).send({ environment: 'production' });
     expect(r.status).toBe(200);

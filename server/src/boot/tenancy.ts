@@ -11,6 +11,9 @@ export interface TenancyBootResult {
   rowsReencrypted: number;
   /** Carry S1: how many env.<e>.consumerKeyHash rows this pass wrote. */
   consumerKeysHashed: number;
+  /** Spec 6.1: how many people this pass had to mark as the host organisation's host admin. Zero
+   *  on every boot after the first that finds the row already right. */
+  hostAdminsSet: number;
 }
 
 interface Deps {
@@ -216,5 +219,20 @@ export async function bootTenancy(deps: Deps): Promise<TenancyBootResult> {
   }
   db.setFallbackOrg(orgId);
 
-  return { orgId, created, secretsHashed: unhashed.length, rowsReencrypted, consumerKeysHashed };
+  // 5. Spec 6.1: the host organisation's owner is this install's first host admin. Migration 044
+  //    repairs the installs that ran before this pass existed, and this keeps it true afterwards —
+  //    on a fresh install it is `writeOwner` that writes the flag, because the owner arrives with the
+  //    setup wizard rather than with this pass, and this picks up anything that reached the table
+  //    another way. It touches one person: the owner of the host organisation, and nobody else, in
+  //    the host organisation and in no other. Idempotent by the NOT clause.
+  const marked = await withSystem(() =>
+    db.query<{ id: string }>(
+      `UPDATE people SET is_host_admin = true
+        WHERE org_id = $1 AND is_owner AND NOT is_host_admin
+        RETURNING id`,
+      [orgId],
+    ),
+  );
+
+  return { orgId, created, secretsHashed: unhashed.length, rowsReencrypted, consumerKeysHashed, hostAdminsSet: marked.length };
 }

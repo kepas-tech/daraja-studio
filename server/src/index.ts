@@ -72,7 +72,7 @@ async function main() {
   // invitation. Closing it does not take the fallback away — that now lives on `db`.
   await admin.end();
   console.log(`organisation ${boot.orgId}${boot.created ? ' (created)' : ''}`);
-  console.log(`boot pass: created=${boot.created}, secrets hashed=${boot.secretsHashed}, rows re-encrypted=${boot.rowsReencrypted}, consumer keys hashed=${boot.consumerKeysHashed}`);
+  console.log(`boot pass: created=${boot.created}, secrets hashed=${boot.secretsHashed}, rows re-encrypted=${boot.rowsReencrypted}, consumer keys hashed=${boot.consumerKeysHashed}, host admins set=${boot.hostAdminsSet}`);
 
   const keyring = createDbKeyring(db, config.secretKey);
   const settings = createSettings(db, keyring);

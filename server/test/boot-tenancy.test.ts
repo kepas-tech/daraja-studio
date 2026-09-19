@@ -7,6 +7,7 @@ import { bootTenancy } from '../src/boot/tenancy.js';
 import { createDbKeyring, decryptForOrg, decrypt, encrypt, sha256, randomSecret, type Keyring } from '../src/crypto/secrets.js';
 import { loadConfig, type Config } from '../src/config.js';
 import { migrate } from '../src/db/migrate.js';
+import { writeOwner } from '../src/people/owner.js';
 import { ensureTestOrg, TEST_KEY } from './helpers.js';
 
 const url = process.env.TEST_DATABASE_URL ?? 'postgres://studio:studio@localhost:5433/studio_test';
@@ -393,5 +394,59 @@ describe('the consumer-key-hash backfill (carry S1)', () => {
       expect(logged).not.toContain(sha256('CK-live')); // and never the claim itself
     } finally { warn.mockRestore(); }
   });
+
+  it('makes the host organisation own owner this install host admin, and nobody else', async () => {
+    await freshSchema();
+    const first = await boot(config());
+    // A fresh install has no people when this pass runs: the pass creates organisation #1, and the
+    // owner arrives with the setup wizard. There is nothing to mark and nothing is invented.
+    expect(first.hostAdminsSet).toBe(0);
+    expect(await hostAdmins()).toEqual([]);
+
+    const [{ id: tenantId }] = await withSystem(() =>
+      db.query<{ id: string }>(
+        `INSERT INTO orgs(slug, name, status, is_host, callback_secret_hash, callback_secret_enc, key_salt)
+         VALUES ('a-tenant','A tenant','verified',false,'hash-tenant','unset',gen_random_bytes(32)) RETURNING id`,
+      ),
+    );
+    await withOrg(tenantId, () =>
+      db.query(`INSERT INTO people(username, display_name, password_hash, is_owner) VALUES ('tenant-owner','Tenant Owner','h',true)`),
+    );
+    await withOrg(first.orgId!, () =>
+      db.query(`INSERT INTO people(username, display_name, password_hash, is_owner) VALUES ('host-staff','Host Staff','h',false)`),
+    );
+
+    // The owner the setup wizard writes, through the studio's one path for writing an owner.
+    await withOrg(first.orgId!, () => db.tx((c) => writeOwner(c, {
+      orgId: first.orgId!,
+      username: 'owner',
+      displayName: 'Owner',
+      password: 'correct horse battery staple',
+      mustChangePassword: false,
+    })));
+
+    // Fresh install, first boot of its life: the flag is on the install's own owner, and on nobody
+    // else — not the second person in that organisation, not a tenant's owner.
+    expect(await hostAdmins()).toEqual(['owner']);
+
+    // A boot on an install whose owner arrived without the flag — an upgrade, or any path that wrote
+    // the row another way — puts it right, once, and says how many it had to.
+    await withSystem(() => db.query(`UPDATE people SET is_host_admin = false WHERE username = 'owner'`));
+    const second = await boot(config());
+    expect(second.hostAdminsSet).toBe(1);
+    expect(await hostAdmins()).toEqual(['owner']);
+
+    // And the boot after that has nothing left to do.
+    expect((await boot(config())).hostAdminsSet).toBe(0);
+    expect(await hostAdmins()).toEqual(['owner']);
+  });
 });
+
+/** Every person on the whole install who carries the host admin flag, by username. */
+async function hostAdmins(): Promise<string[]> {
+  const rows = await withSystem(() =>
+    db.query<{ username: string }>('SELECT username FROM people WHERE is_host_admin ORDER BY username'),
+  );
+  return rows.map((r) => r.username);
+}
 

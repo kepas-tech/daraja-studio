@@ -26,8 +26,8 @@ const input = (over: Partial<{ name: string; username: string }> = {}) => ({
 const orgCount = async () => Number((await withSystem(() => deps.db.query<{ n: string }>('SELECT count(*)::text AS n FROM orgs')))[0]!.n);
 const orgsNamed = async (name: string) => Number((await withSystem(() => deps.db.query<{ n: string }>(
   'SELECT count(*)::text AS n FROM orgs WHERE name = $1', [name])))[0]!.n);
-const peopleNamed = async (username: string) => withSystem(() => deps.db.query<{ id: string; org_id: string; is_owner: boolean; must_change_password: boolean }>(
-  'SELECT id, org_id, is_owner, must_change_password FROM people WHERE lower(username) = lower($1)', [username]));
+const peopleNamed = async (username: string) => withSystem(() => deps.db.query<{ id: string; org_id: string; is_owner: boolean; is_host_admin: boolean; must_change_password: boolean }>(
+  'SELECT id, org_id, is_owner, is_host_admin, must_change_password FROM people WHERE lower(username) = lower($1)', [username]));
 
 describe('provisioning an organisation and its first owner', () => {
   it('makes both, and the owner belongs to the organisation it made', async () => {
@@ -41,7 +41,9 @@ describe('provisioning an organisation and its first owner', () => {
     expect(await orgCount()).toBe(before + 1);
 
     const [person] = await peopleNamed('kodisap');
-    expect(person).toMatchObject({ org_id: made.org.id, is_owner: true, must_change_password: true });
+    // is_owner, but never a host admin: the host admin flag is the host organisation's owner alone
+    // (spec 6.1), and this is a tenant's owner in a tenant's organisation.
+    expect(person).toMatchObject({ org_id: made.org.id, is_owner: true, is_host_admin: false, must_change_password: true });
     // The callback secret is real, and what is on the row is its hash rather than the secret.
     const [row] = await withSystem(() => deps.db.query<{ callback_secret_hash: string; callback_secret_enc: string }>(
       'SELECT callback_secret_hash, callback_secret_enc FROM orgs WHERE id = $1', [made.org.id]));
