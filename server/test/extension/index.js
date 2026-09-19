@@ -44,5 +44,28 @@ export function register(api) {
     } catch (e) { next(e); }
   });
 
+  /**
+   * An organisation and its first owner together, through the studio's own service. The password is
+   * handed over plain and hashed by the studio, because a package never hashes one and never writes
+   * the people table itself.
+   */
+  router.post('/provision', async (req, res, next) => {
+    try {
+      const body = req.body || {};
+      const made = await api.orgs.provision({
+        name: String(body.name || 'A tenant'),
+        owner: { username: String(body.username || ''), displayName: String(body.displayName || 'The owner'), password: String(body.password || '') },
+        signupIp: null,
+      });
+      if (!made.ok) {
+        return res.status(made.problem === 'username_taken' ? 409 : 400).json({ error: { code: made.problem, message: made.message } });
+      }
+      res.status(201).json({
+        org: { id: made.org.id, status: made.org.status },
+        person: { id: made.person.id, username: made.person.username, isOwner: made.person.is_owner },
+      });
+    } catch (e) { next(e); }
+  });
+
   api.registerRouter('fixture', router);
 }

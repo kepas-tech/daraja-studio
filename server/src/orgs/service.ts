@@ -1,6 +1,8 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import type { Db } from '../db/pool.js';
 import { currentOrgId, isSystem, withOrg, withSystem } from '../db/pool.js';
+import { MIN_PASSWORD_LENGTH } from '../auth/password.js';
+import { PLAIN_USERNAME, USERNAME_SHAPE, USERNAME_TAKEN, usernameTaken, writeOwner, type OwnerRow } from '../people/owner.js';
 import { decryptForOrg, deriveOrgKey, encryptWithOrgKey, randomSecret, sha256, type Keyring } from '../crypto/secrets.js';
 import { closeOrg } from './close.js';
 import { HttpError } from '../util/errors.js';
@@ -45,6 +47,25 @@ export interface CreatedOrg {
   secret: string;
 }
 
+/** The first owner of an organisation being stood up: who they are and the password they start with. */
+export interface ProvisionOwnerInput { username: string; displayName: string; password: string }
+export interface ProvisionOrgInput {
+  name: string;
+  owner: ProvisionOwnerInput;
+  /** The address the sign-up came from, kept for abuse review. Never shown to a tenant. */
+  signupIp: string | null;
+}
+/**
+ * What provisioning answers. A refusal is plain and leaves nothing behind: the username is asked
+ * about before anything is written, and the transaction is rolled back if the index disagrees.
+ */
+export type ProvisionOrgResult =
+  | { ok: true; org: OrgView; person: OwnerRow; secret: string }
+  | { ok: false; problem: 'username_taken' | 'invalid'; message: string };
+
+const isUniqueViolation = (e: unknown): boolean =>
+  typeof e === 'object' && e !== null && (e as { code?: string }).code === '23505';
+
 // No 0/o/1/l: the slug ends up in a host-admin URL that somebody may read out loud.
 const SLUG_ALPHABET = 'abcdefghijkmnpqrstuvwxyz23456789';
 
@@ -75,6 +96,16 @@ export interface OrgService {
    * creating one; no privileged connection is involved.
    */
   create(input: CreateOrgInput): Promise<CreatedOrg>;
+  /**
+   * An organisation and its first owner, in one transaction: the pair is written or neither is.
+   *
+   * This is the way a caller that is not the studio's own setup stands a tenant up. The owner is
+   * written through the same code the setup wizard uses (`people/owner.ts`), so nobody outside the
+   * studio hashes a password or writes to the people table. A username already taken anywhere on
+   * the install is a plain refusal, asked before anything is written, so a refusal leaves no
+   * organisation behind.
+   */
+  provision(input: ProvisionOrgInput): Promise<ProvisionOrgResult>;
   /** Move one organisation through its own state machine. Runs inside that organisation. */
   setStatus(orgId: string, status: OrgStatus, opts?: { failReason?: string | null }): Promise<void>;
   /**
@@ -145,6 +176,65 @@ export function createOrgService(deps: { db: Db; keyring: Keyring; master: Buffe
       }
       if (!row) throw new HttpError(503, 'org_not_created', 'Could not create the organisation just now. Try again.');
       return { org: toView(row), secret };
+    },
+
+    async provision(input) {
+      const name = String(input?.name ?? '').trim();
+      if (name.length < 1 || name.length > 120) {
+        return { ok: false, problem: 'invalid', message: 'An organisation needs a name of one to 120 characters.' };
+      }
+      const username = String(input?.owner?.username ?? '').trim().toLowerCase();
+      if (!PLAIN_USERNAME.test(username)) return { ok: false, problem: 'invalid', message: USERNAME_SHAPE };
+      const displayName = String(input?.owner?.displayName ?? '').trim();
+      if (displayName.length < 1 || displayName.length > 120) {
+        return { ok: false, problem: 'invalid', message: 'The first person needs a name of one to 120 characters.' };
+      }
+      const password = String(input?.owner?.password ?? '');
+      if (password.length < MIN_PASSWORD_LENGTH || password.length > 512) {
+        return { ok: false, problem: 'invalid', message: 'A password is ' + MIN_PASSWORD_LENGTH + ' characters or more.' };
+      }
+
+      // The id and the salt are minted here, exactly as create() does: this organisation's key has
+      // to exist before its row does.
+      const id = randomUUID();
+      const salt = randomBytes(32);
+      const secret = randomSecret(32);
+      const hash = sha256(secret);
+      const enc = encryptWithOrgKey(deriveOrgKey(deps.master, id, salt), secret);
+
+      // Up to five tries, and only ever for the slug: slugFor mixes in four random bytes, so a fresh
+      // suffix clears a collision almost certainly on the next attempt. The whole transaction is
+      // retried rather than one statement, because a conflict inside a transaction ends it.
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const outcome = await withSystem(() => deps.db.tx(async (c) => {
+          // The username is unique across the whole install and the people table is scoped to one
+          // organisation, so the question is asked from outside all of them — and asked first, so a
+          // taken username leaves nothing at all behind rather than an organisation with nobody in
+          // it.
+          if (await usernameTaken(c, username)) return { taken: true } as const;
+          const inserted = await c.query<OrgRow>(
+            `INSERT INTO orgs(id, slug, name, status, callback_secret_hash, callback_secret_enc, key_salt, signup_ip)
+             VALUES ($1, $2, $3, 'pending', $4, $5, $6, $7)
+             ON CONFLICT (slug) DO NOTHING
+             RETURNING id, slug, name, status, is_host, suspend_reason`,
+            [id, slugFor(name), name, hash, enc, salt, input.signupIp]);
+          if (!inserted.rows[0]) return { slug: true } as const;
+          // The studio's own way of writing an owner, so nothing outside the studio ever hashes a
+          // password or writes this row itself.
+          const person = await writeOwner(c, { orgId: id, username, displayName, password, mustChangePassword: true });
+          return { org: inserted.rows[0], person } as const;
+        })).catch((e: unknown) => {
+          // The check above is friendly, not sufficient: two callers can pass it at once and only
+          // one insert wins. The index refuses the second, the transaction is rolled back, and the
+          // organisation goes with it — so the pair is still made or neither is.
+          if (isUniqueViolation(e)) return { taken: true } as const;
+          throw e;
+        });
+        if ('taken' in outcome) return { ok: false, problem: 'username_taken', message: USERNAME_TAKEN };
+        if ('slug' in outcome) continue;
+        return { ok: true, org: toView(outcome.org), person: outcome.person, secret };
+      }
+      throw new HttpError(503, 'org_not_created', 'Could not create the organisation just now. Try again.');
     },
 
     async setStatus(orgId, status, opts = {}) {

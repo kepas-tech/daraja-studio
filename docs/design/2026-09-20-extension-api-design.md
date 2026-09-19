@@ -1,6 +1,6 @@
 # The extension api, version 1
 
-Step four, part two of the tiers-and-modules design. Written 2026-09-20. Owner: Nelson Lemein.
+Step four, part two of the tiers-and-modules design. Written 2026-09-20.
 
 ## Why it exists
 
@@ -20,7 +20,7 @@ export interface ExtensionApi {
   readonly version: number;                    // EXTENSION_API_VERSION, 1 today
   readonly db: Db;                             // the database handle the rest of the studio uses
   readonly settings: Settings;                 // the settings reader
-  readonly orgs: Pick<OrgService, 'create'>;   // making an organisation, through the studio's own service
+  readonly orgs: Pick<OrgService, 'create' | 'provision'>;   // an organisation, alone or with its first owner
   registerModule(decl: ModuleDecl): void;      // declare a part of the studio (step two, unchanged)
   registerRouter(name: string, router: Router): void;  // mount one router of its own
 }
@@ -31,6 +31,14 @@ running studio: the same pool every route uses, the same settings store, and the
 organisation service, so a package never writes an organisation with its own SQL. `register(api)`
 runs in the boot, before the app is built, so what it declares and mounts is in place before the
 first request.
+
+[[BT]]orgs.provision[[BT]] stands an organisation up **together with its first owner**, in one transaction:
+the pair is written or neither is. It is the way anything that is not the studio's own setup makes a
+tenant's studio, and the owner goes through the same code the setup wizard writes one with
+([[BT]]people/owner.ts[[BT]]), so no package hashes a password or writes the people table itself. A username
+somebody already has anywhere on the install is a plain refusal, asked before anything is written,
+so a refusal leaves no organisation behind — and the unique index is still what makes that true
+under a race. It answers with the organisation, the person and the callback secret.
 
 `version` is a number a package reads and may refuse to load against if it does not know it. It
 goes up when something in the api changes in a way a package has to know about — a part removed, a
@@ -86,6 +94,10 @@ api was widened for.
   routes; a package serves JSON and nothing else.
 - **No tenant path routing for the web.** One host, one path per tenant, remains a change to the
   studio's web app, and this api does not make it.
+- **No way to make a second person, or to read one.** [[BT]]provision[[BT]] makes an organisation's *first*
+  owner and nothing else: adding people afterwards is the studio's own People page, inside that
+  organisation. A package still cannot read across organisations, so a username's uniqueness is
+  discovered by the index rather than by a lookup.
 - **Absent is still silence, broken still stops the boot.** A package that is not installed changes
   nothing at all; one that is installed and throws, or asks for something the api does not give,
   stops the boot with the package named and the error kept.

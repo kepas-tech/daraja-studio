@@ -20,6 +20,7 @@ const ALLOWED = [
   'health/routes.ts', // counts organisations for /healthz
   'orgs/close.ts', // closing crosses out of whatever organisation the caller was in
   'people/routes.ts', // the username duplicate check looks across organisations before insert
+  'people/owner.ts', // the same check, for the owner a package's provisioning writes
 ].sort();
 
 /**

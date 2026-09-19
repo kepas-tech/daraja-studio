@@ -114,7 +114,10 @@ export interface ExtensionRouter {
  *
  *   db        the database handle the rest of the studio uses, in the caller's organisation
  *   settings  the settings reader, for the settings a package reads
- *   orgs      creating an organisation through the studio's own service, never by its own SQL
+ *   orgs      standing an organisation up through the studio's own services, never by its own SQL:
+ *             create() for a bare organisation, and provision() for one together with its first
+ *             owner, in one transaction and through the same code path the setup wizard writes an
+ *             owner with
  *   version   the api version, so a package can refuse one it does not know
  *   registerModule   declare a part of the studio (the first widening, step two)
  *   registerRouter   mount one router of its own under the reserved namespace
@@ -126,7 +129,7 @@ export interface ExtensionApi {
   readonly version: number;
   readonly db: Db;
   readonly settings: Settings;
-  readonly orgs: Pick<OrgService, 'create'>;
+  readonly orgs: Pick<OrgService, 'create' | 'provision'>;
   registerModule(decl: ModuleDecl): void;
   registerRouter(name: string, router: Router): void;
 }
@@ -135,7 +138,7 @@ export interface ExtensionApi {
 export interface ExtensionHost {
   db: Db;
   settings: Settings;
-  orgs: Pick<OrgService, 'create'>;
+  orgs: Pick<OrgService, 'create' | 'provision'>;
 }
 
 /** What the loader found: whether a package is installed, and whatever it mounted. */

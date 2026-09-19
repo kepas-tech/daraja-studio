@@ -5,10 +5,11 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createAdminPool, withSystem, type Db } from '../src/db/pool.js';
+import { deleteOrg } from './helpers.js';
 import { migrate } from '../src/db/migrate.js';
 import { MODULES } from '../src/modules/registry.js';
 import { buildApp, loadExtension, EXTENSION_API_VERSION, EXTENSION_ROUTE_PREFIX, type AppDeps } from '../src/app.js';
-import { makeApp, loginAsOwner, deleteOrg } from './helpers.js';
+import { makeApp, loginAsOwner } from './helpers.js';
 
 /**
  * The seam for a package installed beside Studio: one place to add declarations, one router under a
@@ -148,6 +149,43 @@ describe('a package router', () => {
       // A package's organisation is a real one, so the test takes it away again rather than leaving
       // an extra organisation in the database every other test shares.
       await deleteOrg(made.body.id);
+    } finally { await deps.events.stop(); await close(); }
+  });
+});
+
+describe('a package that stands a tenant up', () => {
+  it('is given one call that makes the organisation and its first owner, and a plain refusal when the username is gone', async () => {
+    const { deps, close } = makeApp();
+    try {
+      const load = await loadExtension(host(deps), fixtureEntry);
+      const app = buildApp({ ...deps, extensionRouters: load.routers });
+      const { cookie, csrf } = await loginAsOwner(app, deps);
+      const h = (r: request.Test) => r.set('Cookie', cookie).set('x-csrf-token', csrf);
+      const body = { name: 'Kodisap Limited', username: 'kodisap', displayName: 'Jane Wanjiru', password: 'a-good-password-1' };
+      const orgCount = async () => Number((await withSystem(() => deps.db.query<{ n: string }>('SELECT count(*)::text AS n FROM orgs')))[0]!.n);
+
+      // The package hands over a plain password and gets back the pair: it never hashes one and
+      // never writes the people table itself.
+      const made = await h(request(app).post('/api/x/fixture/provision')).send(body);
+      expect(made.status).toBe(201);
+      expect(made.body).toMatchObject({ org: { status: 'pending' }, person: { username: 'kodisap', isOwner: true } });
+      const [org] = await withSystem(() => deps.db.query<{ name: string }>('SELECT name FROM orgs WHERE id = $1', [made.body.org.id]));
+      expect(org!.name).toBe('Kodisap Limited');
+
+      // A username somebody on the install already has is a plain refusal, and nothing new exists.
+      const before = await orgCount();
+      const again = await h(request(app).post('/api/x/fixture/provision')).send({ ...body, name: 'Another Tenant' });
+      expect(again.status).toBe(409);
+      expect(again.body.error).toMatchObject({ code: 'username_taken' });
+      expect(again.body.error.message).toMatch(/already uses that name/);
+      expect(await orgCount()).toBe(before);
+      const theirs = await withSystem(() => deps.db.query<{ n: string }>('SELECT count(*)::text AS n FROM orgs WHERE name = $1', ['Another Tenant']));
+      expect(theirs[0]!.n).toBe('0');
+
+      // And the person the package made can sign in at the studio.
+      const login = await request(app).post('/api/auth/login').send({ username: 'kodisap', password: 'a-good-password-1' });
+      expect(login.status).toBe(200);
+      await deleteOrg(made.body.org.id);
     } finally { await deps.events.stop(); await close(); }
   });
 });

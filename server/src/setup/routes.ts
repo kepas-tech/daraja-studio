@@ -4,7 +4,8 @@ import type { AppDeps } from '../app.js';
 import type { Env } from '../settings/store.js';
 import { withOrg } from '../db/pool.js';
 import { requireAuth, requireCsrf, requireOwner } from '../auth/middleware.js';
-import { hashPassword, MIN_PASSWORD_LENGTH } from '../auth/password.js';
+import { MIN_PASSWORD_LENGTH } from '../auth/password.js';
+import { writeOwner, type OwnerRow } from '../people/owner.js';
 import { cookieHeader, createSession } from '../auth/sessions.js';
 import { clientIp } from '../util/ip.js';
 import { provePasskey } from '../settings/passkeyProof.js';
@@ -115,18 +116,17 @@ export function setupRoutes(deps: AppDeps): Router {
         const [{ n }] = await deps.db.query<{ n: string }>('SELECT count(*)::text AS n FROM people');
         if (n !== '0') throw ownerExists();
         const b = parse(ownerSchema, req.body);
-        const passwordHash = await hashPassword(b.password);
-        // The people(is_owner) WHERE is_owner unique index (migration 003) is what actually makes
+        // One code path writes an owner, this one and a package's provisioning alike
+        // (people/owner.ts), so the password is hashed in one place and the row is written in one.
+        // The people(org_id) WHERE is_owner unique index (migration 007) is what actually makes
         // this safe under concurrent first-run requests: two racing calls can both pass the fast
-        // path above, but only one INSERT can win — the loser gets zero rows back (`WHERE NOT
-        // EXISTS` re-checked at insert time) or a 23505 conflict from the unique index, never a
-        // second owner.
-        let p: { id: string } | undefined;
+        // path above, but only one INSERT can win, and the loser's 23505 is `owner_exists` here —
+        // never a second owner.
+        let p: OwnerRow | undefined;
         try {
-          [p] = await deps.db.query<{ id: string }>(
-            `INSERT INTO people(username, display_name, password_hash, is_owner)
-             SELECT $1, $2, $3, true WHERE NOT EXISTS (SELECT 1 FROM people) RETURNING id`,
-            [b.username, b.displayName, passwordHash]);
+          p = await deps.db.tx((c) => writeOwner(c, {
+            orgId, username: b.username, displayName: b.displayName, password: b.password, mustChangePassword: false,
+          }));
         } catch (e) {
           if (e && typeof e === 'object' && (e as { code?: string }).code === '23505') throw ownerExists();
           throw e;
