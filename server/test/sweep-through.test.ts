@@ -5,6 +5,7 @@ import { makeApp, loginAsOwner } from './helpers.js';
 import { createFakeSafaricom } from '../src/dev/fakeSafaricom.js';
 import { encrypt } from '../src/crypto/secrets.js';
 import { feeFor, netOf } from '../src/sweep/fee.js';
+import { kes } from '../src/sweep/service.js';
 import { windowFor } from '../src/sweep/window.js';
 import type { StudioEvent } from '../src/events/hub.js';
 
@@ -62,11 +63,11 @@ describe('sweep-through', () => {
    * itself is proved in money-in-record.test.ts, and what is under test here is what a sweep does
    * with money that has already arrived.
    */
-  async function paid(businessId: string, cents: number, receipt: string): Promise<void> {
+  async function paid(businessId: string, cents: number, receipt: string, at: Date = new Date()): Promise<void> {
     await deps.db.query(
-      `INSERT INTO requests(type, subtype, originator_conversation_id, status, amount_cents, currency, recipient_kind, recipient_value, receipt, business_id, sent_at, result_at, result_code, result_desc)
-       VALUES ('c2b','Pay Bill',$3,'completed',$2,'KES','phone','254700123456',$4,$1,now(),now(),'0','Completed')`,
-      [businessId, cents, 'c2b:' + receipt, receipt]);
+      `INSERT INTO requests(type, subtype, originator_conversation_id, status, amount_cents, currency, recipient_kind, recipient_value, receipt, business_id, created_at, sent_at, result_at, result_code, result_desc)
+       VALUES ('c2b','Pay Bill',$3,'completed',$2,'KES','phone','254700123456',$4,$1,$5,now(),now(),'0','Completed')`,
+      [businessId, cents, 'c2b:' + receipt, receipt, at]);
   }
   /** What Safaricom last said the Utility account holds, which is what a sweep checks against. */
   async function floatIs(cents: number | null, at = new Date()): Promise<void> {
@@ -289,6 +290,99 @@ describe('sweep-through', () => {
     expect((await h(request(app).post('/api/sweep/' + id + '/stop')).send({ stopped: false })).status).toBe(200);
     expect((await deps.sweep.run()).sent).toBe(1);
     expect(await b2cRows()).toHaveLength(1);
+  });
+
+  /**
+   * A defect found in review, not a new feature. The float was read once and every business was
+   * measured against that whole figure, so three businesses whose sweeps each fitted on their own
+   * could together take more than the account holds. The pass now keeps what is left of the
+   * reading and takes each sweep it sends off it.
+   */
+  it('sends oldest money first, and never more in one pass than the float it started with', async () => {
+    // Made in an order that is not the order their money arrived in, and coded the other way round
+    // too, so the order the pass sends in can only come from the money itself.
+    const riverside = await newBusiness('Riverside Salon', '010');
+    const hardware = await newBusiness('Mwangaza Hardware', '020');
+    const flats = await newBusiness('Kilimani Flats', '030');
+    const nine = new Date('2026-09-19T06:00:00Z');
+    await paid(flats, 300000, 'RA', nine);
+    await paid(hardware, 200000, 'RB', new Date(nine.getTime() + 5 * 60_000));
+    await paid(riverside, 100000, 'RC', new Date(nine.getTime() + 10 * 60_000));
+    for (const id of [flats, hardware, riverside]) expect((await save(id)).status).toBe(200);
+    // Reading one business seeds the organisation's own B2C bands, so the charges below are the
+    // same numbers the pass will work with.
+    await deps.sweep.one(flats);
+    const costA = 300000 + await chargeFor(300000);
+    const costB = 200000 + await chargeFor(200000);
+    const costC = 100000 + await chargeFor(100000);
+    // Exactly enough for the two oldest sweeps and not a shilling more.
+    await floatIs(costA + costB);
+
+    const out = await deps.sweep.run();
+    expect(out).toMatchObject({ businesses: 3, sent: 2, held: 1, failed: 0, skipped: 0 });
+    // The two oldest went, in that order, and the newest did not.
+    expect((await b2cRows()).map((r) => Number(r.amount_cents))).toEqual([300000, 200000]);
+    // Nothing left the account above the reading: the two that went used it to the shilling, and
+    // the third was not sent a shilling of it.
+    const spent = 300000 + 200000 + (await chargeFor(300000)) + (await chargeFor(200000));
+    expect(spent).toBe(costA + costB);
+    expect(spent).toBeLessThanOrEqual(costA + costB);
+    const last = (await sweepsOf(riverside))[0];
+    expect(last).toMatchObject({ state: 'held', reasonCode: 'float_short', netCents: 100000 });
+    // The gap is named against what was left, which is nothing at all by then.
+    expect(last.gapCents).toBe(costC);
+    expect(last.reason).toBe(kes(costC) + ' short of the float, so the whole sweep was held and nothing was sent. It goes as one when the float covers it.');
+    // The money that did not go is still owed, whole.
+    expect((await deps.sweep.one(riverside)).owed.owedCents).toBe(100000);
+  });
+
+  it('counts a held sweep as nothing sent, so the business behind it still sees the whole float', async () => {
+    const landlord = await newBusiness('Big Landlord', '030');
+    const shop = await newBusiness('Small Shop', '010');
+    const nine = new Date('2026-09-19T06:00:00Z');
+    // KES 151,000 is above the last B2C band, so Studio will not price it and holds it rather than
+    // guessing. That hold never reached Safaricom, so it takes nothing off the float.
+    await paid(landlord, 15_100_000, 'RA', nine);
+    await paid(shop, 200000, 'RB', new Date(nine.getTime() + 60_000));
+    await save(landlord); await save(shop);
+    await deps.sweep.one(shop);
+    const costB = 200000 + await chargeFor(200000);
+    // Exactly what the second business needs, and nothing like what the first would have needed.
+    await floatIs(costB);
+
+    const out = await deps.sweep.run();
+    expect(out).toMatchObject({ businesses: 2, sent: 1, held: 1, failed: 0 });
+    expect((await sweepsOf(landlord))[0]).toMatchObject({ state: 'held', reasonCode: 'no_charge_band' });
+    expect((await sweepsOf(shop))[0]).toMatchObject({ state: 'sending', netCents: 200000 });
+    expect((await b2cRows()).map((r) => Number(r.amount_cents))).toEqual([200000]);
+  });
+
+  it('counts a failed sweep as nothing sent, so the business behind it still sees the whole float', async () => {
+    const first = await newBusiness('First In Line', '030');
+    const second = await newBusiness('Second In Line', '010');
+    const nine = new Date('2026-09-19T06:00:00Z');
+    await paid(first, 300000, 'RA', nine);
+    await paid(second, 200000, 'RB', new Date(nine.getTime() + 60_000));
+    await save(first); await save(second);
+    await deps.sweep.one(second);
+    const costA = 300000 + await chargeFor(300000);
+    const costB = 200000 + await chargeFor(200000);
+    // Enough for the first sweep and a shilling over: the second fits only if the first's failure
+    // left the reading alone, which is the point.
+    await floatIs(costA + 1);
+
+    fake.rejectsSync('1', 'The balance is insufficient.');
+    const out = await deps.sweep.run();
+    expect(out).toMatchObject({ businesses: 2, sent: 1, failed: 1, held: 0 });
+    expect((await sweepsOf(first))[0]).toMatchObject({ state: 'failed' });
+    expect((await sweepsOf(second))[0]).toMatchObject({ state: 'sending', netCents: 200000 });
+    const rows = await b2cRows();
+    expect(rows).toHaveLength(2);
+    expect(rows.filter((r) => r.status !== 'failed').map((r) => Number(r.amount_cents))).toEqual([200000]);
+    // The reading covered the first sweep and not both, so the second could only go out if the
+    // failure had taken nothing off what was left of it.
+    expect(costA).toBeLessThanOrEqual(costA + 1);
+    expect(costA + costB).toBeGreaterThan(costA + 1);
   });
 
   it('sweeps nothing at all while the module is off, whatever the timetable says', async () => {

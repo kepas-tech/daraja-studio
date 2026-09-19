@@ -102,6 +102,24 @@ export interface SweepInput {
   fee: FeeView;
 }
 export interface SweepRun { businesses: number; sent: number; held: number; failed: number; skipped: number }
+/**
+ * What one attempt at a sweep did, and whether it took money out of the account. The pass keeps a
+ * running float, so the second half of this matters as much as the first: only an attempt that
+ * reached Safaricom — or one whose window another pass has already claimed — may take its net and
+ * charge off what is left. A hold or a failure left the account alone.
+ */
+interface Attempt { outcome: 'sent' | 'held' | 'failed'; committed: boolean }
+/** One business with money due this pass, and what sending it would take. */
+interface Due {
+  row: SettingsRow;
+  owed: OwedView;
+  window: string;
+  netCents: number;
+  /** Safaricom's own charge for the net, or null when no band prices it. */
+  chargeCents: number | null;
+  /** When the oldest unpaid payment for this business arrived: the pass is ordered by this. */
+  since: number;
+}
 export interface SweepService {
   list(): Promise<{ items: BusinessSweepView[]; minCents: number }>;
   one(businessId: string): Promise<BusinessSweepView>;
@@ -315,12 +333,21 @@ export function createSweepService(deps: {
     return rows[0];
   }
 
+  /** Has this window's money already gone, or is it on its way? A held or failed row for the same
+   *  window has claimed nothing at all. */
+  async function windowClaimed(businessId: string, window: string): Promise<boolean> {
+    const [existing] = await deps.db.query<{ state: string }>(
+      `SELECT state FROM sweeps WHERE org_id = $1 AND business_id = $2 AND window_key = $3`,
+      [org(), businessId, window]);
+    return existing !== undefined && CLAIMED.includes(existing.state);
+  }
+
   /**
    * Write a sweep for one window, claim the payments it covers, hand it to Safaricom, and record
    * what came back. The row is written first and alone owns the window: the unique index on
    * (business_id, window_key) is what makes a second pass — or a second server — find it and stop.
    */
-  async function sweepOne(row: SettingsRow, owed: OwedView, window: string, min: number, charge: number, actor: Actor | null): Promise<'sent' | 'held' | 'failed'> {
+  async function sweepOne(row: SettingsRow, owed: OwedView, window: string, min: number, charge: number, actor: Actor | null): Promise<Attempt> {
     void min; void charge;
     const rule = toRule(toFeeView(row));
     const feeCents = feeFor(owed.owedCents, rule);
@@ -331,8 +358,10 @@ export function createSweepService(deps: {
        VALUES ($1,$2,$3,$4,'prepared',$5,$6,$7,$8)
        ON CONFLICT (business_id, window_key) DO NOTHING RETURNING id`,
       [org(), row.business_id, window, row.schedule, owed.owedCents, feeCents, netCents, row.destination_phone]);
-    // Somebody else has this window: nothing to do, and nothing to say about it.
-    if (!created) return 'held';
+    // Somebody else has this window. Whether that claims money depends on what their row says: a
+    // sweep that is prepared, in flight or gone has taken it; a held or failed row has not, because
+    // nothing left the account for those. The running float in the caller turns on this answer.
+    if (!created) return { outcome: 'held', committed: await windowClaimed(row.business_id, window) };
     await deps.db.query(
       `INSERT INTO sweep_payments(sweep_id, request_id, org_id) SELECT $1, unnest($2::uuid[]), $3`,
       [created.id, owed.payments.map((p) => p.id), org()]);
@@ -359,7 +388,8 @@ export function createSweepService(deps: {
           WHERE id=$1 AND state='prepared'`,
         [created.id, state, v.id, v.receipt ?? null, v.meaning ?? 'Safaricom did not accept this sweep.']);
       await audit(deps.db, { personId: actor?.personId ?? null, action: 'sweep.sent', target: created.id, after: { window, grossCents: owed.owedCents, feeCents, netCents, state }, ip: actor?.ip });
-      return state === 'failed' ? 'failed' : 'sent';
+      // Safaricom accepted it: the money is committed, whether or not the answer has come back yet.
+      return state === 'failed' ? { outcome: 'failed', committed: false } : { outcome: 'sent', committed: true };
     } catch (e) {
       // Nothing was attempted, so this is a hold and not a failure: the money stays owed and the
       // next window carries it. A cap or a missing operator is the owner's to fix, and the page
@@ -371,7 +401,8 @@ export function createSweepService(deps: {
         [created.id, known ? 'held' : 'failed', e instanceof HttpError ? e.code : 'send_error', text]);
       await audit(deps.db, { personId: actor?.personId ?? null, action: 'sweep.held', target: created.id, after: { window, reason: text, code: e instanceof HttpError ? e.code : 'send_error' }, ip: actor?.ip });
       if (!known) console.error('sweep send failed', created.id, e instanceof Error ? e.message : e);
-      return known ? 'held' : 'failed';
+      // Nothing left the account either way, so neither answer takes anything off the float.
+      return { outcome: known ? 'held' : 'failed', committed: false };
     }
   }
 
@@ -520,38 +551,64 @@ export function createSweepService(deps: {
       // second path to Safaricom — and every business waits for it.
       if (stale) await scheduleBalanceRefresh(deps.db).catch(() => {});
       const out: SweepRun = { businesses: 0, sent: 0, held: 0, failed: 0, skipped: 0 };
+      // Who is due, and what each of them would take. Nothing is sent and nothing is written here.
+      const due: Due[] = [];
       for (const one of await settingsRows()) {
         if (!one.destination_phone || one.stopped || !one.business_active) continue;
-        out.businesses++;
         const timetable: Timetable = { schedule: one.schedule, hour: Number(one.hour), weekday: Number(one.weekday) };
-        const { window, due } = windowFor(timetable, now);
-        if (!due) continue;
+        const { window, due: isDue } = windowFor(timetable, now);
+        if (!isDue) continue;
         const owed = await owedOf(one.business_id);
         if (owed.owedCents <= 0) continue;
-        const net = netOf(owed.owedCents, toRule(toFeeView(one)));
-        const charge = await deps.fees.chargeFor('b2c', net);
-        if (charge === null) {
+        const netCents = netOf(owed.owedCents, toRule(toFeeView(one)));
+        due.push({
+          row: one, owed, window, netCents, chargeCents: await deps.fees.chargeFor('b2c', netCents),
+          // The payments are oldest first, so the first of them is when this business started
+          // waiting. A business with a claimed sweep behind it dates from the money still unpaid.
+          since: Date.parse(owed.payments[0]?.at ?? now.toISOString()),
+        });
+      }
+      // Oldest money first. The float is one account for the whole paybill, so when it cannot cover
+      // everybody the business that has been waiting longest goes first; a tie is broken by the
+      // business code, so the same rows always come out in the same order.
+      due.sort((a, b) => a.since - b.since || a.row.business_code.localeCompare(b.row.business_code));
+      out.businesses = due.length;
+      /**
+       * What is left of the float for the businesses still to come. One reading starts the pass and
+       * every sweep that goes out takes its own net and Safaricom's charge off it, so three
+       * businesses owed amounts that each fit on their own cannot together take more than the
+       * account holds. A sweep that was held or failed takes nothing off it: no money left for
+       * those. Null means the reading is not one to send against, which holds everybody.
+       */
+      let remaining = stale ? null : f.cents;
+      for (const d of due) {
+        const { row: one, owed, window, netCents, chargeCents } = d;
+        if (chargeCents === null) {
           // Never attempt what Studio cannot price: a hold says why, and the next window carries it.
           if (await hold(one, owed, 0, 'no_charge_band', NO_CHARGE_BAND, window, null)) out.held++;
           continue;
         }
         // Rule: never below what Safaricom allows. No row is written for this one — nothing was
         // attempted, and the page says why from the figures themselves rather than from a note.
-        if (net < min + charge) { out.skipped++; continue; }
-        if (stale) {
+        if (netCents < min + chargeCents) { out.skipped++; continue; }
+        if (remaining === null) {
           const code = f.at === null || f.cents === null ? 'float_unknown' : 'float_stale';
           if (await hold(one, owed, 0, code, code === 'float_stale' ? FLOAT_STALE : FLOAT_UNKNOWN, window, null)) out.held++;
           continue;
         }
-        // Rule: never more than the float. The whole sweep is held — never a part of it — and the
-        // gap is named so somebody can move float across and watch it go.
-        if (f.cents !== null && net + charge > f.cents) {
-          const gap = net + charge - f.cents;
+        // Rule: never more than the float — and never more than what is left of it after the
+        // sweeps this same pass has already sent. The whole sweep is held, never a part of it, and
+        // the gap is named against what is left rather than against the reading the pass began with.
+        if (netCents + chargeCents > remaining) {
+          const gap = netCents + chargeCents - remaining;
           if (await hold(one, owed, gap, 'float_short', kes(gap) + ' ' + FLOAT_SHORT_WHY, window, null)) out.held++;
           continue;
         }
-        const result = await sweepOne(one, owed, window, min, charge, null);
-        if (result === 'sent') out.sent++; else if (result === 'held') out.held++; else out.failed++;
+        const attempt = await sweepOne(one, owed, window, min, chargeCents, null);
+        // Sent, or a window another pass has already claimed: either way the money is spoken for,
+        // and the next business in this pass is measured against what is left afterwards.
+        if (attempt.committed) remaining -= netCents + chargeCents;
+        if (attempt.outcome === 'sent') out.sent++; else if (attempt.outcome === 'held') out.held++; else out.failed++;
       }
       return out;
     },
