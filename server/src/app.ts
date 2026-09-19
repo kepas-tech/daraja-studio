@@ -1,4 +1,5 @@
 import express, { type Request } from 'express';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -84,18 +85,29 @@ export interface ExtensionApi {
   registerModule(decl: ModuleDecl): void;
 }
 
+const resolvesFrom = createRequire(import.meta.url);
+
 /**
- * Load the package installed beside Studio. One try and one import at run time, and silence when
- * nothing is installed: a studio without it boots and serves exactly as it does with no seam at all.
- * A package exports `register`, which is handed the API above.
+ * Load the package installed beside Studio. A package exports `register`, which is handed the API
+ * above.
+ *
+ * Absent and broken are two different things, and the whole point is telling them apart. A package
+ * that is not installed is silence: a studio without one boots and serves exactly as it does with
+ * no seam at all. A package that **is** installed and cannot be loaded — the file throws, a
+ * dependency of it is missing, or its own `register` throws — stops the boot, naming the package
+ * and what went wrong. Half a package would take its parts away from a studio that has tenants on
+ * it, and nobody would notice until something was missing.
  */
 export async function loadExtension(specifier: string = EXTENSION_PACKAGE): Promise<boolean> {
+  // Resolvable or not is the question of whether this package is installed at all, and it is asked
+  // before the import so that nothing depends on guessing the shape of an error.
+  try { resolvesFrom.resolve(specifier); } catch { return false; }
   try {
     const mod = (await import(specifier)) as { register?: (api: ExtensionApi) => void };
     if (typeof mod.register === 'function') mod.register({ registerModule });
     return true;
-  } catch {
-    return false;
+  } catch (e) {
+    throw new Error(`${specifier} is installed but could not be loaded: ${e instanceof Error ? e.message : String(e)}`, { cause: e });
   }
 }
 

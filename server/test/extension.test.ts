@@ -44,6 +44,18 @@ describe('an installed package', () => {
     } finally { await deps.events.stop(); await close(); }
   });
 
+  it('stops the boot when a package is installed but cannot start, naming it and the error', async () => {
+    // Installed, so it is not missing, and it throws: that is a boot failure, not silence. Half a
+    // package would take its parts away from a studio without anybody noticing.
+    await expect(loadExtension(path.join(fixtureDir, 'broken', 'throws-on-load.js')))
+      .rejects.toThrow(/throws-on-load\.js is installed but could not be loaded: the fixture package could not start/);
+  });
+
+  it('stops the boot when a package refuses while registering', async () => {
+    await expect(loadExtension(path.join(fixtureDir, 'broken', 'throws-in-register.js')))
+      .rejects.toThrow(/throws-in-register\.js is installed but could not be loaded: the fixture package refused to register/);
+  });
+
   it('registers its own declaration when it is loaded, and the app serves it like any other part', async () => {
     expect(await loadExtension(fixtureEntry)).toBe(true);
     expect(MODULES.map((m) => m.key)).toEqual([...coreKeys, 'fixture_notes']);

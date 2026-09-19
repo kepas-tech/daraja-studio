@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { BackspaceIcon, CloseIcon, FingerprintIcon } from './LockIcons';
 import { BUZZ, buzz } from '../app/haptics';
 import { copy } from '../copy/en';
@@ -60,18 +60,25 @@ export function PinEntry({ onComplete, message, busy = false, alt = null, resetK
   resetKey?: number;
 }) {
   const [digits, setDigits] = useState('');
-  useEffect(() => { setDigits(''); }, [resetKey]);
+  // The digits as the keypad has them, not as the last render drew them: every press has to apply to
+  // the press before it. A state updater is not a safe place for that. React may run one more than
+  // once, and it can be handed a base from before the previous press — which swallows a press — and
+  // a submit written inside one can run twice, where every submit on this screen is an attempt
+  // counted against the lockout. So the truth lives in this ref, updated as the press happens, and
+  // the state below is only what the dots draw.
+  const typed = useRef('');
+  const show = useCallback((next: string) => { typed.current = next; setDigits(next); }, []);
+  useEffect(() => { show(''); }, [resetKey, show]);
   const press = useCallback((d: string) => {
-    setDigits((v) => {
-      if (busy || v.length >= PIN_LENGTH) return v;
-      const next = v + d;
-      buzz(BUZZ.key as number);
-      // The sixth digit is the submit button, exactly as the keypad the owner asked for.
-      if (next.length === PIN_LENGTH) onComplete(next);
-      return next;
-    });
-  }, [busy, onComplete]);
-  const back = useCallback(() => setDigits((v) => (busy ? v : v.slice(0, -1))), [busy]);
+    if (busy || typed.current.length >= PIN_LENGTH) return;
+    const next = typed.current + d;
+    show(next);
+    buzz(BUZZ.key as number);
+    // The sixth digit is the submit button, exactly as the keypad the owner asked for, and it is
+    // submitted once, here, never from inside a state update.
+    if (next.length === PIN_LENGTH) onComplete(next);
+  }, [busy, onComplete, show]);
+  const back = useCallback(() => { if (!busy) show(typed.current.slice(0, -1)); }, [busy, show]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (/^[0-9]$/.test(e.key)) press(e.key);

@@ -98,7 +98,9 @@ describe('the lock screen, as the owner asked for it', () => {
     expect(screen.getByAltText(copy.appName)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: copy.lock.continueLabel })).toBeNull();
     for (const d of '24681') fireEvent.click(screen.getByRole('button', { name: d }));
-    expect(dots()).toBe(5);
+    // Five presses count five digits — the keypad keeps them itself, so nothing here depends on how
+    // many times React runs a render. Waiting only lets the dots be painted.
+    await waitForSlow(() => expect(dots()).toBe(5));
     expect(posts).toEqual([]);
     fireEvent.click(screen.getByRole('button', { name: '3' }));
     await waitForSlow(() => expect(posts).toEqual([{ url: '/api/auth/open', body: { pin: PIN } }]));

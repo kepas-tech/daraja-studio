@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.56.2 — a package that half-loads stops the boot, and a keypad that counts every press
+
+- **An installed package that cannot be loaded now stops the boot, loudly.** The app tells the two
+  cases apart before it imports anything: a package that is **not installed** is silence, exactly as
+  before, and a package that **is installed** and then throws — its own file, one of its
+  dependencies, or its `register` function — fails the start with a line naming the package and the
+  error. Booting without it would take its parts away from a studio that has tenants on it, and
+  nobody would notice until something was missing.
+- **The PIN keypad keeps its own digits.** Every press now applies to the press before it, so a
+  press can no longer be swallowed and a PIN can no longer be submitted twice. React may run a state
+  updater more than once and hand it a base from before the previous press; on a screen where every
+  submit is an attempt counted against the lockout, that is not a risk worth carrying. The submit
+  moved out of the updater, which also removes the "Cannot update a component while rendering a
+  different component" warning the suite was printing.
+
 ## 0.56.1 — leaving an address behind, without losing a callback
 
 - **An address the studio has moved off sends readers on.** While the deployment names its old
