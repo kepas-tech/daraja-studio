@@ -1,0 +1,6 @@
+{
+  "name": "@kepas/studio-extension-fixture",
+  "private": true,
+  "type": "module",
+  "main": "index.js"
+}

@@ -242,7 +242,7 @@ export const guide: GuideSection[] = [
   {
     key: 'setup',
     title: 'First-run setup',
-    intro: 'The first person to open a new Studio becomes the owner and walks through up to eleven steps. Back keeps your answers, and every step saves before moving on, so you can stop and come back later.',
+    intro: 'The first person to open a new Studio becomes the owner and walks through up to twelve steps. Back keeps your answers, and every step saves before moving on, so you can stop and come back later.',
     tasks: [
       {
         key: 'wizard',
@@ -252,6 +252,7 @@ export const guide: GuideSection[] = [
         steps: [
           'Owner: your name, a username and a password of 12 or more characters. You can change the name on the "Owner account created" screen; the username stays.',
           'Environment: Sandbox or Production. Start with Sandbox if you are still trying things out; when Safaricom has approved your app for real money, Organisation › Go live takes you across.',
+          'Your paybill (Production only): whether this business has a paybill or till of its own. If it does, setup carries on and asks for the number in a moment. If it does not, the screen explains the alternative — an account number on a paybill KEPAS owns, your payments arriving under it, managed in a studio KEPAS runs, with your money sitting with KEPAS until it is paid out — and a button opens the sign-up page. Nothing there is permanent: coming back and answering yes sets up your own shortcode instead.',
           'What you need: tick "Receive money from payers", "Send money to people or businesses", or both. A separate tick, "Prompt their phone to pay", is the one thing that needs the passkey. Your ticks decide which of the later steps appear.',
           'What this studio does: Simple for a shop or a stall, Business for the studio as it is today, or Platform for the developer side and the payment feed. Business is chosen for you. Nothing here is fixed — Organisation › What this studio does changes any part of it later.',
           'Your organization: business name, nominated number and notification phone (starting 2547). Shown in the menu and on receipts.',

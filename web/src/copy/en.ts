@@ -1026,12 +1026,13 @@ export const copy = {
   },
   setup: {
     title: 'Set up your studio',
-    steps: ['Owner', 'Environment', 'What you need', 'What this studio does', 'Your organization', 'Shortcode', 'Daraja app', 'Public address', 'STK passkey', 'API operator', 'Done'],
+    steps: ['Owner', 'Environment', 'Your paybill', 'What you need', 'What this studio does', 'Your organization', 'Shortcode', 'Daraja app', 'Public address', 'STK passkey', 'API operator', 'Done'],
     stepOf: (n: number, of: number) => `Step ${n} of ${of}`,
     /** One plain sentence per step: what it is for and where the value comes from. */
     intro: {
       owner: 'Your own login. Nobody else sees this password.',
       uses: 'Tick what applies. This decides which Safaricom details the next steps ask for. You can change it later in Settings.',
+      paybill: 'Whether this business has a paybill or till of its own, or needs an account number on somebody else\'s. Asked in Production only — Sandbox uses Safaricom\'s test shortcode.',
       tier: 'Where to start: a shop till, the studio as it is today, or the platform behind other systems. Nothing is fixed — every part of it can be changed later under Organisation.',
       environment: 'Sandbox is Safaricom\'s practice area with pretend money and test credentials. Production is your real M-Pesa account and real money. You can switch later in Settings.',
       org: 'Shown in the menu and on receipts.',
@@ -1042,6 +1043,28 @@ export const copy = {
       operator: 'A user on the M-Pesa business portal made for Studio, Active (password set), with the roles ORG B2C API initiator, Balance Query ORG API and Transaction Status query ORG API. Only one Safaricom accepts is kept.',
       done: 'Everything Safaricom needs is in place.',
     } as Record<string, string>,
+    /**
+     * Step two of the tiers-and-modules design: the paybill question, and the screen for somebody
+     * who has none of their own. The four lines are what the alternative really is; the address the
+     * button opens comes from the server's one setting, and a blank setting hides the button only.
+     */
+    paybill: {
+      title: 'Do you have your own paybill or till?',
+      intro: 'Studio receives payments on a paybill or till number that Safaricom has given you, with the Daraja app that goes with it. If you have one, carry on: the next steps ask for its number.',
+      yes: 'Yes, I have my own',
+      no: 'No, I do not have one yet',
+      noneTitle: 'You can still take payments',
+      noneLines: [
+        'You get an account number on a paybill that KEPAS owns.',
+        'Your customers pay that paybill and quote your number, and the payments arrive under it.',
+        'You see and manage those payments in a studio KEPAS runs for you.',
+        'The paybill is not yours, and your money sits with KEPAS until it is paid out to you.',
+      ],
+      noneNote: 'That is what the alternative really is, and it is worth knowing before you start.',
+      open: 'Open the sign-up page',
+      comeBack: 'Nothing here is permanent: come back at any time and set up your own paybill or till instead.',
+      haveOneNow: 'I have my own now',
+    },
     /** Step one of the tiers-and-modules design: the tier, asked once, Business preselected. */
     tier: {
       title: 'What this studio does',

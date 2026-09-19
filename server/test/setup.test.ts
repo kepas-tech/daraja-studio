@@ -67,7 +67,12 @@ describe('setup wizard', () => {
 
   it('walks the whole wizard, and closes the wizard routes once setup is complete', async () => {
     let st = await request(app).get('/api/setup/status');
-    expect(st.body).toEqual({ needsOwner: true, completed: false, step: null, uses: null, passkeyProven: false });
+    expect(st.body).toEqual({
+      needsOwner: true, completed: false, step: null, uses: null, passkeyProven: false,
+      // Step two: nothing has been asked about a paybill yet, and the sign-up address is served
+      // whether or not anybody is signed in.
+      paybill: null, signupUrl: 'https://kepas.darajastudio.com',
+    });
 
     const owner = await request(app).post('/api/setup/owner').send({ displayName: 'Owner', username: 'owner', password: 'correct horse battery' });
     expect(owner.status).toBe(201);

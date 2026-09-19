@@ -16,6 +16,9 @@ interface Session {
   uses: { payOut: boolean; collect: boolean; stk: boolean } | null;
   /** Whether Safaricom has ever accepted a push here — the only proof a passkey can have. */
   passkeyProven: boolean;
+  /** Step two: the paybill question's answer, and where "no" sends people. */
+  paybill: 'own' | 'none' | null;
+  signupUrl: string | null;
   /** What earlier wizard steps stored, so Back shows the answer given. `null` before sign-in. */
   saved: SetupSaved | null;
   /** Brief 2, item 3: a PIN is set, and this session is waiting for it. */
@@ -41,7 +44,8 @@ interface Session {
 
 const empty = () => ({
   person: null, org: null, permissions: [] as string[],
-  setupStep: null as string | null, uses: null as { payOut: boolean; collect: boolean; stk: boolean } | null, passkeyProven: false, saved: null as SetupSaved | null,
+  setupStep: null as string | null, uses: null as { payOut: boolean; collect: boolean; stk: boolean } | null, passkeyProven: false,
+  paybill: null as 'own' | 'none' | null, signupUrl: null as string | null, saved: null as SetupSaved | null,
   pinSet: false, pinLocked: false, pinBio: false,
   modules: { off: [] as string[], menuOff: [] as string[] },
 });
@@ -93,6 +97,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         setS({
           status, person: me.person, org: me.org ?? null, permissions: me.permissions,
           setupStep: st.step, uses: st.uses, passkeyProven: st.passkeyProven, saved: st.saved ?? null,
+          paybill: st.paybill ?? null, signupUrl: st.signupUrl ?? null,
           pinSet: pin.set, pinLocked: lockNow, pinBio: pin.bio === true,
           modules: me.modules ?? { off: [], menuOff: [] },
         });

@@ -60,7 +60,9 @@ describe('the money-in feed', () => {
     const audit = await deps.db.query<{ action: string; after_json: Record<string, unknown> }>(`SELECT action, after_json FROM audit_log WHERE action='money_in.fed'`);
     expect(audit).toHaveLength(1);
     expect(audit[0]!.after_json).toMatchObject({ receipt: 'RC00000001', verdict: 'applied' });
-    expect(JSON.stringify(audit[0]!.after_json)).not.toContain(secret.split('_')[2]!);
+    // Everything after the prefix is the secret: the random part may itself hold an underscore,
+    // and a one-character fragment would match by luck.
+    expect(JSON.stringify(audit[0]!.after_json)).not.toContain(secret.split('_').slice(2).join('_'));
   });
 
   it('counts a payment once, whichever way it arrives', async () => {

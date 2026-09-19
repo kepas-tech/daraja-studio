@@ -72,8 +72,32 @@ import type { InvoicesService } from './invoices/service.js';
 import type { Scheduler } from './scheduler/loop.js';
 import type { PushService } from './push/service.js';
 import type { ProblemService } from './health/problems.js';
+import { registerModule, type ModuleDecl } from './modules/registry.js';
 import type { ModuleService } from './modules/service.js';
 import { moduleRoutes } from './modules/routes.js';
+
+/** The package installed beside Studio, if there is one. */
+export const EXTENSION_PACKAGE = '@kepas/studio-host';
+
+/** What an installed package is handed when it is loaded: the one place to add declarations. */
+export interface ExtensionApi {
+  registerModule(decl: ModuleDecl): void;
+}
+
+/**
+ * Load the package installed beside Studio. One try and one import at run time, and silence when
+ * nothing is installed: a studio without it boots and serves exactly as it does with no seam at all.
+ * A package exports `register`, which is handed the API above.
+ */
+export async function loadExtension(specifier: string = EXTENSION_PACKAGE): Promise<boolean> {
+  try {
+    const mod = (await import(specifier)) as { register?: (api: ExtensionApi) => void };
+    if (typeof mod.register === 'function') mod.register({ registerModule });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export interface AppDeps {
   config: Config;

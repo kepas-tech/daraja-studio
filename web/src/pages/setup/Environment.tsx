@@ -12,7 +12,7 @@ import { useSession } from '../../app/session';
 type Env = 'sandbox' | 'production';
 const ENVS: Env[] = ['sandbox', 'production'];
 
-export function Environment({ onDone, onBack }: { onDone: () => void; onBack?: () => void }) {
+export function Environment({ onDone, onBack }: { onDone: (mode: Env) => void; onBack?: () => void }) {
   const toast = useToast();
   const { saved } = useSession();
   const [env, setEnv] = useState<Env>(saved?.mode ?? 'sandbox');
@@ -24,7 +24,9 @@ export function Environment({ onDone, onBack }: { onDone: () => void; onBack?: (
         // No shortcode exists yet at this step — it is asked two steps on — so nothing is confirmed here.
         await api.post('/api/setup/environment', { environment: env });
         toast.success(copy.settings.saved);
-        onDone();
+        // The step that follows depends on the answer: production asks about the paybill, sandbox
+        // has Safaricom's test shortcode and asks nothing.
+        onDone(env);
       } catch (e2) { setErr(e2 instanceof ApiError ? e2 : new Error(copy.error.generic)); } finally { setBusy(false); }
     }}>
       {/* A segmented control: two joined choices, the chosen one filled. The radio inputs stay in the

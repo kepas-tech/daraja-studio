@@ -7,6 +7,7 @@ import { Owner } from './Owner';
 import { Uses } from './Uses';
 import { Org } from './Org';
 import { Tier } from './Tier';
+import { Paybill } from './Paybill';
 import { Environment } from './Environment';
 import { Shortcode } from './Shortcode';
 import { Daraja } from './Daraja';
@@ -16,7 +17,7 @@ import { Operator } from './Operator';
 import { Done } from './Done';
 import logo from '../../assets/logo-long.png';
 
-const ORDER = ['owner', 'environment', 'uses', 'tier', 'org', 'shortcode', 'daraja', 'public-url', 'passkey', 'operator', 'done'];
+const ORDER = ['owner', 'environment', 'paybill', 'uses', 'tier', 'org', 'shortcode', 'daraja', 'public-url', 'passkey', 'operator', 'done'];
 
 export function SetupLayout() {
   const s = useSession(); const nav = useNavigate(); const { pathname } = useLocation();
@@ -32,7 +33,10 @@ export function SetupLayout() {
   // callback address to answer — and only the phone prompt (STK Push) needs one; only paying out
   // needs an operator. The step list, the counter and both destinations skip whichever the
   // owner's own answers to "What you need" ruled out.
-  const steps = ORDER.filter((k) => (k !== 'passkey' || s.uses?.stk !== false) && (k !== 'operator' || s.uses?.payOut !== false));
+  // The paybill question is on the production path only: sandbox uses Safaricom's test shortcode,
+  // so it is not a step there and asking it is refused by the server as well.
+  const production = (s.org?.environment ?? 'sandbox') === 'production';
+  const steps = ORDER.filter((k) => (k !== 'passkey' || s.uses?.stk !== false) && (k !== 'operator' || s.uses?.payOut !== false) && (k !== 'paybill' || production));
   const idx = Math.max(0, steps.indexOf(current));
   const titleOf = (k: string) => copy.setup.steps[ORDER.indexOf(k)];
   const afterPublicUrl = () => go(s.uses?.stk ? 'passkey' : s.uses?.payOut ? 'operator' : 'done');
@@ -55,7 +59,8 @@ export function SetupLayout() {
           <Routes>
             <Route index element={<Navigate to={`/setup/${fromSession}`} replace />} />
             <Route path="owner" element={<Owner created={s.person?.display_name ?? null} onDone={async () => { if (!s.person) await s.refresh(); go('environment'); }} />} />
-            <Route path="environment" element={<Environment onDone={() => go('uses')} onBack={() => go('owner')} />} />
+            <Route path="environment" element={<Environment onDone={(mode) => go(mode === 'production' ? 'paybill' : 'uses')} onBack={() => go('owner')} />} />
+            <Route path="paybill" element={<Paybill onDone={() => go('uses')} onBack={() => go('environment')} />} />
             <Route path="uses" element={<Uses onDone={() => go('tier')} onBack={() => go('environment')} />} />
             <Route path="tier" element={<Tier onDone={() => go('org')} onBack={() => go('uses')} />} />
             <Route path="org" element={<Org onDone={() => go('shortcode')} onBack={() => go('tier')} />} />

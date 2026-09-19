@@ -29,6 +29,10 @@ export type SettingKey =
   | 'daraja.environment'
   | 'public.url' | 'public.verifiedAt'
   | 'callbacks.allowlist' | 'setup.completedAt' | 'setup.step' | 'setup.probeRequestId'
+  // Step two of the tiers-and-modules design: whether this business has a paybill or till of its
+  // own ('own' or 'none'), and the address the screen for 'none' sends people to. Absent, the
+  // address is the default in setup/paybill.ts; blank, the button is hidden.
+  | 'setup.paybill' | 'signup.url'
   // What the business said it needs, in its own terms, asked once during setup. These decide which
   // credentials are required, so nobody is asked for a passkey to run a payroll, or walked past the
   // one step their shop actually depends on. 'true'/'false'.

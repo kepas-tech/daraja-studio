@@ -89,7 +89,11 @@ describe('an organisation still setting up', () => {
 describe('GET /api/setup/status', () => {
   it('needs no mode field: there is only one product now', async () => {
     const r = await request(single.app).get('/api/setup/status');
-    expect(r.body).toEqual({ needsOwner: false, completed: false, step: null, uses: null, passkeyProven: false });
+    expect(r.body).toEqual({
+      needsOwner: false, completed: false, step: null, uses: null, passkeyProven: false,
+      // Step two: the paybill question has not been asked, and the sign-up address is served.
+      paybill: null, signupUrl: 'https://kepas.darajastudio.com',
+    });
   });
 });
 

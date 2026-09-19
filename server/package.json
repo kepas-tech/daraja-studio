@@ -1,6 +1,6 @@
 {
   "name": "@daraja-studio/server",
-  "version": "0.55.1",
+  "version": "0.56.0",
   "private": true,
   "type": "module",
   "main": "dist/index.js",

@@ -8,6 +8,7 @@ import { hashPassword, MIN_PASSWORD_LENGTH } from '../auth/password.js';
 import { cookieHeader, createSession } from '../auth/sessions.js';
 import { clientIp } from '../util/ip.js';
 import { provePasskey } from '../settings/passkeyProof.js';
+import { DEFAULT_SIGNUP_URL, resolveSignupUrl } from './paybill.js';
 import { HttpError } from '../util/errors.js';
 import { audit } from '../audit/log.js';
 
@@ -19,6 +20,8 @@ const usesSchema = z.object({ payOut: z.boolean(), collect: z.boolean(), stk: z.
 const tierSchema = z.object({ tier: z.enum(['simple', 'business', 'platform']) });
 const orgSchema = z.object({ name: z.string().trim().min(1).max(120), nominatedNumber: z.string().trim().regex(/^254\d{9}$/), notificationPhone: z.string().trim().regex(/^254\d{9}$/) });
 const modeSchema = z.object({ environment: z.enum(['sandbox','production']), confirmShortcode: z.string().optional() });
+// The one question setup asks on the production path, and only there.
+const paybillSchema = z.object({ own: z.boolean() });
 const shortcodeSchema = z.object({ shortcode: z.string().trim().regex(/^\d{5,7}$/) });
 const credsSchema = z.object({ consumerKey: z.string().min(1), consumerSecret: z.string().min(1) });
 // A passkey has no documented format, so there is no shape to enforce beyond a sane upper bound —
@@ -60,12 +63,15 @@ export function setupRoutes(deps: AppDeps): Router {
   r.get('/status', async (req, res, next) => {
     try {
       const orgId = req.org?.id ?? await resolveSetupOrg();
-      if (!orgId) { res.json({ needsOwner: true, completed: false, step: null }); return; }
+      if (!orgId) {
+        res.json({ needsOwner: true, completed: false, step: null, uses: null, passkeyProven: false, paybill: null, signupUrl: DEFAULT_SIGNUP_URL });
+        return;
+      }
       const { n, s, env } = await withOrg(orgId, async () => {
         const [{ n }] = await deps.db.query<{ n: string }>('SELECT count(*)::text AS n FROM people');
         const env = await currentMode();
         const s = await deps.settings.getMany([
-          'setup.completedAt', 'setup.step', 'use.payOut', 'use.collect', 'use.stk', `env.${env}.passkeyProvenAt`,
+          'setup.completedAt', 'setup.step', 'setup.paybill', 'signup.url', 'use.payOut', 'use.collect', 'use.stk', `env.${env}.passkeyProvenAt`,
           'org.name', 'org.nominatedNumber', 'org.notificationPhone', `env.${env}.shortcode`, `env.${env}.credsVerifiedAt`, 'public.url', 'public.verifiedAt',
         ]);
         return { n, s, env };
@@ -76,6 +82,10 @@ export function setupRoutes(deps: AppDeps): Router {
         // than assume, so this stays null until `/uses` has actually been posted.
         uses: s['use.payOut'] === null && s['use.collect'] === null ? null : { payOut: s['use.payOut'] === 'true', collect: s['use.collect'] === 'true', stk: s['use.stk'] === 'true' },
         passkeyProven: !!s[`env.${env}.passkeyProvenAt`],
+        // Step two: the paybill question's answer, if it has been asked, and where the screen for
+        // "no" sends people.
+        paybill: s['setup.paybill'] === 'own' || s['setup.paybill'] === 'none' ? s['setup.paybill'] : null,
+        signupUrl: resolveSignupUrl(s['signup.url']),
         // What earlier steps already stored, so Back lands on the answer rather than a blank field.
         // Secrets are never echoed: the key/secret and passkey steps only learn that one is in place.
         // Only a signed-in caller gets these; the anonymous first visit does not.
@@ -189,7 +199,33 @@ export function setupRoutes(deps: AppDeps): Router {
     } catch (e) { next(e); }
   });
 
-  r.post('/environment', async (req, res, next) => { try { const b = parse(modeSchema, req.body); const out = await svc.setMode(b.environment, b.confirmShortcode, a(req)); await step('uses'); res.json(out); } catch (e) { next(e); } });
+  r.post('/environment', async (req, res, next) => {
+    try {
+      const b = parse(modeSchema, req.body);
+      const out = await svc.setMode(b.environment, b.confirmShortcode, a(req));
+      // Production asks the paybill question next; sandbox has Safaricom's test shortcode and asks
+      // nothing about paybills.
+      await step(b.environment === 'production' ? 'paybill' : 'uses');
+      res.json(out);
+    } catch (e) { next(e); }
+  });
+  /**
+   * "Do you have your own paybill or till?" — asked on the production path only. Saying no is not a
+   * dead end: it records the answer, leaves the step where it is so the explanation is what a reload
+   * shows, and the same route takes a later yes, carrying on with today's setup where it left off.
+   */
+  r.post('/paybill', async (req, res, next) => {
+    try {
+      const b = parse(paybillSchema, req.body);
+      if ((await currentMode()) !== 'production') {
+        throw new HttpError(409, 'not_production', 'Sandbox uses Safaricom\u2019s test shortcode, so there is no paybill to ask about here.');
+      }
+      await deps.settings.set('setup.paybill', b.own ? 'own' : 'none');
+      await audit(deps.db, { personId: req.person!.id, action: 'setup.paybill', ip: clientIp(req), after: { own: b.own } });
+      if (b.own) await step('uses');
+      res.status(204).end();
+    } catch (e) { next(e); }
+  });
   r.post('/org', async (req, res, next) => { try { await svc.setOrg(parse(orgSchema, req.body), a(req)); await step('shortcode'); res.status(204).end(); } catch (e) { next(e); } });
   r.post('/shortcode', async (req, res, next) => { try { const b = parse(shortcodeSchema, req.body); const out = await svc.setShortcode(await currentMode(), b.shortcode, a(req)); await step('daraja'); res.json(out); } catch (e) { next(e); } });
   r.post('/daraja', async (req, res, next) => { try { const b = parse(credsSchema, req.body); const out = await svc.setDarajaCreds(await currentMode(), b.consumerKey, b.consumerSecret, a(req)); if (out.ok) await step('public-url'); res.json(out); } catch (e) { next(e); } });

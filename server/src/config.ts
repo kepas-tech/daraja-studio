@@ -30,6 +30,9 @@ const schema = z.object({
   STUDIO_VAPID_PUBLIC_KEY: z.string().optional(),
   STUDIO_VAPID_PRIVATE_KEY: z.string().optional(),
   STUDIO_VAPID_SUBJECT: z.string().optional(),
+  // A directory of migrations to read after the core's own, for a package installed beside Studio.
+  // Empty or unset means none is read. Its files are numbered from 900.
+  STUDIO_EXTENSION_MIGRATIONS: z.preprocess((v) => (v === '' ? undefined : v), z.string().optional()),
 });
 
 export interface Config {
@@ -48,6 +51,8 @@ export interface Config {
   egressIps: string[];
   /** Web push keys. null = web push is off: no button, no sender, no service worker. */
   vapid: Vapid | null;
+  /** A second migrations directory to read after the core's own. null = none is read. */
+  extensionMigrations: string | null;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv): Config {
@@ -80,6 +85,7 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
       .split(',')
       .map((s) => s.trim())
       .filter((s) => s.length > 0),
+    extensionMigrations: e.STUDIO_EXTENSION_MIGRATIONS ?? null,
     vapid: vapidFromEnv({
       STUDIO_VAPID_PUBLIC_KEY: e.STUDIO_VAPID_PUBLIC_KEY,
       STUDIO_VAPID_PRIVATE_KEY: e.STUDIO_VAPID_PRIVATE_KEY,

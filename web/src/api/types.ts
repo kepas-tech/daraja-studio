@@ -24,6 +24,13 @@ export interface SetupStatus {
   uses: { payOut: boolean; collect: boolean; stk: boolean } | null;
   /** Whether Safaricom has ever accepted a push here — the only proof a passkey can have. */
   passkeyProven: boolean;
+  /**
+   * Step two of the tiers-and-modules design: the answer to "do you have your own paybill or till?",
+   * asked on the production path only, and null before it has been asked.
+   */
+  paybill: 'own' | 'none' | null;
+  /** Where the screen for "no" sends people. Null when the setting has been blanked. */
+  signupUrl: string | null;
   /** Answers earlier steps stored, for a signed-in caller only; secrets are never included. */
   saved?: SetupSaved;
 }

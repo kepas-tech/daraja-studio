@@ -40,7 +40,7 @@ import { createScheduler } from './scheduler/loop.js';
 import { ensureRecurring } from './db/jobs.js';
 import { buildHandlers } from './scheduler/handlers.js';
 import { seedPublicUrl } from './boot/seed.js';
-import { buildApp } from './app.js';
+import { buildApp, loadExtension } from './app.js';
 
 const SHUTDOWN_TIMEOUT_MS = 10_000;
 
@@ -51,8 +51,12 @@ async function main() {
   // user, never as the limited studio_app role the application uses.
   const admin = createAdminPool(config.databaseUrl);
   const migrationsDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'migrations');
-  const applied = await migrate(admin, migrationsDir);
+  const applied = await migrate(admin, migrationsDir, config.extensionMigrations);
   if (applied.length) console.log(`migrations applied: ${applied.join(', ')}`);
+
+  // The package installed beside Studio, if there is one, before anything reads the declarations
+  // or serves a route. Nothing installed is not a problem: this is quiet either way.
+  await loadExtension();
 
   // From here on every connection the application makes is studio_app, which row-level security
   // applies to. A warning and a role-less pool rather than dying outright when the role cannot be

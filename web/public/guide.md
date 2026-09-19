@@ -179,7 +179,7 @@ Who: Owner
 
 ## First-run setup
 
-The first person to open a new Studio becomes the owner and walks through up to eleven steps. Back keeps your answers, and every step saves before moving on, so you can stop and come back later.
+The first person to open a new Studio becomes the owner and walks through up to twelve steps. Back keeps your answers, and every step saves before moving on, so you can stop and come back later.
 
 ### The steps
 
@@ -187,15 +187,16 @@ Who: Owner · Route: /setup
 
 1. Owner: your name, a username and a password of 12 or more characters. You can change the name on the "Owner account created" screen; the username stays.
 2. Environment: Sandbox or Production. Start with Sandbox if you are still trying things out; when Safaricom has approved your app for real money, Organisation › Go live takes you across.
-3. What you need: tick "Receive money from payers", "Send money to people or businesses", or both. A separate tick, "Prompt their phone to pay", is the one thing that needs the passkey. Your ticks decide which of the later steps appear.
-4. What this studio does: Simple for a shop or a stall, Business for the studio as it is today, or Platform for the developer side and the payment feed. Business is chosen for you. Nothing here is fixed — Organisation › What this studio does changes any part of it later.
-5. Your organization: business name, nominated number and notification phone (starting 2547). Shown in the menu and on receipts.
-6. Shortcode: your paybill or till number. Studio checks it with Safaricom and shows the name Safaricom holds for it.
-7. Daraja app: paste the "Consumer Key" and "Consumer Secret" (see Getting things from Safaricom). Studio tests them at once; "accepted" means Safaricom said yes.
-8. Public address: Studio reads the address from your browser and shows it. Press Change only if people open Studio through a different address. Press "Test this address" so Safaricom can prove it reaches you.
-9. STK passkey (only if you ticked the phone prompt): paste the passkey and give your own phone number. Studio sends one KES 1 prompt to your phone; cancel it, nothing is taken.
-10. API operator (only if you send money): the portal user’s username, then either its password plus the certificate text, or a "Security Credential". Studio tests it with a balance check and keeps it only if Safaricom accepts it. A refused one is removed and the name is free to try again.
-11. Done: says "All set", or names the step still missing and takes you there. Finish opens Home.
+3. Your paybill (Production only): whether this business has a paybill or till of its own. If it does, setup carries on and asks for the number in a moment. If it does not, the screen explains the alternative — an account number on a paybill KEPAS owns, your payments arriving under it, managed in a studio KEPAS runs, with your money sitting with KEPAS until it is paid out — and a button opens the sign-up page. Nothing there is permanent: coming back and answering yes sets up your own shortcode instead.
+4. What you need: tick "Receive money from payers", "Send money to people or businesses", or both. A separate tick, "Prompt their phone to pay", is the one thing that needs the passkey. Your ticks decide which of the later steps appear.
+5. What this studio does: Simple for a shop or a stall, Business for the studio as it is today, or Platform for the developer side and the payment feed. Business is chosen for you. Nothing here is fixed — Organisation › What this studio does changes any part of it later.
+6. Your organization: business name, nominated number and notification phone (starting 2547). Shown in the menu and on receipts.
+7. Shortcode: your paybill or till number. Studio checks it with Safaricom and shows the name Safaricom holds for it.
+8. Daraja app: paste the "Consumer Key" and "Consumer Secret" (see Getting things from Safaricom). Studio tests them at once; "accepted" means Safaricom said yes.
+9. Public address: Studio reads the address from your browser and shows it. Press Change only if people open Studio through a different address. Press "Test this address" so Safaricom can prove it reaches you.
+10. STK passkey (only if you ticked the phone prompt): paste the passkey and give your own phone number. Studio sends one KES 1 prompt to your phone; cancel it, nothing is taken.
+11. API operator (only if you send money): the portal user’s username, then either its password plus the certificate text, or a "Security Credential". Studio tests it with a balance check and keeps it only if Safaricom accepts it. A refused one is removed and the name is free to try again.
+12. Done: says "All set", or names the step still missing and takes you there. Finish opens Home.
 
 | Method | Path | Who |
 |---|---|---|

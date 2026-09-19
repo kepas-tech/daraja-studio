@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.56.0 — the first-run question, and a seam for what is not shipped
+
+- **Production now asks one question first: "Do you have your own paybill or till?"** *Yes* carries on
+  into setup exactly as it does today. *No* leads to a screen that says plainly what the alternative
+  is — an account number on a paybill KEPAS owns, payments arriving there under your number, managed
+  in a studio KEPAS runs, the paybill not being yours, and your money sitting with KEPAS until it is
+  paid out — with a button to the sign-up page. Sandbox never asks, the answer is recorded and
+  shown again on a reload, and answering no traps nobody: the same step takes a yes later, so you can
+  come back and set up your own shortcode.
+- **The sign-up address is a setting, not code.** It ships as `https://kepas.darajastudio.com`; set
+  it to anything else for another address, or set it blank and the button is simply not drawn — the
+  explanation and everything else about the screen stay exactly as they are.
+- **A seam for a package installed beside Studio, and nothing more than the seam.** The module
+  registry exports `registerModule`, so a package loaded at boot can add declarations of its own,
+  and the app tries once to load that package, carrying on quietly when none is installed. The
+  migration runner can read a second directory when one is configured, with those migrations
+  numbered from 900 so they can never collide with the core's own. Nothing is shipped behind the
+  seam: no extra tables, no extra menu entries and no behaviour change on an install without it.
+
 ## 0.55.1 — what a studio starts as, and what Simple leaves out
 
 - **The tier is asked at setup.** A new step, *What this studio does*, sits between "What you need"

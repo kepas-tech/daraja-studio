@@ -27,22 +27,26 @@ describe('API keys', () => {
     const made = await make();
     expect(made.secret).toMatch(/^studio_[0-9a-f]{12}_[A-Za-z0-9_-]{43}$/);
     expect(made.key.prefix).toBe(made.secret.split('_')[1]);
+    // The secret's own alphabet includes an underscore, so split('_')[2] is only the whole secret
+    // when the random part happens to hold none — and a one-character fragment turns up inside a
+    // UUID often enough to fail this test by luck. Everything after the prefix is the secret.
+    const secret = made.secret.split('_').slice(2).join('_');
 
     // The list carries the prefix and the facts, and nothing else about the secret.
     const list = await h(request(app).get('/api/keys'));
     expect(list.status).toBe(200);
     expect(list.body.items).toHaveLength(1);
     expect(list.body.items[0]).toMatchObject({ name: 'Payroll script', role: 'viewer', prefix: made.key.prefix, revokedAt: null });
-    expect(JSON.stringify(list.body)).not.toContain(made.secret.split('_')[2]);
+    expect(JSON.stringify(list.body)).not.toContain(secret);
 
     // Stored hashed: the row holds no plaintext, and the audit row carries the prefix alone.
     const [row] = await deps.db.query<{ key_hash: string; prefix: string }>('SELECT key_hash, prefix FROM api_keys');
     expect(row!.prefix).toBe(made.key.prefix);
     expect(row!.key_hash).toMatch(/^[0-9a-f]{64}$/);
-    expect(row!.key_hash).not.toContain(made.secret.split('_')[2]!);
+    expect(row!.key_hash).not.toContain(secret);
     const audit = await deps.db.query<{ after_json: unknown }>(`SELECT after_json FROM audit_log WHERE action='api_key.created' AND target=$1`, [made.key.id]);
     expect(audit).toHaveLength(1);
-    expect(JSON.stringify(audit[0]!.after_json)).not.toContain(made.secret.split('_')[2]!);
+    expect(JSON.stringify(audit[0]!.after_json)).not.toContain(secret);
   });
 
   it('reads with the key, and is refused the things that need a person', async () => {

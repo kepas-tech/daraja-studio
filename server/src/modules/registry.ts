@@ -157,6 +157,17 @@ export const MODULES: ModuleDecl[] = [
   },
 ];
 
+/**
+ * Register one more declaration. This is the seam an installed package uses at boot: it hands over
+ * the same shape the list above is written in, and the guard, the menu, the page and the tiers pick
+ * it up with nothing else changing here. A declaration whose key is already known replaces it.
+ */
+export function registerModule(decl: ModuleDecl): void {
+  const at = MODULES.findIndex((m) => m.key === decl.key);
+  if (at >= 0) MODULES[at] = decl;
+  else MODULES.push(decl);
+}
+
 export type TierKey = 'simple' | 'business' | 'platform';
 export interface TierDecl {
   key: TierKey;
