@@ -93,6 +93,14 @@ export interface OrgService {
    */
   wipe(orgId: string, confirmName: string, actor: WipeActor): Promise<void>;
   byId(id: string): Promise<OrgView | null>;
+  /**
+   * This install's own organisation: the one marked as the host, or — on an install that has exactly
+   * one — that one, which is the same thing by another route. An install with several organisations
+   * and none marked answers nothing rather than guessing whose records are being asked about, and
+   * the owner is the organisation's owner or nobody. It exists for callers that run outside a
+   * request and so have no organisation in context: a command, a job, a script.
+   */
+  host(): Promise<{ id: string; name: string; ownerId: string | null } | null>;
   /** The callback router's lookup: sha256 of the secret in the URL. */
   bySecretHash(hash: string): Promise<OrgView | null>;
   /** The organisation's own callback secret, for Settings › reveal. Never logged. */
@@ -131,6 +139,16 @@ export function createOrgService(deps: { db: Db; keyring: Keyring; master: Buffe
     async byId(id) {
       const rows = await withSystem(() => deps.db.query<OrgRow>(`${SELECT} WHERE id = $1`, [id]));
       return rows[0] ? toView(rows[0]) : null;
+    },
+    async host() {
+      const rows = await withSystem(() => deps.db.query<{ id: string; name: string; owner_id: string | null }>(
+        `SELECT o.id, o.name,
+                (SELECT p.id FROM people p WHERE p.org_id = o.id AND p.is_owner ORDER BY p.created_at LIMIT 1) AS owner_id
+           FROM orgs o
+          WHERE o.is_host OR (SELECT count(*) FROM orgs) = 1
+          ORDER BY o.is_host DESC, o.created_at ASC LIMIT 1`));
+      const row = rows[0];
+      return row ? { id: row.id, name: row.name, ownerId: row.owner_id } : null;
     },
     async bySecretHash(hash) {
       const rows = await withSystem(() => deps.db.query<OrgRow>(`${SELECT} WHERE callback_secret_hash = $1`, [hash]));

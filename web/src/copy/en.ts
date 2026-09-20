@@ -226,7 +226,7 @@ export const copy = {
     name: 'What is this key for?',
     namePlaceholder: 'Payroll script',
     role: 'What may it do?',
-    roles: { operator: 'Operator — may send and look', viewer: 'Viewer — may only look', approver: 'Approver — may look and release held sends', forwarder: 'Forwarder — may only feed money in' } as Record<string, string>,
+    roles: { operator: 'Operator — may send and look', viewer: 'Viewer — may only look', approver: 'Approver — may look and release held sends', forwarder: 'Forwarder — may only feed money in', collector: 'Collector — may ask for a payment and read it back' } as Record<string, string>,
     shownOnce: 'Copy this key now. This is the only time Studio shows it; a lost key is replaced, never looked up.',
     gotIt: 'Done',
     list: 'Your keys',

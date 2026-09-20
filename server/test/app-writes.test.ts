@@ -2,6 +2,7 @@ import { describe, it, expect, afterAll, beforeEach, vi } from 'vitest';
 import request from 'supertest';
 import { makeApp, loginAsOwner, resetTables } from './helpers.js';
 import { ROLE_PRESETS } from '../src/permissions/roles.js';
+import { KEY_ROLES } from '../src/keys/service.js';
 import { createWebhookWriter } from '../src/webhooks/writer.js';
 import { KEY_MAX, REPLAY_HEADER } from '../src/http/idempotency.js';
 
@@ -126,9 +127,12 @@ describe('what an app needs that Studio did not answer', () => {
   });
 
   it('lets an API key ask for a payment and read it back with no person involved, end to end', async () => {
+    // The key a product is given: the `collector` role, which carries asking for a payment and
+    // reading one back and nothing else. This is the whole path such a key takes, against the fake
+    // Safaricom — the real one is asked by the owner, not by a test.
     const made = await request(app).post('/api/keys')
       .set('Cookie', auth.cookie).set('X-CSRF-Token', auth.csrf)
-      .send({ name: 'A product calling in', role: 'operator' });
+      .send({ name: 'A product calling in', role: 'collector' });
     expect(made.status).toBe(201);
     const bearer = (r: request.Test) => r.set('Authorization', `Bearer ${made.body.secret}`);
 
@@ -152,9 +156,14 @@ describe('what an app needs that Studio did not answer', () => {
   });
 
   it('gives the operator role the right to ask a customer to pay, which is what lets a key do it', () => {
-    // No role an API key could hold carried `stk.request`, so every key was refused before this.
+    // No role an API key could hold carried `stk.request` before this, so every key was refused by the
+    // payment route. `operator` now carries it too, and `collector` is the one made for a system:
+    // exactly the two permissions an integration needs and nothing else.
     expect(ROLE_PRESETS.operator).toContain('stk.request');
+    expect([...ROLE_PRESETS.collector].sort()).toEqual(['lookup.view', 'stk.request']);
     expect(ROLE_PRESETS.viewer).not.toContain('stk.request');
     expect(ROLE_PRESETS.approver).not.toContain('stk.request');
+    expect(ROLE_PRESETS.forwarder).not.toContain('stk.request');
+    expect(KEY_ROLES).toContain('collector');
   });
 });

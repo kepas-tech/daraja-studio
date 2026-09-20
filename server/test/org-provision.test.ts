@@ -2,7 +2,7 @@ import { describe, it, expect, afterAll, beforeEach } from 'vitest';
 import request from 'supertest';
 import { withSystem } from '../src/db/pool.js';
 import { sha256 } from '../src/crypto/secrets.js';
-import { makeApp, resetTables, deleteOrg } from './helpers.js';
+import { makeApp, resetTables, deleteOrg, TEST_ORG_ID } from './helpers.js';
 
 /**
  * Standing an organisation up together with its first owner, in one transaction.
@@ -123,5 +123,25 @@ describe('provisioning an organisation and its first owner', () => {
     expect(wrong.status).toBe(401);
 
     await deleteOrg(made.org.id);
+  });
+
+  it('answers which organisation this install is, and its owner, for a caller with no context', async () => {
+    // The test database's organisation is the install's own, so this is the answer a command or a job
+    // would get: the host organisation, named, with its owner — and a tenant's organisation made a
+    // moment later does not become the answer.
+    await resetTables(deps.db);
+    await withSystem(() => deps.db.query(
+      `INSERT INTO people(org_id, username, display_name, password_hash, is_owner) VALUES ($1, 'the-owner', 'The Owner', 'x', true)`,
+      [TEST_ORG_ID]));
+    const made = await deps.orgs.provision(input({ name: 'Kodisap Limited', username: 'kodisap' }));
+    expect(made.ok).toBe(true);
+
+    const host = await deps.orgs.host();
+    expect(host).toMatchObject({ id: TEST_ORG_ID, name: 'Test organisation' });
+    const [owner] = await withSystem(() => deps.db.query<{ id: string }>(
+      `SELECT id FROM people WHERE org_id = $1 AND is_owner`, [TEST_ORG_ID]));
+    expect(host!.ownerId).toBe(owner!.id);
+
+    if (made.ok) await deleteOrg(made.org.id);
   });
 });

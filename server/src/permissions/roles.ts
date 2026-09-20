@@ -11,8 +11,14 @@ import type { PermissionKey } from './catalog.js';
  * Round 5: `forwarder` is a role for an API key, not for a person — a key that may do one thing,
  * post this paybill's confirmations to Studio's inbox, and nothing else at all.
  */
-export const ROLE_PRESETS: Record<'operator' | 'viewer' | 'approver' | 'forwarder', PermissionKey[]> = {
+export const ROLE_PRESETS: Record<'operator' | 'viewer' | 'approver' | 'forwarder' | 'collector', PermissionKey[]> = {
   forwarder: ['money_in.feed'],
+  /**
+   * Round 5's mirror image: the system that takes this studio's payments. Two permissions and
+   * nothing else — ask for a payment, and read one back — because a payments integration needs
+   * neither the sends nor the batch files, and a key is a credential that outlives the handover.
+   */
+  collector: ['stk.request', 'lookup.view'],
   /** Staff who send, and who ask customers to pay. `stk.request` is here because asking for money
    *  in is what a till does all day and is a smaller power than sending money out, which this same
    *  role already carries; it is also what lets an API key raise a payment request at all — no role

@@ -32,7 +32,7 @@ declare global {
     interface Request {
       person?: Person; personHash?: string; sessionId?: string; csrf?: string; rawBody?: string;
       /** Round 3, phase E: set when this request came in with an API key rather than a session. */
-      apiKey?: { keyId: string; name: string; prefix: string; role: 'operator' | 'viewer' | 'approver' | 'forwarder'; permissions: import('../permissions/catalog.js').PermissionKey[] };
+      apiKey?: { keyId: string; name: string; prefix: string; role: import('../keys/service.js').KeyRole; permissions: import('../permissions/catalog.js').PermissionKey[] };
       org?: OrgView; authProblem?: string;
       /** The optional PIN's hash, kept off request.person so it can never be serialised (brief 2, item 3). */
       personPinHash?: string | null;
