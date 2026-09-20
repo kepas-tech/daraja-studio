@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { api, ApiError } from '../api/client';
+import type { SetupStatus } from '../api/types';
 import { markJustLoggedIn, useSession } from '../app/session';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -13,10 +14,23 @@ export function Login() {
   const { refresh } = useSession();
   const [u, setU] = useState(''); const [p, setP] = useState('');
   const [err, setErr] = useState<Error | null>(null); const [busy, setBusy] = useState(false);
+  // Which studio this is. Nobody is signed in here, so there is no organisation to name: the address
+  // is what is honestly known, and the install's own name is added only when it has one. The answer
+  // is allowed to fail — the address on its own is still true, and it is still the same page.
+  const [studio, setStudio] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    api.get<SetupStatus>('/api/setup/status')
+      .then((s) => { if (live) setStudio(s.studioName ?? null); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, []);
   return (
     <div className="min-h-screen bg-page px-4 pt-16 md:pt-24">
       <div className="mx-auto max-w-sm space-y-6">
         <img src={logo} alt={copy.appName} className="mx-auto h-20 w-auto" />
+        {/* Quiet orientation rather than a heading: which studio, and where it is. */}
+        <p className="text-center text-sm text-muted">{copy.login.where(studio, window.location.host)}</p>
         <Card title={copy.login.title}>
           <form className="space-y-4" onSubmit={async (e) => {
             e.preventDefault(); setBusy(true); setErr(null);

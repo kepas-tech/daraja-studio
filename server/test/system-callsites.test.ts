@@ -21,6 +21,7 @@ const ALLOWED = [
   'orgs/close.ts', // closing crosses out of whatever organisation the caller was in
   'people/routes.ts', // the username duplicate check looks across organisations before insert
   'people/owner.ts', // the same check, for the owner a package's provisioning writes
+  'setup/routes.ts', // the install's own name is the host organisation's, whoever is asking
 ].sort();
 
 /**

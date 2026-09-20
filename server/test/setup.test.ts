@@ -79,6 +79,8 @@ describe('setup wizard', () => {
       // Step two: nothing has been asked about a paybill yet, and the sign-up address is served
       // whether or not anybody is signed in.
       paybill: null, signupUrl: 'https://kepas.darajastudio.com',
+      // The install's own name, which the login screen shows beside the address.
+      studioName: 'Test organisation',
     });
 
     const owner = await request(app).post('/api/setup/owner').send({ displayName: 'Owner', username: 'owner', password: 'correct horse battery' });

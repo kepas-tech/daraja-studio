@@ -93,6 +93,9 @@ describe('GET /api/setup/status', () => {
       needsOwner: false, completed: false, step: null, uses: null, passkeyProven: false,
       // Step two: the paybill question has not been asked, and the sign-up address is served.
       paybill: null, signupUrl: 'https://kepas.darajastudio.com',
+      // The install's own name, which the login screen shows beside the address. This test database's
+      // organisation is the host and is named, so an anonymous visitor is told it.
+      studioName: 'Test organisation',
     });
   });
 });

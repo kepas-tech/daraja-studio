@@ -2,6 +2,7 @@ import type { Db } from '../db/pool.js';
 import { withOrg, withSystem } from '../db/pool.js';
 import type { Config } from '../config.js';
 import { decrypt, decryptForOrg, encrypt, encryptForOrg, randomSecret, sha256, type Keyring } from '../crypto/secrets.js';
+import { DEFAULT_ORG_NAME } from '../orgs/service.js';
 
 export interface TenancyBootResult {
   /** This install's one organisation. */
@@ -120,9 +121,9 @@ export async function bootTenancy(deps: Deps): Promise<TenancyBootResult> {
       const inserted = await withSystem(() =>
         db.query<{ id: string }>(
           `INSERT INTO orgs(slug, name, status, is_host, callback_secret_hash, callback_secret_enc, key_salt)
-           VALUES ('org-1', 'My organisation', 'pending', true, 'unset', $1, gen_random_bytes(32))
+           VALUES ('org-1', $2, 'pending', true, 'unset', $1, gen_random_bytes(32))
            ON CONFLICT DO NOTHING RETURNING id`,
-          [encrypt(config.secretKey, randomSecret(32))],
+          [encrypt(config.secretKey, randomSecret(32)), DEFAULT_ORG_NAME],
         ),
       );
       created = inserted.length > 0;

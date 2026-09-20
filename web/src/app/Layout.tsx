@@ -57,10 +57,20 @@ export function Layout() {
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-surface text-ink">
       <header className="flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-line bg-surface px-4 py-2 md:px-6">
-        <NavLink to="/" className="inline-flex items-center gap-3 text-ink hover:no-underline">
-          <img src={mark} alt="" className="h-10 w-auto" />
-          <span className="text-lg font-semibold">{copy.appName}</span>
-        </NavLink>
+        <div className="flex min-w-0 items-center gap-3">
+          <NavLink to="/" className="inline-flex shrink-0 items-center gap-3 text-ink hover:no-underline">
+            <img src={mark} alt="" className="h-10 w-auto" />
+            <span className="text-lg font-semibold">{copy.appName}</span>
+          </NavLink>
+          {/* Which studio this is, on every page. Quiet on purpose — it is orientation, not
+              decoration — and on an install with one organisation it is the same name every day.
+              The name is the organisation's own, so it costs nobody a setting. */}
+          {org?.name && (
+            <span className="min-w-0 truncate text-sm text-muted" title={org.name}>
+              <span aria-hidden="true" className="pr-1">·</span>{org.name}
+            </span>
+          )}
+        </div>
         <AccountMenu />
       </header>
       {/* The header and the sidebar stay put; only the content column scrolls, and only when it

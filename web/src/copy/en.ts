@@ -284,7 +284,15 @@ export const copy = {
     backToWebhooks: 'Back to Webhooks',
   },
   comingSoon: { title: 'Not in this version yet', badge: 'Coming soon', body: 'Planned for a later release.' },
-  login: { title: 'Log in', username: 'Username', password: 'Password', button: 'Log in', locked: 'Too many wrong tries. Wait 15 minutes and try again.', guideLink: 'How to use Daraja Studio' },
+  login: {
+    title: 'Log in', username: 'Username', password: 'Password', button: 'Log in',
+    locked: 'Too many wrong tries. Wait 15 minutes and try again.',
+    guideLink: 'How to use Daraja Studio',
+    // Which studio this is, for somebody who has more than one. The address is always true; the name
+    // is there only when the install has one, so nothing is invented for a studio that has not named
+    // itself yet.
+    where: (studio: string | null, host: string) => (studio ? studio + ' · ' + host : host),
+  },
   guidePage: { contents: 'On this page', login: 'Log in', where: 'Where:', who: 'Who:', then: 'Then:', whereToGet: 'Where to get it' },
   changePassword: {
     title: 'Choose your own password',

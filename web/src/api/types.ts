@@ -20,6 +20,9 @@ export interface OrgSummary {
 /** `GET /api/setup/status`. */
 export interface SetupStatus {
   needsOwner: boolean; completed: boolean; step: string | null;
+  /** The install's own name — the host organisation's — and null where it has not named itself.
+   *  Present for anybody, signed in or not: it is what the login screen puts beside the address. */
+  studioName?: string | null;
   /** What the business said it needs, in its own words. `null` until it has been asked. */
   uses: { payOut: boolean; collect: boolean; stk: boolean } | null;
   /** Whether Safaricom has ever accepted a push here — the only proof a passkey can have. */

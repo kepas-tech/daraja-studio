@@ -2,13 +2,14 @@ import { Router } from 'express';
 import { z } from 'zod';
 import type { AppDeps } from '../app.js';
 import type { Env } from '../settings/store.js';
-import { withOrg } from '../db/pool.js';
+import { withOrg, withSystem } from '../db/pool.js';
 import { requireAuth, requireCsrf, requireOwner } from '../auth/middleware.js';
 import { MIN_PASSWORD_LENGTH } from '../auth/password.js';
 import { writeOwner, type OwnerRow } from '../people/owner.js';
 import { cookieHeader, createSession } from '../auth/sessions.js';
 import { clientIp } from '../util/ip.js';
 import { provePasskey } from '../settings/passkeyProof.js';
+import { DEFAULT_ORG_NAME } from '../orgs/service.js';
 import { DEFAULT_SIGNUP_URL, resolveSignupUrl } from './paybill.js';
 import { HttpError } from '../util/errors.js';
 import { audit } from '../audit/log.js';
@@ -61,11 +62,28 @@ export function setupRoutes(deps: AppDeps): Router {
     return deps.db.getFallbackOrg();
   }
 
+  /**
+   * What this install itself is called: the host organisation's own name, and null on an install that
+   * has not named itself yet (the name it starts life with is not a name it has), or that has no host
+   * organisation at all.
+   *
+   * It is read from the host organisation rather than from the caller's, because it is a fact about
+   * the install and not about whoever is looking: a tenant's own name is never what this answers, and
+   * the host's name is the one thing an anonymous visitor can honestly be told. It is what the login
+   * screen puts beside the address, so somebody with two studios open knows which one they are at.
+   */
+  async function studioOwnName(): Promise<string | null> {
+    const rows = await withSystem(() => deps.db.query<{ name: string }>('SELECT name FROM orgs WHERE is_host'));
+    const name = rows[0]?.name?.trim();
+    return name && name !== DEFAULT_ORG_NAME ? name : null;
+  }
+
   r.get('/status', async (req, res, next) => {
     try {
       const orgId = req.org?.id ?? await resolveSetupOrg();
+      const studioName = await studioOwnName();
       if (!orgId) {
-        res.json({ needsOwner: true, completed: false, step: null, uses: null, passkeyProven: false, paybill: null, signupUrl: DEFAULT_SIGNUP_URL });
+        res.json({ needsOwner: true, completed: false, step: null, uses: null, passkeyProven: false, paybill: null, signupUrl: DEFAULT_SIGNUP_URL, studioName });
         return;
       }
       const { n, s, env } = await withOrg(orgId, async () => {
@@ -87,6 +105,8 @@ export function setupRoutes(deps: AppDeps): Router {
         // "no" sends people.
         paybill: s['setup.paybill'] === 'own' || s['setup.paybill'] === 'none' ? s['setup.paybill'] : null,
         signupUrl: resolveSignupUrl(s['signup.url']),
+        // The install's own name, for anybody including a stranger at the login screen.
+        studioName,
         // What earlier steps already stored, so Back lands on the answer rather than a blank field.
         // Secrets are never echoed: the key/secret and passkey steps only learn that one is in place.
         // Only a signed-in caller gets these; the anonymous first visit does not.

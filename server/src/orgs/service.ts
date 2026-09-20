@@ -9,6 +9,13 @@ import { HttpError } from '../util/errors.js';
 import { audit } from '../audit/log.js';
 import { CLOSED_CHILD_TABLES } from './close.js';
 
+/**
+ * The name an organisation starts with, before anybody has named it: the boot pass gives it to
+ * organisation #1 and a wipe puts it back. It is not a name the install "has" — anything showing a
+ * studio's own name to somebody has to treat this as no name at all.
+ */
+export const DEFAULT_ORG_NAME = 'My organisation';
+
 export type OrgStatus = 'pending' | 'creds_ok' | 'operator_probing' | 'verified' | 'failed' | 'suspended' | 'closed';
 
 export interface OrgView {
@@ -260,7 +267,7 @@ export function createOrgService(deps: { db: Db; keyring: Keyring; master: Buffe
         for (const table of CLOSED_CHILD_TABLES) await c.query(`DELETE FROM ${table} WHERE org_id = $1`, [orgId]);
         await c.query(`DELETE FROM jobs WHERE payload->>'orgId' = $1`, [orgId]);
         await c.query(`DELETE FROM cache WHERE key LIKE 'org:' || $1 || ':%'`, [orgId]);
-        await c.query(`UPDATE orgs SET status = 'pending', name = 'My organisation', fail_reason = NULL, suspend_reason = NULL WHERE id = $1`, [orgId]);
+        await c.query(`UPDATE orgs SET status = 'pending', name = $2, fail_reason = NULL, suspend_reason = NULL WHERE id = $1`, [orgId, DEFAULT_ORG_NAME]);
       }));
     },
     async close(orgId, reason) {
