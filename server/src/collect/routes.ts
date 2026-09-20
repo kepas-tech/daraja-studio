@@ -10,6 +10,7 @@ import { PUBLIC_URL_UNVERIFIED } from '../money_out/ready.js';
 import { ORG_CLOSED, ORG_SUSPENDED } from '../http/orgActive.js';
 import { clientIp } from '../util/ip.js';
 import { HttpError } from '../util/errors.js';
+import { idempotency } from '../http/idempotency.js';
 
 const askToPay = z.object({
   phone: z.string().trim().min(1).max(20),
@@ -20,6 +21,10 @@ const askToPay = z.object({
   /** Brief 2, item 1: a saved account instead of typed words. Its full number becomes the reference. */
   accountId: z.string().uuid().optional(),
   description: z.string().trim().max(13).optional(),
+  // The caller's own reference for this payment: one opaque string, at most 64 characters, stored
+  // with the request and echoed in the webhook. It is not the account reference — that is how money
+  // finds a business and an account here — and Studio does nothing with it but hand it back.
+  callerRef: z.string().trim().min(1).max(64, { message: 'at most 64 characters' }).optional(),
   confirmDuplicate: z.boolean().optional(),
 });
 
@@ -73,25 +78,33 @@ export function collectRoutes(deps: AppDeps): Router {
   const r = Router();
   // Step one: the three collect kinds that are their own parts of Studio, each refused with its
   // own name when it is off. Asking a customer to pay (STK) is core and has no switch.
-  r.post('/stk', requireAuth(deps.db), requireCsrf, requireUnlocked, requirePermission(deps.db, 'stk.request'), requireCollectReady(deps), async (req, res, next) => {
+  r.post('/stk', requireAuth(deps.db), requireCsrf, requireUnlocked, requirePermission(deps.db, 'stk.request'), requireCollectReady(deps), idempotency(deps, 'POST /api/collect/stk'), async (req, res, next) => {
     try {
       const b = parse(askToPay, req.body);
-      const v = await deps.collect.askToPay(b, { personId: req.person!.id, ip: clientIp(req) });
-      res.status(201).json(v);
+      res.status(201).json(await deps.collect.askToPay(b, actor(req)));
     } catch (e) { next(e); }
   });
-  const actor = (req: Parameters<typeof clientIp>[0] & { person?: { id: string } }) => ({ personId: req.person!.id, ip: clientIp(req) });
+  /**
+   * Who asked. An API key is not a person: `personId` is null and the key is named instead, so the
+   * request row and the audit trail say a machine did it rather than pointing a person's column at a
+   * key's id. Everything downstream counts as before.
+   */
+  const actor = (req: Parameters<typeof clientIp>[0] & { person?: { id: string }; apiKey?: { keyId: string } }) => ({
+    personId: req.apiKey ? null : req.person!.id,
+    apiKeyId: req.apiKey?.keyId ?? null,
+    ip: clientIp(req),
+  });
   // M8, M9, M10: money in like STK, so the same readiness and no step-up password.
-  r.post('/ratiba', requireAuth(deps.db), requireCsrf, requireModule(deps.modules, 'standing_orders'), requireUnlocked, requirePermission(deps.db, 'standing_orders.manage'), requireCollectReady(deps), async (req, res, next) => {
+  r.post('/ratiba', requireAuth(deps.db), requireCsrf, requireModule(deps.modules, 'standing_orders'), requireUnlocked, requirePermission(deps.db, 'standing_orders.manage'), requireCollectReady(deps), idempotency(deps, 'POST /api/collect/ratiba'), async (req, res, next) => {
     try { res.status(201).json(await deps.collect.standingOrder(parse(standingOrder, req.body), actor(req))); } catch (e) { next(e); }
   });
-  r.post('/express', requireAuth(deps.db), requireCsrf, requireModule(deps.modules, 'express_checkout'), requireUnlocked, requirePermission(deps.db, 'express.checkout'), requireCollectReady(deps), async (req, res, next) => {
+  r.post('/express', requireAuth(deps.db), requireCsrf, requireModule(deps.modules, 'express_checkout'), requireUnlocked, requirePermission(deps.db, 'express.checkout'), requireCollectReady(deps), idempotency(deps, 'POST /api/collect/express'), async (req, res, next) => {
     try { res.status(201).json(await deps.collect.expressCheckout(parse(expressCheckout, req.body), actor(req))); } catch (e) { next(e); }
   });
   r.post('/bonga/calculate', requireAuth(deps.db), requireCsrf, requireModule(deps.modules, 'bonga'), requirePermission(deps.db, 'bonga.redeem'), async (req, res, next) => {
     try { res.json(await deps.collect.bongaCalculate(parse(bongaCalculate, req.body).points)); } catch (e) { next(e); }
   });
-  r.post('/bonga/redeem', requireAuth(deps.db), requireCsrf, requireModule(deps.modules, 'bonga'), requireUnlocked, requirePermission(deps.db, 'bonga.redeem'), requireCollectReady(deps), async (req, res, next) => {
+  r.post('/bonga/redeem', requireAuth(deps.db), requireCsrf, requireModule(deps.modules, 'bonga'), requireUnlocked, requirePermission(deps.db, 'bonga.redeem'), requireCollectReady(deps), idempotency(deps, 'POST /api/collect/bonga/redeem'), async (req, res, next) => {
     try { res.status(201).json(await deps.collect.bongaRedeem(parse(bongaRedeem, req.body), actor(req))); } catch (e) { next(e); }
   });
   return r;

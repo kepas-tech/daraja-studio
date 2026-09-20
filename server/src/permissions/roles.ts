@@ -13,8 +13,11 @@ import type { PermissionKey } from './catalog.js';
  */
 export const ROLE_PRESETS: Record<'operator' | 'viewer' | 'approver' | 'forwarder', PermissionKey[]> = {
   forwarder: ['money_in.feed'],
-  /** Staff who send. */
-  operator: ['balances.view', 'send.phone', 'send.pochi', 'pay.paybill', 'pay.till', 'lookup.view', 'money_in.view', 'history.export', 'cases.manage'],
+  /** Staff who send, and who ask customers to pay. `stk.request` is here because asking for money
+   *  in is what a till does all day and is a smaller power than sending money out, which this same
+   *  role already carries; it is also what lets an API key raise a payment request at all — no role
+   *  an API key could hold had it before, so `POST /api/collect/stk` answered 403 to every key. */
+  operator: ['balances.view', 'send.phone', 'send.pochi', 'pay.paybill', 'pay.till', 'stk.request', 'lookup.view', 'money_in.view', 'history.export', 'cases.manage'],
   /** An accountant or an auditor. */
   viewer: ['balances.view', 'lookup.view', 'money_in.view', 'history.export'],
   /** A second pair of eyes (M4): looks, and releases or refuses held sends; never sends. */

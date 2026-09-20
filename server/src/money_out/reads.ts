@@ -7,6 +7,14 @@ import { isPhoneToken, personName } from '../util/names.js';
 
 export interface RequestView {
   id: string; type: string; subtype: string | null; status: string; amountCents: number | null; currency: 'KES';
+  /** The caller's own reference, exactly as it was sent, and null when it sent none. Opaque to
+   *  Studio: it is stored and echoed back, and nothing routes on it. */
+  callerRef: string | null;
+  /** Safaricom's own name for an STK request, which is what its callback carries back and what a
+   *  caller reconciles against. Only an STK request has one; on every other kind `originator_
+   *  conversation_id` holds Studio's own identifier, so it is reported as null rather than handed
+   *  over as something it is not. */
+  checkoutRequestId: string | null;
   recipient: { kind: string | null; value: string | null; name: string | null }; remarks: string | null; receipt: string | null;
   /** The business's own payment category name, when the send was made with one. */
   category: string | null;
@@ -159,6 +167,12 @@ export function toView(row: ViewRow, egressIps: string[] = []): RequestView {
     direction: directionOf(row.type),
     party: { name: storedName ?? row.account_name ?? row.contact_name ?? null, number, savedName: row.contact_name ?? null },
     remarks: row.remarks, receipt: row.receipt,
+    callerRef: row.caller_ref ?? null,
+    // The same coalesce the callback path uses to find this row: Safaricom's id when we recorded
+    // one, else the identifier the row was created with, which for a send is our own.
+    checkoutRequestId: row.type === 'stk'
+      ? ((row.payload_json as { ackOriginatorConversationId?: string }).ackOriginatorConversationId ?? null)
+      : null,
     category: typeof (row.payload_json as { category?: unknown }).category === 'string' ? (row.payload_json as { category: string }).category : null,
     accountReference: row.account_reference ?? null,
     createdAt: row.created_at.toISOString(), sentAt: row.sent_at?.toISOString() ?? null, resultAt: row.result_at?.toISOString() ?? null, resultSource: row.result_source,

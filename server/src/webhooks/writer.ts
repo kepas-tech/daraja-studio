@@ -39,6 +39,11 @@ export function createWebhookWriter(deps: { db: Db; events: EventHub; webhooks: 
         currency: r.currency,
         receipt: r.receipt,
         accountReference: r.accountReference,
+        // The caller's own reference, handed back untouched, so a system recognises its own payment
+        // without anything of its own living in the account reference.
+        callerRef: r.callerRef,
+        // Safaricom's own name for an STK request, which is what a caller reconciles against.
+        checkoutRequestId: r.checkoutRequestId,
         party: r.party,
         remarks: r.remarks,
         createdAt: r.createdAt,

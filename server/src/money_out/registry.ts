@@ -20,6 +20,10 @@ export interface RequestRow {
   retriable: boolean | null; receipt: string | null; raw_result_json: unknown; poll_attempts: number; last_poll_at: Date | null;
   checked_by: string | null; checked_at: Date | null; checked_note: string | null;
   bulk_plan_id?: string | null;
+  /** The caller's own reference, when it sent one (migration 045). Opaque to Studio. */
+  caller_ref?: string | null;
+  /** The API key that made this request, when no person did (migration 045). */
+  api_key_id?: string | null;
 }
 
 export interface ParsedResult {

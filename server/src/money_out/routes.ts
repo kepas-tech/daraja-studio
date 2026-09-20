@@ -5,6 +5,7 @@ import { requireAuth, requireCsrf, requireStepUp } from '../auth/middleware.js';
 import { requirePermission, assertPermission, personPermissions } from '../permissions/middleware.js';
 import { requireModule } from '../modules/middleware.js';
 import { requireMoneyReady } from './ready.js';
+import { idempotency } from '../http/idempotency.js';
 import { getRequest, listChecks, listRequests, type RequestView } from './reads.js';
 import { audit } from '../audit/log.js';
 import { EXPORT_MAX, nairobiStamp, sendCsv, shillings, toCsv, todayNairobi } from '../export/csv.js';
@@ -108,7 +109,7 @@ export function sendRoutes(deps: AppDeps): Router {
   r.post('/name-check', requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'send.phone'), requireMoneyReady(deps), async (req, res, next) => {
     try { res.json(await deps.moneyOut.nameCheck(parse(nameCheckSchema, req.body).phone)); } catch (e) { next(e); }
   });
-  r.post('/phone', requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'send.phone'), requireMoneyReady(deps), requireStepUp(deps.db), async (req, res, next) => {
+  r.post('/phone', requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'send.phone'), requireMoneyReady(deps), requireStepUp(deps.db), idempotency(deps, 'POST /api/send/phone'), async (req, res, next) => {
     try {
       const b = parse(sendPhone, req.body);
       const v = await deps.moneyOut.send(b, { personId: req.person!.id, ip: clientIp(req) });
@@ -258,7 +259,7 @@ export function approvalRoutes(deps: AppDeps): Router {
       res.json({ count: row.n, enabled });
     } catch (e) { next(e); }
   });
-  r.post('/:id/release', requireAuth(deps.db), requireCsrf, approvals, requirePermission(deps.db, 'send.approve'), requireMoneyReady(deps), requireStepUp(deps.db), async (req, res, next) => {
+  r.post('/:id/release', requireAuth(deps.db), requireCsrf, approvals, requirePermission(deps.db, 'send.approve'), requireMoneyReady(deps), requireStepUp(deps.db), idempotency(deps, 'POST /api/approvals/:id/release'), async (req, res, next) => {
     try {
       if (!isUuid(String(req.params.id))) throw new HttpError(404, 'not_found', 'That request does not exist.');
       res.status(201).json(await deps.moneyOut.release(String(req.params.id), { personId: req.person!.id, ip: clientIp(req) }));
@@ -300,14 +301,14 @@ export function bulkRoutes(deps: AppDeps): Router {
   const text = z.object({ text: z.string().max(200_000) });
   const create = text.extend({ category: z.string().trim().min(1).max(40).optional(), businessId: z.string().uuid().optional() });
   r.post('/check', requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'bulk.send'), async (req, res, next) => { try { res.json(deps.bulk.check(parse(text, req.body).text)); } catch (e) { next(e); } });
-  r.post('/', requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'bulk.send'), requireMoneyReady(deps), requireStepUp(deps.db), async (req, res, next) => {
+  r.post('/', requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'bulk.send'), requireMoneyReady(deps), requireStepUp(deps.db), idempotency(deps, 'POST /api/send/bulk'), async (req, res, next) => {
     try { const b = parse(create, req.body); res.status(201).json(await deps.bulk.create(b.text, b.category, { personId: req.person!.id, ip: clientIp(req) }, b.businessId)); } catch (e) { next(e); }
   });
   r.get('/', requireAuth(deps.db), requirePermission(deps.db, 'bulk.send'), async (_req, res, next) => { try { res.json({ items: await deps.bulk.list() }); } catch (e) { next(e); } });
   r.get('/:id', requireAuth(deps.db), requirePermission(deps.db, 'bulk.send'), async (req, res, next) => {
     try { if (!isUuid(String(req.params.id))) throw new HttpError(404, 'not_found', 'That batch does not exist.'); res.json(await deps.bulk.get(String(req.params.id))); } catch (e) { next(e); }
   });
-  r.post('/:id/retry', requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'bulk.send'), requireMoneyReady(deps), requireStepUp(deps.db), async (req, res, next) => {
+  r.post('/:id/retry', requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'bulk.send'), requireMoneyReady(deps), requireStepUp(deps.db), idempotency(deps, 'POST /api/send/bulk/:id/retry'), async (req, res, next) => {
     try { if (!isUuid(String(req.params.id))) throw new HttpError(404, 'not_found', 'That batch does not exist.'); res.json(await deps.bulk.retry(String(req.params.id), { personId: req.person!.id, ip: clientIp(req) })); } catch (e) { next(e); }
   });
   return r;

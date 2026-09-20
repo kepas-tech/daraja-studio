@@ -147,9 +147,10 @@ export function testDeps(env: Record<string, string> = {}): { config: Config; db
 export async function resetTables(db?: Db) {
   void db; // resets are privileged; the caller's pool is studio_app and cannot TRUNCATE.
   // `modules` goes with the rest: a test starts on the tier's own set, with no hand-made departure
-  // left over from the test before it.
+  // left over from the test before it. `idempotency_keys` too, and for a sharper reason: a key kept
+  // from the test before would answer this test's first call with that test's answer.
   await admin().query(
-    `TRUNCATE org_environment_verifications, contacts, accounts, number_widths, business_types, businesses, webauthn_credentials, people, permissions, sessions, login_attempts, rate_limits, operators, requests, bulk_plans, customer_invoices, notifications, push_subscriptions, balances, callbacks_raw, jobs, cache, settings, modules, sweep_payments, sweeps, sweep_settings RESTART IDENTITY CASCADE`,
+    `TRUNCATE org_environment_verifications, contacts, accounts, number_widths, business_types, businesses, webauthn_credentials, people, permissions, sessions, login_attempts, rate_limits, operators, requests, bulk_plans, customer_invoices, notifications, push_subscriptions, balances, callbacks_raw, jobs, cache, settings, modules, sweep_payments, sweeps, sweep_settings, idempotency_keys RESTART IDENTITY CASCADE`,
   );
   await ensureTestOrg();
 }

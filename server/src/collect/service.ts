@@ -21,11 +21,17 @@ export interface CollectInput {
   amountCents: number;
   accountReference: string;
   description?: string;
+  /** The caller's own reference for this payment, opaque to Studio. Stored with the request and
+   *  echoed in the webhook, so a system recognises its own payment. Never the account reference:
+   *  that is how money finds a business and an account here. At most 64 characters. */
+  callerRef?: string;
   confirmDuplicate?: boolean;
   /** Brief 2, item 1: a saved account. When it is named, its full number is the reference Safaricom sees. */
   accountId?: string;
 }
-export interface Actor { personId: string; ip: string }
+/** Who asked. A person, or a machine: an API key has no person behind it, so `personId` is null and
+ *  `apiKeyId` names the key instead. Nothing here is invented to fill the gap. */
+export interface Actor { personId: string | null; ip: string; apiKeyId?: string | null }
 export type RatibaFrequency = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8';
 export interface StandingOrderInput { name: string; phone: string; amountCents: number; frequency: RatibaFrequency; startDate: string; endDate: string; accountReference: string; transactionDesc: string; transactionType: 'paybill' | 'buygoods' }
 export interface ExpressInput { till: string; amountCents: number; paymentRef: string; partnerName: string; confirmDuplicate?: boolean }
@@ -96,6 +102,8 @@ export function createCollectService(deps: { db: Db; settings: Settings; daraja:
   interface Prepared {
     recipientKind: 'phone' | 'shortcode'; recipientValue: string; amountCents: number; remarks: string | null; accountReference: string | null;
     payload: Record<string, unknown>; confirmDuplicate?: boolean; duplicateMessage: string; timeoutMs?: number; onAccepted?: () => Promise<void>;
+    /** The caller's own reference, carried onto the row so the webhook can hand it back. */
+    callerRef?: string | null;
     /** Brief 2, item 1: the account this money is for, when the operator picked one. */
     businessId?: string; accountId?: string;
   }
@@ -124,13 +132,16 @@ export function createCollectService(deps: { db: Db; settings: Settings; daraja:
           if (dup.rows[0]) throw new HttpError(409, 'duplicate_recent', p.duplicateMessage, { requestId: dup.rows[0].id, at: dup.rows[0].created_at.toISOString() });
         }
         const { rows } = await c.query<RequestRow>(
-          `INSERT INTO requests(type, subtype, originator_conversation_id, status, amount_cents, currency, recipient_kind, recipient_value, remarks, account_reference, payload_json, created_by, business_id, account_id)
-           VALUES ($1,NULL,$2,'pending',$3,'KES',$4,$5,$6,$7,$8::jsonb,$9,$10,$11) RETURNING *`,
-          [kind.type, randomUUID(), p.amountCents, p.recipientKind, p.recipientValue, p.remarks, p.accountReference, JSON.stringify(p.payload), actor.personId, p.businessId ?? null, p.accountId ?? null]);
+          `INSERT INTO requests(type, subtype, originator_conversation_id, status, amount_cents, currency, recipient_kind, recipient_value, remarks, account_reference, payload_json, created_by, business_id, account_id, caller_ref, api_key_id)
+           VALUES ($1,NULL,$2,'pending',$3,'KES',$4,$5,$6,$7,$8::jsonb,$9,$10,$11,$12,$13) RETURNING *`,
+          [kind.type, randomUUID(), p.amountCents, p.recipientKind, p.recipientValue, p.remarks, p.accountReference, JSON.stringify(p.payload), actor.personId, p.businessId ?? null, p.accountId ?? null, p.callerRef ?? null, actor.apiKeyId ?? null]);
         const r = rows[0]!;
+        // `created_by` is a person's column and an API key is not a person, so a machine-made request
+        // leaves it null and the audit row carries the key instead. Filling it with the key's id would
+        // be a foreign key pointing at the wrong table.
         await c.query(
           `INSERT INTO audit_log(person_id, action, target, before_json, after_json, ip) VALUES ($1,$2,$3,$4::jsonb,$5::jsonb,$6)`,
-          [actor.personId, 'request.created', r.id, null, JSON.stringify({ type: kind.type, amountCents: p.amountCents }), actor.ip]);
+          [actor.personId, 'request.created', r.id, null, JSON.stringify({ type: kind.type, amountCents: p.amountCents, apiKeyId: actor.apiKeyId ?? null }), actor.ip]);
         return r;
       });
 
@@ -218,7 +229,8 @@ export function createCollectService(deps: { db: Db; settings: Settings; daraja:
       return start(kind, {
         recipientKind: 'phone', recipientValue: phone, amountCents: input.amountCents, remarks: reference, accountReference: null,
         ...(picked ? { businessId: picked.businessId, accountId: picked.id } : {}),
-        payload: { accountReference: reference, description }, confirmDuplicate: input.confirmDuplicate, duplicateMessage: 'You asked for this already. Ask again?',
+        payload: { accountReference: reference, description }, callerRef: input.callerRef ?? null,
+        confirmDuplicate: input.confirmDuplicate, duplicateMessage: 'You asked for this already. Ask again?',
         // Safaricom accepted a push on this shortcode, which is the only proof a passkey can ever
         // have: no read-only Daraja call uses it. Recorded once, and never on a refusal.
         onAccepted: () => markPasskeyProven(deps.settings),
