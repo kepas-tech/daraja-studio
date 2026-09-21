@@ -11,6 +11,9 @@ const listSchema = z.object({
   state: z.enum(['all', 'pending', 'delivered', 'failed']).default('all'),
   limit: z.coerce.number().int().min(1).max(100).default(25),
 });
+// Clearing is about deliveries that have not arrived: the ones that gave up, the ones still
+// waiting, or both. What arrived is the record of the receiver's own answers, so it stays.
+const clearSchema = z.object({ state: z.enum(['failed', 'pending', 'all']).default('failed') });
 
 function parse<T>(schema: z.ZodType<T>, body: unknown): T {
   const r = schema.safeParse(body);
@@ -48,6 +51,13 @@ export function webhookRoutes(deps: AppDeps): Router {
 
   r.delete('/', async (req, res, next) => {
     try { await deps.webhooks.remove(actor(req)); res.status(204).end(); } catch (e) { next(e); }
+  });
+
+  r.delete('/deliveries', async (req, res, next) => {
+    try {
+      const q = parse(clearSchema, req.query);
+      res.json({ removed: await deps.webhooks.clear(q.state, actor(req)) });
+    } catch (e) { next(e); }
   });
 
   r.get('/deliveries', async (req, res, next) => {

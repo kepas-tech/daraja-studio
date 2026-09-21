@@ -22,6 +22,12 @@ export interface WebhookView {
 /** `secret` is filled only by the save that made one: the first save, and a rotation. */
 export interface WebhookSaved { webhook: WebhookView; secret: string | null }
 export type DeliveryState = 'pending' | 'delivered' | 'failed';
+/**
+ * What a person may ask the studio to forget: the deliveries that gave up, the ones still waiting
+ * their turn, or every one that has not arrived. A delivery that arrived is the record of what the
+ * receiver accepted, so it is never cleared — and none of this touches the payment itself.
+ */
+export type ClearableDeliveries = 'failed' | 'pending' | 'all';
 export interface DeliveryView {
   id: string; event: string; url: string; requestId: string | null;
   attempts: number; lastStatus: number | null; lastResponse: string | null;
@@ -40,6 +46,8 @@ export interface WebhooksService {
   listDeliveries(q: { state: 'all' | DeliveryState; limit: number }): Promise<DeliveryView[]>;
   /** Puts a delivery back in the queue for the next tick, however it ended last time. */
   retry(id: string, actor: WebhookActor): Promise<DeliveryView>;
+  /** Forgets undelivered deliveries, and says how many went. Nothing that arrived is ever cleared. */
+  clear(state: ClearableDeliveries, actor: WebhookActor): Promise<number>;
   /** The secret, for the dispatcher. Never returned to a caller. */
   secretFor(enc: string): Promise<string>;
   enqueue(event: string, payload: Record<string, unknown>, requestId: string | null): Promise<{ id: string } | null>;
@@ -149,6 +157,19 @@ export function createWebhooksService({ db, keyring }: { db: Db; keyring: Keyrin
       if (!row) throw new HttpError(404, 'not_found', 'That delivery does not exist.');
       await audit(db, { personId: actor.personId, ip: actor.ip, action: 'webhook.retried', target: id, after: { event: row.event } });
       return deliveryView(row);
+    },
+
+    async clear(state, actor) {
+      const where = state === 'failed'
+        ? 'delivered_at IS NULL AND next_retry_at IS NULL'
+        : state === 'pending'
+          ? 'delivered_at IS NULL AND next_retry_at IS NOT NULL'
+          : 'delivered_at IS NULL';
+      const gone = await db.query<{ id: string }>(`DELETE FROM webhook_deliveries WHERE ${where} RETURNING id`);
+      if (gone.length > 0) {
+        await audit(db, { personId: actor.personId, ip: actor.ip, action: 'webhook.deliveries_cleared', after: { state, removed: gone.length } });
+      }
+      return gone.length;
     },
 
     secretFor: (enc) => decryptForOrg(keyring, enc),

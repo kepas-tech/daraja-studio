@@ -160,6 +160,36 @@ describe('webhooks', () => {
     expect(states.map((s) => s.id)).toEqual([made!.id]);
   });
 
+  it('forgets the deliveries that are not coming back, and keeps the ones that arrived', async () => {
+    const w = service();
+    await w.save('https://example.test/hooks/studio', actor);
+    await deps.db.query(
+      `INSERT INTO webhook_deliveries(event, url, payload, delivered_at) VALUES ('request.completed','https://example.test/hooks/studio','{}'::jsonb, now())`);
+    const [waiting] = await deps.db.query<{ id: string }>(
+      `INSERT INTO webhook_deliveries(event, url, payload, next_retry_at) VALUES ('request.completed','https://example.test/hooks/studio','{}'::jsonb, now() + interval '1 hour') RETURNING id`);
+    const [gaveUp] = await deps.db.query<{ id: string }>(
+      `INSERT INTO webhook_deliveries(event, url, payload, next_retry_at) VALUES ('request.failed','https://example.test/hooks/studio','{}'::jsonb, NULL) RETURNING id`);
+
+    // The ones that gave up go first, and nothing else moves.
+    expect(await w.clear('failed', actor)).toBe(1);
+    expect(await deps.db.query('SELECT 1 FROM webhook_deliveries WHERE id = $1', [gaveUp!.id])).toHaveLength(0);
+    expect(await deps.db.query('SELECT 1 FROM webhook_deliveries')).toHaveLength(2);
+
+    // Everything still waiting goes too, when asked. What arrived is the record of the receiver's
+    // own answers, and no asking removes it; asking twice is not an error, it is nothing to do.
+    expect(await w.clear('all', actor)).toBe(1);
+    expect(await deps.db.query('SELECT 1 FROM webhook_deliveries WHERE id = $1', [waiting!.id])).toHaveLength(0);
+    expect(await deps.db.query('SELECT 1 FROM webhook_deliveries')).toHaveLength(1);
+    expect(await w.clear('all', actor)).toBe(0);
+    expect(await w.clear('failed', actor)).toBe(0);
+
+    // One row says what was forgotten and how much of it; no address and no payload goes with it.
+    const audit = await deps.db.query<{ after_json: { state: string; removed: number } }>(
+      `SELECT after_json FROM audit_log WHERE action = 'webhook.deliveries_cleared' ORDER BY id`);
+    expect(audit.map((a) => a.after_json.removed)).toEqual([1, 1]);
+    expect(audit.map((a) => a.after_json.state)).toEqual(['failed', 'all']);
+  });
+
   it('refuses an address that points inside the network, and never retries it', async () => {
     const w = service();
     await w.save('https://example.test/hooks/studio', actor);
@@ -227,6 +257,12 @@ describe('webhooks', () => {
       expect(saved.status).toBe(200);
       expect(saved.body.secret).toMatch(/^[A-Za-z0-9_-]{43}$/);
       expect((await h(request(app).get('/api/webhooks'))).body.webhook).toMatchObject({ url: 'https://example.test/hooks/studio' });
+
+      // Clearing what gave up is the owner's own call, and it answers with the count.
+      await appDeps.db.query(`INSERT INTO webhook_deliveries(event, url, payload, next_retry_at) VALUES ('request.failed','https://example.test/hooks/studio','{}'::jsonb, NULL)`);
+      const cleared = await h(request(app).delete('/api/webhooks/deliveries?state=failed'));
+      expect(cleared.status).toBe(200);
+      expect(cleared.body).toEqual({ removed: 1 });
 
       await makePerson(appDeps.db, TEST_ORG_ID, { username: 'staff', password: 'correct horse', role: 'operator' });
       const staff = await loginAs(app, 'staff', 'correct horse');
