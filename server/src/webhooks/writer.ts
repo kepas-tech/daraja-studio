@@ -50,7 +50,8 @@ export function createWebhookWriter(deps: { db: Db; events: EventHub; webhooks: 
         sentAt: r.sentAt,
         resultAt: r.resultAt,
         safaricomSaid: r.safaricomSaid,
-      }, r.id);
+        // Whose notice this is: the key that asked for the payment, when one did.
+      }, r.id, r.apiKeyId);
     });
   }
 

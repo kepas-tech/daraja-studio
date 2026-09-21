@@ -2,6 +2,7 @@ import { describe, it, expect, afterAll, beforeEach } from 'vitest';
 import request from 'supertest';
 import { testDeps, resetTables, makeApp, loginAsOwner, makePerson, loginAs, TEST_ORG_ID } from './helpers.js';
 import { createWebhooksService } from '../src/webhooks/service.js';
+import { createApiKeysService } from '../src/keys/service.js';
 import { createWebhookDispatcher, MAX_ATTEMPTS, RETRY_SECONDS } from '../src/webhooks/dispatcher.js';
 import { createWebhookWriter } from '../src/webhooks/writer.js';
 import { createModuleService } from '../src/modules/service.js';
@@ -196,7 +197,7 @@ describe('webhooks', () => {
     // Written straight into the table: save refuses this, and the dispatcher must too, whatever
     // put the row there.
     const [made] = await deps.db.query<{ id: string }>(
-      `INSERT INTO webhook_deliveries(event, url, payload) VALUES ('request.failed','https://10.1.2.3/hook','{}'::jsonb) RETURNING id`);
+      `INSERT INTO webhook_deliveries(event, url, payload, webhook_id) VALUES ('request.failed','https://10.1.2.3/hook','{}'::jsonb, (SELECT id FROM webhooks LIMIT 1)) RETURNING id`);
     const { fetchImpl, sent } = fakeFetch(() => ({ status: 200 }));
     expect(await dispatcher(fetchImpl).dispatchOnce()).toEqual({ sent: 0, failed: 0, given: 1 });
     expect(sent).toHaveLength(0);
@@ -209,7 +210,7 @@ describe('webhooks', () => {
     const w = service();
     await w.save('https://example.test/hooks/studio', actor);
     const [made] = await deps.db.query<{ id: string }>(
-      `INSERT INTO webhook_deliveries(event, url, payload) VALUES ('request.completed','https://example.test/hooks/studio','{}'::jsonb) RETURNING id`);
+      `INSERT INTO webhook_deliveries(event, url, payload, webhook_id) VALUES ('request.completed','https://example.test/hooks/studio','{}'::jsonb, (SELECT id FROM webhooks LIMIT 1)) RETURNING id`);
 
     // Off: nothing leaves, and the row is left exactly where it was — same attempt count, still
     // due — so a pause cannot quietly spend an attempt or drop a delivery. The feed stands on the
@@ -248,6 +249,167 @@ describe('webhooks', () => {
     expect(d!.payload).toMatchObject({ event: 'request.completed', status: 'completed', amountCents: 25000, receipt: 'RI6BZTPXNM' });
   });
 
+/**
+   * Step six, part five: an address may belong to a key, not only to the organisation. The cases
+   * below are the ones that are easy to get wrong — who gets a notice no key asked for, what a
+   * stopped key's queue does, and what a notice already written does when its address moves.
+   */
+  const apiKeys = () => createApiKeysService({ db: deps.db });
+  const makeKey = async (name: string) => (await apiKeys().create({ name, role: 'collector' }, actor)).key;
+
+  it('sends a key its own address, and everything else the organisation address', async () => {
+    const w = service();
+    const org = await w.save('https://example.test/hooks/org', actor);
+    const key = await makeKey('A system');
+    const own = await w.forKey(key.id).save('https://example.test/hooks/key', actor);
+
+    // One notice for a payment the key asked for, and one for a payment no key asked for.
+    const forKey = await w.enqueue('request.completed', { event: 'request.completed', id: 'r-key' }, null, key.id);
+    const forOrg = await w.enqueue('request.completed', { event: 'request.completed', id: 'r-org' }, null, null);
+    expect(forKey).not.toBeNull();
+    expect(forOrg).not.toBeNull();
+
+    const { fetchImpl, sent } = fakeFetch(() => ({ status: 200, body: 'ok' }));
+    expect(await dispatcher(fetchImpl).dispatchOnce()).toEqual({ sent: 2, failed: 0, given: 0 });
+    const byUrl = new Map(sent.map((s) => [s.url, s]));
+    expect([...byUrl.keys()].sort()).toEqual(['https://example.test/hooks/key', 'https://example.test/hooks/org']);
+
+    // Each went to its own address, signed with that address's own secret, and neither secret
+    // verifies the other address's notice.
+    const keySent = byUrl.get('https://example.test/hooks/key')!;
+    const orgSent = byUrl.get('https://example.test/hooks/org')!;
+    expect(verifyWebhook({ rawBody: keySent.body, secret: own.secret!, header: keySent.headers['x-studio-signature']! })).toBe(true);
+    expect(verifyWebhook({ rawBody: orgSent.body, secret: org.secret!, header: orgSent.headers['x-studio-signature']! })).toBe(true);
+    expect(verifyWebhook({ rawBody: orgSent.body, secret: own.secret!, header: orgSent.headers['x-studio-signature']! })).toBe(false);
+    expect(JSON.parse(keySent.body)).toMatchObject({ id: 'r-key' });
+    expect(JSON.parse(orgSent.body)).toMatchObject({ id: 'r-org' });
+  }, 60_000);
+
+  it('falls back to the organisation address when a key holds none of its own', async () => {
+    const w = service();
+    const org = await w.save('https://example.test/hooks/org', actor);
+    const key = await makeKey('No address of its own');
+
+    // Reading answers with the organisation's, because that is where its notices go.
+    expect(await w.forKey(key.id).get()).toEqual(org.webhook);
+    expect((await w.heldByKeys()).size).toBe(0);
+
+    await w.enqueue('request.failed', { event: 'request.failed', id: 'r1' }, null, key.id);
+    const { fetchImpl, sent } = fakeFetch(() => ({ status: 200 }));
+    expect(await dispatcher(fetchImpl).dispatchOnce()).toEqual({ sent: 1, failed: 0, given: 0 });
+    expect(sent[0]!.url).toBe('https://example.test/hooks/org');
+    expect(verifyWebhook({ rawBody: sent[0]!.body, secret: org.secret!, header: sent[0]!.headers['x-studio-signature']! })).toBe(true);
+  }, 60_000);
+
+  it('keeps every address secret its own: one rotation touches no other receiver', async () => {
+    const w = service();
+    const org = await w.save('https://example.test/hooks/org', actor);
+    const a = await makeKey('A');
+    const b = await makeKey('B');
+    const ownA = await w.forKey(a.id).save('https://example.test/hooks/a', actor);
+    const ownB = await w.forKey(b.id).save('https://example.test/hooks/b', actor);
+
+    const rotated = await w.forKey(a.id).rotateSecret(actor);
+    expect(rotated.secret).not.toBe(ownA.secret);
+    expect((await w.get()).secretHint).toBe(org.secret!.slice(-4));
+    expect((await w.forKey(b.id).get()).secretHint).toBe(ownB.secret!.slice(-4));
+    // And the list of what keys hold themselves shows both, with their own hints.
+    expect([...(await w.heldByKeys()).keys()].sort()).toEqual([a.id, b.id].sort());
+
+    // A key with no address of its own is refused rather than changing the organisation's secret,
+    // which every other receiver shares.
+    const c = await makeKey('C');
+    await expect(w.forKey(c.id).rotateSecret(actor)).rejects.toMatchObject({ code: 'no_webhook' });
+    expect((await w.get()).secretHint).toBe(org.secret!.slice(-4));
+
+    await w.enqueue('request.completed', { event: 'request.completed', id: 'ra' }, null, a.id);
+    await w.enqueue('request.completed', { event: 'request.completed', id: 'rb' }, null, b.id);
+    const { fetchImpl, sent } = fakeFetch(() => ({ status: 200 }));
+    await dispatcher(fetchImpl).dispatchOnce();
+    const byUrl = new Map(sent.map((s) => [s.url, s]));
+    expect(verifyWebhook({ rawBody: byUrl.get('https://example.test/hooks/a')!.body, secret: rotated.secret!, header: byUrl.get('https://example.test/hooks/a')!.headers['x-studio-signature']! })).toBe(true);
+    expect(verifyWebhook({ rawBody: byUrl.get('https://example.test/hooks/b')!.body, secret: ownB.secret!, header: byUrl.get('https://example.test/hooks/b')!.headers['x-studio-signature']! })).toBe(true);
+  }, 60_000);
+
+  it('keeps sending the notices a stopped key already owes, to the address it was given', async () => {
+    const w = service();
+    await w.save('https://example.test/hooks/org', actor);
+    const key = await makeKey('Stopped while queued');
+    await w.forKey(key.id).save('https://example.test/hooks/key', actor);
+    const queued = await w.enqueue('request.failed', { event: 'request.failed', id: 'r1' }, null, key.id);
+    expect(queued).not.toBeNull();
+
+    // The key is revoked with its delivery still queued. The queue keeps its promise: the notice
+    // already written goes, and a notice written after the stop for a payment the key asked for
+    // before it goes to the same address. Nothing falls back to the organisation behind the
+    // receiver's back.
+    await apiKeys().revoke(key.id, actor);
+    await w.enqueue('request.completed', { event: 'request.completed', id: 'r1' }, null, key.id);
+
+    const { fetchImpl, sent } = fakeFetch(() => ({ status: 200 }));
+    expect(await dispatcher(fetchImpl).dispatchOnce()).toEqual({ sent: 2, failed: 0, given: 0 });
+    expect(sent.map((s) => s.url)).toEqual(['https://example.test/hooks/key', 'https://example.test/hooks/key']);
+
+    // Only when the address is taken away does the key fall back to the organisation's.
+    await w.forKey(key.id).remove(actor);
+    expect((await w.forKey(key.id).get()).url).toBe('https://example.test/hooks/org');
+  }, 60_000);
+
+  it('keeps a queued notice on the address it was written for when the address moves', async () => {
+    const w = service();
+    await w.save('https://example.test/hooks/org', actor);
+    const key = await makeKey('Moved underneath');
+    const own = await w.forKey(key.id).save('https://example.test/hooks/old', actor);
+    await w.enqueue('request.failed', { event: 'request.failed', id: 'old-one' }, null, key.id);
+
+    // The address changes; saving keeps the secret, so the receiver is set up once.
+    const moved = await w.forKey(key.id).save('https://example.test/hooks/new', actor);
+    expect(moved.secret).toBeNull();
+    expect(moved.webhook.secretHint).toBe(own.webhook.secretHint);
+    await w.enqueue('request.failed', { event: 'request.failed', id: 'new-one' }, null, key.id);
+
+    const { fetchImpl, sent } = fakeFetch(() => ({ status: 200 }));
+    await dispatcher(fetchImpl).dispatchOnce();
+    const byUrl = new Map(sent.map((s) => [s.url, s]));
+    // The notice written first still goes to the address it was written for; the one written after
+    // the move goes to the new one. Both are signed with the secret that belongs to the address.
+    expect([...byUrl.keys()].sort()).toEqual(['https://example.test/hooks/new', 'https://example.test/hooks/old']);
+    expect(verifyWebhook({ rawBody: byUrl.get('https://example.test/hooks/old')!.body, secret: own.secret!, header: byUrl.get('https://example.test/hooks/old')!.headers['x-studio-signature']! })).toBe(true);
+    const listed = await w.listDeliveries({ state: 'delivered', limit: 10 });
+    expect(listed.map((d) => d.url).sort()).toEqual(['https://example.test/hooks/new', 'https://example.test/hooks/old']);
+    expect(listed.every((d) => d.keyName === 'Moved underneath')).toBe(true);
+  }, 60_000);
+
+  it('takes only one address own queue away when that address is removed', async () => {
+    const w = service();
+    await w.save('https://example.test/hooks/org', actor);
+    const a = await makeKey('A');
+    const b = await makeKey('B');
+    await w.forKey(a.id).save('https://example.test/hooks/a', actor);
+    await w.forKey(b.id).save('https://example.test/hooks/b', actor);
+    await w.enqueue('request.failed', { event: 'request.failed', id: 'r-org' }, null, null);
+    await w.enqueue('request.failed', { event: 'request.failed', id: 'r-a' }, null, a.id);
+    await w.enqueue('request.failed', { event: 'request.failed', id: 'r-b' }, null, b.id);
+
+    await w.forKey(a.id).remove(actor);
+    let left = await w.listDeliveries({ state: 'all', limit: 10 });
+    expect(left.map((d) => d.url).sort()).toEqual(['https://example.test/hooks/b', 'https://example.test/hooks/org']);
+    expect(left.find((d) => d.url === 'https://example.test/hooks/b')!.keyName).toBe('B');
+
+    // Removing the organisation's own address takes only the organisation's own queue: a key's
+    // receiver is not the organisation's to silence.
+    await w.remove(actor);
+    left = await w.listDeliveries({ state: 'all', limit: 10 });
+    expect(left.map((d) => d.url)).toEqual(['https://example.test/hooks/b']);
+  }, 60_000);
+
+  it('refuses a key that does not exist, rather than writing an address for nobody', async () => {
+    const w = service();
+    await expect(w.forKey('11111111-1111-4111-8111-111111111111').save('https://example.test/hooks/x', actor))
+      .rejects.toMatchObject({ code: 'not_found' });
+    expect(await deps.db.query('SELECT 1 FROM webhooks')).toHaveLength(0);
+  }, 60_000);
+
   it('is the owner alone, over the routes', async () => {
     const { app, deps: appDeps, close } = makeApp();
     try {
@@ -269,5 +431,60 @@ describe('webhooks', () => {
       const refused = await request(app).get('/api/webhooks').set('Cookie', staff.cookie);
       expect(refused.status).toBe(403);
     } finally { await close(); }
-  });
+  }, 60_000);
+
+  it('gives a key its own address in the same breath, and hands it to a replacement', async () => {
+    const { app, deps: appDeps, close } = makeApp();
+    try {
+      const s = await loginAsOwner(app, appDeps);
+      const h = (r: request.Test) => r.set('Cookie', s.cookie).set('x-csrf-token', s.csrf);
+
+      // A key and its address named in one answer: the key's own secret, and the address's.
+      const made = await h(request(app).post('/api/keys')).send({ name: 'A system', role: 'collector', webhookUrl: 'https://example.test/hooks/key' });
+      expect(made.status).toBe(201);
+      expect(made.body.secret).toMatch(/^studio_/);
+      expect(made.body.webhook.secret).toMatch(/^[A-Za-z0-9_-]{43}$/);
+      expect(made.body.webhook.webhook.url).toBe('https://example.test/hooks/key');
+
+      // The list says what each key holds itself, and where a key with none would go.
+      let list = await h(request(app).get('/api/keys'));
+      expect(list.body.items[0].webhook).toMatchObject({ url: 'https://example.test/hooks/key' });
+      expect(list.body.organisation).toEqual({ url: null, secretHint: null, updatedAt: null });
+
+      // A bad address is refused before any key is made.
+      const bad = await h(request(app).post('/api/keys')).send({ name: 'Bad address', role: 'viewer', webhookUrl: 'https://10.0.0.1/hook' });
+      expect(bad.status).toBe(400);
+      list = await h(request(app).get('/api/keys'));
+      expect(list.body.items.filter((k: { name: string }) => k.name === 'Bad address')).toHaveLength(0);
+
+      // Changing the address keeps the secret; a new secret is this key's own business.
+      const moved = await h(request(app).put(`/api/keys/${made.body.key.id}/webhook`)).send({ url: 'https://example.test/hooks/moved' });
+      expect(moved.status).toBe(200);
+      expect(moved.body.secret).toBeNull();
+      expect(moved.body.webhook.secretHint).toBe(made.body.webhook.webhook.secretHint);
+      const fresh = await h(request(app).post(`/api/keys/${made.body.key.id}/webhook/secret`));
+      expect(fresh.status).toBe(200);
+      expect(fresh.body.secret).toMatch(/^[A-Za-z0-9_-]{43}$/);
+      expect(fresh.body.webhook.secretHint).toBe(fresh.body.secret.slice(-4));
+
+      // Replacing the key hands the receiver over, address and secret together, so no receiver
+      // is reconfigured by a rotation.
+      const replaced = await h(request(app).post(`/api/keys/${made.body.key.id}/rotate`));
+      expect(replaced.status).toBe(201);
+      const newId = replaced.body.key.id;
+      list = await h(request(app).get('/api/keys'));
+      const newKey = list.body.items.find((k: { id: string }) => k.id === newId);
+      expect(newKey.webhook).toMatchObject({ url: 'https://example.test/hooks/moved', secretHint: fresh.body.secret.slice(-4) });
+
+      // Taking the address away only takes it away: the key falls back to the organisation's.
+      const gone = await h(request(app).delete(`/api/keys/${newId}/webhook`));
+      expect(gone.status).toBe(204);
+      list = await h(request(app).get('/api/keys'));
+      expect(list.body.items.find((k: { id: string }) => k.id === newId).webhook).toBeNull();
+
+      // A key nobody has is refused rather than given an address of its own.
+      const nobody = await h(request(app).put('/api/keys/11111111-1111-4111-8111-111111111111/webhook')).send({ url: 'https://example.test/hooks/x' });
+      expect(nobody.status).toBe(404);
+    } finally { await close(); }
+  }, 60_000);
 });

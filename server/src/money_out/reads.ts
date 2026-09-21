@@ -25,6 +25,11 @@ export interface RequestView {
   safaricomSaid: string | null; meaning: string | null; whatToDo: string | null; retriable: boolean; pollAttempts: number;
   checked: { by: { id: string; displayName: string } | null; at: string; note: string } | null;
   createdBy: { id: string; displayName: string } | null;
+  /**
+   * Step six, part five: the API key that asked for this payment, when a machine asked rather than a
+   * person. A notice for this row goes to that key's own webhook address when it has one.
+   */
+  apiKeyId: string | null;
   /** M4: who released or refused a held send. */
   approvedBy: { id: string; displayName: string } | null;
   /** M5: the batch this send was part of. */
@@ -188,6 +193,7 @@ export function toView(row: ViewRow, egressIps: string[] = []): RequestView {
     retriable: row.retriable ?? false, pollAttempts: row.poll_attempts,
     checked: row.checked_at ? { by: row.checked_by ? { id: row.checked_by, displayName: row.checked_by_name ?? '' } : null, at: row.checked_at.toISOString(), note: row.checked_note ?? '' } : null,
     createdBy: row.created_by ? { id: row.created_by, displayName: row.created_by_name ?? '' } : null,
+    apiKeyId: row.api_key_id ?? null,
     approvedBy: row.approved_by ? { id: row.approved_by, displayName: row.approved_by_name ?? '' } : null,
     bulkPlanId: row.bulk_plan_id ?? null,
     contactName: row.contact_name ?? null,

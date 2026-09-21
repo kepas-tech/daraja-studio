@@ -43,7 +43,7 @@ export function createWebhookDispatcher(deps: { db: Db; keyring: Keyring; module
       const due = await deps.db.query<DueRow>(
         `SELECT d.id, d.event, d.url, d.payload, d.attempts, w.secret_enc
            FROM webhook_deliveries d
-           JOIN webhooks w ON w.org_id = d.org_id
+           JOIN webhooks w ON w.id = d.webhook_id
           WHERE d.delivered_at IS NULL AND d.next_retry_at IS NOT NULL AND d.next_retry_at <= now()
           ORDER BY d.next_retry_at
           LIMIT $1

@@ -61,6 +61,7 @@ export function Deliveries() {
                 <thead><tr className="border-b border-line text-sm text-muted">
                   <th className={th}>{c.columns.when}</th>
                   <th className={th}>{c.columns.event}</th>
+                  <th className={th}>{c.columns.address}</th>
                   <th className={th}>{c.columns.attempts}</th>
                   <th className={th}>{c.columns.status}</th>
                   <th className={th}>{c.columns.said}</th>
@@ -74,6 +75,10 @@ export function Deliveries() {
                       <td className={cell}>
                         <code className="text-sm">{d.event}</code>
                         {d.requestId && <span className="block"><Link to={'/requests/' + d.requestId}>{copy.notifications.openPayment}</Link></span>}
+                      </td>
+                      <td className={`${cell} max-w-xs break-words text-sm text-muted`}>
+                        <code>{d.url}</code>
+                        <span className="block">{d.keyName ? c.forKey(d.keyName) : c.forOrganisation}</span>
                       </td>
                       <td className={`${cell} whitespace-nowrap`}>{d.attempts}</td>
                       <td className={`${cell} whitespace-nowrap`}>{d.lastStatus ?? '—'}</td>

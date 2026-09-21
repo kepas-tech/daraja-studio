@@ -151,23 +151,34 @@ export interface RequestView {
 }
 /** Round 3, phase E: an API key as the list shows it. The secret is never part of this shape. */
 export interface ApiKeyView {
-  id: string; name: string; prefix: string; role: 'operator' | 'viewer' | 'approver';
+  id: string; name: string; prefix: string;
+  role: 'operator' | 'viewer' | 'approver' | 'forwarder' | 'collector';
   createdAt: string; lastUsedAt: string | null; revokedAt: string | null; rotatedFrom: string | null;
   createdBy: { id: string; displayName: string } | null;
+  /**
+   * Step six, part five: the address this key holds itself, or null when its notices go to the
+   * organisation's address instead.
+   */
+  webhook: WebhookView | null;
 }
 /** Round 3, phase E: the webhook address, and the last four characters of its signing secret. */
 export interface WebhookView { url: string | null; secretHint: string | null; updatedAt: string | null }
 /** Round 3, phase E: one webhook delivery, as the deliveries page reads it. */
 export interface DeliveryView {
   id: string; event: string; url: string; requestId: string | null;
+  /** The key whose payments this notice carries, when the address it was written for is a key's. */
+  keyName: string | null;
   attempts: number; lastStatus: number | null; lastResponse: string | null;
   lastTryAt: string | null; nextRetryAt: string | null; deliveredAt: string | null; createdAt: string;
   state: 'pending' | 'delivered' | 'failed';
 }
 /** The answer a save or a rotation gives: the secret is here, and only here. */
 export interface WebhookSaved { webhook: WebhookView; secret: string | null }
-/** The one answer that carries the secret: create and rotate, and nothing else. */
-export interface ApiKeyCreated { key: ApiKeyView; secret: string }
+/**
+ * The one answer that carries the secret: create and rotate, and nothing else. A key made with an
+ * address of its own carries that address's signing secret here too, shown once like the key.
+ */
+export interface ApiKeyCreated { key: ApiKeyView; secret: string; webhook?: WebhookSaved | null }
 /** Round 3, phase D-5: the case file on a payment, as `/api/requests/:id/case` reads it. */
 export interface CaseNoteView { id: string; note: string; at: string; by: { id: string; displayName: string } | null }
 export interface CaseView {

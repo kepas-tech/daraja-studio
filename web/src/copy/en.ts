@@ -240,6 +240,22 @@ export const copy = {
     revoke: 'Stop this key',
     afterRotate: 'The old key stopped working the moment this one was made.',
     afterRevoke: 'That key cannot be used again.',
+    // Step six, part five: a key can be given its own webhook address, so a person setting up a key
+    // names where its payments' notices go in the same breath, without touching another receiver.
+    addressCreate: 'Where its notices go',
+    addressHint: 'Optional, and https only. Leave it empty to use the organisation’s address; a key with its own address sends its payments’ notices there, signed with its own secret.',
+    address: 'Webhook address',
+    addressButton: 'Address',
+    addressSave: 'Save the address',
+    addressSecret: 'New signing secret',
+    addressRemove: 'Use the organisation’s address',
+    ownAddress: (url: string, hint: string | null) => (hint ? `Notices go to ${url} · secret ends ${hint}` : `Notices go to ${url}`),
+    inheritsAddress: (url: string) => `Notices go to the organisation’s address: ${url}`,
+    inheritsNone: 'No address of its own, and the organisation has none either.',
+    webhookShownOnce: (url: string) => `Signing secret for ${url} — copy it now, it is not shown again.`,
+    afterAddress: 'Notices for this key’s payments go to that address from now on.',
+    afterAddressRemoved: 'This key uses the organisation’s address again. Notices already written keep going where they were written.',
+    afterAddressSecret: 'The new secret works from now on; the old one stops. No other receiver changes.',
   },
   /**
    * Round 3, phase E: the webhook address and its signing secret. The words say what the receiver
@@ -275,7 +291,9 @@ export const copy = {
     filter: 'Which ones?',
     states: { all: 'All', pending: 'Waiting', delivered: 'Delivered', failed: 'Given up' } as Record<string, string>,
     empty: { all: 'Nothing has been sent yet.', pending: 'Nothing is waiting.', delivered: 'Nothing has been delivered yet.', failed: 'Nothing has been given up on.' } as Record<string, string>,
-    columns: { when: 'When', event: 'What happened', attempts: 'Tries', status: 'Answered', said: 'It said', next: 'Next try' },
+    columns: { when: 'When', event: 'What happened', address: 'Went to', attempts: 'Tries', status: 'Answered', said: 'It said', next: 'Next try' },
+    forKey: (name: string) => `for the key ${name}`,
+    forOrganisation: 'the organisation’s address',
     deliveredAt: (w: string) => `Delivered ${w}`,
     nextAt: (w: string) => `Next try ${w}`,
     gaveUp: 'Given up',
