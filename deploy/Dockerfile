@@ -29,7 +29,7 @@ RUN pnpm --filter @daraja-studio/server deploy --prod --legacy /out/server
 # serves exactly as it did before the seam existed.
 FROM base AS host
 ARG STUDIO_HOST_REPO=git@github.com:kepas-tech/studio-host.git
-ARG STUDIO_HOST_COMMIT=1d8f6d628f1de0807de758c0f85cda3ab8412440
+ARG STUDIO_HOST_COMMIT=423092b0652828f1e6c42caa70b38f929dabf289
 RUN apk add --no-cache git openssh-client
 RUN --mount=type=secret,id=studio_host_key,required=false \
     set -eu; \
