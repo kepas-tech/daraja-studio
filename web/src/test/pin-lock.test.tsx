@@ -289,8 +289,9 @@ describe('the money keypad', () => {
     await signedIn();
     fireEvent.click(screen.getByRole('button', { name: 'send' }));
     expect(screen.getByText(copy.confirm.pinSub)).toBeInTheDocument();
-    // The money sheet carries the same logo, small enough to keep the keys on a phone.
-    expect(screen.getByAltText(copy.appName)).toBeInTheDocument();
+    // The money sheet carries the same logo, small enough to keep the keys on a phone. Scoped to the
+    // sheet: the header's own brand carries the same alternative text now, which is the point of it.
+    expect(within(screen.getByRole('dialog')).getByAltText(copy.appName)).toBeInTheDocument();
 
     // Cancel is the bottom-left key: the dialog closes and nothing was sent.
     fireEvent.click(screen.getByRole('button', { name: copy.confirm.cancel }));

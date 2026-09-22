@@ -815,7 +815,7 @@ Safaricom calls this: My Preference · Where: Manage → Settings · Who: Owner 
 3. Payment categories: your own names for a send (Personal use, Rent, …); each goes to Safaricom as Business payment, Salary or Promotion. Add, Edit, Delete; keep at least one.
 4. Approvals: Second person, Off or "Hold sends of KES … or more". Change, type the amount, save with your password.
 5. Invoices: whether invoicing is set up and whether reminders are on. Set it up from the Invoices page.
-6. Safaricom’s charges: the published bands behind the charge on each send. Correct them when Safaricom changes them.
+6. Safaricom’s charges are not here: they have a page of their own, under Advanced.
 7. Advanced, folded shut: the B2C version for the mode in use (leave it on Automatic), Safaricom’s callback addresses (change only if Safaricom publishes new ones), and the callback secret (Show asks for your password; treat it like a password).
 
 | Method | Path | Who |
@@ -831,9 +831,9 @@ Safaricom calls this: My Preference · Where: Manage → Settings · Who: Owner 
 
 ### Correct what Safaricom charges
 
-Where: Manage → Settings · Who: Owner · Route: /settings · Permission: owner
+Where: Manage → Advanced → Safaricom’s charges · Who: Owner · Route: /charges · Permission: owner
 
-1. Open Settings and find Safaricom’s charges.
+1. Open Advanced, then Safaricom’s charges — a page of its own, no longer inside Settings.
 2. Three lists: Money in (paybill), Money out to a phone, and Business payments. Each band has a From, a To and the charge, in whole shillings.
 3. Type over a figure, press Add a band for a new one or Remove to drop one, then Save with your password.
 4. The send review then says “Safaricom’s charge: KES …, taken from Utility” before you pay, and History shows the same figure on each row.

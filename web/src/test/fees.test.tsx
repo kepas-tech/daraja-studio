@@ -3,7 +3,7 @@ import { MemoryRouter } from 'react-router';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { SendPhone } from '../pages/send/SendPhone';
 import { History } from '../pages/History';
-import { Settings } from '../pages/Settings';
+import { Charges } from '../pages/Charges';
 import { ToastHost } from '../components/Toast';
 import { copy } from '../copy/en';
 import { money } from '../format';
@@ -68,21 +68,19 @@ describe('the charge in History', () => {
   });
 });
 
-describe('Settings > Safaricom’s charges', () => {
-  const slot = { shortcode: null, consumerKey: { saved: false, last4: null }, consumerSecret: { saved: false, last4: null }, credsVerifiedAt: null, passkey: { saved: false, last4: null }, cert: { saved: false, last4: null }, operators: [], ready: { creds: false, operator: false }, b2cApi: { setting: 'auto', detected: null, detectedAt: null } };
-  const view = { mode: 'sandbox', environments: { sandbox: slot, production: slot }, org: { name: 'APIONE', nominatedNumber: '', notificationPhone: '' }, stkEnabled: false, publicUrl: null, publicVerifiedAt: null, httpsSeen: false, allowlist: [], setupCompletedAt: 'x', sendCategories: [{ id: 'business', name: 'Business payment', commandId: 'BusinessPayment' }], approvalThresholdCents: 0 };
-
+describe('Safaricom’s charges, a page of their own', () => {
   it('renders the bands and saves an edit with the owner’s password', async () => {
     const puts: unknown[] = [];
     let gets = 0;
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input); const method = init?.method ?? 'GET';
-      if (url === '/api/settings' && method === 'GET') return new Response(JSON.stringify(view), { status: 200 });
       if (url === '/api/fees' && method === 'GET') { gets++; return new Response(JSON.stringify({ items: [band()] }), { status: 200 }); }
       if (url === '/api/fees/b2c' && method === 'PUT') { puts.push(JSON.parse(String(init?.body))); return new Response(JSON.stringify({ items: [band()] }), { status: 200 }); }
       return new Response(JSON.stringify({ error: { code: 'not_found', message: 'no' } }), { status: 404 });
     }));
-    render(<MemoryRouter><ToastHost /><Settings /></MemoryRouter>);
+    render(<MemoryRouter><ToastHost /><Charges /></MemoryRouter>);
+    // The page has its own heading, and it is the page and nothing else.
+    expect(await screen.findByRole('heading', { level: 1, name: copy.settings.charges.title })).toBeInTheDocument();
     const section = await screen.findByTestId('charges-b2c');
     const c = copy.settings.charges;
     fireEvent.change(within(section).getByLabelText(c.kinds.b2c + ' ' + c.charge + ' 1'), { target: { value: '9' } });

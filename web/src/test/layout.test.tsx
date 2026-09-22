@@ -14,6 +14,7 @@ const me = {
     id: 'o1', name: 'KEPAS TECHNOLOGIES', status: 'verified', environment: 'production',
     isHost: true, suspendReason: null, shortcode: null, shortcodeKind: null,
   },
+  modules: { off: [], menuOff: [], tier: 'platform' },
 };
 
 describe('Layout log out', () => {
@@ -46,23 +47,36 @@ describe('Layout log out', () => {
   });
 });
 
-describe('Layout studio name', () => {
-  it('says which studio the person is in, in the top bar, without opening anything', async () => {
+describe('Layout top bar', () => {
+  async function mountWithTier(tier: string | null) {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url === '/api/setup/status') return new Response(JSON.stringify({ needsOwner: false, completed: true, step: null }), { status: 200 });
-      if (url === '/api/auth/me') return new Response(JSON.stringify(me), { status: 200 });
+      if (url === '/api/auth/me') return new Response(JSON.stringify({ ...me, modules: { off: [], menuOff: [], tier } }), { status: 200 });
       throw new Error('unexpected fetch ' + url);
     });
     vi.stubGlobal('fetch', fetchMock);
-
     render(<MemoryRouter><SessionProvider><Layout /></SessionProvider></MemoryRouter>);
     await screen.findByText('Host Owner');
+  }
 
-    // The header itself, on every page the layout wraps, and not only inside the account menu.
+  it('carries the long logo, its name as real alternative text, and the mode beside it', async () => {
+    await mountWithTier('platform');
     const header = screen.getByRole('banner');
-    expect(within(header).getByText('KEPAS TECHNOLOGIES')).toBeInTheDocument();
-    // Quiet, not a heading: the product's own name is still the only heading in it.
+    // The logo is the studio's name now, so the name is what a screen reader reads from it.
+    const logo = within(header).getByRole('img', { name: copy.appName });
+    expect(logo.getAttribute('src')).toContain('logo-long');
+    expect(within(header).getByTestId('mode-tag')).toHaveTextContent('Platform');
+    // Quiet, not a heading: nothing in the bar shouts.
     expect(within(header).queryByRole('heading')).toBeNull();
+    // The organisation's name is the left navigation's job; the bar does not say it a second time.
+    expect(within(header).queryByText('KEPAS TECHNOLOGIES')).toBeNull();
+    const nav = screen.getByRole('navigation', { name: copy.app.navLabel });
+    expect(within(nav).getByText('KEPAS TECHNOLOGIES')).toBeInTheDocument();
+  });
+
+  it('says Custom when the switched-on parts equal no tier', async () => {
+    await mountWithTier(null);
+    expect(within(screen.getByRole('banner')).getByTestId('mode-tag')).toHaveTextContent('Custom');
   });
 });

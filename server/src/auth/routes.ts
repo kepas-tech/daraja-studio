@@ -108,6 +108,12 @@ export function authRoutes(db: Db, config: Config, modules: ModuleService): Rout
           off: moduleState.modules.filter((m) => !m.on).map((m) => m.key),
           /** The menu entries to leave out, named by the web's own nav keys. */
           menuOff: moduleState.modules.filter((m) => !m.on).flatMap((m) => m.menu),
+          /**
+           * Step six, part six: the tier the switched-on parts actually equal, or null when they
+           * equal none because something was switched by hand. The top bar's mode tag reads this,
+           * never the stored choice, so it says what the studio is rather than what was asked for.
+           */
+          tier: moduleState.matches,
         },
         // Spec 5.1. `slug` is deliberately absent: it is a host-admin handle, not a tenant's.
         org: {

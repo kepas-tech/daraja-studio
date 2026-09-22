@@ -103,6 +103,9 @@ describe('modules and tiers', () => {
     const me = await h(request(app).get('/api/auth/me'));
     expect(me.body.modules.off).toContain('invoices');
     expect(me.body.modules.menuOff).toContain('invoices');
+    // Step six, part six: the top bar's mode is the tier the switched-on parts actually equal, so a
+    // part switched by hand makes it null rather than naming the tier the studio was set to.
+    expect(me.body.modules.tier).toBeNull();
     // The module is still listed for the owner; off is not gone.
     expect((await one('invoices')).on).toBe(false);
   });
@@ -152,6 +155,8 @@ describe('modules and tiers', () => {
     expect(v.modules.filter((m) => m.on && m.menu.some((k) => ['standing-orders', 'express', 'bonga'].includes(k)))).toEqual([]);
     const me = await h(request(app).get('/api/auth/me'));
     for (const key of ['standing-orders', 'express', 'bonga']) expect(me.body.modules.menuOff).toContain(key);
+    // And when the set is exactly a tier's own, the mode reads that tier.
+    expect(me.body.modules.tier).toBe('simple');
 
     const refusals: [string, string, Record<string, unknown>][] = [
       ['standing_orders', '/api/collect/ratiba', { name: 'Rent', phone: '254700000000', amountCents: 1000, frequency: 'monthly', startDate: '2026-10-01', transactionType: 'paybill' }],

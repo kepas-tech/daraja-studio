@@ -28,7 +28,7 @@ function menuLabel(key: string): string {
  * refuses it — it never deletes anything, and turning it back on brings the view back unchanged.
  */
 export function Modules() {
-  const { status, person } = useSession();
+  const { status, person, refresh } = useSession();
   const toast = useToast();
   const stepUp = useStepUp();
   const c = copy.modulesPage;
@@ -72,6 +72,9 @@ export function Modules() {
       const next = await api.post<ModuleState>('/api/modules/tier', { tier: pick, ...confirm });
       setV(next); setPick(null); setPreview(null); setErr(null);
       toast.success(c.applied(name));
+      // The top bar's mode tag reads the tier the session carries, so it is told about the change
+      // here rather than waiting for the next page load to be right.
+      void refresh();
     });
   };
 
@@ -82,6 +85,8 @@ export function Modules() {
       setV(next); setPreview(null); setErr(null);
       const also = (next.alsoOn ?? []).map((k) => next.modules.find((x) => x.key === k)?.name ?? k);
       toast.success([m.on ? c.turnedOff(m.name) : c.turnedOn(m.name), also.length > 0 ? c.alsoOn(also.join(', ')) : ''].filter(Boolean).join(' '));
+      // One switch can take the set off its tier, and the mode tag says so straight away.
+      void refresh();
     });
   };
 

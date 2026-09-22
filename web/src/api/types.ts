@@ -58,7 +58,14 @@ export interface Me {
    * offers a page whose routes would refuse. Optional, so an answer from an older server reads as
    * "nothing is off" rather than as a studio with everything hidden.
    */
-  modules?: { off: string[]; menuOff: string[] };
+  modules?: {
+    off: string[]; menuOff: string[];
+    /**
+     * The tier the switched-on parts actually equal — 'simple', 'business' or 'platform' — or null
+     * when a part was switched by hand and the set equals no tier. The top bar's mode tag reads it.
+     */
+    tier?: string | null;
+  };
   /** The only host-admin signal the web reads. `person.is_host_admin` is never consulted. */
 }
 /**

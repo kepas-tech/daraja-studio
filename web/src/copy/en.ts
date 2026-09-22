@@ -25,6 +25,11 @@ export const copy = {
     badResponse: 'Studio could not display the QR image. Create a new code.',
   },
   appName: 'Daraja Studio',
+  /**
+   * The mode tag in the top bar. It names the tier the switched-on parts actually equal, never the
+   * stored choice, so a change by hand reads as Custom rather than as a tier the studio is not.
+   */
+  modeTag: (tier: string | null) => (tier === 'simple' ? 'Simple' : tier === 'business' ? 'Business' : tier === 'platform' ? 'Platform' : 'Custom'),
   app: {
     loading: 'Loading…',
     errorTitle: 'Cannot reach the studio server.',
@@ -74,6 +79,9 @@ export const copy = {
     // everyday money pages.
     { key: 'api-keys', label: 'API keys', safaricom: null, path: '/api-keys', icon: 'cog', group: 'manage', phase: 3, available: true, advanced: true },
     { key: 'webhooks', label: 'Webhooks', safaricom: null, path: '/webhooks', icon: 'arrow-right-circle', group: 'manage', phase: 3, available: true, advanced: true },
+    // Safaricom's published tariff, corrected by hand. A page of its own rather than a section of
+    // Settings: it is a thing Safaricom owns, not a preference of this studio's.
+    { key: 'charges', label: 'Safaricom’s charges', safaricom: 'Tariff', path: '/charges', icon: 'document-report', group: 'manage', phase: 3, available: true, advanced: true },
     { key: 'businesses', label: 'Businesses', safaricom: null, path: '/businesses', icon: 'grid-3', group: 'manage', phase: 5, available: true },
     { key: 'who-did-what', label: 'Who did what', safaricom: null, path: '/who-did-what', icon: 'search', group: 'manage', phase: 5, available: true },
     { key: 'settings', label: 'Settings', safaricom: 'My Preference', path: '/settings', icon: 'cog', group: 'manage', phase: 1, available: true },
@@ -212,6 +220,7 @@ export const copy = {
       reverse: 'Send a payment back to whoever paid it.',
       'api-keys': 'Let another system call this studio, with a key you can stop at any time.',
       webhooks: 'Tell one address of yours when a payment finishes, and let it check the signature.',
+      charges: 'What Safaricom charges for a payment, from its published tariff — correct it when Safaricom changes it.',
     } as Record<string, string>,
   },
   /**

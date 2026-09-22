@@ -27,7 +27,7 @@ interface Session {
   /** Brief 2, item 5b: this person has a fingerprint enrolled, so the lock screen offers it. */
   pinBio: boolean;
   /** Step one: what this studio has switched off — the modules, and the menu entries they hide. */
-  modules: { off: string[]; menuOff: string[] };
+  modules: { off: string[]; menuOff: string[]; /** The tier the switched-on parts equal, or null. */ tier: string | null };
   /** Opens the session with the PIN, or with the password when the PIN has been forgotten. */
   openSession: (confirm: Confirm) => Promise<void>;
   /** Opens it with the fingerprint instead. False means the lock screen falls back to the PIN. */
@@ -47,7 +47,7 @@ const empty = () => ({
   setupStep: null as string | null, uses: null as { payOut: boolean; collect: boolean; stk: boolean } | null, passkeyProven: false,
   paybill: null as 'own' | 'none' | null, signupUrl: null as string | null, saved: null as SetupSaved | null,
   pinSet: false, pinLocked: false, pinBio: false,
-  modules: { off: [] as string[], menuOff: [] as string[] },
+  modules: { off: [] as string[], menuOff: [] as string[], tier: null as string | null },
 });
 const noop = async () => {};
 const noopFalse = async () => false;
@@ -99,7 +99,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           setupStep: st.step, uses: st.uses, passkeyProven: st.passkeyProven, saved: st.saved ?? null,
           paybill: st.paybill ?? null, signupUrl: st.signupUrl ?? null,
           pinSet: pin.set, pinLocked: lockNow, pinBio: pin.bio === true,
-          modules: me.modules ?? { off: [], menuOff: [] },
+          modules: {
+            off: me.modules?.off ?? [], menuOff: me.modules?.menuOff ?? [],
+            // Absent from an older server reads as "no tier known", and the tag says so plainly.
+            tier: me.modules?.tier ?? null,
+          },
         });
       } catch (e) {
         if (e instanceof ApiError && e.status === 401) setS({ status: 'anonymous', ...empty(), setupStep: st.step });

@@ -9,7 +9,6 @@ import type { SettingsView } from '../api/types';
 import { CategoriesSection } from './settings/CategoriesSection';
 import { ApprovalsSection } from './settings/ApprovalsSection';
 import { InvoicesSection } from './settings/InvoicesSection';
-import { ChargesSection } from './settings/ChargesSection';
 import { PublicAddressCard } from './settings/PublicAddressRow';
 import { AdvancedSection } from './settings/AdvancedSection';
 import { useStepUp } from './settings/useStepUp';
@@ -53,7 +52,6 @@ export function Settings() {
       <PublicAddressCard view={v} reload={load} stepUp={stepUp} />
       <div className="mb-6"><CategoriesSection items={v.sendCategories} reload={load} stepUp={stepUp} /></div>
       <div className="mb-6"><ApprovalsSection view={v} reload={load} stepUp={stepUp} /></div>
-      <div className="mb-6"><ChargesSection stepUp={stepUp} /></div>
       <div className="mb-6"><InvoicesSection stepUp={stepUp} /></div>
       <AdvancedSection view={v} reload={load} stepUp={stepUp} />
 

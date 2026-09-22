@@ -11,7 +11,7 @@ import { Flash } from '../components/Flash';
 import { Icon } from '../components/Icon';
 import { ToastHost } from '../components/Toast';
 import { copy } from '../copy/en';
-import mark from '../assets/logo-mark.png';
+import logo from '../assets/logo-long.png';
 
 const item = 'flex w-full cursor-pointer items-center gap-3 px-4 py-2.5 text-left text-base text-ink hover:bg-page hover:no-underline';
 
@@ -49,7 +49,7 @@ function AccountMenu() {
 }
 
 export function Layout() {
-  const { org, pinSet, pinLocked } = useSession();
+  const { org, pinSet, pinLocked, modules } = useSession();
   useLockWatchers();
   // Brief 2, item 3: while the PIN is owed, the app is not on screen at all — no header, no page,
   // nothing half-typed for a hand that is not the owner's to finish.
@@ -58,18 +58,16 @@ export function Layout() {
     <div className="flex h-screen flex-col overflow-hidden bg-surface text-ink">
       <header className="flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-line bg-surface px-4 py-2 md:px-6">
         <div className="flex min-w-0 items-center gap-3">
-          <NavLink to="/" className="inline-flex shrink-0 items-center gap-3 text-ink hover:no-underline">
-            <img src={mark} alt="" className="h-10 w-auto" />
-            <span className="text-lg font-semibold">{copy.appName}</span>
+          <NavLink to="/" className="inline-flex shrink-0 items-center text-ink hover:no-underline">
+            {/* The logo carries the studio's name, so the name is the image's own alternative text.
+                The source is 530 × 160 and it is drawn 44px tall, so a high-density screen has more
+                pixels than it needs rather than fewer. */}
+            <img src={logo} alt={copy.appName} className="h-11 w-auto" />
           </NavLink>
-          {/* Which studio this is, on every page. Quiet on purpose — it is orientation, not
-              decoration — and on an install with one organisation it is the same name every day.
-              The name is the organisation's own, so it costs nobody a setting. */}
-          {org?.name && (
-            <span className="min-w-0 truncate text-sm text-muted" title={org.name}>
-              <span aria-hidden="true" className="pr-1">·</span>{org.name}
-            </span>
-          )}
+          {/* Which studio this is, on every page, is the left navigation's job. What the header adds
+              is the mode: the tier the switched-on parts actually equal, read from the module state,
+              so a change made by hand reads as Custom rather than naming a tier the studio is not. */}
+          <span data-testid="mode-tag" className="shrink-0 rounded-full border border-line px-2 py-0.5 text-xs font-medium text-muted">{copy.modeTag(modules.tier)}</span>
         </div>
         <AccountMenu />
       </header>

@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api } from '../../api/client';
-import type { FeeBandView, FeeKind } from '../../api/types';
-import { Button } from '../../components/Button';
-import { Card } from '../../components/Card';
-import { ErrorCard, explainApiError, type Explained } from '../../components/ErrorCard';
-import { useToast } from '../../components/Toast';
-import { copy } from '../../copy/en';
-import { when } from '../../format';
-import type { StepUp } from './useStepUp';
+import { api } from '../api/client';
+import type { FeeBandView, FeeKind } from '../api/types';
+import { Button } from '../components/Button';
+import { Card } from '../components/Card';
+import { ErrorCard, explainApiError, type Explained } from '../components/ErrorCard';
+import { PageHeader } from '../components/PageHeader';
+import { PasswordConfirmDialog } from '../components/PasswordConfirmDialog';
+import { useToast } from '../components/Toast';
+import { copy } from '../copy/en';
+import { when } from '../format';
+import { useStepUp, type StepUp } from './settings/useStepUp';
 
 type Row = { min: string; max: string; charge: string };
 const KINDS: FeeKind[] = ['c2b', 'b2c', 'b2b'];
@@ -16,12 +18,28 @@ const toCents = (v: string) => (v.trim() === '' ? NaN : Math.round(Number(v) * 1
 const control = 'w-28 min-h-9 rounded-md border border-line bg-surface px-2 text-base text-ink focus:outline-2 focus:-outline-offset-1 focus:outline-brand';
 
 /**
+ * Safaricom's published tariff, on a page of its own — moved whole out of Settings, because it is a
+ * thing Safaricom owns rather than a preference of this studio's, and because a person looking for
+ * it looks for the charge itself. It is reached from Advanced, where the set-up-once pages live.
+ */
+export function Charges() {
+  const stepUp = useStepUp();
+  return (
+    <>
+      <PageHeader title={copy.settings.charges.title} safaricom={copy.nav.find((n) => n.key === 'charges')?.safaricom ?? null} />
+      <ChargesSection stepUp={stepUp} />
+      <PasswordConfirmDialog {...stepUp.dialogProps} />
+    </>
+  );
+}
+
+/**
  * Feature 11. Safaricom's published tariff bands, shown as they are and correctable by the owner
  * with their password. Studio adds no fee of its own, so there is nothing here to earn: this is
  * the figure the send review and History quote. A payment already made keeps the charge it was
  * costed at, so an edit here never rewrites an old row.
  */
-export function ChargesSection({ stepUp }: { stepUp: StepUp }) {
+function ChargesSection({ stepUp }: { stepUp: StepUp }) {
   const c = copy.settings.charges;
   const toast = useToast();
   const [rows, setRows] = useState<Record<FeeKind, Row[]> | null>(null);

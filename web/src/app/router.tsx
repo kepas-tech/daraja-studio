@@ -9,6 +9,7 @@ import { ComingSoon } from '../pages/ComingSoon';
 import { Login } from '../pages/Login';
 import { Home } from '../pages/Home';
 import { Settings } from '../pages/Settings';
+import { Charges } from '../pages/Charges';
 import { NotPossible } from '../pages/NotPossible';
 import { SetupLayout } from '../pages/setup/SetupLayout';
 import { SendHub } from '../pages/send/SendHub';
@@ -67,6 +68,7 @@ function Gate() {
       <Route element={<Layout />}>
         <Route path="/" element={<Home />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/charges" element={<Charges />} />
         <Route path="/account" element={<Account />} />
         <Route path="/account/password" element={<VoluntaryPasswordChange />} />
         {/* Step one of the tiers-and-modules design: the page under Organisation. */}

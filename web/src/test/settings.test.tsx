@@ -55,6 +55,8 @@ describe('Settings', () => {
     expect(screen.queryByTestId('setting-passkey')).toBeNull();
     expect(screen.queryByText(copy.settings.operatorsTitle)).toBeNull();
     expect(screen.queryByText(copy.settings.mode.title)).toBeNull();
+    // Step six, part six: Safaricom's charges left Settings for their own page.
+    expect(screen.queryByTestId('charges-b2c')).toBeNull();
   });
 
   it('folds the B2C version, the callback addresses and the callback secret under Advanced, closed by default', async () => {

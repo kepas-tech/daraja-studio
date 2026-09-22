@@ -1002,7 +1002,7 @@ export const guide: GuideSection[] = [
           'Payment categories: your own names for a send (Personal use, Rent, …); each goes to Safaricom as Business payment, Salary or Promotion. Add, Edit, Delete; keep at least one.',
           'Approvals: Second person, Off or "Hold sends of KES … or more". Change, type the amount, save with your password.',
           'Invoices: whether invoicing is set up and whether reminders are on. Set it up from the Invoices page.',
-          'Safaricom’s charges: the published bands behind the charge on each send. Correct them when Safaricom changes them.',
+          'Safaricom’s charges are not here: they have a page of their own, under Advanced.',
           'Advanced, folded shut: the B2C version for the mode in use (leave it on Automatic), Safaricom’s callback addresses (change only if Safaricom publishes new ones), and the callback secret (Show asks for your password; treat it like a password).',
         ],
         api: [
@@ -1019,12 +1019,12 @@ export const guide: GuideSection[] = [
       {
         key: 'settings-charges',
         title: 'Correct what Safaricom charges',
-        where: ['Manage', 'Settings'],
+        where: ['Manage', 'Advanced', 'Safaricom’s charges'],
         who: 'Owner',
-        path: '/settings',
+        path: '/charges',
         permission: 'owner',
         steps: [
-          'Open Settings and find Safaricom’s charges.',
+          'Open Advanced, then Safaricom’s charges — a page of its own, no longer inside Settings.',
           'Three lists: Money in (paybill), Money out to a phone, and Business payments. Each band has a From, a To and the charge, in whole shillings.',
           'Type over a figure, press Add a band for a new one or Remove to drop one, then Save with your password.',
           'The send review then says “Safaricom’s charge: KES …, taken from Utility” before you pay, and History shows the same figure on each row.',
