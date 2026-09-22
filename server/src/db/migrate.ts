@@ -19,7 +19,24 @@ async function migrationsIn(dir: string, least: number): Promise<Migration[]> {
     if (Number(version) < least) {
       throw new Error(`${name} is numbered below ${least}. Migrations outside the core start at ${EXTENSION_FROM} so they never collide with it.`);
     }
-    return { version, name, sql: await fs.readFile(path.join(dir, name), 'utf8') };
+    const full = path.join(dir, name);
+    let sql: string;
+    try {
+      sql = await fs.readFile(full, 'utf8');
+    } catch (e) {
+      // A raw EACCES from the depths of readFile is not a boot message a person can act on: it names
+      // no cause and reads like a bug in Studio. The mode is the thing that was wrong both times the
+      // live site went down this way, so the sentence says so and names the file.
+      if ((e as NodeJS.ErrnoException).code === 'EACCES') {
+        throw new Error(
+          `${full} cannot be read: its file permissions are wrong. Every migration must be readable by the ` +
+          'user Studio runs as (mode 644), which deploy/preflight.sh sets before an image is built.',
+          { cause: e },
+        );
+      }
+      throw e;
+    }
+    return { version, name, sql };
   }));
 }
 
