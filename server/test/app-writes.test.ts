@@ -1,6 +1,6 @@
 import { describe, it, expect, afterAll, beforeEach, vi } from 'vitest';
 import request from 'supertest';
-import { makeApp, loginAsOwner, resetTables } from './helpers.js';
+import { makeApp, loginAsOwner } from './helpers.js';
 import { ROLE_PRESETS } from '../src/permissions/roles.js';
 import { KEY_ROLES } from '../src/keys/service.js';
 import { createWebhookWriter } from '../src/webhooks/writer.js';
