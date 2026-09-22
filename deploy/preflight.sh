@@ -45,7 +45,12 @@ if [ -z "$extension" ] && [ -d "$root/../studio-host/migrations" ]; then
   extension="$root/../studio-host/migrations"
 fi
 
-mode_of() { stat -f '%Lp' "$1" 2>/dev/null || stat -c '%a' "$1" 2>/dev/null || echo '?'; }
+# GNU stat and BSD stat spell it differently, and the wrong one does not fail cleanly: it prints a
+# whole filesystem report for a file named after the format. Ask each for the mode on its own, with
+# the attempt's output thrown away, so the answer is one number.
+mode_of() {
+  if stat -c '%a' "$1" >/dev/null 2>&1; then stat -c '%a' "$1"; else stat -f '%Lp' "$1"; fi
+}
 
 failed=0
 count=0

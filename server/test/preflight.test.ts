@@ -63,6 +63,9 @@ describe('the deploy preflight', () => {
     expect(r.out).toContain('002_second.sql');
     expect(r.out).toContain('900_tenants.sql');
     expect(r.out).toContain('3 migration file(s) are readable and 644');
+    // A file that was already 644 is not dressed up as one that needed fixing — the check that
+    // caught the wrong stat flavour on a Linux deploy.
+    expect(r.out).not.toContain('001_first.sql');
     expect(await modeOf(path.join(core, '002_second.sql'))).toBe('644');
     expect(await modeOf(path.join(ext, '900_tenants.sql'))).toBe('644');
   });
