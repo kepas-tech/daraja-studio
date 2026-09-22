@@ -1,0 +1,40 @@
+# The marketing page for darajastudio.com, on srv492279.
+#
+# Its own compose project and its own container, so the product and its
+# advertisement never share a process. The studio stays untouched on
+# 127.0.0.1:8080; this listens on 127.0.0.1:8095. The daraja-studio tunnel
+# runs with host networking, so it reaches this over the host loopback.
+#
+# It runs from this directory as the deploy sync leaves it:
+#   cd src/marketing && docker compose up -d
+#
+# The page is a bind mount, so editing a file and syncing is enough to change
+# it. Recreate the container only when this file or nginx.conf changes.
+name: daraja-marketing
+
+services:
+  marketing:
+    image: nginx:alpine
+    container_name: daraja-marketing
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8095:80"
+    volumes:
+      - ./site:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.15"
+          memory: 64M
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"

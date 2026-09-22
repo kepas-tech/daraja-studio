@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Daraja Studio — your M-Pesa paybill or till, on one screen</title>
+  <meta name="description" content="A console for the M-Pesa paybill or till you already own. See what came in, send money out, and read Safaricom's own words when something fails. You run it yourself, with the code in the open.">
+  <link rel="canonical" href="https://darajastudio.com/">
+  <link rel="icon" type="image/png" href="/assets/favicon.png">
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+  <link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to the page</a>
+
+  <header class="bar">
+    <img class="logo" src="/assets/logo-long.png" alt="Daraja Studio" width="530" height="160">
+    <a class="guide-link" href="https://studio.kepas.co.ke/guide">The guide</a>
+  </header>
+
+  <main id="main">
+    <section class="hero">
+      <h1>Your M-Pesa paybill or till, on one screen.</h1>
+      <p class="lead">Daraja Studio shows the payments that arrive on the number you already own, sends money out from it, keeps the people and businesses you pay, and repeats Safaricom&rsquo;s own words when something fails. You run it yourself, with your own Daraja app.</p>
+    </section>
+
+    <section>
+      <h2>What it does</h2>
+      <ul class="facts">
+        <li><strong>Money in.</strong> Every payment on your number, with the account number it quoted and the payer&rsquo;s name where Safaricom sends one. QR codes, a prompt on the payer&rsquo;s phone, invoices they can pay, and standing orders.</li>
+        <li><strong>Money out.</strong> Send to a phone, one at a time or in a list. A second person releases a send above the amount you set, and Studio can ask Safaricom to send a payment back.</li>
+        <li><strong>The record.</strong> History, statements and balances in Safaricom&rsquo;s words, the week&rsquo;s numbers, and the check that finds a payment Safaricom has and Studio does not.</li>
+        <li><strong>Who can do what.</strong> People and roles, and your password again before anything that moves money or changes who can log in.</li>
+        <li><strong>Other systems.</strong> Keys, webhook addresses and a record of every delivery, plus an inbox another system can post its own confirmations to.</li>
+        <li><strong>Setup.</strong> One question per screen: your shortcode, your Daraja app, your operator, your passkey. Sandbox first, with pretend money, until you are ready for the real one.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Which one suits you</h2>
+      <div class="cards">
+        <article class="card">
+          <h3>Your own studio</h3>
+          <p class="suits">One business, one paybill or till, on a server you run.</p>
+          <p>For a shop, a school, a clinic, a landlord or a church: you own the shortcode and want the payments, the people and the reports in one place, on your own machine.</p>
+          <p class="way"><a href="#start">Start here</a></p>
+        </article>
+        <article class="card">
+          <h3>The hub</h3>
+          <p class="suits">One paybill, many businesses on it, told apart by account number.</p>
+          <p>For the organisation that owns a shortcode and serves other businesses under it. Each business keeps its own payments, statements, invoices and customers, money that arrives for one can be swept straight on to its own number, and the Developer pages hand the systems you build their keys and addresses.</p>
+          <p class="way">The same code with more switched on. Studio calls it the Platform tier.</p>
+        </article>
+        <article class="card">
+          <h3>KEPAS runs it for you</h3>
+          <p class="suits">For a business with no paybill of its own.</p>
+          <p>KEPAS owns the paybill, gives you an account number on it, and runs a studio for you where your payments arrive under that number. The paybill is not yours, and the money sits with KEPAS until it is paid out to you.</p>
+          <p class="way">Not open to sign up for yet. Write to <a href="mailto:contact@kepas.co.ke">contact@kepas.co.ke</a> and say what your business needs.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="start">
+      <h2>Start with your own paybill</h2>
+      <p>Four things are needed: your own paybill or till number, a Daraja app from Safaricom&rsquo;s developer portal, a server that can run Docker, and an https address Safaricom can reach. Sending money out, and prompting a payer&rsquo;s phone, each need one more thing from Safaricom, and the setup asks for those only if you turn them on.</p>
+      <p>The code is at <a href="https://github.com/kepas-tech/daraja-studio">github.com/kepas-tech/daraja-studio</a>, free to self-host and change under the Elastic Licence 2.0, which does not allow offering it to others as a hosted service. Bring it up with Docker Compose and open the address; the first-run setup asks one question per screen, and the guide shows where each answer comes from on Safaricom&rsquo;s two portals, and what still has to be done there.</p>
+      <p>Your shortcode stays yours, and the money settles in your own M-Pesa account.</p>
+      <p class="buttons">
+        <a class="button" href="https://studio.kepas.co.ke/guide">Read the guide</a>
+        <a class="button quiet" href="https://github.com/kepas-tech/daraja-studio">The code on GitHub</a>
+      </p>
+    </section>
+  </main>
+
+  <footer>
+    <p>Daraja Studio is made by <a href="https://kepas.co.ke">KEPAS Technologies Ltd</a>, Nairobi. Not affiliated with or endorsed by Safaricom PLC.</p>
+  </footer>
+</body>
+</html>
