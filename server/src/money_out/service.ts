@@ -71,7 +71,7 @@ export interface MoneyOutService {
   nameCheck(phone: string): Promise<NameCheck>;
   sweep(): Promise<{ polled: number; expired: number }>;
   /** Round 3, phase D-3: `actor` is who pressed Check, recorded on the check's own row. */
-  pollOne(requestId: string, actor?: { personId: string }): Promise<{ queryId: string }>;
+  pollOne(requestId: string, actor?: { personId: string | null }): Promise<{ queryId: string }>;
   markChecked(requestId: string, note: string, actor: Actor): Promise<RequestView>;
   refreshBalance(actor: Actor | null): Promise<{ requestId: string }>;
   /** Round 4: `actor.personId` is null when Studio asked on its own, to fill a missing name. */

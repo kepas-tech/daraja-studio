@@ -1,4 +1,5 @@
 import type { Db } from '../db/pool.js';
+import { countedIn } from '../money_in/link.js';
 import { COLLECT_TYPES, MONEY_IN_TYPES, MONEY_TYPES } from '../money_out/registry.js';
 
 /**
@@ -25,16 +26,9 @@ const LEDGER_TYPES: string[] = [...IN_TYPES, ...OUT_TYPES];
  * never did. Money in counts only what actually arrived. The argument is the caller's own
  * placeholder for that query's list of types, so a query that needs both directions passes two.
  */
-/**
- * A payment Studio asked for (an STK prompt, say) and the confirmation Safaricom then posts for the
- * same money are two rows with one receipt. Money in counts the confirmation, which carries the
- * business the money belongs to, and not the request as well: counting both doubled every prompt
- * that was paid while confirmations were also arriving (first seen 24 September 2026).
- */
-const ARRIVED = `'{${MONEY_IN_TYPES.join(',')}}'::text[]`;
-const inMoney = (p: string) => `r.type = ANY(${p}::text[]) AND r.status = 'completed'
-  AND NOT (r.receipt IS NOT NULL AND r.type <> ALL(${ARRIVED})
-           AND EXISTS (SELECT 1 FROM requests m WHERE m.receipt = r.receipt AND m.org_id = r.org_id AND m.type = ANY(${ARRIVED})))`;
+/** Money that arrived and counts: a paid prompt whose confirmation is on record counts once, as the
+ * confirmation (money_in/link.ts). */
+const inMoney = (p: string) => `r.type = ANY(${p}::text[]) AND r.status = 'completed' AND ${countedIn('r')}`;
 const outMoney = (p: string) => `r.type = ANY(${p}::text[]) AND r.status IN ('sent','completed')`;
 
 /** The line the failure list shows when Safaricom sent no reason of its own. */

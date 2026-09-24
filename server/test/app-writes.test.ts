@@ -41,15 +41,15 @@ describe('what an app needs that Studio did not answer', () => {
     const r = await ask({ ...BODY, callerRef: 'order-12345' });
     expect(r.status).toBe(201);
     expect(r.body.callerRef).toBe('order-12345');
-    // The reference the payer sees is still the business's own, and nothing of the caller's went near
-    // it: on a payment request it is the remarks and the Daraja payload, and the row's own
-    // account_reference stays empty until a payer's number arrives with the money.
+    // The reference the payer sees is still the business's own, and nothing of the caller's went near it.
     expect(r.body.remarks).toBe('INV-7');
-    expect(r.body.accountReference).toBeNull();
+    // The account reference is the payer-facing one the business chose (read like a payment's own
+    // account number, migration 049's G3), never the caller's reference.
+    expect(r.body.accountReference).toBe('INV-7');
 
     const [row] = await deps.db.query<{ caller_ref: string | null; account_reference: string | null }>(
       'SELECT caller_ref, account_reference FROM requests');
-    expect(row).toMatchObject({ caller_ref: 'order-12345', account_reference: null });
+    expect(row).toMatchObject({ caller_ref: 'order-12345', account_reference: 'INV-7' });
 
     // What a receiver would actually be posted, through the real writer.
     const seen: Record<string, unknown>[] = [];

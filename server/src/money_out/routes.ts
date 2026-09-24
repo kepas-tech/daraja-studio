@@ -1,4 +1,5 @@
 import { Router, type RequestHandler } from 'express';
+import { personOf } from '../http/actor.js';
 import { z } from 'zod';
 import type { AppDeps } from '../app.js';
 import { requireAuth, requireCsrf, requireStepUp } from '../auth/middleware.js';
@@ -226,7 +227,7 @@ export function requestRoutes(deps: AppDeps): Router {
       const kind = KINDS[row.type];
       if (!kind) throw new HttpError(404, 'not_found', 'That request does not exist.');
       await assertPermission(deps.db, req.person!, kind.permission, req.apiKey?.permissions);
-      const { queryId } = await deps.moneyOut.pollOne(id, { personId: req.person!.id });
+      const { queryId } = await deps.moneyOut.pollOne(id, { personId: personOf(req) });
       res.status(202).json({ requestId: queryId });
     } catch (e) { next(e); }
   });
@@ -260,7 +261,7 @@ export function balanceRoutes(deps: AppDeps): Router {
     } catch (e) { next(e); }
   });
   r.post('/refresh', requireMoneyReady(deps), async (req, res, next) => {
-    try { res.status(202).json(await deps.moneyOut.refreshBalance({ personId: req.person!.id, ip: clientIp(req) })); } catch (e) { next(e); }
+    try { res.status(202).json(await deps.moneyOut.refreshBalance({ personId: personOf(req), ip: clientIp(req) })); } catch (e) { next(e); }
   });
   return r;
 }
@@ -270,7 +271,7 @@ export function lookupRoutes(deps: AppDeps): Router {
   r.post('/', requireAuth(deps.db), requireCsrf, requirePermission(deps.db, 'lookup.view'), requireMoneyReady(deps), async (req, res, next) => {
     try {
       const b = parse(lookupSchema, req.body);
-      res.status(202).json(await deps.moneyOut.lookup(b.receipt, { personId: req.person!.id, ip: clientIp(req) }));
+      res.status(202).json(await deps.moneyOut.lookup(b.receipt, { personId: personOf(req), ip: clientIp(req) }));
     } catch (e) { next(e); }
   });
   return r;
@@ -305,6 +306,8 @@ export function approvalRoutes(deps: AppDeps): Router {
     try {
       if (!isUuid(String(req.params.id))) throw new HttpError(404, 'not_found', 'That request does not exist.');
       const b = parse(refuseSchema, req.body);
+      // A second person refuses a held send; a key is not a person and never decides one.
+      if (req.apiKey) throw new HttpError(403, 'person_only', 'A person refuses a held send, not an API key.');
       res.json(await deps.moneyOut.refuse(String(req.params.id), b.reason, { personId: req.person!.id, ip: clientIp(req) }));
     } catch (e) { next(e); }
   });

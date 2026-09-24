@@ -23,6 +23,9 @@ export interface RequestRow {
   bulk_plan_id?: string | null;
   /** The caller's own reference, when it sent one (migration 045). Opaque to Studio. */
   caller_ref?: string | null;
+  /** Migration 049: the prompt this confirmation answers, and the confirmation this prompt got. */
+  prompt_id?: string | null;
+  confirmation_id?: string | null;
   /** The API key that made this request, when no person did (migration 045). */
   api_key_id?: string | null;
 }

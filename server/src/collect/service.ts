@@ -15,6 +15,7 @@ import { enqueue } from '../db/jobs.js';
 import { AUTH_FAILED_MEANING, UNCONFIRMED, sdkCallError as sdkError, syncRejection } from '../money_out/service.js';
 import { getRequest, type RequestView } from '../money_out/reads.js';
 import { resolveAccount } from '../businesses/lookup.js';
+import { matchAccount } from '../businesses/match.js';
 
 export interface CollectInput {
   phone: string;
@@ -225,10 +226,17 @@ export function createCollectService(deps: { db: Db; settings: Settings; daraja:
       const description = input.description?.trim() || 'Payment';
 
       if (!(await deps.daraja.stkEnabled())) throw new HttpError(409, 'stk_off', STK_OFF);
+      // No saved account picked: the reference is read exactly as a payment's account number would be
+      // when it arrives (a business code, then an account under it), so a request that names a
+      // business is filed under it from the start. Anything the digits do not name stays unfiled.
+      const named = picked ? null : await matchAccount(deps.db, reference);
+      const filed = picked ? { businessId: picked.businessId, accountId: picked.id }
+        : named && named.kind === 'matched' ? { businessId: named.businessId, accountId: named.accountId ?? undefined }
+        : {};
 
       return start(kind, {
-        recipientKind: 'phone', recipientValue: phone, amountCents: input.amountCents, remarks: reference, accountReference: null,
-        ...(picked ? { businessId: picked.businessId, accountId: picked.id } : {}),
+        recipientKind: 'phone', recipientValue: phone, amountCents: input.amountCents, remarks: reference, accountReference: reference,
+        ...filed,
         payload: { accountReference: reference, description }, callerRef: input.callerRef ?? null,
         confirmDuplicate: input.confirmDuplicate, duplicateMessage: 'You asked for this already. Ask again?',
         // Safaricom accepted a push on this shortcode, which is the only proof a passkey can ever

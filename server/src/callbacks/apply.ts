@@ -6,6 +6,7 @@ import { explain } from '../sdk/meaning.js';
 import { clearOperatorFailures, recordOperatorRefusal } from '../money_out/operatorHealth.js';
 import { scheduleBalanceRefresh } from '../money_out/balanceRefresh.js';
 import { personName } from '../util/names.js';
+import { PROMPT_TYPES, linkPromptReceipt } from '../money_in/link.js';
 
 /**
  * B0: one result application for every money-out kind.
@@ -49,7 +50,7 @@ export async function applyResult(
   type Outcome =
     | { verdict: 'unmatched' }
     | { verdict: 'duplicate'; requestId: string }
-    | { verdict: 'applied'; requestId: string; operatorId: string | null; funds: boolean; success: boolean; resultCode: number; resultDesc: string; meaning: string; retriable: boolean; failoverPending: boolean };
+    | { verdict: 'applied'; requestId: string; operatorId: string | null; funds: boolean; success: boolean; resultCode: number; resultDesc: string; meaning: string; retriable: boolean; failoverPending: boolean; type: string; receipt: string | null };
 
   const outcome: Outcome = await deps.db.tx(async (c) => {
     // Which row this is, before anything is written: the match is on either identifier because a
@@ -109,10 +110,13 @@ export async function applyResult(
       await c.query(`INSERT INTO balances(working_cents, utility_cents, charges_paid_cents, raw) VALUES ($1,$2,NULL,$3::jsonb)`,
         [r.workingCents ?? null, r.utilityCents ?? null, JSON.stringify({ source: `${kind.type}_result`, utilityCents: r.utilityCents ?? null, workingCents: r.workingCents ?? null })]);
     }
-    return { verdict: 'applied' as const, requestId: row.id, operatorId: row.operator_id, funds: hasFunds, success: r.success, resultCode: r.resultCode, resultDesc: r.resultDesc, meaning: ex.meaning, retriable: ex.retriable, failoverPending };
+    return { verdict: 'applied' as const, requestId: row.id, operatorId: row.operator_id, funds: hasFunds, success: r.success, resultCode: r.resultCode, resultDesc: r.resultDesc, meaning: ex.meaning, retriable: ex.retriable, failoverPending, type: row.type, receipt: r.receipt ?? null };
   });
 
   if (outcome.verdict !== 'applied') return outcome satisfies CallbackVerdict;
+  // A prompt that was paid is joined to its confirmation if that has already arrived. Its own
+  // transaction, after this one, so the receipt lock is always taken before any row lock.
+  if (outcome.success && PROMPT_TYPES.includes(outcome.type)) await linkPromptReceipt(deps.db, outcome.receipt);
   // Feature 8: a settled request is the operator working, so it clears the two-try guard; a
   // credential-class failure counts against it instead.
   if (outcome.success) await clearOperatorFailures(deps.db, outcome.operatorId);

@@ -28,6 +28,9 @@ export function createWebhookWriter(deps: { db: Db; events: EventHub; webhooks: 
     await withOrg(org, async () => {
       const r = await getRequest(deps.db, id, deps.egressIps ?? []);
       if (!r || !LEDGER_TYPES.includes(r.type)) return;
+      // A confirmation that answers a prompt a key asked for carries that key, but the key has already
+      // been told by the prompt's own notice. A second one, for a different row id, could credit twice.
+      if (r.promptId && r.apiKeyId) return;
       await deps.webhooks.enqueue('request.' + r.status, {
         event: 'request.' + r.status,
         id: r.id,

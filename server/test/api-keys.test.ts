@@ -121,4 +121,18 @@ describe('API keys', () => {
     expect((await request(app).get('/api/requests').set({ Authorization: 'Bearer not-a-key' })).status).toBe(401);
     expect((await request(app).get('/api/requests').set({ Authorization: `Bearer studio_000000000000_${'x'.repeat(43)}` })).status).toBe(401);
   });
+
+  it('is never written where a person belongs: a case file and a refusal are a person\'s, and say so', async () => {
+    const op = await make('Ops', 'operator');
+    const [row] = await deps.db.query<{ id: string }>(
+      `INSERT INTO requests(type, originator_conversation_id, status, amount_cents, recipient_kind, recipient_value) VALUES ('b2c','OC-KEY-1','awaiting_approval',100,'phone','254700123456') RETURNING id`);
+    const kase = await request(app).post(`/api/requests/${row!.id}/case`).set({ Authorization: `Bearer ${op.secret}` }).send({ title: 'x' });
+    expect(kase.status).toBe(403);
+    expect(kase.body.error.code).toBe('person_only');
+    const approver = await make('Checker', 'approver');
+    const refused = await request(app).post(`/api/approvals/${row!.id}/refuse`).set({ Authorization: `Bearer ${approver.secret}` }).send({ reason: 'no' });
+    expect(refused.status).toBe(403);
+    expect(refused.body.error.code).toBe('person_only');
+    expect((await deps.db.query<{ status: string }>('SELECT status FROM requests WHERE id=$1', [row!.id]))[0]!.status).toBe('awaiting_approval');
+  });
 });

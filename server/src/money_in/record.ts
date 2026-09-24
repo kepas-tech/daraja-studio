@@ -5,6 +5,7 @@ import type { EventHub } from '../events/hub.js';
 import { fromClient, matchAccount } from '../businesses/match.js';
 import { createFeesService } from '../fees/service.js';
 import { joinPersonName, personName } from '../util/names.js';
+import { linkByReceipt, receiptLock } from './link.js';
 
 /** Daraja's `TransTime` is `YYYYMMDDHHmmss` in East Africa Time. */
 export function transTimeToDate(t: string): Date | null {
@@ -41,7 +42,7 @@ export async function recordC2b(deps: { db: Db; events: EventHub; cache?: Cache 
   // amount with no band stores nothing, never a zero that would read as free.
   const chargeCents = await createFeesService({ db: deps.db }).chargeFor('c2b', amountCents);
   const out = await deps.db.tx(async (c) => {
-    await c.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`c2b:${receipt}`]);
+    await c.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [receiptLock(receipt)]);
     const existing = await c.query<{ id: string }>(`SELECT id FROM requests WHERE type IN ('c2b','bonga') AND receipt=$1 LIMIT 1`, [receipt]);
     if (existing.rows[0]) return { verdict: 'duplicate' as const, requestId: existing.rows[0].id };
     // Brief 2, item 1: the account number names the business (first three digits) and the account
@@ -74,6 +75,10 @@ export async function recordC2b(deps: { db: Db; events: EventHub; cache?: Cache 
         JSON.stringify({ shortCode: p.shortCode, transTime: p.transTime, invoiceNumber: p.invoiceNumber, thirdPartyTransId: p.thirdPartyTransId, orgAccountBalance: p.orgAccountBalance ?? null, foundByCheck: source === 'poll', firstName: p.firstName, middleName: p.middleName, lastName: p.lastName }),
         transTimeToDate(p.transTime), source, receipt, businessId, accountId, chargeCents],
     );
+    // The prompt that asked for this money, if Studio sent one and it has already been answered, is
+    // joined to this row here, under the same receipt lock: the confirmation is the row that counts,
+    // and it takes the business, account, key and caller's reference the prompt carried.
+    await linkByReceipt(c, receipt);
     return { verdict: 'applied' as const, requestId: ins.rows[0].id };
   });
   if (out.verdict === 'applied' && !opts.silent) await deps.events.publish('request.updated', { id: out.requestId, status: 'completed' });

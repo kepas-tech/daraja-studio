@@ -133,8 +133,9 @@ describe('reports', () => {
   it('counts a paid prompt and its confirmation once, not twice', async () => {
     // What sinro's first Studio top-up left behind: the prompt, completed, and the confirmation
     // Safaricom posted for the same money, one receipt between them.
-    await addRequest({ type: 'stk', subtype: null, amount_cents: 1000, receipt: 'UIO498FXH8' });
-    await addRequest({ type: 'c2b', subtype: null, originator_conversation_id: 'c2b:UIO498FXH8', amount_cents: 1000, receipt: 'UIO498FXH8' });
+    const prompt = await addRequest({ type: 'stk', subtype: null, amount_cents: 1000, receipt: 'UIO498FXH8' });
+    const conf = await addRequest({ type: 'c2b', subtype: null, originator_conversation_id: 'c2b:UIO498FXH8', amount_cents: 1000, receipt: 'UIO498FXH8', prompt_id: prompt });
+    await deps.db.query(`UPDATE requests SET confirmation_id=$2 WHERE id=$1`, [prompt, conf]);
     // A prompt with no confirmation behind it still counts on its own.
     await addRequest({ type: 'stk', subtype: null, amount_cents: 500, receipt: 'UIO498FXH9' });
     const sum = (await h(request(app).get('/api/reports/summary'))).body;

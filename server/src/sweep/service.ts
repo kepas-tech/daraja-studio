@@ -1,4 +1,5 @@
 import { currentOrgId, type Db } from '../db/pool.js';
+import { countedIn } from '../money_in/link.js';
 import type { EventHub } from '../events/hub.js';
 import type { MoneyOutService } from '../money_out/service.js';
 import type { FeesService } from '../fees/service.js';
@@ -201,7 +202,7 @@ export function createSweepService(deps: {
     return deps.db.query<PaymentRow>(
       `SELECT r.id, r.receipt, r.amount_cents, r.created_at, r.type, a.full_number
          FROM requests r LEFT JOIN accounts a ON a.id = r.account_id
-        WHERE r.org_id = $1 AND r.business_id = $2 AND r.status = 'completed' AND r.type = ANY($3)
+        WHERE r.org_id = $1 AND r.business_id = $2 AND r.status = 'completed' AND r.type = ANY($3) AND ${countedIn('r')}
         ORDER BY r.created_at ASC, r.id ASC`,
       [org(), businessId, MONEY_IN_TYPES]);
   }
@@ -212,11 +213,15 @@ export function createSweepService(deps: {
       `SELECT COALESCE(SUM(gross_cents),0) AS gross, COALESCE(SUM(fee_cents),0) AS fee
          FROM sweeps WHERE org_id = $1 AND business_id = $2 AND state = ANY($3)`,
       [org(), businessId, CLAIMED]);
-    const rows = await deps.db.query<{ request_id: string }>(
-      `SELECT sp.request_id FROM sweep_payments sp JOIN sweeps s ON s.id = sp.sweep_id
+    // A prompt swept before its confirmation arrived has handed the count to that confirmation
+    // (money_in/link.ts), so the confirmation is the same money, already taken.
+    const rows = await deps.db.query<{ request_id: string; confirmation_id: string | null }>(
+      `SELECT sp.request_id, r.confirmation_id FROM sweep_payments sp JOIN sweeps s ON s.id = sp.sweep_id
+         LEFT JOIN requests r ON r.id = sp.request_id
         WHERE sp.org_id = $1 AND s.business_id = $2 AND s.state = ANY($3)`,
       [org(), businessId, CLAIMED]);
-    return { grossCents: Number(sum?.gross ?? 0), feesCents: Number(sum?.fee ?? 0), paymentIds: rows.map((r) => r.request_id) };
+    const paymentIds = rows.flatMap((r) => (r.confirmation_id ? [r.request_id, r.confirmation_id] : [r.request_id]));
+    return { grossCents: Number(sum?.gross ?? 0), feesCents: Number(sum?.fee ?? 0), paymentIds };
   }
 
   /**

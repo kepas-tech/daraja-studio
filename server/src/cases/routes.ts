@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { personOnly } from '../http/actor.js';
 import { z } from 'zod';
 import type { AppDeps } from '../app.js';
 import { requireAuth, requireCsrf } from '../auth/middleware.js';
@@ -36,7 +37,7 @@ export function requestCaseRoutes(deps: AppDeps): Router {
   r.post('/', requirePermission(deps.db, 'cases.manage'), async (req, res, next) => {
     try {
       const b = parse(openSchema, req.body);
-      res.status(201).json(await deps.cases.open(paymentId(req), b.title, { personId: req.person!.id, ip: clientIp(req) }));
+      res.status(201).json(await deps.cases.open(paymentId(req), b.title, { personId: personOnly(req), ip: clientIp(req) }));
     } catch (e) { next(e); }
   });
   return r;
@@ -51,7 +52,7 @@ export function caseRoutes(deps: AppDeps): Router {
       const id = String(req.params.id);
       if (!isUuid(id)) throw new HttpError(404, 'not_found', 'That case does not exist.');
       const b = parse(noteSchema, req.body);
-      res.json(await deps.cases.addNote(id, b.note, { personId: req.person!.id, ip: clientIp(req) }));
+      res.json(await deps.cases.addNote(id, b.note, { personId: personOnly(req), ip: clientIp(req) }));
     } catch (e) { next(e); }
   });
   r.post('/:id/close', async (req, res, next) => {
@@ -59,7 +60,7 @@ export function caseRoutes(deps: AppDeps): Router {
       const id = String(req.params.id);
       if (!isUuid(id)) throw new HttpError(404, 'not_found', 'That case does not exist.');
       const b = parse(closeSchema, req.body);
-      res.json(await deps.cases.close(id, b.outcome, { personId: req.person!.id, ip: clientIp(req) }));
+      res.json(await deps.cases.close(id, b.outcome, { personId: personOnly(req), ip: clientIp(req) }));
     } catch (e) { next(e); }
   });
   return r;

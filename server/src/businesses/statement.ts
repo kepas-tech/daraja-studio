@@ -1,4 +1,5 @@
 import type { Db } from '../db/pool.js';
+import { countedIn } from '../money_in/link.js';
 import { currentOrgId } from '../db/pool.js';
 import { HttpError } from '../util/errors.js';
 import { audit } from '../audit/log.js';
@@ -175,7 +176,7 @@ export function createStatementService(deps: { db: Db }): StatementService {
     const ids = rows.map((r) => r.id);
     const numbers = rows.map((r) => r.full_number);
     const [money] = await deps.db.query<{ in_cents: string; out_cents: string }>(
-      `SELECT COALESCE(SUM(amount_cents) FILTER (WHERE type = ANY($2::text[]) AND status = 'completed'), 0)::bigint AS in_cents,
+      `SELECT COALESCE(SUM(amount_cents) FILTER (WHERE type = ANY($2::text[]) AND status = 'completed' AND ${countedIn('')}), 0)::bigint AS in_cents,
               COALESCE(SUM(amount_cents) FILTER (WHERE type = ANY($3::text[]) AND status IN ('sent','completed')), 0)::bigint AS out_cents
          FROM requests WHERE account_id = ANY($1::uuid[])`, [ids, INCOMING_TYPES, MONEY_TYPES]);
     const [inv] = await deps.db.query<{ invoiced: string; unpaid: string; n: number }>(
@@ -216,7 +217,7 @@ export function createStatementService(deps: { db: Db }): StatementService {
     const nameOf = new Map(accounts.map((r) => [r.id, r.name]));
     const money = await deps.db.query<{ id: string; type: string; subtype: string | null; status: string; amount_cents: string; receipt: string | null; created_at: Date; account_id: string }>(
       `SELECT id, type, subtype, status, amount_cents, receipt, created_at, account_id FROM requests
-        WHERE account_id = ANY($1::uuid[]) ORDER BY created_at`, [ids]);
+        WHERE account_id = ANY($1::uuid[]) AND ${countedIn('')} ORDER BY created_at`, [ids]);
     const invoices = await deps.db.query<{ id: string; external_reference: string; billed_period: string; amount_cents: string; paid_cents: string; status: string; sent_at: Date; account_reference: string }>(
       `SELECT id, external_reference, billed_period, amount_cents, paid_cents, status, sent_at, account_reference FROM customer_invoices
         WHERE account_reference = ANY($1::text[]) ORDER BY sent_at`, [numbers]);

@@ -1,4 +1,5 @@
 import type { Db } from '../db/pool.js';
+import { countedIn } from '../money_in/link.js';
 import { HttpError } from '../util/errors.js';
 import type { Settings, Env } from '../settings/store.js';
 import type { DarajaFactory } from '../sdk/client.js';
@@ -87,8 +88,8 @@ function pulledRecord(t: Record<string, unknown>): MissingRow | null {
 
 export function createReconcileService(deps: { db: Db; settings: Settings; daraja: DarajaFactory }): ReconcileService {
   const IN_TYPES = [...COLLECT_TYPES, ...MONEY_IN_TYPES];
-  const STUDIO_ROWS = 'SELECT id, type, receipt, amount_cents, created_at, account_reference FROM requests WHERE type = ANY($1::text[]) AND status = $2 AND created_at >= $3 ORDER BY created_at';
-  const MOVED = 'SELECT COALESCE(SUM(amount_cents) FILTER (WHERE type = ANY($3::text[]) AND status = $5), 0)::bigint AS in_cents, COALESCE(SUM(amount_cents) FILTER (WHERE type = ANY($4::text[]) AND status = ANY($6::text[])), 0)::bigint AS out_cents, COALESCE(SUM(charge_cents), 0)::bigint AS charge_cents, COUNT(*) FILTER (WHERE type = ANY($3::text[]) AND status = $5)::int AS in_n, COUNT(*) FILTER (WHERE type = ANY($4::text[]) AND status = ANY($6::text[]))::int AS out_n FROM requests WHERE created_at > $1 AND created_at <= $2';
+  const STUDIO_ROWS = `SELECT id, type, receipt, amount_cents, created_at, account_reference FROM requests WHERE type = ANY($1::text[]) AND status = $2 AND created_at >= $3 AND ${countedIn('')} ORDER BY created_at`;
+  const MOVED = `SELECT COALESCE(SUM(amount_cents) FILTER (WHERE type = ANY($3::text[]) AND status = $5 AND ${countedIn('')}), 0)::bigint AS in_cents, COALESCE(SUM(amount_cents) FILTER (WHERE type = ANY($4::text[]) AND status = ANY($6::text[])), 0)::bigint AS out_cents, COALESCE(SUM(charge_cents), 0)::bigint AS charge_cents, COUNT(*) FILTER (WHERE type = ANY($3::text[]) AND status = $5 AND ${countedIn('')})::int AS in_n, COUNT(*) FILTER (WHERE type = ANY($4::text[]) AND status = ANY($6::text[]))::int AS out_n FROM requests WHERE created_at > $1 AND created_at <= $2`;
 
   return {
     async check(days) {
