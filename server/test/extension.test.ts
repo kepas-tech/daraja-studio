@@ -28,7 +28,7 @@ const fixtureEntry = path.join(fixtureDir, 'index.js');
 const broken = (file: string) => path.join(fixtureDir, 'broken', file);
 
 /** The core's own declarations, as they stand in the registry the app is built from. */
-const coreKeys = ['contacts', 'businesses', 'statements', 'invoices', 'people', 'approvals', 'reports', 'reconcile', 'cases', 'reversals', 'standing_orders', 'express_checkout', 'bonga', 'notifications', 'developer', 'feed', 'sweep', 'scheduled_payments', 'custody'];
+const coreKeys = ['contacts', 'businesses', 'statements', 'invoices', 'people', 'approvals', 'reports', 'reconcile', 'cases', 'reversals', 'standing_orders', 'express_checkout', 'bonga', 'notifications', 'developer', 'feed', 'sweep', 'scheduled_payments', 'custody', 'routing'];
 
 /** What the boot hands the loader. In the running studio these are the real ones. */
 const host = (deps: AppDeps) => ({ db: deps.db, settings: deps.settings, orgs: deps.orgs });
@@ -48,7 +48,7 @@ describe('an installed package', () => {
       // And every part still reads as it did: nothing off but the one declared and not built, and
       // no menu entry hidden by a package that is not installed.
       const me = (await request(app).get('/api/auth/me').set('Cookie', cookie)).body;
-      expect(me.modules.off).toEqual(['custody']);
+      expect(me.modules.off).toEqual(['custody', 'routing']);
       expect(me.modules.menuOff).toEqual([]);
       // The namespace a package would take is empty until one does, so it cannot collide with the
       // product: nothing the studio mounts answers under it, with a session or without one.

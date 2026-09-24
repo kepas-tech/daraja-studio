@@ -162,6 +162,13 @@ export const MODULES: ModuleDecl[] = [
     hides: 'nothing yet \u2014 it is not built',
     needs: [], built: false,
   },
+  {
+    key: 'routing', name: 'Payment routing',
+    sentence: 'Payments to one shared paybill reach the right business, app and person by the words and numbers customers type: names like JOHN, app prefixes, and phone numbers. Not built yet.',
+    permissions: [], menu: [],
+    hides: 'nothing yet \u2014 it is not built',
+    needs: ['businesses'], built: false,
+  },
 ];
 
 /**
@@ -203,7 +210,7 @@ export const TIERS: TierDecl[] = [
   {
     key: 'platform', name: 'Platform',
     sentence: 'Everything in Business, plus the developer surface and the payment feed \u2014 and the place custody will hang when it is built.',
-    on: [...everyday, 'developer', 'feed'], planned: ['custody'],
+    on: [...everyday, 'developer', 'feed'], planned: ['routing', 'custody'],
   },
 ];
 

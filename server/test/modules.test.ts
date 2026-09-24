@@ -15,9 +15,9 @@ afterAll(async () => { await deps.events.stop(); await close(); });
 
 const PW = 'correct horse';
 /** Every part of Studio that exists today, plus the two declared for later and not built. */
-const KEYS = ['contacts', 'businesses', 'statements', 'invoices', 'people', 'approvals', 'reports', 'reconcile', 'cases', 'reversals', 'standing_orders', 'express_checkout', 'bonga', 'notifications', 'developer', 'feed', 'sweep', 'scheduled_payments', 'custody'];
+const KEYS = ['contacts', 'businesses', 'statements', 'invoices', 'people', 'approvals', 'reports', 'reconcile', 'cases', 'reversals', 'standing_orders', 'express_checkout', 'bonga', 'notifications', 'developer', 'feed', 'sweep', 'scheduled_payments', 'custody', 'routing'];
 /** The parts that are declared and not built: listed, never switchable, with nothing behind them. */
-const NOT_BUILT = ['custody'];
+const NOT_BUILT = ['custody', 'routing'];
 /** The menu keys the web knows about (web/src/copy/en.ts). A module may only claim one of these. */
 const NAV_KEYS = ['home', 'notifications', 'history', 'reports', 'stk', 'money-in', 'qr', 'invoices', 'standing-orders', 'express', 'bonga', 'sweep', 'send', 'schedules', 'contacts', 'bulk', 'approvals', 'reverse', 'api-keys', 'webhooks', 'businesses', 'who-did-what', 'settings', 'advanced', 'guide', 'not-possible'];
 
@@ -272,7 +272,7 @@ describe('modules and tiers', () => {
     const planned = (k: string) => v.tiers.find((t) => t.key === k)!.planned;
     expect(planned('simple')).toEqual([]);
     expect(planned('business')).toEqual([]);
-    expect(planned('platform')).toEqual(['custody']);
+    expect(planned('platform')).toEqual(['routing', 'custody']);
     for (const t of v.tiers) for (const key of NOT_BUILT) expect(t.on, t.key).not.toContain(key);
     const on = (k: string) => v.tiers.find((t) => t.key === k)!.on;
     expect(on('simple')).not.toContain('scheduled_payments');

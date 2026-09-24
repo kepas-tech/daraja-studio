@@ -103,4 +103,47 @@ describe('an app\'s own users, as accounts', () => {
     expect(sent[0]!.keyId).toBe(made.key.id);
     expect(sent[0]!.payload).toMatchObject({ amountCents: 5000, receipt: 'UIO0000077', account: { externalRef: 'user-77', number: account.fullNumber }, business: { id: sinro } });
   });
+
+  const direct = (ref: string, receipt: string) => recordC2b({ db: deps.db, events: deps.events }, {
+    transactionType: 'Pay Bill', transId: receipt, transTime: '20260925101742', amount: 50, shortCode: '600999', billRefNumber: ref,
+    invoiceNumber: '', orgAccountBalance: '', thirdPartyTransId: '', msisdn: '254700123456', firstName: 'JANE', middleName: '', lastName: 'DOE',
+  } as unknown as C2bPayment, 'callback', { silent: true });
+  const capture = () => {
+    const sent: { event: string; payload: Record<string, unknown>; keyId: string | null }[] = [];
+    const writer = createWebhookWriter({
+      db: deps.db, events: deps.events,
+      webhooks: { enqueue: async (event: string, payload: Record<string, unknown>, _id: string, keyId: string | null) => { sent.push({ event, payload, keyId }); return { id: 'd1' }; } } as never,
+    });
+    return { sent, writer };
+  };
+
+  it('the key made for a business\'s app hears its payments first, and the notice names the app', async () => {
+    const older = (await h(request(app).post('/api/keys')).send({ name: 'old sinro', role: 'collector', businessId: sinro, webhookUrl: 'https://old.example/hook' })).body;
+    const newer = (await h(request(app).post('/api/keys')).send({ name: 'sinro app', role: 'collector', businessId: sinro, webhookUrl: 'https://sinro.example/hook' })).body;
+    const [row] = await deps.db.query<{ id: string }>(`INSERT INTO apps(key, name, business_id) VALUES ('sinro', 'SINRO', $1) RETURNING id`, [sinro]);
+    await deps.db.query(`UPDATE api_keys SET app_id=$2 WHERE id=$1`, [newer.key.id, row!.id]);
+    const account = (await request(app).put('/api/accounts/by-ref/user-5').set(as(older.secret)).send({})).body;
+    const out = await direct(account.fullNumber, 'UIO0000055');
+    const { sent, writer } = capture();
+    await writer.handle({ type: 'request.updated', orgId: deps.db.getFallbackOrg(), payload: { id: out.requestId } } as never);
+    expect(sent.map((x) => [x.event, x.keyId])).toEqual([['payment.received', newer.key.id]]);
+    expect(sent[0]!.payload.app).toEqual({ key: 'sinro', name: 'SINRO' });
+  });
+
+  it('a payment moved to another business tells the app that had it and the app that has it now', async () => {
+    const sinroKey = (await h(request(app).post('/api/keys')).send({ name: 'sinro app', role: 'collector', businessId: sinro, webhookUrl: 'https://sinro.example/hook' })).body;
+    const kepasKey = (await h(request(app).post('/api/keys')).send({ name: 'kepas app', role: 'collector', businessId: kepas, webhookUrl: 'https://kepas.example/hook' })).body;
+    const account = (await request(app).put('/api/accounts/by-ref/user-6').set(as(sinroKey.secret)).send({})).body;
+    const out = await direct(account.fullNumber, 'UIO0000066');
+    const moved = await h(request(app).post('/api/businesses/assign/' + out.requestId)).send({ businessId: kepas });
+    expect(moved.status).toBe(200);
+    const { sent, writer } = capture();
+    await writer.handle({ type: 'payment.assigned', orgId: deps.db.getFallbackOrg(), payload: { id: out.requestId, before: { businessId: sinro, accountId: account.id } } } as never);
+    expect(sent.map((x) => x.event)).toEqual(['payment.updated', 'payment.updated']);
+    expect(new Set(sent.map((x) => x.keyId))).toEqual(new Set([sinroKey.key.id, kepasKey.key.id]));
+    expect(sent[0]!.payload).toMatchObject({ receipt: 'UIO0000066', business: { id: kepas }, account: null, previous: { business: { id: sinro }, accountId: account.id } });
+    // The move itself was published for the writer, once.
+    const audit = await deps.db.query(`SELECT 1 FROM audit_log WHERE action='money_in.assigned' AND target=$1`, [out.requestId]);
+    expect(audit.length).toBe(1);
+  });
 });

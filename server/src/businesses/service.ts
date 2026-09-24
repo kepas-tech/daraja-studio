@@ -544,6 +544,11 @@ export function createBusinessesService(deps: { db: Db; settings: Settings; even
         before: { businessId: row.business_id, accountId: row.account_id },
         after: { businessId, code: business.code.trim(), accountId, fullNumber }, ip: actor.ip,
       });
+      // The app that was told about this payment, and the one it now belongs to, hear about the change
+      // (webhooks/writer.ts sends them payment.updated).
+      if (row.business_id !== businessId || row.account_id !== accountId) {
+        await deps.events.publish('payment.assigned', { id: requestId, before: { businessId: row.business_id, accountId: row.account_id } });
+      }
       const view = await getRequest(deps.db, requestId, egressIps);
       if (!view) throw new HttpError(404, 'not_found', 'That payment does not exist.');
       return view;
