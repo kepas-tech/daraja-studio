@@ -16,6 +16,8 @@ const WHAT_TO_DO: Record<string, string> = {
   'stk:1': 'The customer does not have enough M-Pesa balance. Ask them to top up, then send the request again.',
   'stk:1037': 'The customer did not answer the prompt. Ask them to keep the phone unlocked and try again.',
   'stk:1032': 'The customer cancelled the prompt. Nothing was charged.',
+  // Observed live on 24 September 2026: a push made with a passkey that does not belong to the paybill.
+  'stk:4999': 'In Settings, enter the Lipa na M-Pesa passkey Safaricom sent for this paybill again, and press Prove. Nothing was charged.',
   'b2c:1': 'Your Utility account float is too low. Move float from Working to Utility (or top up), then send again.',
   'b2b:1': 'The Working account does not have enough funds. Fund it, then try again.',
   'b2b:21': 'Safaricom says this operator is not allowed to do this. Check its roles in the Safaricom portal.',
@@ -38,6 +40,7 @@ const WHAT_TO_DO: Record<string, string> = {
 // observed live rather than documented — kept tiny and only for codes with a WHAT_TO_DO entry
 // above, so the two always ship together.
 const MEANING_FALLBACK: Record<string, string> = {
+  'stk:4999': 'Safaricom refused the request before any prompt was sent. For a payment prompt this is usually a passkey that does not match this paybill.',
   'b2c:403.002.1001': 'This Daraja app is not allowed to use Business to Customer (B2C) payments in this environment. Balance and lookups can still work while this is the case.',
   'balance:2001': "Safaricom does not recognise this API operator's name or password for this shortcode.",
   // See the matching WHAT_TO_DO override above: a v3 send only, where the app is not subscribed

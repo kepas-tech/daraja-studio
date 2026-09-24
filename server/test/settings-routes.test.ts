@@ -105,6 +105,16 @@ describe('settings routes', () => {
     expect(r.body.error.code).toBe('step_up_required');
   });
 
+  it('a different passkey is no longer proven; saving the same one again keeps the proof', async () => {
+    const save = (passkey: string) => request(app).post('/api/settings/environments/sandbox/passkey').set('Cookie', cookie).set('x-csrf-token', csrf).send({ passkey, password: 'correct horse' });
+    expect((await save('the-right-one')).status).toBeLessThan(300);
+    await deps.settings.set('env.sandbox.passkeyProvenAt', new Date().toISOString());
+    await save('the-right-one');
+    expect(await deps.settings.get('env.sandbox.passkeyProvenAt')).toBeTruthy();
+    await save('a-wrong-one');
+    expect(await deps.settings.get('env.sandbox.passkeyProvenAt')).toBeFalsy();
+  });
+
   // A4
   it('org save requires step-up: 403 without a password, 204 with the correct one', async () => {
     const noOrg = await request(app).put('/api/settings/org').set('Cookie', cookie).set('x-csrf-token', csrf)

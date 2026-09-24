@@ -314,6 +314,11 @@ export function createSettingsService(deps: { db: Db; config: Config; settings: 
     },
 
     async setPasskey(env, passkey, actor) {
+      // A different passkey has not been proven by the push that proved the old one. Leaving the old
+      // proof in place is how a wrong passkey saved on 17 September went on looking proven while
+      // every push was refused.
+      const before = await deps.settings.get(`env.${env}.passkey`);
+      if (before !== passkey.trim()) await deps.settings.delete(`env.${env}.passkeyProvenAt`);
       await deps.settings.set(`env.${env}.passkey`, passkey.trim());
       deps.daraja.invalidate();
       await audit(deps.db, { personId: actor.personId, action: 'settings.passkey', after: { environment: env }, ip: actor.ip });
