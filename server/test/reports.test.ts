@@ -130,6 +130,19 @@ describe('reports', () => {
     expect(narrowed.byBusiness).toEqual([]);
   });
 
+  it('counts a paid prompt and its confirmation once, not twice', async () => {
+    // What sinro's first Studio top-up left behind: the prompt, completed, and the confirmation
+    // Safaricom posted for the same money, one receipt between them.
+    await addRequest({ type: 'stk', subtype: null, amount_cents: 1000, receipt: 'UIO498FXH8' });
+    await addRequest({ type: 'c2b', subtype: null, originator_conversation_id: 'c2b:UIO498FXH8', amount_cents: 1000, receipt: 'UIO498FXH8' });
+    // A prompt with no confirmation behind it still counts on its own.
+    await addRequest({ type: 'stk', subtype: null, amount_cents: 500, receipt: 'UIO498FXH9' });
+    const sum = (await h(request(app).get('/api/reports/summary'))).body;
+    expect(sum.inCents).toBe(1500);
+    expect(sum.inCount).toBe(2);
+    expect((await view('?days=7')).totals).toMatchObject({ inCents: 1500, inCount: 2 });
+  });
+
   it('counts the last 24 hours for the strip on Home', async () => {
     await addRequest({ type: 'c2b', status: 'completed', amount_cents: 12000, created_at: hoursAgo(1) });
     await addRequest({ type: 'c2b', status: 'completed', amount_cents: 99000, created_at: hoursAgo(30) });

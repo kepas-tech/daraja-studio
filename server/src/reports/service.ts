@@ -25,7 +25,16 @@ const LEDGER_TYPES: string[] = [...IN_TYPES, ...OUT_TYPES];
  * never did. Money in counts only what actually arrived. The argument is the caller's own
  * placeholder for that query's list of types, so a query that needs both directions passes two.
  */
-const inMoney = (p: string) => `r.type = ANY(${p}::text[]) AND r.status = 'completed'`;
+/**
+ * A payment Studio asked for (an STK prompt, say) and the confirmation Safaricom then posts for the
+ * same money are two rows with one receipt. Money in counts the confirmation, which carries the
+ * business the money belongs to, and not the request as well: counting both doubled every prompt
+ * that was paid while confirmations were also arriving (first seen 24 September 2026).
+ */
+const ARRIVED = `'{${MONEY_IN_TYPES.join(',')}}'::text[]`;
+const inMoney = (p: string) => `r.type = ANY(${p}::text[]) AND r.status = 'completed'
+  AND NOT (r.receipt IS NOT NULL AND r.type <> ALL(${ARRIVED})
+           AND EXISTS (SELECT 1 FROM requests m WHERE m.receipt = r.receipt AND m.org_id = r.org_id AND m.type = ANY(${ARRIVED})))`;
 const outMoney = (p: string) => `r.type = ANY(${p}::text[]) AND r.status IN ('sent','completed')`;
 
 /** The line the failure list shows when Safaricom sent no reason of its own. */
@@ -193,9 +202,9 @@ export function createReportsService(deps: { db: Db }): ReportsService {
            FROM requests r
           WHERE r.type = ANY($1::text[]) AND r.created_at > now() - interval '24 hours'`, [LEDGER_TYPES, IN_TYPES, OUT_TYPES]);
       const [month] = await deps.db.query<{ cents: string }>(
-        `SELECT COALESCE(SUM(amount_cents), 0)::bigint AS cents FROM requests
-          WHERE type = ANY($1::text[]) AND status = 'completed'
-            AND created_at >= date_trunc('month', now() AT TIME ZONE 'Africa/Nairobi') AT TIME ZONE 'Africa/Nairobi'`,
+        `SELECT COALESCE(SUM(r.amount_cents), 0)::bigint AS cents FROM requests r
+          WHERE ${inMoney('$1')}
+            AND r.created_at >= date_trunc('month', now() AT TIME ZONE 'Africa/Nairobi') AT TIME ZONE 'Africa/Nairobi'`,
         [IN_TYPES]);
       // Open invoices: what was asked for, less what has been paid. A cancelled or paid invoice is
       // not owed. Money Studio never held, and never will: this is a total of what people owe.
