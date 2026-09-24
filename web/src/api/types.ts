@@ -468,3 +468,18 @@ export interface BusinessSweep {
   timetable: string; owed: SweepOwed; minCents: number; waiting: SweepWaiting | null; sweeps: SweepRow[];
 }
 export interface SweepList { items: BusinessSweep[]; minCents: number }
+
+/** Scheduled payments (`/api/schedules`). */
+export type Every = 'daily' | 'weekly' | 'fortnightly' | 'monthly';
+export type WeekendRule = 'on_day' | 'before' | 'skip';
+export interface ScheduleLineView { id: string; contactId: string; name: string; kind: 'phone' | 'till' | 'paybill'; destination: string | null; accountReference: string | null; amountCents: number; note: string | null; gone: boolean }
+export interface PayRunSummary { id: string; dueOn: string; payOn: string; state: string; totalCents: number; lineCount: number; reason: string | null; gapCents: number | null; createdAt: string; finishedAt: string | null }
+export interface ScheduleView {
+  id: string; name: string; state: 'active' | 'paused' | 'stopped' | 'finished'; every: Every; weekday: number; dayOfMonth: number; hour: number; weekendRule: WeekendRule;
+  phoneCommand: 'SalaryPayment' | 'BusinessPayment'; startOn: string; endOn: string | null; words: string;
+  totalCents: number; lines: ScheduleLineView[]; nextPayOn: string | null; upcoming: string[];
+  consentedBy: string | null; consentedAt: string; createdAt: string; lastRun: PayRunSummary | null;
+}
+export interface PayRunLineView { id: string; name: string; kind: string; destination: string; accountReference: string | null; amountCents: number; note: string | null; state: string; failure: string | null; requestId: string | null; receipt: string | null }
+export interface PayRunView extends PayRunSummary { scheduleId: string; scheduleName: string; lines: PayRunLineView[] }
+export interface ScheduleSummary { active: number; paused: number; next: { id: string; name: string; totalCents: number; people: number; payOn: string } | null }

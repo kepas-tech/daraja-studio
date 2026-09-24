@@ -78,6 +78,8 @@ import { registerModule, type ModuleDecl } from './modules/registry.js';
 import type { ModuleService } from './modules/service.js';
 import type { SweepService } from './sweep/service.js';
 import { sweepRoutes } from './sweep/routes.js';
+import type { ScheduleService } from './schedules/service.js';
+import { scheduleRoutes } from './schedules/routes.js';
 import { moduleRoutes } from './modules/routes.js';
 
 /** The package installed beside Studio, if there is one. */
@@ -246,6 +248,8 @@ export interface AppDeps {
   modules: ModuleService;
   /** Step three of nine: what arrives for a business, sent on to its own phone on its own timetable. */
   sweep: SweepService;
+  /** Scheduled payments: pay the same people on a timetable. */
+  schedules: ScheduleService;
   /** Brief 2, item 5b: the fingerprint ceremonies. Absent in tests that build the app without one. */
   webauthn?: WebauthnService;
   /** Feature 12: web push to the devices that subscribed. Absent in tests that build the app without it. */
@@ -346,6 +350,7 @@ export function buildApp(deps: AppDeps): express.Express {
   // address, because an account id already names its business; the design's paths are these.
   app.use('/api/businesses', businessesRoutes(deps));
   app.use('/api/sweep', sweepRoutes(deps));
+  app.use('/api/schedules', scheduleRoutes(deps));
   app.use('/api/business-types', businessTypesRoutes(deps));
   // Round 3, phase D-1: check nothing is missing. A read that reaches Safaricom for its record.
   app.use('/api/reconcile', reconcileRoutes(deps));

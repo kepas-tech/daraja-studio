@@ -10,6 +10,7 @@ import type { OrgStatus } from '../orgs/service.js';
 import type { MoneyInService } from '../money_in/service.js';
 import type { BulkService } from '../money_out/bulk.js';
 import type { SweepService } from '../sweep/service.js';
+import type { ScheduleService } from '../schedules/service.js';
 import type { CriticalBuzzer } from '../notifications/buzz.js';
 import type { createWebhookDispatcher } from '../webhooks/dispatcher.js';
 import type { JobHandler } from './loop.js';
@@ -161,6 +162,8 @@ export function buildHandlers(
     nameBackfill: { ask(opts?: { limit?: number }): Promise<unknown> };
     /** Step three of nine: what arrives for a business, sent on to its own phone. */
     sweep: Pick<SweepService, 'run'>;
+    /** Absent where a caller builds the handlers without scheduled payments. */
+    schedules?: Pick<ScheduleService, 'pass'>;
   },
 ): Record<string, JobHandler> {
   return {
@@ -190,6 +193,17 @@ export function buildHandlers(
         try { await deps.sweep.run(); } catch (e) { failed.push(org.id); throw e; }
       });
       if (failed.length) throw new Error(`sweep-through failed for organisation(s): ${failed.join(', ')}`);
+    },
+    // Every minute: scheduled payments. A run is keyed on its schedule and its date, so two passes,
+    // a restart or a clock slip can never pay the same date twice.
+    scheduled_payments: async () => {
+      const schedules = deps.schedules;
+      if (!schedules) return;
+      const failed: string[] = [];
+      await forEachOrg(deps.db, async (org) => {
+        try { await schedules.pass(); } catch (e) { failed.push(org.id); throw e; }
+      });
+      if (failed.length) throw new Error(`scheduled payments failed for organisation(s): ${failed.join(', ')}`);
     },
     housekeeping: housekeepingHandler({ db: deps.db }),
     daily: dailyHandler({ db: deps.db, settings: deps.settings, events: deps.events, moneyOut: deps.moneyOut }),

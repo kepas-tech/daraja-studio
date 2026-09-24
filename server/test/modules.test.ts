@@ -17,9 +17,9 @@ const PW = 'correct horse';
 /** Every part of Studio that exists today, plus the two declared for later and not built. */
 const KEYS = ['contacts', 'businesses', 'statements', 'invoices', 'people', 'approvals', 'reports', 'reconcile', 'cases', 'reversals', 'standing_orders', 'express_checkout', 'bonga', 'notifications', 'developer', 'feed', 'sweep', 'scheduled_payments', 'custody'];
 /** The parts that are declared and not built: listed, never switchable, with nothing behind them. */
-const NOT_BUILT = ['scheduled_payments', 'custody'];
+const NOT_BUILT = ['custody'];
 /** The menu keys the web knows about (web/src/copy/en.ts). A module may only claim one of these. */
-const NAV_KEYS = ['home', 'notifications', 'history', 'reports', 'stk', 'money-in', 'qr', 'invoices', 'standing-orders', 'express', 'bonga', 'sweep', 'send', 'contacts', 'bulk', 'approvals', 'reverse', 'api-keys', 'webhooks', 'businesses', 'who-did-what', 'settings', 'advanced', 'guide', 'not-possible'];
+const NAV_KEYS = ['home', 'notifications', 'history', 'reports', 'stk', 'money-in', 'qr', 'invoices', 'standing-orders', 'express', 'bonga', 'sweep', 'send', 'schedules', 'contacts', 'bulk', 'approvals', 'reverse', 'api-keys', 'webhooks', 'businesses', 'who-did-what', 'settings', 'advanced', 'guide', 'not-possible'];
 
 interface ModuleRow { key: string; name: string; sentence: string; on: boolean; built: boolean; switchable: boolean; changed: boolean; permissions: { key: string; label: string }[]; menu: string[]; hides: string; needs: { key: string; name: string; on: boolean }[]; heldBy: { key: string; name: string }[] }
 interface TierRow { key: string; name: string; sentence: string; on: string[]; planned: string[] }
@@ -113,6 +113,8 @@ describe('modules and tiers', () => {
   it('hides and refuses, never deletes: everything is there again when it is on', async () => {
     const made = await h(request(app).post('/api/contacts')).send({ kind: 'phone', name: 'Mama Njeri', phone: '0712345678' });
     expect(made.status).toBe(201);
+    // Scheduled payments stands on the contact book, so it goes off first.
+    expect((await set('scheduled_payments', false)).status).toBe(200);
     expect((await set('contacts', false)).status).toBe(200);
     expect((await h(request(app).get('/api/contacts'))).status).toBe(409);
     // The row itself is untouched, and so is the permission that governs writing one.
@@ -247,7 +249,7 @@ describe('modules and tiers', () => {
     expect((await set('invoices', false)).status).toBe(200);
   });
 
-  it('lists the two parts that are declared and not built, and refuses to switch either', async () => {
+  it('lists the part that is declared and not built, and refuses to switch it', async () => {
     const v = await view();
     for (const key of NOT_BUILT) {
       const m = await one(key);
@@ -258,20 +260,24 @@ describe('modules and tiers', () => {
       expect(refused.status, key).toBe(409);
       expect(refused.body.error.code, key).toBe('not_built');
     }
-    // Scheduled payments says exactly what it is and what it stands on, and money out is a part of
-    // Studio that is always on rather than a module with a switch.
+    // Scheduled payments is built now: it says what it is and what it stands on, and money out is a
+    // part of Studio that is always on rather than a module with a switch.
     const scheduled = await one('scheduled_payments');
-    expect(scheduled).toMatchObject({ name: 'Scheduled payments', sentence: 'Pay the same people on a timetable.' });
+    expect(scheduled).toMatchObject({ name: 'Scheduled payments', sentence: 'Pay the same people on a timetable.', built: true, on: true, menu: ['schedules'] });
     expect(scheduled.needs).toEqual([{ key: 'money_out', name: 'Money out', on: true }, { key: 'contacts', name: 'Contacts', on: true }]);
     expect(v.modules.find((m) => m.key === 'custody')!.sentence).toContain('balances');
 
-    // A tier has a place for them, or not: Simple has none of it, Business the schedules, Platform
-    // both — and none of them is on, because none of them is built.
+    // A tier has a place for custody, or not: only Platform does, and it is not on, because it is
+    // not built. Scheduled payments is on in Business and Platform and off in Simple.
     const planned = (k: string) => v.tiers.find((t) => t.key === k)!.planned;
     expect(planned('simple')).toEqual([]);
-    expect(planned('business')).toEqual(['scheduled_payments']);
-    expect(planned('platform')).toEqual(['scheduled_payments', 'custody']);
+    expect(planned('business')).toEqual([]);
+    expect(planned('platform')).toEqual(['custody']);
     for (const t of v.tiers) for (const key of NOT_BUILT) expect(t.on, t.key).not.toContain(key);
+    const on = (k: string) => v.tiers.find((t) => t.key === k)!.on;
+    expect(on('simple')).not.toContain('scheduled_payments');
+    expect(on('business')).toContain('scheduled_payments');
+    expect(on('platform')).toContain('scheduled_payments');
   });
 
   it('starts an organisation that has never chosen on Business, with the developer side off', async () => {

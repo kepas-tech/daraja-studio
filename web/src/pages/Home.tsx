@@ -15,6 +15,7 @@ import { STATUS_TONE } from '../components/RequestCard';
 import { copy } from '../copy/en';
 import { money } from '../format';
 import { PartyLine } from '../components/PartyLine';
+import { ScheduleLine } from '../components/ScheduleLine';
 import { plural, typeOf } from '../businessTypes';
 import type { BalanceView, BusinessSummaryRow, HomeSummary, Page, Problem, RequestView, SettingsView } from '../api/types';
 
@@ -23,7 +24,7 @@ const RELOAD_ON: readonly string[] = ['operator.updated', 'setup.updated', 'bala
 const QUICK: { key: string; to: string }[] = [{ key: 'send', to: '/send/phone' }, { key: 'stk', to: '/ask-to-pay' }, { key: 'history', to: '/history' }];
 
 export function Home() {
-  const { person, org, refresh } = useSession();
+  const { person, org, refresh, modules } = useSession();
   const [v, setV] = useState<SettingsView | null>(null);
   const [balance, setBalance] = useState<BalanceView | null | undefined>(undefined);
   const [recent, setRecent] = useState<RequestView[]>([]);
@@ -114,6 +115,7 @@ export function Home() {
           <p className="text-sm text-muted">{copy.home.today.waiting(today.pending)} · {copy.home.today.failed(today.failed)}</p>
         </div>
       )}
+      {!(modules?.off ?? []).includes('scheduled_payments') && <ScheduleLine />}
       {alerts.length === 0 && v && <p className="mb-6 text-sm text-muted">{copy.home.connected}</p>}
       {isOwner && v?.mode === 'sandbox' && (
         <Flash tone="neutral" className="mb-6" data-testid="sandbox-banner">

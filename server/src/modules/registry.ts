@@ -145,14 +145,14 @@ export const MODULES: ModuleDecl[] = [
     needs: ['money_out', 'businesses'], built: true,
   },
   {
-    // Declared for the B2B-and-schedules work that follows step one (design: scheduled-payments),
-    // and deliberately not built here: listed for the owner, never switchable, no routes, no screen.
-    // It stands on money out — the payments themselves — which is always on, and on the contact book.
+    // Design: scheduled-payments. It stands on money out — the payments themselves — which is always
+    // on, and on the contact book, which holds every payee. Off, it also stops the scheduler: every
+    // schedule is kept and none of them pays until it is back on.
     key: 'scheduled_payments', name: 'Scheduled payments',
     sentence: 'Pay the same people on a timetable.',
-    permissions: [], menu: [],
-    hides: 'nothing yet — it is not built',
-    needs: ['money_out', 'contacts'], built: false,
+    permissions: [], menu: ['schedules'],
+    hides: 'Scheduled payments, the line on Home, and every payment a schedule would make',
+    needs: ['money_out', 'contacts'], built: true,
   },
   {
     // Declared here so Platform has a place to hang it, and deliberately not built in step one.
@@ -187,7 +187,7 @@ export interface TierDecl {
   planned: string[];
 }
 
-const everyday = ['contacts', 'notifications', 'businesses', 'statements', 'invoices', 'people', 'approvals', 'reports', 'reconcile', 'cases', 'reversals', 'standing_orders', 'express_checkout', 'bonga', 'sweep'];
+const everyday = ['contacts', 'notifications', 'businesses', 'statements', 'invoices', 'people', 'approvals', 'reports', 'reconcile', 'cases', 'reversals', 'standing_orders', 'express_checkout', 'bonga', 'sweep', 'scheduled_payments'];
 
 export const TIERS: TierDecl[] = [
   {
@@ -197,13 +197,13 @@ export const TIERS: TierDecl[] = [
   },
   {
     key: 'business', name: 'Business',
-    sentence: 'Studio as it stands today: businesses and account numbers, statements and arrears, invoices, people and roles, approvals, reports, checking nothing is missing, case files, reversal requests.',
-    on: everyday, planned: ['scheduled_payments'],
+    sentence: 'Studio as it stands today: businesses and account numbers, statements and arrears, invoices, people and roles, approvals, reports, checking nothing is missing, case files, reversal requests, and scheduled payments.',
+    on: everyday, planned: [],
   },
   {
     key: 'platform', name: 'Platform',
     sentence: 'Everything in Business, plus the developer surface and the payment feed \u2014 and the place custody will hang when it is built.',
-    on: [...everyday, 'developer', 'feed'], planned: ['scheduled_payments', 'custody'],
+    on: [...everyday, 'developer', 'feed'], planned: ['custody'],
   },
 ];
 

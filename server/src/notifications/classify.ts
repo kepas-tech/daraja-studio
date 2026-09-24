@@ -141,6 +141,32 @@ export function classify(e: ClassifyInput): Classified | null {
   // Step three of nine: a business's money could not leave — the float is short, nobody has read it,
   // or Studio has no charge for the amount. The money is safe and still owed, and the owner is the
   // one who can move float across, which is why this is a line in the inbox and not a log entry.
+  // Scheduled payments: every run tells the owner afterwards, and a run the float refused or a date
+  // Studio missed says so loudly, because people were not paid.
+  if (e.type === 'alert' && (payload.kind === 'schedule_run' || payload.kind === 'schedule_refused' || payload.kind === 'schedule_missed')) {
+    const name = typeof payload.scheduleName === 'string' ? payload.scheduleName : 'A schedule';
+    const runId = typeof payload.runId === 'string' ? payload.runId : null;
+    const data = { runId, scheduleId: typeof payload.scheduleId === 'string' ? payload.scheduleId : null, href: runId ? '/schedules/runs/' + runId : '/schedules' };
+    const dedupeKey = 'schedule:' + (runId ?? 'run') + ':' + String(payload.kind) + ':' + String(payload.state ?? '');
+    if (payload.kind === 'schedule_refused') {
+      return { severity: 'critical', category: 'money_out', type: 'schedule.refused', title: 'Scheduled payment not sent',
+        body: name + ': ' + (typeof payload.reason === 'string' ? payload.reason : 'nobody was paid.'), data, dedupeKey };
+    }
+    if (payload.kind === 'schedule_missed') {
+      return { severity: 'critical', category: 'money_out', type: 'schedule.missed', title: 'Scheduled payment missed',
+        body: name + ' was due on ' + String(payload.payOn ?? 'a past date') + ' while Studio was not running. Nobody was paid; pay it by hand if it is still owed.', data, dedupeKey };
+    }
+    const failed = typeof payload.failed === 'number' ? payload.failed : 0;
+    const lines = typeof payload.lines === 'number' ? payload.lines : 0;
+    const total = typeof payload.totalCents === 'number' ? payload.totalCents : null;
+    return {
+      severity: failed > 0 ? 'critical' : 'success', category: 'money_out', type: 'schedule.run',
+      title: failed === 0 ? 'Scheduled payment done' : 'Scheduled payment: some failed',
+      body: name + ': ' + kes(total) + ' to ' + lines + (lines === 1 ? ' payee' : ' payees') + (failed > 0 ? ', ' + failed + ' failed. Open the run to see why.' : ', all paid.'),
+      data, dedupeKey,
+    };
+  }
+
   if (e.type === 'alert' && payload.kind === 'sweep_held') {
     const who = typeof payload.businessName === 'string' ? payload.businessName : 'A business';
     const owedCents = typeof payload.owedCents === 'number' ? payload.owedCents : null;

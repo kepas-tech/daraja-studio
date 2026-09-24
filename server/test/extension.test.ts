@@ -45,10 +45,10 @@ describe('an installed package', () => {
       const view = await request(app).get('/api/modules').set('Cookie', cookie).set('x-csrf-token', csrf);
       expect(view.status).toBe(200);
       expect(view.body.modules.map((m: { key: string }) => m.key)).toEqual(coreKeys);
-      // And every part still reads as it did: nothing off but the two declared and not built, and
+      // And every part still reads as it did: nothing off but the one declared and not built, and
       // no menu entry hidden by a package that is not installed.
       const me = (await request(app).get('/api/auth/me').set('Cookie', cookie)).body;
-      expect(me.modules.off).toEqual(['scheduled_payments', 'custody']);
+      expect(me.modules.off).toEqual(['custody']);
       expect(me.modules.menuOff).toEqual([]);
       // The namespace a package would take is empty until one does, so it cannot collide with the
       // product: nothing the studio mounts answers under it, with a session or without one.

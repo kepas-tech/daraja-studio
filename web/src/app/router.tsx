@@ -15,6 +15,10 @@ import { SetupLayout } from '../pages/setup/SetupLayout';
 import { SendHub } from '../pages/send/SendHub';
 import { SendPhone } from '../pages/send/SendPhone';
 import { PayBusiness } from '../pages/send/PayBusiness';
+import { ScheduleList } from '../pages/schedules/ScheduleList';
+import { ScheduleForm } from '../pages/schedules/ScheduleForm';
+import { ScheduleDetail } from '../pages/schedules/ScheduleDetail';
+import { PayRun } from '../pages/schedules/PayRun';
 import { History } from '../pages/History';
 import { Reports } from '../pages/Reports';
 import { RequestDetail } from '../pages/RequestDetail';
@@ -99,6 +103,11 @@ function Gate() {
         <Route path="/approvals" element={<Approvals />} />
         <Route path="/bulk" element={<Bulk />} />
         <Route path="/sweep" element={<Sweep />} />
+        <Route path="/schedules" element={<ScheduleList />} />
+        <Route path="/schedules/new" element={<ScheduleForm key="new" />} />
+        <Route path="/schedules/runs/:runId" element={<PayRun />} />
+        <Route path="/schedules/:id" element={<ScheduleDetail />} />
+        <Route path="/schedules/:id/edit" element={<ScheduleForm key="edit" />} />
         <Route path="/bulk/:id" element={<BulkDetail />} />
         <Route path="/invoices" element={<Invoices />} />
         <Route path="/invoices/:id" element={<InvoiceDetail />} />
