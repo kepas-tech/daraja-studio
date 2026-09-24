@@ -1,0 +1,42 @@
+{
+  "$schema": "../studio.config.schema.json",
+  "notes": "One shared paybill serving the house and several apps, the way KEPAS runs. Codes here are examples; use your own. Apps start with hub kepas (the old hub still credits them) and move to studio one at a time with --allow-risky. Routing, fees and custody are recorded now and take effect in later versions.",
+  "version": 1,
+  "tier": "platform",
+  "businesses": [
+    { "code": "000", "name": "KEPAS", "type": "other" },
+    { "code": "003", "name": "SINRO", "type": "other" },
+    { "code": "004", "name": "enabo", "type": "other" },
+    { "code": "005", "name": "KodiSap", "type": "other" },
+    { "code": "006", "name": "Wabi", "type": "other" },
+    { "code": "007", "name": "Tumakesh", "type": "other" }
+  ],
+  "apps": [
+    { "key": "sinro", "name": "SINRO", "business": "003", "hub": "studio", "feePolicy": "sinro",
+      "webhook": { "url": "https://sinro.example.com/api/payments/webhook" } },
+    { "key": "enabo", "name": "enabo", "business": "004", "prefixes": ["ENABO", "NABO"], "feePolicy": "enabo",
+      "webhook": { "url": "https://enabo.example.com/api/payments/webhook" } },
+    { "key": "kodisap", "name": "KodiSap", "business": "005", "mode": "custody", "prefixes": ["2"], "feePolicy": "kodisap" },
+    { "key": "wabi", "name": "Wabi", "business": "006", "mode": "custody", "prefixes": ["3"], "phoneRouting": true, "feePolicy": "wabi" },
+    { "key": "tumakesh", "name": "Tumakesh", "business": "007", "mode": "custody", "prefixes": ["1"], "phoneRouting": true, "feePolicy": "tumakesh" }
+  ],
+  "routing": {
+    "aliases": [
+      { "reference": "KEPAS", "business": "000" },
+      { "reference": "PAY", "business": "000" },
+      { "reference": "SHOP", "business": "000" }
+    ],
+    "identifierRescue": { "minLength": 4 },
+    "phoneRouting": false
+  },
+  "fees": {
+    "policies": {
+      "sinro": { "c2bMultiplierBp": 10000 },
+      "enabo": { "c2bMultiplierBp": 17500 },
+      "kodisap": { "c2bMultiplierBp": 17500 },
+      "wabi": { "c2bMultiplierBp": 27500 },
+      "tumakesh": { "c2bMultiplierBp": 17000 }
+    }
+  },
+  "custody": { "autoApproveMinutes": 30 }
+}

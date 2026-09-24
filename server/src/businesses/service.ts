@@ -77,7 +77,8 @@ const REISSUE_MEMORY_MONTHS = 12;
 
 export interface BusinessesService {
   list(): Promise<{ items: BusinessView[]; lastUsedId: string | null }>;
-  create(name: string, typeKey: string, actor: Actor): Promise<BusinessView>;
+  /** `code`, when given, is the code the business must have (the configuration file names it). */
+  create(name: string, typeKey: string, actor: Actor, code?: string): Promise<BusinessView>;
   update(id: string, name: string, active: boolean, actor: Actor): Promise<BusinessView>;
   /** Round 3, phase B: change the kind of business, which changes its words and nothing else. */
   updateType(id: string, typeKey: string, actor: Actor): Promise<BusinessView>;
@@ -340,15 +341,18 @@ export function createBusinessesService(deps: { db: Db; settings: Settings; even
     // second waits, then sees the first row and takes the code after it.
     // The kind of business is asked for at the same moment as the name, because it decides the words
     // Studio uses for everything that business holds from then on.
-    async create(name, typeKey, actor) {
+    async create(name, typeKey, actor, code) {
       const chosen = await chosenType(typeKey);
+      if (code !== undefined && !/^[0-9]{3}$/.test(code)) throw new HttpError(400, 'bad_code', 'A business code is three digits.');
       try {
         const row = await deps.db.tx(async (c) => {
           await c.query(`SELECT pg_advisory_xact_lock(hashtext('businesses'))`);
-          const [free] = (await c.query<{ code: string }>(
-            `SELECT to_char(g, 'FM000') AS code FROM generate_series(0, 999) g
-              WHERE NOT EXISTS (SELECT 1 FROM businesses b WHERE b.code = to_char(g, 'FM000')) ORDER BY g LIMIT 1`)).rows;
-          if (!free) throw new HttpError(409, 'no_codes_left', 'All one thousand business codes are in use.');
+          const [free] = code !== undefined
+            ? (await c.query<{ code: string }>(`SELECT $1::text AS code WHERE NOT EXISTS (SELECT 1 FROM businesses b WHERE b.code = $1)`, [code])).rows
+            : (await c.query<{ code: string }>(
+              `SELECT to_char(g, 'FM000') AS code FROM generate_series(0, 999) g
+                WHERE NOT EXISTS (SELECT 1 FROM businesses b WHERE b.code = to_char(g, 'FM000')) ORDER BY g LIMIT 1`)).rows;
+          if (!free) throw code !== undefined ? new HttpError(409, 'code_taken', `Business code ${code} is already in use.`) : new HttpError(409, 'no_codes_left', 'All one thousand business codes are in use.');
           const { rows } = await c.query<BusinessRow>(
             `INSERT INTO businesses(code, name, type_key) VALUES ($1,$2,$3) RETURNING *`, [free.code, name, chosen.key]);
           return rows[0];

@@ -1,0 +1,304 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "version": {
+      "type": "number",
+      "const": 1
+    },
+    "tier": {
+      "type": "string",
+      "enum": [
+        "simple",
+        "business",
+        "platform"
+      ]
+    },
+    "modules": {
+      "default": {},
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]{1,40}$"
+      },
+      "additionalProperties": {
+        "type": "boolean"
+      }
+    },
+    "businesses": {
+      "default": [],
+      "maxItems": 1000,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[0-9]{3}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60
+          },
+          "type": {
+            "default": "other",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 30
+          }
+        },
+        "required": [
+          "code",
+          "name"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "apps": {
+      "default": [],
+      "maxItems": 200,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{1,31}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60
+          },
+          "business": {
+            "type": "string",
+            "pattern": "^[0-9]{3}$"
+          },
+          "mode": {
+            "default": "pass_through",
+            "type": "string",
+            "enum": [
+              "pass_through",
+              "custody"
+            ]
+          },
+          "hub": {
+            "default": "kepas",
+            "type": "string",
+            "enum": [
+              "kepas",
+              "studio"
+            ]
+          },
+          "status": {
+            "default": "active",
+            "type": "string",
+            "enum": [
+              "active",
+              "paused"
+            ]
+          },
+          "prefixes": {
+            "default": [],
+            "maxItems": 8,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Z0-9]{1,8}$"
+            }
+          },
+          "aliases": {
+            "default": [],
+            "maxItems": 16,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Z0-9]{1,12}$"
+            }
+          },
+          "phoneRouting": {
+            "default": false,
+            "type": "boolean"
+          },
+          "feePolicy": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "webhook": {
+            "type": "object",
+            "properties": {
+              "url": {
+                "type": "string",
+                "maxLength": 500,
+                "format": "uri"
+              }
+            },
+            "required": [
+              "url"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "business"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "routing": {
+      "type": "object",
+      "properties": {
+        "aliases": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "reference": {
+                "type": "string",
+                "pattern": "^[A-Z0-9]{1,12}$"
+              },
+              "business": {
+                "type": "string",
+                "pattern": "^[0-9]{3}$"
+              },
+              "app": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "reference"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "identifierRescue": {
+          "type": "object",
+          "properties": {
+            "minLength": {
+              "type": "integer",
+              "minimum": 3,
+              "maximum": 12
+            }
+          },
+          "required": [
+            "minLength"
+          ],
+          "additionalProperties": false
+        },
+        "phoneRouting": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "fees": {
+      "type": "object",
+      "properties": {
+        "policies": {
+          "default": {},
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,39}$"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "c2bMultiplierBp": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100000
+              },
+              "withdraw": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "none",
+                      "percentage",
+                      "flat",
+                      "tariff"
+                    ]
+                  },
+                  "percentBp": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 10000
+                  },
+                  "flatCents": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "minCents": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "maxCents": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "additionalProperties": false
+              },
+              "commissionBps": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 10000
+              },
+              "rounding": {
+                "default": "shilling_ceil",
+                "type": "string",
+                "enum": [
+                  "shilling_ceil",
+                  "cent"
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "custody": {
+      "type": "object",
+      "properties": {
+        "autoApproveMinutes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10080
+        },
+        "maxWithdrawCents": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "version"
+  ],
+  "additionalProperties": false
+}

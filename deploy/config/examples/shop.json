@@ -1,0 +1,10 @@
+{
+  "$schema": "../studio.config.schema.json",
+  "notes": "One shop on its own paybill or till. Copy this file to /etc/daraja-studio/studio.config.json, change the names, then run: node server/dist/configfile/cli.js plan, and apply when the plan reads right.",
+  "version": 1,
+  "tier": "simple",
+  "modules": { "businesses": true },
+  "businesses": [
+    { "code": "001", "name": "Mama Mboga Shop", "type": "other" }
+  ]
+}
