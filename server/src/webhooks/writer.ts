@@ -1,7 +1,7 @@
 import { withOrg, type Db } from '../db/pool.js';
 import type { EventHub, StudioEvent } from '../events/hub.js';
 import { getRequest } from '../money_out/reads.js';
-import { LEDGER_TYPES } from '../money_out/registry.js';
+import { LEDGER_TYPES, MONEY_IN_TYPES } from '../money_out/registry.js';
 import type { WebhooksService } from './service.js';
 
 /**
@@ -31,8 +31,19 @@ export function createWebhookWriter(deps: { db: Db; events: EventHub; webhooks: 
       // A confirmation that answers a prompt a key asked for carries that key, but the key has already
       // been told by the prompt's own notice. A second one, for a different row id, could credit twice.
       if (r.promptId && r.apiKeyId) return;
-      await deps.webhooks.enqueue('request.' + r.status, {
-        event: 'request.' + r.status,
+      // Money that arrived on its own (no prompt of ours behind it) and was filed under a business
+      // goes to the app that owns that business: the live key for the business that has its own
+      // address. Its event is `payment.received`, the notice that tells an app which of its users paid.
+      let keyId = r.apiKeyId;
+      let event = 'request.' + r.status;
+      if (!keyId && !r.promptId && r.businessId && r.direction === 'in' && r.status === 'completed' && MONEY_IN_TYPES.includes(r.type)) {
+        const [owner] = await deps.db.query<{ id: string }>(
+          `SELECT k.id FROM api_keys k JOIN webhooks w ON w.api_key_id = k.id
+            WHERE k.business_id = $1 AND k.revoked_at IS NULL ORDER BY k.created_at ASC LIMIT 1`, [r.businessId]);
+        if (owner) { keyId = owner.id; event = 'payment.received'; }
+      }
+      await deps.webhooks.enqueue(event, {
+        event,
         id: r.id,
         type: r.type,
         subtype: r.subtype,
@@ -60,7 +71,7 @@ export function createWebhookWriter(deps: { db: Db; events: EventHub; webhooks: 
         resultAt: r.resultAt,
         safaricomSaid: r.safaricomSaid,
         // Whose notice this is: the key that asked for the payment, when one did.
-      }, r.id, r.apiKeyId);
+      }, r.id, keyId);
     });
   }
 

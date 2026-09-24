@@ -1,6 +1,9 @@
 import { describe, it, expect, afterAll, beforeEach, vi } from 'vitest';
 import request from 'supertest';
 import { makeApp, loginAsOwner } from './helpers.js';
+import type { C2bPayment } from '@kepas/daraja-js';
+import { recordC2b } from '../src/money_in/record.js';
+import { createWebhookWriter } from '../src/webhooks/writer.js';
 
 /**
  * Migration 050: an app opens one account per user, under its key's own business, by its own
@@ -80,5 +83,24 @@ describe('an app\'s own users, as accounts', () => {
     expect(row).toEqual({ business_id: sinro, account_id: account.id, created_by: null });
     const view = (await request(app).get('/api/requests/' + r.body.id).set(as(k))).body;
     expect(view).toMatchObject({ businessId: sinro, accountId: account.id, accountExternalRef: 'user-99', accountNumber: account.fullNumber });
+  });
+
+  it('a user who pays the paybill directly with their account number is named to the app that owns the business', async () => {
+    const made = (await h(request(app).post('/api/keys')).send({ name: 'sinro app', role: 'collector', businessId: sinro, webhookUrl: 'https://sinro.example/api/payments/webhook' })).body;
+    const account = (await request(app).put('/api/accounts/by-ref/user-77').set(as(made.secret)).send({ name: 'Jane' })).body;
+    const out = await recordC2b({ db: deps.db, events: deps.events }, {
+      transactionType: 'Pay Bill', transId: 'UIO0000077', transTime: '20260924201742', amount: 50, shortCode: '600999', billRefNumber: account.fullNumber,
+      invoiceNumber: '', orgAccountBalance: '', thirdPartyTransId: '', msisdn: '254700123456', firstName: 'JANE', middleName: '', lastName: 'DOE',
+    } as unknown as C2bPayment, 'callback', { silent: true });
+    const sent: { event: string; payload: Record<string, unknown>; keyId: string | null }[] = [];
+    const writer = createWebhookWriter({
+      db: deps.db, events: deps.events,
+      webhooks: { enqueue: async (event: string, payload: Record<string, unknown>, _id: string, keyId: string | null) => { sent.push({ event, payload, keyId }); return { id: 'd1' }; } } as never,
+    });
+    await writer.handle({ type: 'request.updated', orgId: deps.db.getFallbackOrg(), payload: { id: out.requestId } } as never);
+    expect(sent).toHaveLength(1);
+    expect(sent[0]!.event).toBe('payment.received');
+    expect(sent[0]!.keyId).toBe(made.key.id);
+    expect(sent[0]!.payload).toMatchObject({ amountCents: 5000, receipt: 'UIO0000077', account: { externalRef: 'user-77', number: account.fullNumber }, business: { id: sinro } });
   });
 });
