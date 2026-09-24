@@ -7,11 +7,12 @@ import { copy } from '../copy/en';
 afterEach(() => cleanup());
 
 describe('SendHub', () => {
-  it('lists the eight kinds; only To a phone links, the rest say 2B', () => {
+  it('lists the eight kinds; a phone, a paybill and a till link, the rest are planned', () => {
     render(<MemoryRouter><SendHub /></MemoryRouter>);
-    const link = screen.getByRole('link', { name: /To a phone/ });
-    expect(link).toHaveAttribute('href', '/send/phone');
-    expect(screen.getAllByText(copy.send.later)).toHaveLength(7);
+    expect(screen.getByRole('link', { name: /To a phone/ })).toHaveAttribute('href', '/send/phone');
+    expect(screen.getByRole('link', { name: /To a paybill/ })).toHaveAttribute('href', '/send/paybill');
+    expect(screen.getByRole('link', { name: /To a till/ })).toHaveAttribute('href', '/send/till');
+    expect(screen.getAllByText(copy.send.later)).toHaveLength(5);
     expect(screen.getByText('Business Payment to Customer', { exact: false })).toBeInTheDocument();
   });
 

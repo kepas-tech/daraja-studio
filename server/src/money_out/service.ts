@@ -25,6 +25,21 @@ import { personName } from '../util/names.js';
 import { getRequest, listRequests, listWaiting, waitingBadge, type Page, type RequestView, type WaitingView } from './reads.js';
 
 export interface SendInput { phone: string; amountCents: number; commandId: 'BusinessPayment' | 'SalaryPayment' | 'PromotionPayment'; category?: string; remarks?: string; occasion?: string; confirmDuplicate?: boolean; /** Feature 1: the saved phone contact this send is labelled with; checked below. */ contactId?: string; /** Feature 2: the business this send belongs to. Checked below; the last one used becomes the pickers' default. */ businessId?: string; /** Brief 2, item 1: the account this money is for. Checked below, and it carries its own business. */ accountId?: string; /** Round 3, phase A: the name the review screen confirmed with Safaricom, so the row is named while it waits rather than only once the result arrives. */ recipientName?: string; /** M5: the batch this row belongs to; never accepted from a client. */ bulk?: { planId: string; index: number } }
+/** Pay another business: a paybill with the account number it asks for, or a till. */
+export interface BusinessPayInput { to: 'paybill' | 'till'; shortcode: string; accountReference?: string; amountCents: number; remarks?: string; confirmDuplicate?: boolean; contactId?: string; businessId?: string; /** The name the review screen got from Safaricom for this number. */ recipientName?: string }
+/** One new send, once its inputs are checked: what createAndDispatch writes and sends. */
+interface NewSend {
+  kind: RequestKind; subtype: string; amountCents: number; recipientKind: 'phone' | 'paybill' | 'till'; recipientValue: string;
+  recipientName: string | null; remarks: string | null; payload: Record<string, unknown>; audit: Record<string, unknown>;
+  contactId: string | null; businessId: string | null; accountId: string | null; chargeCents: number | null; bulkPlanId: string | null; confirmDuplicate: boolean;
+}
+/**
+ * What Safaricom says a paybill or till is registered as, asked on the review before a business
+ * payment. `not_found`: Safaricom answered and knows no such number of that kind. `unavailable`:
+ * Studio could not ask (the lookup is not reliable in the sandbox), so the review says to check the
+ * number instead.
+ */
+export type BusinessCheck = { available: true; name: string; paidBefore: boolean } | { available: false; reason: 'not_found' | 'unavailable'; paidBefore: boolean };
 /**
  * Who is behind a send. `personId` is null for the one sender that is not a person: sweep-through
  * hands a business's own money to its own number on the timetable it chose, with nobody pressing
@@ -48,6 +63,10 @@ export type NameCheck =
   | { available: false; reason: 'not_found' | 'not_enabled' | 'unavailable'; said: string | null; paidBefore: boolean };
 export interface MoneyOutService {
   send(input: SendInput, actor: Actor): Promise<RequestView>;
+  /** B2B: pay a paybill or a till. The same path as a phone send from the row onwards. */
+  payBusiness(input: BusinessPayInput, actor: Actor): Promise<RequestView>;
+  /** The registered name behind a paybill or till, asked on the business payment's review. */
+  businessCheck(to: 'paybill' | 'till', shortcode: string): Promise<BusinessCheck>;
   /** The registered name behind a phone number, when Safaricom lets this shortcode ask. */
   nameCheck(phone: string): Promise<NameCheck>;
   sweep(): Promise<{ polled: number; expired: number }>;
@@ -415,6 +434,93 @@ export function createMoneyOutService(deps: { db: Db; settings: Settings; cache:
     }
   }
 
+  function checkCap(amountCents: number): void {
+    if (deps.config.maxSendCents !== null && amountCents > deps.config.maxSendCents) {
+      const cap = deps.config.maxSendCents;
+      throw new HttpError(409, 'over_cap', `This studio is capped at KES ${cap % 100 === 0 ? cap / 100 : (cap / 100).toFixed(2)} per send.`, { capCents: cap });
+    }
+  }
+
+  /** Feature 2: a business that is gone, another organisation's, or switched off is refused here,
+   * before anything is written. Answers the business's id. */
+  async function checkBusiness(businessId: string): Promise<string> {
+    const [business] = await deps.db.query<{ id: string; active: boolean }>(
+      `SELECT id, active FROM businesses WHERE id=$1 AND org_id=$2`, [businessId, requireOrg()]);
+    if (!business) throw new HttpError(400, 'unknown_business', 'That business does not exist. Pick one from the list.');
+    if (!business.active) throw new HttpError(409, 'business_inactive', 'That business is switched off. Switch it on to send under it.');
+    return business.id;
+  }
+
+  /**
+   * Everything a send does once its inputs are checked, whichever kind it is: the operator, the
+   * duplicate guard, the pending row and its audit entry, the approval hold, then dispatch. A phone
+   * send and a business payment take exactly this path, so the rules around money out apply to
+   * both without being written twice.
+   */
+  async function createAndDispatch(n: NewSend, actor: Actor): Promise<RequestView> {
+    const { kind } = n;
+    const cb = await urls();
+    // Operator first: a 409 here writes nothing. Then the pending row and its audit entry, in
+    // one transaction so a failing audit write never strands a row with no audit trail. The
+    // request exists before Safaricom hears of it (a crash between the ack and our update
+    // below leaves a visible row) — once the SDK sends our own OriginatorConversationID
+    // (1.5.0), the sweep resolves such a row by it; meanwhile the ack's own id is kept
+    // on the row so a human can still find it on the Safaricom side.
+    const client = await deps.daraja.getForOperator();
+    const operatorId = await operatorIdFor(client);
+    // The account number a paybill payment quotes is part of what makes two payments the same
+    // one. A phone send has none, and '' on both sides compares equal, so it reads as before.
+    const accountReference = typeof n.payload.accountReference === 'string' ? n.payload.accountReference : '';
+    // W3: the duplicate guard used to be a plain SELECT outside any transaction, so two
+    // concurrent identical sends could both see no prior row and both insert. The advisory
+    // lock below is taken first, inside the same transaction as the guard SELECT and the
+    // INSERT, keyed on exactly what the guard matches on — a second call for the same
+    // recipient/amount/type blocks here until the first call's transaction commits (or rolls
+    // back), then runs its own guard SELECT and correctly finds the first call's row. The lock
+    // is transaction-scoped, so it releases automatically at commit, before the SDK is called.
+    const row = await deps.db.tx(async (c) => {
+      // B0: the lock key and the guard's own comparison come from the kind, so the two can never
+      // disagree about what "the same request" means. `IS NOT DISTINCT FROM` rather than `=`
+      // because a kind with no recipient (a float transfer moves money between the organisation's
+      // own two accounts) stores NULL there, and SQL equality against NULL is never true — such a
+      // kind would otherwise have no duplicate protection at all while appearing to have it.
+      await c.query('SELECT pg_advisory_xact_lock(hashtext($1))', [kind.dupKey({ type: kind.type, recipient_value: n.recipientValue, amount_cents: String(n.amountCents), payload_json: n.payload })]);
+      if (!n.confirmDuplicate) {
+        const dup = await c.query<{ id: string; created_at: Date }>(
+          `SELECT id, created_at FROM requests WHERE type=$1 AND recipient_value IS NOT DISTINCT FROM $2 AND amount_cents=$3
+             AND COALESCE(payload_json->>'accountReference','') = $4
+             AND created_at > now() - ${DUP_WINDOW} AND status NOT IN ('failed','cancelled','rejected') ORDER BY created_at DESC LIMIT 1`,
+          [kind.type, n.recipientValue, n.amountCents, accountReference]);
+        if (dup.rows[0]) throw new HttpError(409, 'duplicate_recent', 'You sent this already. Send it again?', { requestId: dup.rows[0].id, at: dup.rows[0].created_at.toISOString() });
+      }
+      const { rows } = await c.query<RequestRow>(
+        `INSERT INTO requests(type, subtype, originator_conversation_id, status, amount_cents, currency, recipient_kind, recipient_value, recipient_name, remarks, payload_json, created_by, operator_id, bulk_plan_id, contact_id, business_id, account_id, charge_cents)
+         VALUES ($1,$2,$3,'pending',$4,'KES',$5,$6,$7,$8,$9::jsonb,$10,$11,$12,$13,$14,$15,$16) RETURNING *`,
+        [kind.type, n.subtype, randomUUID(), n.amountCents, n.recipientKind, n.recipientValue, n.recipientName, n.remarks, JSON.stringify(n.payload), actor.personId, operatorId, n.bulkPlanId, n.contactId, n.businessId, n.accountId, n.chargeCents]);
+      const r = rows[0];
+      await c.query(
+        `INSERT INTO audit_log(person_id, action, target, before_json, after_json, ip) VALUES ($1,$2,$3,$4::jsonb,$5::jsonb,$6)`,
+        [actor.personId, 'request.created', r.id, null, JSON.stringify({ type: kind.type, subtype: n.subtype, ...n.audit, amountCents: n.amountCents }), actor.ip]);
+      return r;
+    });
+
+    // Feature 2: the pickers default to the last business used. A failure to remember it never
+    // fails the send — the row is written and the money is about to move either way.
+    if (n.businessId) await deps.settings.set('send.lastBusinessId', n.businessId).catch(() => {});
+
+    // M4: at or above the owner's threshold the row waits for a second person. The operator was
+    // still required above (a studio with none refuses before writing anything), but the held
+    // row drops it and picks one at release, so a rotation in between cannot strand it.
+    const threshold = Number((await deps.settings.get('send.approvalThresholdCents')) ?? 0) || 0;
+    if (threshold > 0 && n.amountCents >= threshold) {
+      await deps.db.query(`UPDATE requests SET status='awaiting_approval', operator_id=NULL WHERE id=$1 AND status='pending'`, [row.id]);
+      await audit(deps.db, { personId: actor.personId, action: 'request.held', target: row.id, ip: actor.ip });
+      await deps.events.publish('request.updated', { id: row.id, status: 'awaiting_approval' });
+      return view(row.id);
+    }
+    return dispatch(kind, row, client, cb, operatorId);
+  }
+
   return {
     async nameCheck(input) {
       let phone: string;
@@ -447,6 +553,24 @@ export function createMoneyOutService(deps: { db: Db; settings: Settings; cache:
         return { available: false, reason: 'unavailable', said: null, paidBefore };
       }
     },
+    async businessCheck(to, input) {
+      const shortcode = input.trim();
+      if (!/^[0-9]{5,7}$/.test(shortcode)) throw new HttpError(400, 'bad_shortcode', to === 'till' ? 'A till number is 5 to 7 digits.' : 'A paybill number is 5 to 7 digits.');
+      const paid = await deps.db.query(
+        `SELECT 1 FROM requests WHERE type = $1 AND recipient_kind = $2 AND recipient_value = $3 AND status IN ('sent','completed','unknown') LIMIT 1`,
+        [KINDS.b2b.type, to, shortcode]);
+      const paidBefore = paid.length > 0;
+      // Read-only: the app's own key is enough, the same as the setup check of the studio's own number.
+      try {
+        const client = await deps.daraja.get();
+        const r = await client.orgInfo.query({ identifier: shortcode, identifierType: to });
+        if (r.success && r.organizationName) return { available: true, name: r.organizationName, paidBefore };
+        return { available: false, reason: 'not_found', paidBefore };
+      } catch {
+        return { available: false, reason: 'unavailable', paidBefore };
+      }
+    },
+
     async send(input, actor) {
       const kind = KINDS.b2c;
       let phone: string;
@@ -460,10 +584,7 @@ export function createMoneyOutService(deps: { db: Db; settings: Settings; cache:
         if (!found) throw new HttpError(400, 'unknown_category', 'That payment category no longer exists. Pick one from the list.');
         commandId = found.commandId; category = found.name;
       }
-      if (deps.config.maxSendCents !== null && input.amountCents > deps.config.maxSendCents) {
-        const cap = deps.config.maxSendCents;
-        throw new HttpError(409, 'over_cap', `This studio is capped at KES ${cap % 100 === 0 ? cap / 100 : (cap / 100).toFixed(2)} per send.`, { capCents: cap });
-      }
+      checkCap(input.amountCents);
       // Feature 1: a send may name a saved contact. The row stores it so History can show the name
       // the owner gave this person; the phone above is still the destination, so a contact whose
       // saved number no longer matches the number being dialled is refused rather than guessed at.
@@ -484,14 +605,7 @@ export function createMoneyOutService(deps: { db: Db; settings: Settings; cache:
       // Feature 2: the business this send belongs to is the operator's own choice (B2C has no
       // account number to read it from). A business that is gone, another organisation's, or
       // switched off is refused here, before anything is written.
-      let savedBusinessId: string | null = null;
-      if (input.businessId) {
-        const [business] = await deps.db.query<{ id: string; active: boolean }>(
-          `SELECT id, active FROM businesses WHERE id=$1 AND org_id=$2`, [input.businessId, requireOrg()]);
-        if (!business) throw new HttpError(400, 'unknown_business', 'That business does not exist. Pick one from the list.');
-        if (!business.active) throw new HttpError(409, 'business_inactive', 'That business is switched off. Switch it on to send under it.');
-        savedBusinessId = business.id;
-      }
+      let savedBusinessId: string | null = input.businessId ? await checkBusiness(input.businessId) : null;
       // Brief 2, item 1: an account may be named instead of a business. The account carries its own
       // business, so naming one sets both, and a retired account or one in another organisation is
       // refused here, before anything is written.
@@ -512,69 +626,55 @@ export function createMoneyOutService(deps: { db: Db; settings: Settings; cache:
       // rewrites what an old payment cost. An amount with no band stores nothing rather than a
       // zero, which would read as free.
       const chargeCents = await fees.chargeFor('b2c', input.amountCents);
-      const cb = await urls();
+      // Phase A: the best name Studio knows at this moment goes on the row, so Waiting and History
+      // show a person while Safaricom is still thinking. The owner's own label for the number comes
+      // first (it is the one checked against the number above), then the person behind the account
+      // the money is for, then the name the review screen confirmed with Safaricom. Safaricom's own
+      // result name replaces it when the callback arrives, and the contact's label stays beside it.
+      return createAndDispatch({
+        kind, subtype: commandId, amountCents: input.amountCents, recipientKind: 'phone', recipientValue: phone,
+        recipientName: savedContactName ?? savedAccountName ?? personName(input.recipientName), remarks: input.remarks ?? null,
+        payload: { occasion: input.occasion ?? null, category, ...(input.bulk ? { bulkIndex: input.bulk.index } : {}) },
+        audit: { category }, contactId: savedContactId, businessId: savedBusinessId, accountId: savedAccountId,
+        chargeCents, bulkPlanId: input.bulk?.planId ?? null, confirmDuplicate: input.confirmDuplicate === true,
+      }, actor);
+    },
 
-      // Operator first: a 409 here writes nothing. Then the pending row and its audit entry, in
-      // one transaction so a failing audit write never strands a row with no audit trail. The
-      // request exists before Safaricom hears of it (a crash between the ack and our update
-      // below leaves a visible row) — once the SDK sends our own OriginatorConversationID
-      // (1.5.0), the sweep resolves such a row by it; meanwhile the ack's own id is kept
-      // on the row so a human can still find it on the Safaricom side.
-      const client = await deps.daraja.getForOperator();
-      const operatorId = await operatorIdFor(client);
-      // W3: the duplicate guard used to be a plain SELECT outside any transaction, so two
-      // concurrent identical sends could both see no prior row and both insert. The advisory
-      // lock below is taken first, inside the same transaction as the guard SELECT and the
-      // INSERT, keyed on exactly what the guard matches on — a second call for the same
-      // recipient/amount/type blocks here until the first call's transaction commits (or rolls
-      // back), then runs its own guard SELECT and correctly finds the first call's row. The lock
-      // is transaction-scoped, so it releases automatically at commit, before the SDK is called.
-      const row = await deps.db.tx(async (c) => {
-        // B0: the lock key and the guard's own comparison come from the kind, so the two can never
-        // disagree about what "the same request" means. `IS NOT DISTINCT FROM` rather than `=`
-        // because a kind with no recipient (a float transfer moves money between the organisation's
-        // own two accounts) stores NULL there, and SQL equality against NULL is never true — such a
-        // kind would otherwise have no duplicate protection at all while appearing to have it.
-        await c.query('SELECT pg_advisory_xact_lock(hashtext($1))', [kind.dupKey({ type: kind.type, recipient_value: phone, amount_cents: String(input.amountCents), payload_json: {} })]);
-        if (!input.confirmDuplicate) {
-          const dup = await c.query<{ id: string; created_at: Date }>(
-            `SELECT id, created_at FROM requests WHERE type=$1 AND recipient_value IS NOT DISTINCT FROM $2 AND amount_cents=$3
-               AND created_at > now() - ${DUP_WINDOW} AND status NOT IN ('failed','cancelled','rejected') ORDER BY created_at DESC LIMIT 1`,
-            [kind.type, phone, input.amountCents]);
-          if (dup.rows[0]) throw new HttpError(409, 'duplicate_recent', 'You sent this already. Send it again?', { requestId: dup.rows[0].id, at: dup.rows[0].created_at.toISOString() });
+    async payBusiness(input, actor) {
+      const kind = KINDS.b2b;
+      const shortcode = input.shortcode.trim();
+      if (!/^[0-9]{5,7}$/.test(shortcode)) throw new HttpError(400, 'bad_shortcode', input.to === 'till' ? 'A till number is 5 to 7 digits.' : 'A paybill number is 5 to 7 digits.');
+      const accountReference = input.to === 'paybill' ? (input.accountReference?.trim() || null) : null;
+      if (input.to === 'till' && input.accountReference?.trim()) throw new HttpError(400, 'till_no_account', 'A till takes no account number. Leave it empty.');
+      if (accountReference !== null && !/^[A-Za-z0-9]{1,20}$/.test(accountReference)) throw new HttpError(400, 'bad_account', 'The account number is up to 20 letters and numbers.');
+      if (!Number.isInteger(input.amountCents) || input.amountCents <= 0) throw new HttpError(400, 'bad_amount', 'Enter an amount in shillings.');
+      if (input.amountCents % 100 !== 0) throw new HttpError(400, 'whole_shillings', 'Safaricom pays businesses in whole shillings. Remove the cents.');
+      checkCap(input.amountCents);
+      // A saved contact must be this very destination: the number, the kind, and for a paybill the
+      // account. Anything else is refused rather than guessed at, before anything is written.
+      let savedContactId: string | null = null;
+      let savedContactName: string | null = null;
+      if (input.contactId) {
+        const [contact] = await deps.db.query<{ id: string; kind: string; shortcode: string | null; account_reference: string | null; name: string }>(
+          `SELECT id, kind, shortcode, account_reference, name FROM contacts WHERE id=$1 AND org_id=$2 AND kind IN ('till','paybill') AND deleted_at IS NULL`,
+          [input.contactId, requireOrg()]);
+        if (!contact) throw new HttpError(400, 'unknown_contact', 'That saved contact is gone. Pick them again.');
+        if (contact.kind !== input.to || contact.shortcode !== shortcode || (input.to === 'paybill' && (contact.account_reference ?? null) !== accountReference)) {
+          throw new HttpError(400, 'contact_mismatch', 'That number is not the one saved for this contact. Pick the contact again, or pay without it.');
         }
-        // Phase A: the best name Studio knows at this moment goes on the row, so Waiting and History
-        // show a person while Safaricom is still thinking. The owner's own label for the number comes
-        // first (it is the one checked against the number above), then the person behind the account
-        // the money is for, then the name the review screen confirmed with Safaricom. Safaricom's own
-        // result name replaces it when the callback arrives, and the contact's label stays beside it.
-        const recipientName = savedContactName ?? savedAccountName ?? personName(input.recipientName);
-        const { rows } = await c.query<RequestRow>(
-          `INSERT INTO requests(type, subtype, originator_conversation_id, status, amount_cents, currency, recipient_kind, recipient_value, recipient_name, remarks, payload_json, created_by, operator_id, bulk_plan_id, contact_id, business_id, account_id, charge_cents)
-           VALUES ($1,$2,$3,'pending',$4,'KES','phone',$5,$6,$7,$8::jsonb,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
-          [kind.type, commandId, randomUUID(), input.amountCents, phone, recipientName, input.remarks ?? null, JSON.stringify({ occasion: input.occasion ?? null, category, ...(input.bulk ? { bulkIndex: input.bulk.index } : {}) }), actor.personId, operatorId, input.bulk?.planId ?? null, savedContactId, savedBusinessId, savedAccountId, chargeCents]);
-        const r = rows[0];
-        await c.query(
-          `INSERT INTO audit_log(person_id, action, target, before_json, after_json, ip) VALUES ($1,$2,$3,$4::jsonb,$5::jsonb,$6)`,
-          [actor.personId, 'request.created', r.id, null, JSON.stringify({ type: kind.type, subtype: commandId, category, amountCents: input.amountCents }), actor.ip]);
-        return r;
-      });
-
-      // Feature 2: the pickers default to the last business used. A failure to remember it never
-      // fails the send — the row is written and the money is about to move either way.
-      if (savedBusinessId) await deps.settings.set('send.lastBusinessId', savedBusinessId).catch(() => {});
-
-      // M4: at or above the owner's threshold the row waits for a second person. The operator was
-      // still required above (a studio with none refuses before writing anything), but the held
-      // row drops it and picks one at release, so a rotation in between cannot strand it.
-      const threshold = Number((await deps.settings.get('send.approvalThresholdCents')) ?? 0) || 0;
-      if (threshold > 0 && input.amountCents >= threshold) {
-        await deps.db.query(`UPDATE requests SET status='awaiting_approval', operator_id=NULL WHERE id=$1 AND status='pending'`, [row.id]);
-        await audit(deps.db, { personId: actor.personId, action: 'request.held', target: row.id, ip: actor.ip });
-        await deps.events.publish('request.updated', { id: row.id, status: 'awaiting_approval' });
-        return view(row.id);
+        savedContactId = contact.id;
+        savedContactName = contact.name;
       }
-      return dispatch(kind, row, client, cb, operatorId);
+      const savedBusinessId = input.businessId ? await checkBusiness(input.businessId) : null;
+      const chargeCents = await fees.chargeFor('b2b', input.amountCents);
+      const subtype = input.to === 'till' ? 'BusinessBuyGoods' : 'BusinessPayBill';
+      return createAndDispatch({
+        kind, subtype, amountCents: input.amountCents, recipientKind: input.to, recipientValue: shortcode,
+        recipientName: savedContactName ?? personName(input.recipientName), remarks: input.remarks ?? null,
+        payload: { accountReference },
+        audit: { accountReference }, contactId: savedContactId, businessId: savedBusinessId, accountId: null,
+        chargeCents, bulkPlanId: null, confirmDuplicate: input.confirmDuplicate === true,
+      }, actor);
     },
 
     async release(requestId, actor) {

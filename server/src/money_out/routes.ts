@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type RequestHandler } from 'express';
 import { z } from 'zod';
 import type { AppDeps } from '../app.js';
 import { requireAuth, requireCsrf, requireStepUp } from '../auth/middleware.js';
@@ -35,6 +35,31 @@ const sendPhone = z.object({
   // Waiting and History show a person from the moment the send exists.
   recipientName: z.string().trim().min(1).max(100).optional(),
 });
+
+// B2B: pay a paybill (with the account number it asks for) or a till. The shapes are checked again
+// in the service, which is the one place that sends.
+const payBusiness = z.object({
+  to: z.enum(['paybill', 'till']),
+  shortcode: z.string().trim().min(1).max(10),
+  accountReference: z.string().trim().max(20).optional(),
+  amountCents: z.number().int().positive(),
+  remarks: z.string().trim().max(100).optional(),
+  confirmDuplicate: z.boolean().optional(),
+  contactId: z.string().uuid().optional(),
+  businessId: z.string().uuid().optional(),
+  recipientName: z.string().trim().min(1).max(100).optional(),
+});
+const businessCheckSchema = z.object({ to: z.enum(['paybill', 'till']), shortcode: z.string().trim().min(1).max(10) });
+/** A paybill payment needs pay.paybill, a till payment pay.till: the key is read from the body. */
+const payPermission = (deps: AppDeps): RequestHandler => async (req, _res, next) => {
+  try {
+    if (!req.person) throw new HttpError(401, 'not_logged_in', 'Please log in.');
+    const to = (req.body as { to?: unknown } | undefined)?.to;
+    if (to !== 'paybill' && to !== 'till') throw new HttpError(400, 'invalid', 'to: Choose a paybill or a till.');
+    await assertPermission(deps.db, req.person, to === 'till' ? 'pay.till' : 'pay.paybill', req.apiKey?.permissions);
+    next();
+  } catch (e) { next(e); }
+};
 
 // A YYYY-MM-DD that fails to round-trip through Date (2026-02-30, 2026-13-45, ...) is calendar-
 // invalid, not only malformed — the regex alone lets it through to a Postgres ::date cast, which
@@ -113,6 +138,17 @@ export function sendRoutes(deps: AppDeps): Router {
     try {
       const b = parse(sendPhone, req.body);
       const v = await deps.moneyOut.send(b, { personId: req.person!.id, ip: clientIp(req) });
+      res.status(201).json(v);
+    } catch (e) { next(e); }
+  });
+  // Asked on the business payment's review, before the password, under the same gate as the payment.
+  r.post('/business-check', requireAuth(deps.db), requireCsrf, payPermission(deps), requireMoneyReady(deps), async (req, res, next) => {
+    try { const b = parse(businessCheckSchema, req.body); res.json(await deps.moneyOut.businessCheck(b.to, b.shortcode)); } catch (e) { next(e); }
+  });
+  r.post('/business', requireAuth(deps.db), requireCsrf, payPermission(deps), requireMoneyReady(deps), requireStepUp(deps.db), idempotency(deps, 'POST /api/send/business'), async (req, res, next) => {
+    try {
+      const b = parse(payBusiness, req.body);
+      const v = await deps.moneyOut.payBusiness(b, { personId: req.person!.id, ip: clientIp(req) });
       res.status(201).json(v);
     } catch (e) { next(e); }
   });

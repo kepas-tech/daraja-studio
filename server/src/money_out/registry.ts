@@ -2,6 +2,7 @@ import type { Daraja, DarajaScope } from '@kepas/daraja-js';
 import type { PermissionKey } from '../permissions/catalog.js';
 import type { callbackUrls } from '../sdk/callbackUrls.js';
 import { b2c } from './kinds/b2c.js';
+import { b2b } from './kinds/b2b.js';
 import { reversal } from './kinds/reversal.js';
 import { stk } from './kinds/stk.js';
 import { ratiba } from './kinds/ratiba.js';
@@ -71,7 +72,7 @@ export interface RequestKind {
 
 // Kinds live one per file under ./kinds and are registered here. Adding a send type is a new file
 // plus one line in this map; nothing in the send path, the callback path or the sweep is edited.
-export const KINDS: Record<string, RequestKind> = { b2c, reversal };
+export const KINDS: Record<string, RequestKind> = { b2c, b2b, reversal };
 /**
  * Money OUT only, and deliberately so. This is what the sweep polls with `status.transaction`.
  * Money coming in must never appear here: asking a customer to pay would otherwise be polled with

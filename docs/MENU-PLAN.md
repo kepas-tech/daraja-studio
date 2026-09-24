@@ -108,7 +108,7 @@ tracked here so nobody assumes sending is finished.
 |---|---|---|
 | To a phone | `b2c.send` | live |
 | To a business wallet (pochi) | `b2c.toPochi` | planned |
-| To a paybill or till | `b2b.pay` | planned |
+| To a paybill or till | `b2b.pay` | live |
 | Move float, working to utility | `b2b.transferFloat` | planned |
 | Top up another shortcode | `b2b.topUp` | planned |
 | Pay tax to KRA | `b2b.remitTax` | planned |

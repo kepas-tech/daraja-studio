@@ -113,7 +113,6 @@ export function Contacts() {
       <div className="mb-4 max-w-md">
         <Segmented name="contact-kind" label={c.tabsLabel} value={kind} options={KINDS.map((k) => ({ value: k, label: c.tabs[k] }))} onChange={pick} />
       </div>
-      {kind !== 'phone' && <p className="mb-4 text-sm text-muted">{c.sendNotBuilt}</p>}
 
       {adding && (
         <div className="mb-6 max-w-xl">
@@ -136,7 +135,7 @@ export function Contacts() {
                     {x.note && <span className="text-sm text-muted">{x.note}</span>}
                   </span>
                   <span className="flex flex-wrap items-center gap-2">
-                    {x.kind === 'phone' && <Link className={linkButton} to={'/send/phone?contact=' + x.id}>{c.pay}</Link>}
+                    <Link className={linkButton} to={'/send/' + x.kind + '?contact=' + x.id}>{c.pay}</Link>
                     {mayManage && (
                       <>
                         <Button variant="secondary" onClick={() => { setAdding(false); setFormErr(null); setEditing(x.id); }}>{c.edit}</Button>

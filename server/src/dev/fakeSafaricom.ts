@@ -164,6 +164,20 @@ export function createFakeSafaricom(opts: FakeSafaricomOptions): FakeSafaricom {
     } };
   }
 
+  /** The B2B result: a transaction id and the paid business's public name, no B2C balances. */
+  function b2bResult(oc: string, conv: string, ok: boolean, receipt: string, amount: number, shortcode: string, account: string, failCode = 2001, failDesc = 'The initiator information is invalid.') {
+    return { Result: {
+      ResultType: 0, ResultCode: ok ? 0 : failCode, ResultDesc: ok ? OK_DESC : failDesc,
+      OriginatorConversationID: oc, ConversationID: conv, TransactionID: ok ? receipt : '',
+      ...(ok ? { ResultParameters: { ResultParameter: [
+        param('Amount', amount), param('Currency', 'KES'), param('TransCompletedTime', 20260906142000),
+        param('ReceiverPartyPublicName', `${shortcode} - ACME TRADERS`), param('DebitPartyCharges', ''),
+        param('DebitAccountBalance', '{Amount={BasicAmount=14.00, MinimumAmount=1400, CurrencyCode=KES}, AccountTypeName=Working Account}'),
+      ] } } : {}),
+      ReferenceData: { ReferenceItem: [param('BillReferenceNumber', account), param('QueueTimeoutURL', 'https://studio.example/cb/x/b2b/timeout')] },
+    } };
+  }
+
   const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const path = pathOf(String(input));
     if (path.includes('/oauth/')) return json({ access_token: 'fake-token', expires_in: 3599 });
@@ -178,8 +192,9 @@ export function createFakeSafaricom(opts: FakeSafaricomOptions): FakeSafaricom {
     const isStkQuery = path.includes('stkpushquery');
     const isStk = !isStkQuery && path.includes('/stkpush/');
     const isReversal = path.endsWith('/reversal/v1/request');
+    const isB2b = path.endsWith('/b2b/v1/paymentrequest');
     const isMoneyStatusOrBalance = path.endsWith('/b2c/v3/paymentrequest') || path.endsWith('/b2c/v1/paymentrequest')
-      || isReversal || path.endsWith('/transactionstatus/v1/query') || path.endsWith('/accountbalance/v1/query') || isStk || isStkQuery
+      || isReversal || isB2b || path.endsWith('/transactionstatus/v1/query') || path.endsWith('/accountbalance/v1/query') || isStk || isStkQuery
       // Money in's one-time registration can be refused too (a wrong shortcode, an unregistered app).
       || path.endsWith('/registerurl');
 
@@ -190,6 +205,26 @@ export function createFakeSafaricom(opts: FakeSafaricomOptions): FakeSafaricom {
       const { code, desc } = sync;
       sync = null;
       return json({ requestId: `fake-${n}`, errorCode: code, errorMessage: desc }, 400);
+    }
+
+    if (isB2b) {
+      const shortcode = String(body.PartyB ?? '');
+      const account = String(body.AccountReference ?? '');
+      const amount = Number(body.Amount);
+      // Like the reversal, the B2B call takes no OriginatorConversationID from the caller: the id
+      // the result carries is Safaricom's own, and the status branch finds it in the shared map.
+      const oc = `fake-b2b-${n}`;
+      const receipt = `RB${String(n).padStart(8, '0')}`;
+      sent.set(oc, { receipt, amount });
+      if (scenario !== 'losesCallback' && scenario !== 'neverAnswers') {
+        const ok = scenario !== 'credentialError';
+        const post = () => opts.post(resultPath, ok
+          ? b2bResult(oc, conv, true, receipt, amount, shortcode, account)
+          : b2bResult(oc, conv, false, receipt, amount, shortcode, account, 8006, 'Security credential locked.'));
+        later(post);
+        if (scenario === 'duplicatesCallback') later(post);
+      }
+      return json({ ConversationID: conv, OriginatorConversationID: oc, ResponseCode: '0', ResponseDescription: ACCEPTED });
     }
 
     if (isReversal) {

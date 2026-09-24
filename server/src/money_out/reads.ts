@@ -179,7 +179,9 @@ export function toView(row: ViewRow, egressIps: string[] = []): RequestView {
       ? ((row.payload_json as { ackOriginatorConversationId?: string }).ackOriginatorConversationId ?? null)
       : null,
     category: typeof (row.payload_json as { category?: unknown }).category === 'string' ? (row.payload_json as { category: string }).category : null,
-    accountReference: row.account_reference ?? null,
+    // A business payment carries the account number it quoted to the paybill. Only B2B reads it from
+    // the payload: a payment request keeps its own Daraja reference there, which is not an account.
+    accountReference: row.account_reference ?? (row.type === 'b2b' && typeof (row.payload_json as { accountReference?: unknown }).accountReference === 'string' ? (row.payload_json as { accountReference: string }).accountReference : null),
     createdAt: row.created_at.toISOString(), sentAt: row.sent_at?.toISOString() ?? null, resultAt: row.result_at?.toISOString() ?? null, resultSource: row.result_source,
     safaricomSaid: row.result_desc, meaning: row.meaning ?? ex?.meaning ?? null,
     whatToDo: row.status === 'failed'

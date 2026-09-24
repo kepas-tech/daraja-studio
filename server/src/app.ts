@@ -28,6 +28,7 @@ import { selftestHandler } from './callbacks/selftest.js';
 import { balanceHandler } from './callbacks/balance.js';
 import { b2cHandler } from './callbacks/b2c.js';
 import { b2cTimeoutHandler } from './callbacks/b2cTimeout.js';
+import { b2bHandler, b2bTimeoutHandler } from './callbacks/b2b.js';
 import { statusHandler } from './callbacks/status.js';
 import { reversalHandler, reversalTimeoutHandler } from './callbacks/reversal.js';
 import { sseRoute } from './events/sse.js';
@@ -301,7 +302,7 @@ export function buildApp(deps: AppDeps): express.Express {
   app.use(
     '/cb',
     express.json({ limit: '256kb', verify: (req, _res, buf) => { (req as Request).rawBody = buf.toString('utf8'); } }),
-    callbackRoutes({ ...deps, failover: (requestId, failedOperatorId) => deps.moneyOut.failover(requestId, failedOperatorId), handlers: { selftest: selftestHandler, balance: balanceHandler, b2c: b2cHandler, 'b2c/timeout': b2cTimeoutHandler, status: statusHandler, stk: stkHandler, reversal: reversalHandler, 'reversal/timeout': reversalTimeoutHandler, 'c2b/validate': c2bValidateHandler, 'c2b/confirm': c2bConfirmHandler, billmanager: billManagerHandler(deps.invoices), ratiba: ratibaHandler, express: expressHandler } }),
+    callbackRoutes({ ...deps, failover: (requestId, failedOperatorId) => deps.moneyOut.failover(requestId, failedOperatorId), handlers: { selftest: selftestHandler, balance: balanceHandler, b2c: b2cHandler, 'b2c/timeout': b2cTimeoutHandler, b2b: b2bHandler, 'b2b/timeout': b2bTimeoutHandler, status: statusHandler, stk: stkHandler, reversal: reversalHandler, 'reversal/timeout': reversalTimeoutHandler, 'c2b/validate': c2bValidateHandler, 'c2b/confirm': c2bConfirmHandler, billmanager: billManagerHandler(deps.invoices), ratiba: ratibaHandler, express: expressHandler } }),
     callbackErrorHandler(deps),
   );
   app.use(express.json({ limit: '256kb' }));

@@ -44,18 +44,17 @@ describe('Contacts', () => {
     expect(await screen.findByText('Jane Doe')).toBeInTheDocument();
     expect(screen.getByText('0712 345 678')).toBeInTheDocument();
     for (const k of ['phone', 'till', 'paybill']) expect(screen.getByLabelText(copy.contacts.tabs[k]!)).toBeInTheDocument();
-    // The phone tab is the one that can be paid; a till row has no Pay and says so.
+    // Every kind can be paid now: each Pay goes to its own page with the contact filled in.
     expect(screen.queryByText('Corner Shop')).toBeNull();
     fireEvent.click(screen.getByLabelText(copy.contacts.tabs.till));
     expect(await screen.findByText('Corner Shop')).toBeInTheDocument();
     expect(screen.getByText('400200')).toBeInTheDocument();
     expect(screen.getByText('Milk and bread')).toBeInTheDocument();
-    expect(screen.getByText(copy.contacts.sendNotBuilt)).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: copy.contacts.pay })).toBeNull();
+    expect(screen.getByRole('link', { name: copy.contacts.pay }).getAttribute('href')).toMatch(/^\/send\/till\?contact=/);
     fireEvent.click(screen.getByLabelText(copy.contacts.tabs.paybill));
     expect(await screen.findByText('KPLC')).toBeInTheDocument();
     expect(screen.getByText('888880 · ACC1')).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: copy.contacts.pay })).toBeNull();
+    expect(screen.getByRole('link', { name: copy.contacts.pay }).getAttribute('href')).toMatch(/^\/send\/paybill\?contact=/);
     fireEvent.click(screen.getByLabelText(copy.contacts.tabs.phone));
     expect(screen.getByRole('link', { name: copy.contacts.pay })).toHaveAttribute('href', '/send/phone?contact=c1');
   });

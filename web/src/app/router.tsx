@@ -14,6 +14,7 @@ import { NotPossible } from '../pages/NotPossible';
 import { SetupLayout } from '../pages/setup/SetupLayout';
 import { SendHub } from '../pages/send/SendHub';
 import { SendPhone } from '../pages/send/SendPhone';
+import { PayBusiness } from '../pages/send/PayBusiness';
 import { History } from '../pages/History';
 import { Reports } from '../pages/Reports';
 import { RequestDetail } from '../pages/RequestDetail';
@@ -87,6 +88,8 @@ function Gate() {
         <Route path="/not-possible" element={<NotPossible />} />
         <Route path="/send" element={<SendHub />} />
         <Route path="/send/phone" element={<SendPhone />} />
+        <Route path="/send/paybill" element={<PayBusiness key="paybill" to="paybill" />} />
+        <Route path="/send/till" element={<PayBusiness key="till" to="till" />} />
         <Route path="/balances" element={<Navigate to="/" replace />} />
         <Route path="/lookup" element={<Navigate to="/history" replace />} />
         <Route path="/qr" element={<Qr />} />

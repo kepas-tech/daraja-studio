@@ -224,6 +224,10 @@ export interface MoneyInView {
 export type NameCheck =
   | { available: true; name: string; paidBefore: boolean }
   | { available: false; reason: 'not_found' | 'not_enabled' | 'unavailable'; said: string | null; paidBefore: boolean };
+/** What Safaricom says a paybill or till is registered as (`POST /api/send/business-check`). */
+export type BusinessCheck =
+  | { available: true; name: string; paidBefore: boolean }
+  | { available: false; reason: 'not_found' | 'unavailable'; paidBefore: boolean };
 export interface BalanceView { workingCents: number | null; utilityCents: number | null; chargesPaidCents: number | null; queriedAt: string; /** Feature 9: money-out that has not finished, in cents. */ waitingCents: number }
 /** Round 3, phase D-3: one check Studio made with Safaricom, as `GET /api/requests/checks` reads it. */
 export interface CheckView {

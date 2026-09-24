@@ -8,6 +8,7 @@
  */
 export const TYPE_LABELS: Record<string, string> = {
   b2c: 'Sent to a phone',
+  b2b: 'Paid a business',
   c2b: 'Paid in',
   invoice_payment: 'Invoice paid',
   ratiba: 'Standing order',
@@ -23,6 +24,8 @@ export const SUBTYPE_LABELS: Record<string, string> = {
   BusinessPayment: 'Business payment',
   SalaryPayment: 'Salary',
   PromotionPayment: 'Promotion',
+  BusinessPayBill: 'Paybill',
+  BusinessBuyGoods: 'Till',
   refresh: 'Balance refresh',
   lookup: 'Lookup',
   sweep: 'Safaricom check',
