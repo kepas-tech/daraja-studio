@@ -25,6 +25,8 @@ export const PERMISSIONS = [
   { key: 'cases.manage', label: 'Can open, record and close a case on a payment', role: null },
   // Round 5: the inbox another system posts this paybill's confirmations to. Nothing else. */
   { key: 'money_in.feed', label: 'Can feed money in from another system', role: null },
+  // Migration 050: an app opens and finds an account for each of its own users, in its own business only.
+  { key: 'accounts.own', label: 'Can open an account for each of its own users', role: null },
 ] as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[number]['key'];

@@ -29,6 +29,10 @@ export function ApiKeys() {
   const [org, setOrg] = useState<WebhookView | null>(null);
   const [name, setName] = useState('');
   const [role, setRole] = useState('viewer');
+  // Migration 050: the business a key acts for, so an app can open an account for each of its users.
+  const [businessId, setBusinessId] = useState('');
+  const [businesses, setBusinesses] = useState<{ id: string; code: string; name: string }[]>([]);
+  useEffect(() => { api.get<{ items: { id: string; code: string; name: string }[] }>('/api/businesses').then((r) => setBusinesses(r.items)).catch(() => setBusinesses([])); }, []);
   const [address, setAddress] = useState('');
   // The one moment a secret exists outside the server's hash. Cleared by Done, never re-read.
   const [made, setMade] = useState<{ name: string; secret: string; rotated: boolean } | null>(null);
@@ -60,7 +64,8 @@ export function ApiKeys() {
   const create = async () => {
     setBusy(true); setErr(null); setMsg(null);
     try {
-      const body: { name: string; role: string; webhookUrl?: string } = { name: name.trim(), role };
+      const body: { name: string; role: string; webhookUrl?: string; businessId?: string } = { name: name.trim(), role };
+      if (businessId) body.businessId = businessId;
       if (address.trim()) body.webhookUrl = address.trim();
       const r = await api.post<ApiKeyCreated>('/api/keys', body);
       setMade({ name: r.key.name, secret: r.secret, rotated: false });
@@ -154,6 +159,16 @@ export function ApiKeys() {
                 {Object.entries(c.roles).map(([k, label]) => <option key={k} value={k}>{label}</option>)}
               </select>
             </label>
+            {businesses.length > 0 && (
+              <label className="block text-base">
+                <span className="mb-1 block text-sm text-muted">{c.business}</span>
+                <select aria-label={c.business} className={control} value={businessId} onChange={(e) => setBusinessId(e.target.value)}>
+                  <option value="">{c.businessNone}</option>
+                  {businesses.map((b) => <option key={b.id} value={b.id}>{b.code} · {b.name}</option>)}
+                </select>
+                <span className="mt-1 block text-sm text-muted">{c.businessHint}</span>
+              </label>
+            )}
             <TextField label={c.addressCreate} value={address} onChange={(e) => setAddress(e.target.value)} hint={c.addressHint} maxLength={500} />
             <Button type="button" disabled={!name.trim() || busy} onClick={() => void create()}>{busy ? c.creating : c.create}</Button>
           </div>
@@ -166,7 +181,7 @@ export function ApiKeys() {
                 <li key={k.id} data-testid={'key-' + k.id} className={`${cardRow} flex flex-wrap items-start justify-between gap-3 text-base`}>
                   <span className="min-w-0">
                     <span className="block font-semibold">{k.name}</span>
-                    <span className="block text-sm text-muted"><code>{k.prefix}</code> · {c.roles[k.role] ?? k.role}</span>
+                    <span className="block text-sm text-muted"><code>{k.prefix}</code> · {c.roles[k.role] ?? k.role}{k.businessId && businesses.find((b) => b.id === k.businessId) ? ' · ' + c.forBusiness(businesses.find((b) => b.id === k.businessId)!.name) : ''}</span>
                     <span className="block text-sm text-muted">
                       {c.created(when(k.createdAt), k.createdBy?.displayName ?? null)}
                       {' · '}{k.lastUsedAt ? c.lastUsed(when(k.lastUsedAt)) : c.neverUsed}

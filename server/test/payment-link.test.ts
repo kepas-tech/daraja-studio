@@ -34,15 +34,15 @@ function collect(checkoutId: string) {
 
 /** Ask sinro's payer for KES 10 the way sinro does: its business code, and its own reference. */
 async function ask(checkoutId: string, callerRef: string) {
-  return collect(checkoutId).askToPay({ phone: '0792471415', amountCents: 1000, accountReference: '003', callerRef, confirmDuplicate: true }, ACTOR);
+  return collect(checkoutId).askToPay({ phone: '0700123456', amountCents: 1000, accountReference: '003', callerRef, confirmDuplicate: true }, ACTOR);
 }
 const paid = (checkoutId: string, receipt: string) => applyResult({ db: deps.db, events }, 'stk', { Body: { stkCallback: {
   MerchantRequestID: 'MR_' + checkoutId, CheckoutRequestID: checkoutId, ResultCode: 0, ResultDesc: 'The service request is processed successfully.',
-  CallbackMetadata: { Item: [{ Name: 'Amount', Value: 10 }, { Name: 'MpesaReceiptNumber', Value: receipt }, { Name: 'TransactionDate', Value: 20260924201742 }, { Name: 'PhoneNumber', Value: 254792471415 }] },
+  CallbackMetadata: { Item: [{ Name: 'Amount', Value: 10 }, { Name: 'MpesaReceiptNumber', Value: receipt }, { Name: 'TransactionDate', Value: 20260924201742 }, { Name: 'PhoneNumber', Value: 254700123456 }] },
 } } });
 const confirmation = (receipt: string, billRef = '003') => recordC2b({ db: deps.db, events }, {
-  transactionType: 'Pay Bill', transId: receipt, transTime: '20260924201742', amount: 10, shortCode: '4052037', billRefNumber: billRef,
-  invoiceNumber: '', orgAccountBalance: '', thirdPartyTransId: '', msisdn: '254792471415', firstName: 'NELSON', middleName: '', lastName: '',
+  transactionType: 'Pay Bill', transId: receipt, transTime: '20260924201742', amount: 10, shortCode: '600999', billRefNumber: billRef,
+  invoiceNumber: '', orgAccountBalance: '', thirdPartyTransId: '', msisdn: '254700123456', firstName: 'NELSON', middleName: '', lastName: '',
 } as unknown as C2bPayment, 'callback', { silent: true });
 
 async function rowsFor(receipt: string) {
@@ -121,5 +121,36 @@ describe('a prompt and its confirmation', () => {
       expect(stk!.confirmation_id).toBe(c2b!.id);
     }
     expect(await countedFor(sinro)).toBe(50 * 1000);
+  });
+
+  it('a prompt whose answer never came is linked by inference to the one confirmation for its reference and amount', async () => {
+    await ask('ws_CO_LOST', 'user-5:wallet_topup');
+    await confirmation('UIO0000005');
+    const [c2b] = await rowsFor('UIO0000005');
+    const [prompt] = await deps.db.query<{ id: string; confirmation_id: string; link_method: string }>(`SELECT id, confirmation_id, link_method FROM requests WHERE type='stk'`);
+    expect(c2b!.prompt_id).toBe(prompt!.id);
+    expect(prompt!.link_method).toBe('inferred');
+    expect(c2b!.caller_ref).toBe('user-5:wallet_topup');
+    expect(await countedFor(sinro)).toBe(1000);
+  });
+
+  it('two prompts that could be the one link nothing: a person decides', async () => {
+    await ask('ws_CO_TWIN1', 'user-6:a');
+    await ask('ws_CO_TWIN2', 'user-6:b');
+    await confirmation('UIO0000006');
+    expect((await rowsFor('UIO0000006'))[0]!.prompt_id).toBeNull();
+  });
+
+  it('an inference the prompt\'s own receipt contradicts is undone, and the true link made', async () => {
+    await ask('ws_CO_WRONG', 'user-8:wallet_topup');
+    await confirmation('UIO0000008');                  // inferred onto the waiting prompt
+    await confirmation('UIO0000009');                  // the prompt's real payment, not yet known as such
+    await paid('ws_CO_WRONG', 'UIO0000009');           // its answer names 09, so 08 was not it
+    const [wrong] = await rowsFor('UIO0000008');
+    expect(wrong!.prompt_id).toBeNull();
+    expect(wrong!.caller_ref).toBeNull();
+    const [right, stk] = await rowsFor('UIO0000009');
+    expect(right!.prompt_id).toBe(stk!.id);
+    expect(right!.caller_ref).toBe('user-8:wallet_topup');
   });
 });

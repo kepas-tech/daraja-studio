@@ -45,6 +45,12 @@ export function createWebhookWriter(deps: { db: Db; events: EventHub; webhooks: 
         // The caller's own reference, handed back untouched, so a system recognises its own payment
         // without anything of its own living in the account reference.
         callerRef: r.callerRef,
+        // Whose money it is (migration 050): the business, and the account with the app's own
+        // reference for the user, so an app credits the right user from the notice alone.
+        business: r.businessId ? { id: r.businessId, code: r.businessCode ?? null, name: r.businessName ?? null } : null,
+        account: r.accountId ? { id: r.accountId, number: r.accountNumber ?? null, name: r.accountName ?? null, externalRef: r.accountExternalRef ?? null } : null,
+        // Migration 049: the prompt and the confirmation of one payment name each other.
+        promptId: r.promptId, confirmationId: r.confirmationId,
         // Safaricom's own name for an STK request, which is what a caller reconciles against.
         checkoutRequestId: r.checkoutRequestId,
         party: r.party,

@@ -26,6 +26,8 @@ export interface ApiKeyView {
   id: string; name: string; prefix: string; role: KeyRole;
   createdAt: string; lastUsedAt: string | null; revokedAt: string | null;
   rotatedFrom: string | null;
+  /** Migration 050: the business this key acts for, when it has one. */
+  businessId: string | null;
   createdBy: { id: string; displayName: string } | null;
 }
 /** The one response that carries the secret. Every other read of a key shows the prefix alone. */
@@ -35,12 +37,13 @@ export interface KeyActor { personId: string; ip: string }
 export interface KeyAuth {
   keyId: string; name: string; prefix: string; role: KeyRole;
   permissions: PermissionKey[];
+  businessId: string | null;
   org: OrgView;
 }
 
 export interface ApiKeysService {
   list(): Promise<ApiKeyView[]>;
-  create(input: { name: string; role: KeyRole }, actor: KeyActor): Promise<ApiKeyCreated>;
+  create(input: { name: string; role: KeyRole; businessId?: string | null }, actor: KeyActor): Promise<ApiKeyCreated>;
   /** A new secret for the same name and role; the old key stops working in the same breath. */
   rotate(id: string, actor: KeyActor): Promise<ApiKeyCreated>;
   revoke(id: string, actor: KeyActor): Promise<ApiKeyView>;
@@ -51,7 +54,7 @@ export interface ApiKeysService {
 interface KeyRow {
   id: string; name: string; prefix: string; key_hash: string; role: KeyRole;
   created_at: Date; last_used_at: Date | null; revoked_at: Date | null; rotated_from: string | null;
-  created_by: string | null; created_by_name: string | null;
+  created_by: string | null; created_by_name: string | null; business_id: string | null;
 }
 
 const PREFIX_BYTES = 6;   // 12 hex characters
@@ -62,7 +65,7 @@ const USED_AT_MOST_EVERY_MS = 60_000;
 const sha256 = (s: string) => createHash('sha256').update(s, 'utf8').digest('hex');
 
 const SELECT = `SELECT k.id, k.name, k.prefix, k.key_hash, k.role, k.created_at, k.last_used_at, k.revoked_at,
-       k.rotated_from, k.created_by, p.display_name AS created_by_name
+       k.rotated_from, k.created_by, p.display_name AS created_by_name, k.business_id
   FROM api_keys k LEFT JOIN people p ON p.id = k.created_by`;
 
 function view(r: KeyRow): ApiKeyView {
@@ -72,6 +75,7 @@ function view(r: KeyRow): ApiKeyView {
     lastUsedAt: r.last_used_at?.toISOString() ?? null,
     revokedAt: r.revoked_at?.toISOString() ?? null,
     rotatedFrom: r.rotated_from,
+    businessId: r.business_id ?? null,
     createdBy: r.created_by ? { id: r.created_by, displayName: r.created_by_name ?? '' } : null,
   };
 }
@@ -90,12 +94,12 @@ export function createApiKeysService({ db }: { db: Db }): ApiKeysService {
   }
 
   /** One insert, in whatever context the caller is already in, so create and rotate share it. */
-  async function issue(input: { name: string; role: KeyRole; createdBy: string; rotatedFrom?: string | null }): Promise<ApiKeyCreated> {
+  async function issue(input: { name: string; role: KeyRole; createdBy: string; rotatedFrom?: string | null; businessId?: string | null }): Promise<ApiKeyCreated> {
     const minted = mint();
     const [row] = await db.query<{ id: string }>(
-      `INSERT INTO api_keys(name, prefix, key_hash, role, created_by, rotated_from)
-       VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
-      [input.name, minted.prefix, minted.hash, input.role, input.createdBy, input.rotatedFrom ?? null],
+      `INSERT INTO api_keys(name, prefix, key_hash, role, created_by, rotated_from, business_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
+      [input.name, minted.prefix, minted.hash, input.role, input.createdBy, input.rotatedFrom ?? null, input.businessId ?? null],
     );
     const created = await load(row!.id);
     // The secret is returned to the caller and never stored or logged; `view` cannot carry it.
@@ -109,15 +113,19 @@ export function createApiKeysService({ db }: { db: Db }): ApiKeysService {
     },
 
     async create(input, actor) {
-      const made = await issue({ name: input.name, role: input.role, createdBy: actor.personId });
-      await audit(db, { personId: actor.personId, ip: actor.ip, action: 'api_key.created', target: made.key.id, after: { name: made.key.name, prefix: made.key.prefix, role: made.key.role } });
+      if (input.businessId) {
+        const [biz] = await db.query<{ id: string }>('SELECT id FROM businesses WHERE id = $1', [input.businessId]);
+        if (!biz) throw new HttpError(400, 'unknown_business', 'That business does not exist.');
+      }
+      const made = await issue({ name: input.name, role: input.role, createdBy: actor.personId, businessId: input.businessId ?? null });
+      await audit(db, { personId: actor.personId, ip: actor.ip, action: 'api_key.created', target: made.key.id, after: { name: made.key.name, prefix: made.key.prefix, role: made.key.role, businessId: made.key.businessId } });
       return made;
     },
 
     async rotate(id, actor) {
       const old = await load(id);
       if (old.revoked_at) throw new HttpError(409, 'revoked', 'That key has been revoked. Make a new one instead.');
-      const made = await issue({ name: old.name, role: old.role, createdBy: actor.personId, rotatedFrom: old.id });
+      const made = await issue({ name: old.name, role: old.role, createdBy: actor.personId, rotatedFrom: old.id, businessId: old.business_id });
       // The old key stops working here, in the same breath as the new one starting.
       await db.query('UPDATE api_keys SET revoked_at = now() WHERE id = $1 AND revoked_at IS NULL', [id]);
       await audit(db, { personId: actor.personId, ip: actor.ip, action: 'api_key.rotated', target: made.key.id, before: { prefix: old.prefix }, after: { prefix: made.key.prefix, name: made.key.name, role: made.key.role } });
@@ -143,7 +151,7 @@ export function createApiKeysService({ db }: { db: Db }): ApiKeysService {
       if (second < 0 || head !== 'studio' || !PREFIX_RE.test(prefix) || !body) return null;
       const [row] = await db.query<KeyRow & { org_id: string; org_slug: string; org_name: string; org_status: OrgView['status']; org_is_host: boolean; org_suspend_reason: OrgView['suspendReason'] }>(
         `SELECT k.id, k.name, k.prefix, k.key_hash, k.role, k.created_at, k.last_used_at, k.revoked_at, k.rotated_from,
-                k.created_by, NULL::text AS created_by_name,
+                k.created_by, NULL::text AS created_by_name, k.business_id,
                 o.id AS org_id, o.slug AS org_slug, o.name AS org_name, o.status AS org_status,
                 o.is_host AS org_is_host, o.suspend_reason AS org_suspend_reason
            FROM api_keys k JOIN orgs o ON o.id = k.org_id WHERE k.prefix = $1`,
@@ -160,6 +168,7 @@ export function createApiKeysService({ db }: { db: Db }): ApiKeysService {
       return {
         keyId: row.id, name: row.name, prefix: row.prefix, role: row.role,
         permissions: ROLE_PRESETS[row.role],
+        businessId: row.business_id ?? null,
         org: { id: row.org_id, slug: row.org_slug, name: row.org_name, status: row.org_status, isHost: row.org_is_host, suspendReason: row.org_suspend_reason },
       };
     },

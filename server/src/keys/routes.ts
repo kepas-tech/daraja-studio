@@ -14,6 +14,8 @@ const createSchema = z.object({
   role: z.enum(['operator', 'viewer', 'approver', 'forwarder', 'collector']),
   /** Step six, part five: a key can be given its own webhook address as it is made. */
   webhookUrl: z.string().trim().max(500).optional(),
+  /** Migration 050: the business this key acts for, so it can open accounts for its own users there. */
+  businessId: z.string().uuid().optional(),
 });
 const webhookUrlSchema = z.object({ url: z.string().trim().min(1).max(500) });
 
@@ -75,7 +77,7 @@ export function apiKeyRoutes(deps: AppDeps): Router {
     try {
       const b = parse(createSchema, req.body);
       const url = checkedUrl(b.webhookUrl);
-      const created = await deps.apiKeys.create({ name: b.name, role: b.role }, actor(req));
+      const created = await deps.apiKeys.create({ name: b.name, role: b.role, businessId: b.businessId ?? null }, actor(req));
       const webhook = url ? await deps.webhooks.forKey(created.key.id).save(url, actor(req)) : null;
       res.status(201).json({ ...created, webhook });
     } catch (e) { next(e); }

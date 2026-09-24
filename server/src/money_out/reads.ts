@@ -34,6 +34,9 @@ export interface RequestView {
    * Migration 049: a prompt and the confirmation Safaricom posted for the same money are linked.
    * The confirmation is the row that counts; the prompt names it.
    */
+  /** Migration 050: the business's code, and the app's own reference for the user this account is. */
+  businessCode?: string | null;
+  accountExternalRef?: string | null;
   promptId: string | null;
   confirmationId: string | null;
   /** M4: who released or refused a held send. */
@@ -88,7 +91,7 @@ export interface RequestView {
 
 export type ViewRow = RequestRow & {
   created_by_name?: string | null; checked_by_name?: string | null; approved_by_name?: string | null; approved_by?: string | null;
-  contact_name?: string | null; business_name?: string | null; account_name?: string | null; account_number?: string | null; created_cursor?: string;
+  contact_name?: string | null; business_name?: string | null; account_name?: string | null; account_number?: string | null; business_code?: string | null; account_external_ref?: string | null; created_cursor?: string;
   /** Brief 2, item 1b: the two history lines, from number_history. */
   deleted_name?: string | null; deleted_at_text?: string | null; previous_name?: string | null; previous_until_text?: string | null;
   /** Brief 2, item 1: columns selected by r.* that the base RequestRow predates. */
@@ -101,7 +104,7 @@ export type ViewRow = RequestRow & {
  * rendering of created_at for cursor paging — a JS Date only holds milliseconds, so the
  * cursor must be built from this text column, never from row.created_at. Append WHERE/ORDER/LIMIT. */
 export const VIEW_SELECT = `SELECT r.*, p.display_name AS created_by_name, c.display_name AS checked_by_name, a.display_name AS approved_by_name, COALESCE(ct.name, pc.name) AS contact_name,
-  bz.name AS business_name, ac.name AS account_name, ac.full_number AS account_number,
+  bz.name AS business_name, bz.code AS business_code, ac.name AS account_name, ac.full_number AS account_number, ac.external_ref AS account_external_ref,
   dh.name AS deleted_name, dh.deleted_text AS deleted_at_text, ph.name AS previous_name, ph.until_text AS previous_until_text,
   to_char(r.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_cursor
   FROM requests r LEFT JOIN people p ON p.id = r.created_by LEFT JOIN people c ON c.id = r.checked_by LEFT JOIN people a ON a.id = r.approved_by
@@ -212,6 +215,8 @@ export function toView(row: ViewRow, egressIps: string[] = []): RequestView {
     businessName: row.business_name ?? null,
     accountName: row.account_name ?? null,
     accountNumber: row.account_number ?? null,
+    businessCode: row.business_code ? String(row.business_code).trim() : null,
+    accountExternalRef: row.account_external_ref ?? null,
     deletedAccountName: row.deleted_name ?? null,
     deletedAccountAt: row.deleted_at_text ?? null,
     previousHolderName: row.previous_name ?? null,

@@ -158,9 +158,10 @@ describe('what an app needs that Studio did not answer', () => {
   it('gives the operator role the right to ask a customer to pay, which is what lets a key do it', () => {
     // No role an API key could hold carried `stk.request` before this, so every key was refused by the
     // payment route. `operator` now carries it too, and `collector` is the one made for a system:
-    // exactly the two permissions an integration needs and nothing else.
+    // exactly what an integration needs and nothing else: ask, read back, and (migration 050) open an
+    // account for each of its own users under its own business.
     expect(ROLE_PRESETS.operator).toContain('stk.request');
-    expect([...ROLE_PRESETS.collector].sort()).toEqual(['lookup.view', 'stk.request']);
+    expect([...ROLE_PRESETS.collector].sort()).toEqual(['accounts.own', 'lookup.view', 'stk.request']);
     expect(ROLE_PRESETS.viewer).not.toContain('stk.request');
     expect(ROLE_PRESETS.approver).not.toContain('stk.request');
     expect(ROLE_PRESETS.forwarder).not.toContain('stk.request');

@@ -2,7 +2,8 @@ import { Router, type Request } from 'express';
 import { z } from 'zod';
 import type { AppDeps } from '../app.js';
 import { requireAuth, requireCsrf, requireStepUp } from '../auth/middleware.js';
-import { requirePermission } from '../permissions/middleware.js';
+import { assertPermission, requirePermission } from '../permissions/middleware.js';
+import { personOf } from '../http/actor.js';
 import { requireModule } from '../modules/middleware.js';
 import { clientIp } from '../util/ip.js';
 import { HttpError } from '../util/errors.js';
@@ -43,6 +44,9 @@ const typeKeySchema = z.object({ typeKey: z.string().trim().min(1).max(30) }).st
 const accountSchema = z.object({ name, phone, note, standingCents: z.number().int().positive().max(1_000_000_000).nullish() }).strict();
 const assignSchema = z.object({ businessId: uuid, accountId: uuid.nullish() });
 const listSchema = z.object({ q: z.string().trim().max(80).optional() });
+// Migration 050: an app's user, by the app's own reference for them.
+const refSchema = z.object({ name: z.string().trim().min(1).max(80).optional(), phone, businessId: uuid.optional() }).strict();
+const refParam = z.string().trim().min(1).max(64);
 const isRealDay = (s: string) => {
   const d = new Date(s + 'T00:00:00Z');
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
@@ -192,6 +196,41 @@ export function businessTypesRoutes(deps: AppDeps): Router {
 export function accountsRoutes(deps: AppDeps): Router {
   const r = Router();
   r.use(requireAuth(deps.db), requireCsrf, requireModule(deps.modules, 'businesses'));
+
+  /**
+   * Which business a reference is looked up in. A key works in its own business only, and needs
+   * `accounts.own`; a person needs `businesses.manage` and names the business.
+   */
+  async function refBusiness(req: Request, named: string | undefined): Promise<string> {
+    if (req.apiKey) {
+      await assertPermission(deps.db, req.person!, 'accounts.own', req.apiKey.permissions);
+      if (!req.apiKey.businessId) throw new HttpError(409, 'key_without_business', 'This key has no business, so it cannot open accounts. Make a key for the business.');
+      return req.apiKey.businessId;
+    }
+    await assertPermission(deps.db, req.person!, 'businesses.manage');
+    if (!named || !isUuid(named)) throw new HttpError(400, 'invalid', 'businessId: say which business.');
+    return named;
+  }
+
+  // Migration 050: the account an app's user has, opened on first use. 201 when it was just opened.
+  r.put('/by-ref/:ref', async (req, res, next) => {
+    try {
+      const ref = parse(refParam, req.params.ref);
+      const b = parse(refSchema, req.body ?? {});
+      const businessId = await refBusiness(req, b.businessId);
+      const out = await deps.businesses.accountByRef(businessId, ref, { name: b.name, phone: b.phone ?? null }, { personId: personOf(req), ip: clientIp(req) });
+      res.status(out.created ? 201 : 200).json(out.account);
+    } catch (e) { next(e); }
+  });
+  r.get('/by-ref/:ref', async (req, res, next) => {
+    try {
+      const ref = parse(refParam, req.params.ref);
+      const businessId = await refBusiness(req, typeof req.query.businessId === 'string' ? req.query.businessId : undefined);
+      const found = await deps.businesses.findByRef(businessId, ref);
+      if (!found) throw new HttpError(404, 'not_found', ACCOUNT_NOT_FOUND);
+      res.json(found);
+    } catch (e) { next(e); }
+  });
 
   // A sub-account under an account. Refused a level deeper.
   r.post('/:id/sub-accounts', requirePermission(deps.db, 'businesses.manage'), async (req, res, next) => {

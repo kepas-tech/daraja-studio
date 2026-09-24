@@ -5,7 +5,7 @@ import type { EventHub } from '../events/hub.js';
 import { fromClient, matchAccount } from '../businesses/match.js';
 import { createFeesService } from '../fees/service.js';
 import { joinPersonName, personName } from '../util/names.js';
-import { linkByReceipt, receiptLock } from './link.js';
+import { linkByReceipt, linkInferred, receiptLock } from './link.js';
 
 /** Daraja's `TransTime` is `YYYYMMDDHHmmss` in East Africa Time. */
 export function transTimeToDate(t: string): Date | null {
@@ -78,7 +78,9 @@ export async function recordC2b(deps: { db: Db; events: EventHub; cache?: Cache 
     // The prompt that asked for this money, if Studio sent one and it has already been answered, is
     // joined to this row here, under the same receipt lock: the confirmation is the row that counts,
     // and it takes the business, account, key and caller's reference the prompt carried.
-    await linkByReceipt(c, receipt);
+    // Or, when that prompt's own answer never came, the one prompt that asked for this account
+    // reference and amount in the last ten minutes.
+    if (!(await linkByReceipt(c, receipt))) await linkInferred(c, ins.rows[0].id);
     return { verdict: 'applied' as const, requestId: ins.rows[0].id };
   });
   if (out.verdict === 'applied' && !opts.silent) await deps.events.publish('request.updated', { id: out.requestId, status: 'completed' });

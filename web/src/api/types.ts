@@ -162,6 +162,8 @@ export interface ApiKeyView {
   role: 'operator' | 'viewer' | 'approver' | 'forwarder' | 'collector';
   createdAt: string; lastUsedAt: string | null; revokedAt: string | null; rotatedFrom: string | null;
   createdBy: { id: string; displayName: string } | null;
+  /** Migration 050: the business this key acts for, when it has one. */
+  businessId?: string | null;
   /**
    * Step six, part five: the address this key holds itself, or null when its notices go to the
    * organisation's address instead.

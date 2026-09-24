@@ -39,11 +39,49 @@ export async function linkByReceipt(c: PoolClient, receipt: string): Promise<{ p
   return { promptId, confirmationId };
 }
 
+/**
+ * A prompt whose own answer never came (still `sent`, or `unknown`) and a confirmation that arrived
+ * for it: linked by inference when exactly one such prompt asked for the same account reference and
+ * the same amount in the ten minutes before. Two or more candidates link nothing; a person decides.
+ * The prompt keeps its own status (its answer is Safaricom's to give); it only names the confirmation.
+ */
+export async function linkInferred(c: PoolClient, confirmationId: string): Promise<string | null> {
+  const [conf] = (await c.query<{ account_reference: string | null; amount_cents: string; prompt_id: string | null }>(
+    `SELECT account_reference, amount_cents, prompt_id FROM requests WHERE id = $1`, [confirmationId])).rows;
+  if (!conf || conf.prompt_id || !conf.account_reference) return null;
+  const candidates = await c.query<{ id: string }>(
+    `SELECT id FROM requests WHERE type = ANY($1::text[]) AND status IN ('sent', 'unknown') AND confirmation_id IS NULL
+        AND upper(account_reference) = upper($2) AND amount_cents = $3 AND created_at > now() - interval '10 minutes'
+      LIMIT 2`,
+    [PROMPT_TYPES, conf.account_reference, conf.amount_cents]);
+  if (candidates.rows.length !== 1) return null;
+  const promptId = candidates.rows[0].id;
+  await c.query(`UPDATE requests SET confirmation_id = $2, link_method = 'inferred' WHERE id = $1 AND confirmation_id IS NULL`, [promptId, confirmationId]);
+  await c.query(
+    `UPDATE requests AS conf SET prompt_id = p.id, link_method = 'inferred',
+        business_id = COALESCE(conf.business_id, p.business_id), account_id = COALESCE(conf.account_id, p.account_id),
+        caller_ref = COALESCE(conf.caller_ref, p.caller_ref), api_key_id = COALESCE(conf.api_key_id, p.api_key_id)
+       FROM requests p WHERE conf.id = $1 AND p.id = $2`,
+    [confirmationId, promptId]);
+  return promptId;
+}
+
 /** The same, in a transaction of its own: for a prompt that has just completed on its own path. */
 export async function linkPromptReceipt(db: Db, receipt: string | null | undefined): Promise<void> {
   if (!receipt) return;
   await db.tx(async (c) => {
     await c.query('SELECT pg_advisory_xact_lock(hashtext($1))', [receiptLock(receipt)]);
+    // An inferred link the prompt's own receipt now contradicts was wrong: it is undone, with the
+    // key and caller's reference the confirmation took from this prompt, before the true link is made.
+    await c.query(
+      `WITH wrong AS (
+         SELECT p.id AS pid, conf.id AS cid, p.caller_ref, p.api_key_id FROM requests p JOIN requests conf ON conf.id = p.confirmation_id
+          WHERE p.receipt = $1 AND p.link_method = 'inferred' AND conf.receipt IS DISTINCT FROM p.receipt)
+       UPDATE requests r SET confirmation_id = NULL, prompt_id = NULL, link_method = NULL,
+              caller_ref = CASE WHEN r.id = w.cid AND r.caller_ref IS NOT DISTINCT FROM w.caller_ref THEN NULL ELSE r.caller_ref END,
+              api_key_id = CASE WHEN r.id = w.cid AND r.api_key_id IS NOT DISTINCT FROM w.api_key_id THEN NULL ELSE r.api_key_id END
+         FROM wrong w WHERE r.id IN (w.pid, w.cid)`,
+      [receipt]);
     await linkByReceipt(c, receipt);
   });
 }

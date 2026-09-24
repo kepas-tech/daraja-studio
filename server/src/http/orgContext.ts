@@ -46,7 +46,7 @@ export function orgContext(deps: { db: Db; apiKeys: ApiKeysService }): RequestHa
               is_owner: false, status: 'active', must_change_password: false,
               email: null, role: 'custom', is_host_admin: false,
             };
-            req.apiKey = { keyId: found.keyId, name: found.name, prefix: found.prefix, role: found.role, permissions: found.permissions };
+            req.apiKey = { keyId: found.keyId, name: found.name, prefix: found.prefix, role: found.role, permissions: found.permissions, businessId: found.businessId };
             req.org = found.org;
             next();
           });

@@ -24,7 +24,8 @@ import { ensureTypes, listTypes, OTHER_TEMPLATE, type BusinessTypeView } from '.
  * a human has read.
  */
 
-export interface Actor { personId: string; ip: string }
+/** `personId` is null when an API key acted: a key is not a person (http/actor.ts). */
+export interface Actor { personId: string | null; ip: string }
 /** The open width of a scope, for the plain line the Businesses page shows. */
 export interface NumberWidth { width: number; capacity: number; used: number }
 export interface BusinessView { id: string; code: string; name: string; active: boolean; accountCount: number; numbers: NumberWidth; createdAt: string; /** Round 3, phase B: the kind of business this is, and the words that come with it. */ type: BusinessTypeView }
@@ -37,6 +38,8 @@ export interface AccountView {
   standingCents: number | null;
   /** When a reminder for this account was last prepared. */
   lastRemindedAt: string | null;
+  /** Migration 050: the app's own reference for the user this account is, when an app opened it. */
+  externalRef: string | null;
   /** Live sub-accounts under this account, in number order; always empty for a sub-account. */
   children: AccountView[];
   /** The number belonged to somebody else until `until`, within the last twelve months. */
@@ -55,7 +58,7 @@ export type UnmatchedPayment = RequestView & {
 };
 export interface BusinessSummaryItem { businessId: string; code: string; name: string; /** Round 3, phase B: Home leads with this business's own words. */ type: BusinessTypeView; inCents: number; outCents: number; /** How many accounts the business holds, for the "who is behind" line. */ accountCount: number }
 export interface BusinessSummary { items: BusinessSummaryItem[] }
-export interface AccountInput { name: string; phone?: string | null; note?: string | null; standingCents?: number | null }
+export interface AccountInput { name: string; phone?: string | null; note?: string | null; standingCents?: number | null; /** Migration 050: an app's own reference for its user. */ externalRef?: string | null }
 /** One past holder of a number, for "Past holders of this number". */
 export interface HistoryEntry { name: string; phone: string | null; level: 'business' | 'account' | 'sub_account'; createdAt: string; deletedAt: string; deletedBy: string | null }
 /** The random draw, injected: tests pin the number a run produces without stubbing the database. */
@@ -83,6 +86,12 @@ export interface BusinessesService {
   /** The accounts of one business, each with its live sub-accounts nested under it. */
   accounts(businessId: string, q?: string): Promise<AccountView[]>;
   addAccount(businessId: string, input: AccountInput, actor: Actor): Promise<AccountView>;
+  /**
+   * Migration 050: the account an app's user has under this business, found by the app's own
+   * reference, opened on first use. Safe to call twice at once: one account, never two.
+   */
+  accountByRef(businessId: string, externalRef: string, input: { name?: string; phone?: string | null }, actor: Actor): Promise<{ account: AccountView; created: boolean }>;
+  findByRef(businessId: string, externalRef: string): Promise<AccountView | null>;
   /** A sub-account under an account: a room, a plot, a child's fees. Studio draws its number too. */
   addSubAccount(parentId: string, input: AccountInput, actor: Actor): Promise<AccountView>;
   updateAccount(id: string, input: AccountInput, actor: Actor): Promise<AccountView>;
@@ -100,18 +109,20 @@ interface BusinessRow { id: string; code: string; name: string; active: boolean;
 interface AccountRow {
   id: string; business_id: string; parent_id: string | null; number: string; full_number: string;
   name: string; phone: string | null; note: string | null; created_at: Date;
-  standing_cents: number | null; last_reminded_at: Date | null;
+  standing_cents: number | null; last_reminded_at: Date | null; external_ref: string | null;
 }
 interface WidthRow { id: string; scope_kind: 'accounts' | 'sub_accounts'; scope_id: string; width: number; capacity: number; used: number; closed_at: Date | null }
 /** What one mint did, and the width change it caused, when it caused one. */
 interface Minted {
   row: AccountRow;
+  /** True when the reference already had an account and nothing was minted. */
+  existed?: boolean;
   grew: { scopeKind: 'accounts' | 'sub_accounts'; scopeId: string; previousWidth: number; width: number } | null;
 }
 
 const UNIQUE_VIOLATION = '23505';
 const isUnique = (e: unknown) => typeof e === 'object' && e !== null && (e as { code?: string }).code === UNIQUE_VIOLATION;
-const COLS = 'id, business_id, parent_id, number, full_number, name, phone, note, standing_cents, last_reminded_at, created_at';
+const COLS = 'id, business_id, parent_id, number, full_number, name, phone, note, standing_cents, last_reminded_at, created_at, external_ref';
 const WIDTH_COLS = 'id, scope_kind, scope_id, width, capacity, used, closed_at';
 const NO_NUMBERS = 'This business has used every account number Studio can make. Delete an account you no longer need, then try again.';
 
@@ -134,6 +145,7 @@ const toAccountView = (r: AccountRow, children: AccountView[] = [], previousHold
   name: r.name, phone: r.phone, note: r.note, createdAt: r.created_at.toISOString(),
   standingCents: r.standing_cents === null || r.standing_cents === undefined ? null : Number(r.standing_cents),
   lastRemindedAt: r.last_reminded_at?.toISOString() ?? null,
+  externalRef: r.external_ref ?? null,
   children, previousHolder,
 });
 
@@ -247,6 +259,12 @@ export function createBusinessesService(deps: { db: Db; settings: Settings; even
       await c.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, ['accounts:' + scopeId]);
       const [biz] = (await c.query<{ id: string }>(`SELECT id FROM businesses WHERE id=$1 AND org_id=$2`, [businessId, requireOrg()])).rows;
       if (!biz) throw new HttpError(404, 'not_found', 'That business does not exist.');
+      // An app's user who already has an account keeps it: under this same lock, so two first
+      // payments at once still open one account.
+      if (input.externalRef) {
+        const [had] = (await c.query<AccountRow>(`SELECT ${COLS} FROM accounts WHERE business_id=$1 AND external_ref=$2`, [businessId, input.externalRef])).rows;
+        if (had) return { row: had, grew: null, existed: true };
+      }
       const room = await widthWithRoom(c, scopeKind, scopeId, businessId, parent ? parent.id : null, base);
       if (!room) throw new HttpError(409, 'no_numbers_left', NO_NUMBERS);
       const open = room.row;
@@ -257,9 +275,9 @@ export function createBusinessesService(deps: { db: Db; settings: Settings; even
       for (let draw = 0; draw < DRAWS_PER_WIDTH; draw++) {
         const candidate = '9'.repeat(open.width - FIRST_WIDTH) + String(rng(WIDTH_CAPACITY)).padStart(3, '0');
         const { rows } = await c.query<AccountRow>(
-          `INSERT INTO accounts(business_id, parent_id, number, name, phone, note, standing_cents, created_by)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT DO NOTHING RETURNING ${COLS}`,
-          [businessId, parent ? parent.id : null, candidate, input.name, phone, input.note ?? null, parent ? null : input.standingCents ?? null, actor.personId]);
+          `INSERT INTO accounts(business_id, parent_id, number, name, phone, note, standing_cents, created_by, external_ref)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT DO NOTHING RETURNING ${COLS}`,
+          [businessId, parent ? parent.id : null, candidate, input.name, phone, input.note ?? null, parent ? null : input.standingCents ?? null, actor.personId, parent ? null : input.externalRef ?? null]);
         if (rows[0]) {
           await c.query(`UPDATE number_widths SET used=$2 WHERE id=$1`, [open.id, used + 1]);
           return { row: rows[0], grew };
@@ -418,6 +436,24 @@ export function createBusinessesService(deps: { db: Db; settings: Settings; even
       await audit(deps.db, { personId: actor.personId, action: 'account.added', target: view.id, after: { businessId, fullNumber: view.fullNumber, name: view.name }, ip: actor.ip });
       if (minted.grew) await announce(minted.grew, business.name, null, actor);
       return view;
+    },
+
+    async accountByRef(businessId, externalRef, input, actor) {
+      const ref = externalRef.trim();
+      if (!ref || ref.length > 64) throw new HttpError(400, 'bad_ref', 'The reference is 1 to 64 characters.');
+      const business = await businessRow(businessId);
+      const minted = await mint(businessId, null, { name: (input.name?.trim() || ref).slice(0, 80), phone: input.phone ?? null, externalRef: ref }, actor);
+      const view = toAccountView(minted.row);
+      if (!minted.existed) {
+        await audit(deps.db, { personId: actor.personId, action: 'account.added', target: view.id, after: { businessId, fullNumber: view.fullNumber, name: view.name, externalRef: ref }, ip: actor.ip });
+        if (minted.grew) await announce(minted.grew, business.name, null, actor);
+      }
+      return { account: view, created: !minted.existed };
+    },
+
+    async findByRef(businessId, externalRef) {
+      const [row] = await deps.db.query<AccountRow>(`SELECT ${COLS} FROM accounts WHERE business_id=$1 AND external_ref=$2`, [businessId, externalRef.trim()]);
+      return row ? toAccountView(row) : null;
     },
 
     async addSubAccount(parentId, input, actor) {

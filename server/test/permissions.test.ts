@@ -10,8 +10,8 @@ const deps = testDeps();
 afterAll(() => deps.db.end());
 
 describe('permissions', () => {
-  it('catalog has the 25 keys with labels and roles', () => {
-    expect(PERMISSIONS.length).toBe(25);
+  it('catalog has the 26 keys with labels and roles', () => {
+    expect(PERMISSIONS.length).toBe(26);
     // Round 5: the inbox's own key, which is the whole of the forwarder role.
     expect(PERMISSIONS.find((p) => p.key === 'money_in.feed')?.label).toBe('Can feed money in from another system');
     expect(PERMISSIONS.find((p) => p.key === 'send.phone')?.role).toBe('ORG B2C API Initiator');

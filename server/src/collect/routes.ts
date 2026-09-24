@@ -4,7 +4,7 @@ import type { AppDeps } from '../app.js';
 import type { Config } from '../config.js';
 import type { Settings } from '../settings/store.js';
 import { requireAuth, requireCsrf, requireHttps, requireUnlocked } from '../auth/middleware.js';
-import { requirePermission } from '../permissions/middleware.js';
+import { assertPermission, requirePermission } from '../permissions/middleware.js';
 import { requireModule } from '../modules/middleware.js';
 import { PUBLIC_URL_UNVERIFIED } from '../money_out/ready.js';
 import { ORG_CLOSED, ORG_SUSPENDED } from '../http/orgActive.js';
@@ -17,16 +17,20 @@ const askToPay = z.object({
   amountCents: z.number().int().positive(),
   // Safaricom shows this to the payer and puts it on their statement, so it is the one field a
   // business uses to recognise the payment later. Required, unlike a send's optional remarks.
-  accountReference: z.string().trim().min(1).max(12),
+  accountReference: z.string().trim().min(1).max(12).optional(),
   /** Brief 2, item 1: a saved account instead of typed words. Its full number becomes the reference. */
   accountId: z.string().uuid().optional(),
+  // Migration 050: an app's own reference for the user being asked (its user id, say). The user's
+  // account under the key's business is opened on first use, and its number is the reference, so
+  // the money names the user whichever way Safaricom's answer arrives.
+  externalRef: z.string().trim().min(1).max(64).optional(),
   description: z.string().trim().max(13).optional(),
   // The caller's own reference for this payment: one opaque string, at most 64 characters, stored
   // with the request and echoed in the webhook. It is not the account reference — that is how money
   // finds a business and an account here — and Studio does nothing with it but hand it back.
   callerRef: z.string().trim().min(1).max(64, { message: 'at most 64 characters' }).optional(),
   confirmDuplicate: z.boolean().optional(),
-});
+}).refine((b) => !!(b.accountReference || b.accountId || b.externalRef), { message: 'Say what this payment is for: an accountReference, an accountId or an externalRef.', path: ['accountReference'] });
 
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((s) => { const d = new Date(`${s}T00:00:00Z`); return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s; }, { message: 'Enter a real date.' });
 const standingOrder = z.object({
@@ -81,7 +85,14 @@ export function collectRoutes(deps: AppDeps): Router {
   r.post('/stk', requireAuth(deps.db), requireCsrf, requireUnlocked, requirePermission(deps.db, 'stk.request'), requireCollectReady(deps), idempotency(deps, 'POST /api/collect/stk'), async (req, res, next) => {
     try {
       const b = parse(askToPay, req.body);
-      res.status(201).json(await deps.collect.askToPay(b, actor(req)));
+      let accountId = b.accountId;
+      if (b.externalRef) {
+        if (!req.apiKey) throw new HttpError(400, 'invalid', 'externalRef is for an app\'s key. Pick the account instead.');
+        await assertPermission(deps.db, req.person!, 'accounts.own', req.apiKey.permissions);
+        if (!req.apiKey.businessId) throw new HttpError(409, 'key_without_business', 'This key has no business, so it cannot open accounts. Make a key for the business.');
+        accountId = (await deps.businesses.accountByRef(req.apiKey.businessId, b.externalRef, {}, { personId: null, ip: clientIp(req) })).account.id;
+      }
+      res.status(201).json(await deps.collect.askToPay({ ...b, accountId, accountReference: b.accountReference ?? '' }, actor(req)));
     } catch (e) { next(e); }
   });
   /**

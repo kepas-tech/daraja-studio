@@ -18,7 +18,9 @@ export const ROLE_PRESETS: Record<'operator' | 'viewer' | 'approver' | 'forwarde
    * nothing else — ask for a payment, and read one back — because a payments integration needs
    * neither the sends nor the batch files, and a key is a credential that outlives the handover.
    */
-  collector: ['stk.request', 'lookup.view'],
+  // `accounts.own` (migration 050): the app opens one account per user, under the key's own business,
+  // so the money it asks for names the user. A collector key with no business opens none.
+  collector: ['stk.request', 'lookup.view', 'accounts.own'],
   /** Staff who send, and who ask customers to pay. `stk.request` is here because asking for money
    *  in is what a till does all day and is a smaller power than sending money out, which this same
    *  role already carries; it is also what lets an API key raise a payment request at all — no role
