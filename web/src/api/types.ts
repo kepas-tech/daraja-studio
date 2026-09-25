@@ -280,6 +280,8 @@ export interface AccountView {
   /** Round 3, phase C: what this account is expected to pay each period, when its kind has one. */
   standingCents?: number | null;
   lastRemindedAt?: string | null;
+  /** Migration 052: a name chosen as this account's number (JOHN), which pays in as well as the digits. */
+  namedNumber?: string | null;
   /** Live sub-accounts under this account; always empty for a sub-account. */
   children: AccountView[];
   /** The number belonged to somebody else until `until`, within the last twelve months. */

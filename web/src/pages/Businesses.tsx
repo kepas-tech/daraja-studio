@@ -16,6 +16,7 @@ import { useToast } from '../components/Toast';
 import { BusinessTypeForm } from '../components/BusinessTypeForm';
 import { copy } from '../copy/en';
 import { MoneyInput } from '../components/MoneyInput';
+import { NameChooser } from '../components/NameChooser';
 import { money } from '../format';
 import { normalizeKe, phone, when } from '../format';
 import { expectationLines, wordsOf, type TypeWords } from '../businessTypes';
@@ -391,6 +392,8 @@ export function Businesses() {
                                     <span className="text-base">{x.name}</span>
                                     <span className="text-lg" data-testid={'full-' + x.id}><code>{x.fullNumber}</code>{x.phone ? <span className="text-sm text-muted"> · {phone(x.phone)}</span> : null}</span>
                                     <span className="text-sm text-muted">{c.tellThem(org?.shortcode ?? null, x.fullNumber)}</span>
+                                    {mayManage ? <NameChooser accountId={x.id} current={x.namedNumber ?? null} onChanged={() => void loadAccounts(b.id)} />
+                                      : x.namedNumber ? <span className="text-sm">{copy.namedNumber.current(x.namedNumber)}</span> : null}
                                     {x.previousHolder && <span className="text-sm text-muted">{c.heldBy(x.previousHolder.name, x.previousHolder.until)}</span>}
                                     {x.note && <span className="text-sm text-muted">{x.note}</span>}
                                   </span>

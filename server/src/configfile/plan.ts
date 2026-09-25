@@ -7,6 +7,7 @@ import type { ApiKeysService } from '../keys/service.js';
 import type { WebhooksService } from '../webhooks/service.js';
 import type { AppDecl, StudioConfig } from './schema.js';
 import { clashes, claimsOf } from './validate.js';
+import { REASON_WORDS, type ClaimReason } from '../routing/claims.js';
 
 /**
  * What applying a configuration file would change, worked out against the studio's own rows, and
@@ -33,7 +34,9 @@ export type Change =
   | { kind: 'app.create'; app: AppDecl }
   | { kind: 'app.update'; id: string; app: AppDecl; fields: string[] }
   | { kind: 'app.key'; appKey: string }
-  | { kind: 'app.webhook'; appKey: string; url: string };
+  | { kind: 'app.webhook'; appKey: string; url: string }
+  | { kind: 'claim.add'; token: string; claim: 'prefix' | 'alias'; appKey?: string; businessCode?: string }
+  | { kind: 'claim.release'; id: string; token: string; claim: string };
 
 export interface Plan {
   changes: Change[];
@@ -102,7 +105,7 @@ export async function planConfig(deps: ConfigDeps, config: StudioConfig): Promis
   // Every code on the paybill, listed or not, is read against the app prefixes and aliases.
   const claims = [
     ...claimsOf(config),
-    ...unlisted.map((code) => ({ token: code, what: `business ${code} (not in the file)` })),
+    ...unlisted.map((code) => ({ token: code, what: `business ${code} (not in the file)`, leads: true })),
   ];
   problems.push(...clashes(claims).filter((p) => p.includes('(not in the file)')));
 
@@ -150,15 +153,57 @@ export async function planConfig(deps: ConfigDeps, config: StudioConfig): Promis
     }
   }
   const listedApps = new Set(config.apps.map((a) => a.key));
+  // Route claims (migration 052): the prefixes and aliases the file declares, as rows the database
+  // rule reads. Only claims of apps the file lists, and routing aliases when the file has a routing
+  // part, are released; everything else is left alone. Moving or dropping a word that routes money
+  // is a risky change.
+  const appKeyById = new Map(apps.map((a) => [a.id, a.key]));
+  const codeById = new Map(businesses.map((b) => [b.id, b.code]));
+  const live = await deps.db.query<{ id: string; token: string; kind: 'prefix' | 'alias'; app_id: string | null; business_id: string | null }>(
+    `SELECT id, token, kind, app_id, business_id FROM route_claims WHERE released_at IS NULL AND kind IN ('prefix', 'alias')`);
+  type Want = { token: string; claim: 'prefix' | 'alias'; appKey?: string; businessCode?: string };
+  const wanted: Want[] = [
+    ...config.apps.flatMap((a) => [
+      ...a.prefixes.map((t) => ({ token: t, claim: 'prefix' as const, appKey: a.key })),
+      ...a.aliases.map((t) => ({ token: t, claim: 'alias' as const, appKey: a.key })),
+    ]),
+    ...(config.routing?.aliases ?? []).map((r) => (r.app ? { token: r.reference, claim: 'alias' as const, appKey: r.app } : { token: r.reference, claim: 'alias' as const, businessCode: r.business })),
+  ];
+  const sameTarget = (l: (typeof live)[number], w: Want) => l.kind === w.claim
+    && (w.appKey ? appKeyById.get(l.app_id ?? '') === w.appKey : codeById.get(l.business_id ?? '') === w.businessCode && !l.app_id);
+  const managed = (l: (typeof live)[number]) => (l.app_id ? listedApps.has(appKeyById.get(l.app_id) ?? '') : config.routing !== undefined);
+  const releases = live.filter((l) => managed(l) && !wanted.some((w) => w.token === l.token && sameTarget(l, w)));
+  const adds = wanted.filter((w) => !live.some((l) => l.token === w.token && sameTarget(l, w)));
+  for (const l of releases) {
+    changes.push({ kind: 'claim.release', id: l.id, token: l.token, claim: l.kind });
+    risky.push(`${l.kind} ${l.token} stops routing to ${l.app_id ? 'app ' + appKeyById.get(l.app_id) : 'business ' + codeById.get(l.business_id ?? '')}`);
+  }
+  for (const w of adds) changes.push({ kind: 'claim.add', ...w });
+  // What the database will say about the new words, asked with the released ones already gone, and
+  // then undone: a plan changes nothing.
+  if (adds.length) {
+    const ROLLBACK = new Error('plan only');
+    try {
+      await deps.db.tx(async (c) => {
+        if (releases.length) await c.query(`UPDATE route_claims SET released_at = now() WHERE id = ANY($1::uuid[])`, [releases.map((l) => l.id)]);
+        for (const w of adds) {
+          const [r] = (await c.query<{ why: string | null }>(`SELECT route_claim_conflict(app_current_org(), $1, $2) AS why`, [w.token, w.claim])).rows;
+          if (r?.why) problems.push(`${w.claim} ${w.token}: ${REASON_WORDS[r.why as ClaimReason] ?? r.why}`);
+        }
+        throw ROLLBACK;
+      });
+    } catch (e) { if (e !== ROLLBACK) throw e; }
+  }
+
   const strayApps = apps.filter((a) => !listedApps.has(a.key)).map((a) => a.key);
   if (strayApps.length) notes.push(`Apps ${strayApps.join(', ')} are not in the file; they are left as they are.`);
   if (keys.some((k) => k.role === 'collector' && !k.businessId)) notes.push('Some collector keys act for no business; their payments name no app.');
 
   // What the format carries that this version does not act on yet.
-  if (config.routing) notes.push('routing is kept in the file but not in force yet: references are still read by business code.');
+  if (config.routing) notes.push('Routing aliases are in force: a payment whose whole reference is an alias goes to its business or app. Identifier rescue and phone routing are kept in the file but not in force yet.');
   if (config.fees) notes.push('fees are kept in the file but not in force yet: no fee is charged by the file.');
   if (config.custody) notes.push('custody is kept in the file but not in force yet: no money is held per user.');
-  if (config.apps.some((a) => a.prefixes.length || a.aliases.length)) notes.push('App prefixes and aliases are recorded and checked for clashes; payments are routed by them from the routing step on.');
+  if (config.apps.some((a) => a.prefixes.length)) notes.push('App prefixes are claimed, so no name or business code can take them; payments are routed by them from the next routing step on.');
 
   return { changes, problems, notes, risky };
 }
@@ -174,6 +219,8 @@ export function describe(c: Change): string {
     case 'app.update': return `change app ${c.app.key}: ${c.fields.join(', ')}`;
     case 'app.key': return `make a key for app ${c.appKey} (the secret is shown once)`;
     case 'app.webhook': return `point app ${c.appKey}'s notices at ${c.url}`;
+    case 'claim.add': return `claim ${c.claim} ${c.token} for ${c.appKey ? 'app ' + c.appKey : 'business ' + c.businessCode}`;
+    case 'claim.release': return `release ${c.claim} ${c.token}`;
   }
 }
 
@@ -241,6 +288,19 @@ export async function applyPlan(deps: ConfigDeps, plan: Plan, actor: ConfigActor
           `SELECT id FROM api_keys WHERE app_id=$1 AND revoked_at IS NULL ORDER BY created_at LIMIT 1`, [app.id]);
         const saved = await deps.webhooks.forKey(key!.id).save(c.url, actor);
         if (saved.secret) mint(c.appKey).webhookSecret = saved.secret;
+        break;
+      }
+      case 'claim.release': {
+        await deps.db.query(`UPDATE route_claims SET released_at = now() WHERE id = $1 AND released_at IS NULL`, [c.id]);
+        await audit(deps.db, { personId: actor.personId, ip: actor.ip, action: 'route_claim.released', target: c.id, before: { token: c.token, kind: c.claim }, after: { by: 'configuration file' } });
+        break;
+      }
+      case 'claim.add': {
+        const appId = c.appKey ? (await appRow(c.appKey)).id : null;
+        const businessId = c.businessCode ? await bizId(c.businessCode) : null;
+        const [row] = await deps.db.query<{ id: string }>(
+          `INSERT INTO route_claims(token, kind, app_id, business_id) VALUES ($1, $2, $3, $4) RETURNING id`, [c.token, c.claim, appId, businessId]);
+        await audit(deps.db, { personId: actor.personId, ip: actor.ip, action: 'route_claim.added', target: row!.id, after: { token: c.token, kind: c.claim, app: c.appKey ?? null, business: c.businessCode ?? null, by: 'configuration file' } });
         break;
       }
     }

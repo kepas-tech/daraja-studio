@@ -101,7 +101,7 @@ describe('plan and apply against the studio', () => {
     const plan = await planConfig(cd, kepas());
     expect(plan.problems).toEqual([]);
     expect(plan.changes.map((c) => c.kind)).toEqual(expect.arrayContaining(['business.create', 'app.create', 'app.key', 'app.webhook']));
-    expect(plan.notes.join()).toMatch(/routing is kept in the file but not in force yet/);
+    expect(plan.notes.join()).toMatch(/Routing aliases are in force/);
     const minted = await applyPlan(cd, plan, actor);
 
     const biz = await deps.db.query<{ code: string; id: string }>(`SELECT code, id FROM businesses ORDER BY code`);
@@ -122,6 +122,10 @@ describe('plan and apply against the studio', () => {
     expect(opened.status).toBe(201);
     expect(opened.body.businessId).toBe(biz[0]!.id);
 
+    // The words the file declares are claims the database rule reads.
+    const claims = await deps.db.query<{ token: string; kind: string }>(`SELECT token, kind FROM route_claims WHERE released_at IS NULL ORDER BY token`);
+    expect(claims).toEqual([{ token: 'ENABO', kind: 'prefix' }, { token: 'KEPAS', kind: 'alias' }, { token: 'NABO', kind: 'prefix' }]);
+
     const again = await planConfig(cd, kepas());
     expect(again.changes).toEqual([]);
     expect(await applyPlan(cd, again, actor)).toEqual([]);
@@ -137,6 +141,29 @@ describe('plan and apply against the studio', () => {
     await applyPlan(cd, flip, actor, { allowRisky: true });
     expect((await deps.db.query<{ hub: string }>(`SELECT hub FROM apps WHERE key='enabo'`))[0]!.hub).toBe('studio');
     expect((await deps.db.query(`SELECT 1 FROM audit_log WHERE action='app.updated'`)).length).toBe(1);
+  });
+
+  it('dropping a word that routes money is risky; a word someone already chose is a problem', async () => {
+    await applyPlan(cd, await planConfig(cd, kepas()), actor);
+    const withoutNabo = parse({
+      tier: 'platform',
+      businesses: [{ code: '003', name: 'SINRO' }, { code: '010', name: 'enabo' }],
+      apps: [
+        { key: 'sinro', name: 'SINRO', business: '003', hub: 'studio', webhook: { url: 'https://sinro.example/api/payments/webhook' } },
+        { key: 'enabo', name: 'enabo', business: '010', prefixes: ['ENABO'], aliases: ['GIFTS'] },
+      ],
+      routing: { aliases: [{ reference: 'KEPAS', business: '003' }] },
+    });
+    const p = await planConfig(cd, withoutNabo);
+    expect(p.risky).toEqual(['prefix NABO stops routing to app enabo']);
+    // A person on the paybill already chose GIFTS as their account number.
+    const k = (await deps.apiKeys.create({ name: 'k', role: 'collector', businessId: (await deps.db.query<{ id: string }>(`SELECT id FROM businesses WHERE code='003'`))[0]!.id }, actor)).secret;
+    await request(app).put('/api/accounts/by-ref/u1').set('Authorization', `Bearer ${k}`).send({});
+    expect((await request(app).put('/api/accounts/by-ref/u1/name').set('Authorization', `Bearer ${k}`).send({ name: 'gifts' })).status).toBe(200);
+    const blocked = await planConfig(cd, withoutNabo);
+    expect(blocked.problems.join()).toMatch(/alias GIFTS/);
+    // The plan changed nothing, not even the release it tried.
+    expect((await deps.db.query(`SELECT 1 FROM route_claims WHERE token='NABO' AND released_at IS NULL`)).length).toBe(1);
   });
 
   it('reads the file against businesses it does not list, and against names already taken', async () => {

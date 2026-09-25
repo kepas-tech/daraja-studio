@@ -7,6 +7,7 @@ import { personOf } from '../http/actor.js';
 import { requireModule } from '../modules/middleware.js';
 import { clientIp } from '../util/ip.js';
 import { HttpError } from '../util/errors.js';
+import { createClaimsService } from '../routing/claims.js';
 import { typeTemplate } from './types.js';
 
 /**
@@ -231,6 +232,52 @@ export function accountsRoutes(deps: AppDeps): Router {
       res.json(found);
     } catch (e) { next(e); }
   });
+
+  // Migration 052: named account numbers. A person may choose a word such as JOHN as their account
+  // number; on a shared paybill it must be free across every business on it. A taken name is answered
+  // with free suggestions (JOHN7, 24JOHN), each checked the same way.
+  const claims = createClaimsService({ db: deps.db });
+  /** The account an id or an app's reference names, in the business the caller may act for. */
+  async function namedAccount(req: Request): Promise<string> {
+    if (req.params.ref !== undefined) {
+      const ref = parse(refParam, req.params.ref);
+      const businessId = await refBusiness(req, typeof req.query.businessId === 'string' ? req.query.businessId : (req.body?.businessId as string | undefined));
+      const found = await deps.businesses.findByRef(businessId, ref);
+      if (!found) throw new HttpError(404, 'not_found', ACCOUNT_NOT_FOUND);
+      return found.id;
+    }
+    await assertPermission(deps.db, req.person!, 'businesses.manage');
+    const id = String(req.params.id);
+    if (!isUuid(id)) throw new HttpError(404, 'not_found', ACCOUNT_NOT_FOUND);
+    return id;
+  }
+  const nameBody = z.object({ name: z.string().max(40) });
+  const claimActor = (req: Request) => ({ personId: personOf(req), apiKeyId: req.apiKey?.keyId ?? null, ip: clientIp(req) });
+
+  r.get('/name-check', async (req, res, next) => {
+    try {
+      if (req.apiKey) await assertPermission(deps.db, req.person!, 'accounts.own', req.apiKey.permissions);
+      else await assertPermission(deps.db, req.person!, 'businesses.manage');
+      const name = typeof req.query.name === 'string' ? req.query.name : '';
+      const accountId = typeof req.query.accountId === 'string' && isUuid(req.query.accountId) ? req.query.accountId : null;
+      res.json(await claims.check(name, accountId));
+    } catch (e) { next(e); }
+  });
+  for (const path of ['/by-ref/:ref/name', '/:id/name']) {
+    r.put(path, async (req, res, next) => {
+      try {
+        const id = await namedAccount(req);
+        const b = parse(nameBody, req.body ?? {});
+        res.json(await claims.claimName(id, b.name, claimActor(req)));
+      } catch (e) { next(e); }
+    });
+    r.delete(path, async (req, res, next) => {
+      try {
+        await claims.releaseName(await namedAccount(req), claimActor(req));
+        res.status(204).end();
+      } catch (e) { next(e); }
+    });
+  }
 
   // A sub-account under an account. Refused a level deeper.
   r.post('/:id/sub-accounts', requirePermission(deps.db, 'businesses.manage'), async (req, res, next) => {

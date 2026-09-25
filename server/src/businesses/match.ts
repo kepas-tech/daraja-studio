@@ -1,3 +1,5 @@
+import { matchWord } from '../routing/claims.js';
+
 /**
  * Which business — and which account — a payer's account number names. Brief 2, item 1: three
  * levels, digits only, and the width of a number is written into the number itself, so nothing a
@@ -163,6 +165,10 @@ export async function loadIndex(c: Queryable): Promise<AccountIndex> {
  * lock as the row itself.
  */
 export async function matchAccount(c: Queryable, reference: string | null | undefined): Promise<AccountMatch> {
+  // Migration 052: a whole word someone claimed (a chosen name like JOHN, or an alias) is read first.
+  // No word may start with a business code, so a reference that matches one is never also digits.
+  const word = await matchWord(c, reference);
+  if (word) return { kind: 'matched', businessId: word.businessId, accountId: word.accountId };
   const index = await loadIndex(c);
   return parseAccount(reference, index.businesses, index.accounts);
 }

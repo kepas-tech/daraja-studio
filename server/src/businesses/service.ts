@@ -40,6 +40,8 @@ export interface AccountView {
   lastRemindedAt: string | null;
   /** Migration 050: the app's own reference for the user this account is, when an app opened it. */
   externalRef: string | null;
+  /** Migration 052: a name chosen as this account's number (JOHN), which pays in as well as the digits. */
+  namedNumber: string | null;
   /** Live sub-accounts under this account, in number order; always empty for a sub-account. */
   children: AccountView[];
   /** The number belonged to somebody else until `until`, within the last twelve months. */
@@ -111,6 +113,7 @@ interface AccountRow {
   id: string; business_id: string; parent_id: string | null; number: string; full_number: string;
   name: string; phone: string | null; note: string | null; created_at: Date;
   standing_cents: number | null; last_reminded_at: Date | null; external_ref: string | null;
+  named_number?: string | null;
 }
 interface WidthRow { id: string; scope_kind: 'accounts' | 'sub_accounts'; scope_id: string; width: number; capacity: number; used: number; closed_at: Date | null }
 /** What one mint did, and the width change it caused, when it caused one. */
@@ -123,7 +126,9 @@ interface Minted {
 
 const UNIQUE_VIOLATION = '23505';
 const isUnique = (e: unknown) => typeof e === 'object' && e !== null && (e as { code?: string }).code === UNIQUE_VIOLATION;
-const COLS = 'id, business_id, parent_id, number, full_number, name, phone, note, standing_cents, last_reminded_at, created_at, external_ref';
+const COLS = 'id, business_id, parent_id, number, full_number, name, phone, note, standing_cents, last_reminded_at, created_at, external_ref, '
+  // Migration 052: the name the account holder chose as their account number, when they chose one.
+  + `(SELECT c.token FROM route_claims c WHERE c.account_id = accounts.id AND c.kind = 'name' AND c.released_at IS NULL) AS named_number`;
 const WIDTH_COLS = 'id, scope_kind, scope_id, width, capacity, used, closed_at';
 const NO_NUMBERS = 'This business has used every account number Studio can make. Delete an account you no longer need, then try again.';
 
@@ -147,6 +152,7 @@ const toAccountView = (r: AccountRow, children: AccountView[] = [], previousHold
   standingCents: r.standing_cents === null || r.standing_cents === undefined ? null : Number(r.standing_cents),
   lastRemindedAt: r.last_reminded_at?.toISOString() ?? null,
   externalRef: r.external_ref ?? null,
+  namedNumber: r.named_number ?? null,
   children, previousHolder,
 });
 
@@ -347,12 +353,18 @@ export function createBusinessesService(deps: { db: Db; settings: Settings; even
       try {
         const row = await deps.db.tx(async (c) => {
           await c.query(`SELECT pg_advisory_xact_lock(hashtext('businesses'))`);
+          // Migration 052: a code is read like a prefix, so it may not start with an app's prefix
+          // (prefix 1 holds 100-199) nor be the start of a word someone claimed. Same lock as a claim.
+          await c.query(`SELECT pg_advisory_xact_lock(hashtext('route_claims:' || $1))`, [requireOrg()]);
+          const clear = (col: string) => `NOT EXISTS (SELECT 1 FROM businesses b WHERE b.code = ${col})
+                AND NOT EXISTS (SELECT 1 FROM route_claims rc WHERE rc.released_at IS NULL
+                  AND ((rc.kind = 'prefix' AND left(${col}, char_length(rc.token)) = rc.token) OR left(rc.token, 3) = ${col}))`;
           const [free] = code !== undefined
-            ? (await c.query<{ code: string }>(`SELECT $1::text AS code WHERE NOT EXISTS (SELECT 1 FROM businesses b WHERE b.code = $1)`, [code])).rows
+            ? (await c.query<{ code: string }>(`SELECT $1::text AS code WHERE ${clear('$1::text')}`, [code])).rows
             : (await c.query<{ code: string }>(
               `SELECT to_char(g, 'FM000') AS code FROM generate_series(0, 999) g
-                WHERE NOT EXISTS (SELECT 1 FROM businesses b WHERE b.code = to_char(g, 'FM000')) ORDER BY g LIMIT 1`)).rows;
-          if (!free) throw code !== undefined ? new HttpError(409, 'code_taken', `Business code ${code} is already in use.`) : new HttpError(409, 'no_codes_left', 'All one thousand business codes are in use.');
+                WHERE ${clear("to_char(g, 'FM000')")} ORDER BY g LIMIT 1`)).rows;
+          if (!free) throw code !== undefined ? new HttpError(409, 'code_taken', `Business code ${code} is already in use, or clashes with a prefix or a name on this paybill.`) : new HttpError(409, 'no_codes_left', 'All one thousand business codes are in use.');
           const { rows } = await c.query<BusinessRow>(
             `INSERT INTO businesses(code, name, type_key) VALUES ($1,$2,$3) RETURNING *`, [free.code, name, chosen.key]);
           return rows[0];

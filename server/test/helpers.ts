@@ -151,7 +151,7 @@ export async function resetTables(db?: Db) {
   // left over from the test before it. `idempotency_keys` too, and for a sharper reason: a key kept
   // from the test before would answer this test's first call with that test's answer.
   await admin().query(
-    `TRUNCATE org_environment_verifications, contacts, accounts, number_widths, business_types, businesses, webauthn_credentials, people, permissions, sessions, login_attempts, rate_limits, operators, requests, bulk_plans, customer_invoices, notifications, push_subscriptions, balances, callbacks_raw, jobs, cache, settings, modules, sweep_payments, sweeps, sweep_settings, idempotency_keys, pay_run_lines, pay_runs, schedule_lines, schedules, apps RESTART IDENTITY CASCADE`,
+    `TRUNCATE org_environment_verifications, contacts, accounts, number_widths, business_types, businesses, webauthn_credentials, people, permissions, sessions, login_attempts, rate_limits, operators, requests, bulk_plans, customer_invoices, notifications, push_subscriptions, balances, callbacks_raw, jobs, cache, settings, modules, sweep_payments, sweeps, sweep_settings, idempotency_keys, pay_run_lines, pay_runs, schedule_lines, schedules, route_claims, apps RESTART IDENTITY CASCADE`,
   );
   await ensureTestOrg();
 }

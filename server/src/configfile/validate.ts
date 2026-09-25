@@ -44,11 +44,12 @@ function secretsIn(value: unknown, path: string, out: string[]): void {
 }
 
 /**
- * Every reference token the file claims on the paybill: business codes, app prefixes and aliases.
- * A payment's account reference is read against all of them at once, so no one of them may be the
- * start of another, or one reference could mean two things.
+ * Every reference token the file claims on the paybill. Business codes and app prefixes lead a
+ * reference (something follows them); aliases are whole words. The rule is the database's own
+ * (route_claim_conflict, migration 052): no two claims are the same token, no leading token is the
+ * start of another leading token, and no whole word starts with a leading token.
  */
-export interface Claim { token: string; what: string }
+export interface Claim { token: string; what: string; leads: boolean }
 
 export function clashes(claims: Claim[]): string[] {
   const out: string[] = [];
@@ -58,7 +59,7 @@ export function clashes(claims: Claim[]): string[] {
       const a = claims[i]!; const b = claims[j]!;
       if (a.token === b.token) {
         if (i < j) out.push(`${a.what} and ${b.what} both claim ${a.token}.`);
-      } else if (b.token.startsWith(a.token)) {
+      } else if (a.leads && b.token.startsWith(a.token)) {
         out.push(`${a.what} (${a.token}) is the start of ${b.what} (${b.token}), so a payment to ${b.token} could be read as either.`);
       }
     }
@@ -69,12 +70,12 @@ export function clashes(claims: Claim[]): string[] {
 /** The claims the file itself makes. */
 export function claimsOf(config: StudioConfig): Claim[] {
   return [
-    ...config.businesses.map((b) => ({ token: b.code, what: `business ${b.code}` })),
+    ...config.businesses.map((b) => ({ token: b.code, what: `business ${b.code}`, leads: true })),
     ...config.apps.flatMap((a) => [
-      ...a.prefixes.map((p) => ({ token: p, what: `app ${a.key}'s prefix` })),
-      ...a.aliases.map((t) => ({ token: t, what: `app ${a.key}'s alias` })),
+      ...a.prefixes.map((p) => ({ token: p, what: `app ${a.key}'s prefix`, leads: true })),
+      ...a.aliases.map((t) => ({ token: t, what: `app ${a.key}'s alias`, leads: false })),
     ]),
-    ...(config.routing?.aliases ?? []).map((r) => ({ token: r.reference, what: 'routing alias' })),
+    ...(config.routing?.aliases ?? []).map((r) => ({ token: r.reference, what: 'routing alias', leads: false })),
   ];
 }
 
@@ -117,6 +118,9 @@ export function checkConfig(text: string): Checked {
     if (a.feePolicy && !policies.includes(a.feePolicy)) problems.push(`apps.${a.key}.feePolicy: there is no fee policy called ${a.feePolicy}.`);
     if (a.phoneRouting && a.prefixes.length === 0) problems.push(`apps.${a.key}: phone routing reads a phone after the app's prefix, and the app has none.`);
   }
+  // A whole word has a letter in it: a reference of digits alone is Studio's own numbering.
+  for (const a of config.apps) for (const t of a.aliases) if (!/[A-Z]/.test(t)) problems.push(`apps.${a.key}.aliases ${t}: an alias needs a letter; digits alone are account numbers.`);
+  for (const r of config.routing?.aliases ?? []) if (!/[A-Z]/.test(r.reference)) problems.push(`routing.aliases ${r.reference}: an alias needs a letter; digits alone are account numbers.`);
   const appKeys = new Set(config.apps.map((a) => a.key));
   for (const r of config.routing?.aliases ?? []) {
     if (!r.business === !r.app) problems.push(`routing.aliases ${r.reference}: name either a business or an app, not both or neither.`);
