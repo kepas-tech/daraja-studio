@@ -68,5 +68,5 @@ and review. Every code change passes the project's typecheck, lint and test suit
 
 ## Licence
 
-Elastic License 2.0. Free to self-host and modify; not for offering as a hosted or managed service
-to third parties. Not affiliated with Safaricom PLC.
+Apache License 2.0. Free to use, change and share, including as a hosted service. See LICENSE and
+NOTICE. Not affiliated with Safaricom PLC.
